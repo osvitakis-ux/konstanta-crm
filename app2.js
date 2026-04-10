@@ -25,6 +25,21 @@ window.renderTutors = function(){
    app.innerHTML = "<h2>Викладачі</h2>"
 
 }
+    const routes = {
+ dashboard: renderDash,
+ students: renderStudents,
+ tutors: renderTutors,
+ lessons: renderLessons,
+ reports: renderReports
+}
+
+function nav(page){
+
+ if(routes[page]){
+  routes[page]()
+ }
+
+}
     // ── REST query builder ────────────────────────────────
     function from(table){
       return {
