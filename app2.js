@@ -18,7 +18,13 @@ window.SupabaseMini = (function(){
       };
       return h;
     }
+window.renderTutors = function(){
 
+   const app = document.getElementById("app")
+
+   app.innerHTML = "<h2>Викладачі</h2>"
+
+}
     // ── REST query builder ────────────────────────────────
     function from(table){
       return {
