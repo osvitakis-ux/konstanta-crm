@@ -765,14 +765,24 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div><div class="god-banner-title">Режим Бога — повний доступ</div><div class="god-banner-text">Редагування системних налаштувань, скидання даних та управління базою</div></div>
         </div>
         <div class="tc">
-          <div class="card"><div class="ch"><span class="ct">Репетиторський центр «Константа»</span></div>
+          <div class="card" id="branches-card">
+            <div class="ch"><span class="ct">🏢 Репетиторський центр «Константа»</span></div>
             <div class="mdlb"><div class="fg">
-              <div class="fgr full"><label>Назва</label><input id="set-name" type="text"></div>
+              <div class="fgr full"><label>Назва центру</label><input id="set-name" type="text"></div>
               <div class="fgr"><label>Телефон</label><input id="set-phone" type="text"></div>
               <div class="fgr"><label>Email</label><input id="set-email" type="email"></div>
               <div class="fgr full"><label>Адреса</label><input id="set-addr" type="text"></div>
-              <div class="fgr full"><button class="btn btn-p" onclick="saveSettings()">💾 Зберегти</button></div>
+              <div class="fgr full"><button class="btn btn-p" onclick="saveSettings()">💾 Зберегти налаштування</button></div>
             </div></div>
+            <div style="border-top:1px solid var(--b1);padding:14px 18px 0">
+              <div class="ch" style="padding:0 0 10px"><span class="ct" style="font-size:13px">Філії</span></div>
+              <div id="branch-list"></div>
+              <div style="padding:8px 0 14px;display:flex;gap:8px">
+                <input id="new-branch-name" placeholder="Назва філії" style="flex:1">
+                <input id="new-branch-addr" placeholder="Адреса (необов.)" style="flex:1">
+                <button class="btn btn-p btn-sm" onclick="addBranch()">+ Додати</button>
+              </div>
+            </div>
           </div>
           <div class="card">
           <div class="ch">
@@ -823,15 +833,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             </div>
           </div>
 
-          <div class="card" id="branches-card">
-          <div class="ch"><span class="ct">🏢 Філії</span></div>
-          <div style="padding:14px 18px" id="branch-list"></div>
-          <div style="padding:0 18px 18px;display:flex;gap:8px">
-            <input id="new-branch-name" placeholder="Назва філії" style="flex:1">
-            <input id="new-branch-addr" placeholder="Адреса (необов.)" style="flex:1">
-            <button class="btn btn-p btn-sm" onclick="addBranch()">+ Додати</button>
-          </div>
-        </div>
+          
         <div class="card"><div class="ch"><span class="ct">Предмети та ціни</span></div>
             <div style="padding:14px 18px" id="set-subj-list"></div>
             <div style="padding:0 18px 18px;display:flex;gap:8px">
