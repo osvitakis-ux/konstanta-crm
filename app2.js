@@ -1,4 +1,3 @@
-
 window.SupabaseMini = (function(){
 
   function createClient(url, anonKey){
@@ -3235,8 +3234,7 @@ function renderProfile(){
   var _ps=document.getElementById('pr-students');if(_ps)_ps.innerHTML=ms.length?ms.map(s=>('<tr><td>'+(s.fn)+' '+(s.ln)+'</td><td>'+(s.subject||'\u2014')+'</td><td>'+(bst(s.status))+'</td></tr>')).join(''):'<tr><td colspan="3"><div class="empty" style="padding:14px">\u041D\u0435\u043C\u0430\u0454 \u0443\u0447\u043D\u0456\u0432</div></td></tr>';
 
   // Lessons section removed from profile
-
-
+}
 
 function renderReports(){
   const months=['\u0421\u0456\u0447','\u041B\u044E\u0442','\u0411\u0435\u0440','\u041A\u0432\u0456','\u0422\u0440\u0430','\u0427\u0435\u0440','\u041B\u0438\u043F','\u0421\u0435\u0440','\u0412\u0435\u0440','\u0416\u043E\u0432','\u041B\u0438\u0441','\u0413\u0440\u0443'];
@@ -3652,7 +3650,6 @@ window.renderTutors = renderTutors;
 window.updateBranchSelector = updateBranchSelector;
 window.updateSBUser = updateSBUser;
 
-}
 
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
@@ -3667,5 +3664,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
