@@ -2048,20 +2048,25 @@ function normalizePricingRule(r){ return Object.assign({}, r, { subjectMatch:r.s
 // REALTIME
 // =
 function startChannels(){
-  var tableMap = {
-    students:'students', tutors:'tutors', lessons:'lessons',
-    payments:'payments', subjects:'subjects', comms:'comms',
-    pricing_rules:'pricingRules', branches:'branches', profiles:'users'
-  };
-  Object.keys(tableMap).forEach(function(table){
-    var key = tableMap[table];
-    var ch = _sb.channel('rt:'+table)
-      .on('postgres_changes',{ event:'*', schema:'public', table:table }, function(payload){
-        handleChange(key, table, payload);
-      })
-      .subscribe();
-    _channels.push(ch);
-  });
+  // Auto-refresh every 15 seconds
+  setInterval(async function(){
+    if(!CU) return;
+    try {
+      await loadAll();
+      var pg = S.currentPage;
+      if(!pg) return;
+      if(pg==='dashboard'  && typeof renderDash      ==='function') renderDash();
+      else if(pg==='students'  && typeof renderStudents ==='function') renderStudents();
+      else if(pg==='tutors'    && typeof renderTutors   ==='function') renderTutors();
+      else if(pg==='schedule'  && typeof renderSch      ==='function') renderSch();
+      else if(pg==='lessons'   && typeof renderLessons  ==='function') renderLessons();
+      else if(pg==='payments'  && typeof renderPayments ==='function') renderPayments();
+      else if(pg==='settings'  && typeof renderSettings ==='function') renderSettings();
+      else if(pg==='users'     && typeof renderUsers    ==='function') renderUsers();
+      else if(pg==='profile'   && typeof renderProfile  ==='function') renderProfile();
+      else if(pg==='reports'   && typeof renderReports  ==='function') renderReports();
+    } catch(e) { console.warn('auto-refresh error:', e); }
+  }, 15000);
 }
 
 function stopChannels(){
@@ -2965,7 +2970,8 @@ async function saveProfileEdit(){
 
 function buildSidebar(){
   const cfg=(S.godConfig)||{};
-  const navItems=cfg.navItems?[...cfg.navItems]:[...NAV_CFG];
+  // Always use NAV_CFG as base - don't let stale godConfig override it
+  const navItems=[...NAV_CFG];
   const role=R();
   const allowed=userNav();
   let html='',lastSec='';
