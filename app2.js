@@ -605,6 +605,7 @@ function renderDashKpi(){
   var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
   var missed  = weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
   var makeup  = weekL.filter(function(l){return l.status==='makeup';}).length;
+  var cancelled= 0; // removed from display but kept for compat
   var planned = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
   var totalComms=weekComms.length;
   var total   = weekL.length;
