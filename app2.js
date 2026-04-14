@@ -653,7 +653,7 @@ function renderDashKpi(){
     : S.tutors;
 
   if(!tutors.length){
-    tbody.innerHTML='<tr><td colspan="8" class="empty" style="padding:20px">\u041D\u0435\u043C\u0430\u0454 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" class="empty" style="padding:20px">\u041D\u0435\u043C\u0430\u0454 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432</td></tr>';
     return;
   }
 
@@ -662,7 +662,7 @@ function renderDashKpi(){
   }).concat([1]));
 
   // Summary footer row
-  var totalDone=0,totalMissed=0,totalCancel=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
+  var totalDone=0,totalMissed=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
 
   var rows=tutors.map(function(t){
     var tl=weekL.filter(function(l){return l.tutorId===t.id;});
@@ -676,7 +676,7 @@ function renderDashKpi(){
     var barW    =maxDone>0?Math.round(tDone/maxDone*100):0;
     var pctColor=tPct>=80?'var(--tut)':tPct>=50?'var(--dir)':'var(--danger)';
 
-    totalDone+=tDone; totalMissed+=tMissed; totalCancel+=tCancel;
+    totalDone+=tDone; totalMissed+=tMissed;
     totalPlanned+=tPlanned; totalTutComms+=tComms; totalStudents+=tStudents;
 
     // Trend vs prev week
@@ -707,9 +707,6 @@ function renderDashKpi(){
       +'<span style="font-weight:700;font-size:16px;color:'+(tMissed>0?'var(--danger)':'var(--t3)')+'">'+tMissed+'</span>'
       +'</td>'
 
-      +'<td style="text-align:center">'
-      +'<span style="font-size:14px;color:'+(tCancel>0?'var(--warn)':'var(--t3)')+'">'+tCancel+'</span>'
-      +'</td>'
 
       +'<td><div style="display:flex;align-items:center;gap:6px;justify-content:center">'
       +'<span style="font-weight:700;font-size:16px;color:var(--adm)">'+tComms+'</span>'
@@ -736,7 +733,7 @@ function renderDashKpi(){
     +'<td><span style="font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+totalDone+'</span></td>'
     +'<td style="text-align:center;color:var(--t2)">'+totalPlanned+'</td>'
     +'<td style="text-align:center;color:'+(totalMissed>0?'var(--danger)':'var(--t3)')+'">'+totalMissed+'</td>'
-    +'<td style="text-align:center;color:var(--warn)">'+totalCancel+'</td>'
+    +
     +'<td style="text-align:center;color:var(--adm)">'+totalTutComms+'</td>'
     +'<td style="text-align:center">'+totalStudents+'</td>'
     +'<td><span style="font-weight:700;color:'+totalPctColor+'">'+totalPct+'%</span></td>'
@@ -1765,38 +1762,74 @@ function seedData(){}
 // ═══════════════════════════════════════
 // BACKUP & RESTORE
 // ═══════════════════════════════════════
-async function exportBackup(){
-  var btn = document.getElementById('backup-btn');
-  if(btn){ btn.disabled=true; btn.textContent='Завантаження...'; }
+async function exportBackup(fmt){
+  fmt = fmt || 'json';
+  mkToast('Завантаження даних...');
   try{
-    // Load all data fresh from Supabase
     var tables = ['branches','tutors','students','lessons','payments','subjects','comms','pricing_rules','settings'];
     var backup = { version:1, created: new Date().toISOString(), data:{} };
     for(var i=0;i<tables.length;i++){
       var res = await _sb.from(tables[i]).select('*');
       backup.data[tables[i]] = res.data || [];
     }
-    // Also include profiles (without sensitive auth data)
     var prof = await _sb.from('profiles').select('id,email,fn,ln,role,branch_id,perms');
     backup.data['profiles'] = prof.data || [];
 
-    // Download as JSON file
-    var json = JSON.stringify(backup, null, 2);
-    var blob = new Blob([json], {type:'application/json'});
-    var url  = URL.createObjectURL(blob);
-    var a    = document.createElement('a');
     var date = localDateStr(new Date());
-    a.href     = url;
-    a.download = 'konstanta-backup-' + date + '.json';
-    document.body.appendChild(a);
-    a.click();
+    var blob, filename;
+
+    if(fmt === 'json'){
+      var content = JSON.stringify(backup, null, 2);
+      blob = new Blob([content], {type:'application/json'});
+      filename = 'konstanta-backup-' + date + '.json';
+
+    } else if(fmt === 'csv' || fmt === 'excel'){
+      // Multi-sheet CSV: one section per table separated by blank lines
+      var lines = [];
+      var tableNames = {
+        students:'Учні', tutors:'Репетитори',
+        lessons:'Заняття', payments:'Платежі',
+        comms:'Комунікації',
+        branches:'Філії', subjects:'Предмети'
+      };
+      var exportTables = ['students','tutors','lessons','payments','comms','branches','subjects'];
+
+      function escCsv(v){
+        if(v===null||v===undefined) return '';
+        var s = String(v);
+        if(s.includes(',') || s.includes('"') || s.indexOf('\n')>=0)
+          return '"' + s.replace(/"/g,'""') + '"';
+        return s;
+      }
+
+      exportTables.forEach(function(tbl){
+        var rows = backup.data[tbl] || [];
+        if(!rows.length) return;
+        lines.push('=== ' + (tableNames[tbl]||tbl) + ' ===');
+        var headers = Object.keys(rows[0]);
+        lines.push(headers.map(escCsv).join(','));
+        rows.forEach(function(row){
+          lines.push(headers.map(function(h){ return escCsv(row[h]); }).join(','));
+        });
+        lines.push('');
+      });
+
+      var ext = fmt === 'excel' ? '.csv' : '.csv';
+      var bom = '﻿'; // UTF-8 BOM for Excel
+      blob = new Blob([bom + lines.join('\n')], {type:'text/csv;charset=utf-8'});
+      filename = 'konstanta-export-' + date + ext;
+    }
+
+    var url = URL.createObjectURL(blob);
+    var a   = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    mkToast('Резервну копію збережено');
+    mkToast('Резервну копію збережено (' + fmt.toUpperCase() + ')');
   }catch(e){
     mkToast('Помилка: '+e.message,'error');
   }
-  if(btn){ btn.disabled=false; btn.textContent='⬇ Завантажити резервну копію'; }
 }
 
 function importBackupClick(){
