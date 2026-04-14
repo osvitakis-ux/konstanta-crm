@@ -817,13 +817,12 @@ body.role-tutor .comm-add-btn { display: none !important; }
               <div style="font-size:13px;color:var(--t2);margin-bottom:14px">
                 Збережіть всі дані центру у файл або відновіть із попередньої копії.
               </div>
-              <div style="display:flex;gap:10px;flex-wrap:wrap">
-                <button id="backup-btn" class="btn btn-p" onclick="exportBackup()">
-                  ⬇ Завантажити резервну копію
-                </button>
-                <button id="restore-btn" class="btn btn-g" onclick="importBackupClick()">
-                  ⬆ Відновити з копії
-                </button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <span style="font-size:11px;color:var(--t2);font-weight:600">Формат:</span>
+                <button class="btn btn-p btn-sm" onclick="exportBackup('json')">⬇ JSON</button>
+                <button class="btn btn-p btn-sm" onclick="exportBackup('csv')">⬇ CSV</button>
+                <button class="btn btn-p btn-sm" onclick="exportBackup('excel')">⬇ Excel (CSV)</button>
+                <button id="restore-btn" class="btn btn-g btn-sm" onclick="importBackupClick()">⬆ Відновити з JSON</button>
                 <input type="file" id="backup-file-input" accept=".json" style="display:none" onchange="importBackup(this)">
               </div>
               <div style="margin-top:12px;font-size:11px;color:var(--t3)">
