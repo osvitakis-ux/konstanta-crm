@@ -190,6 +190,14 @@ window.SupabaseMini = (function(){
 window.supabase = window.SupabaseMini;
 
 window.__startTime = Date.now();
+
+function localDateStr(d){
+  var y=d.getFullYear();
+  var m=String(d.getMonth()+1).padStart(2,'0');
+  var day=String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
+
 window.onerror = function(msg, src, line, col, err) {
   // Skip CORS errors from external scripts
   if(msg === 'Script error.' || msg === 'Script error') {
