@@ -605,7 +605,6 @@ function renderDashKpi(){
   var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
   var missed  = weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
   var makeup  = weekL.filter(function(l){return l.status==='makeup';}).length;
-  var cancelled=weekL.filter(function(l){return l.status==='cancelled';}).length;
   var planned = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
   var totalComms=weekComms.length;
   var total   = weekL.length;
@@ -669,7 +668,6 @@ function renderDashKpi(){
     var tl=weekL.filter(function(l){return l.tutorId===t.id;});
     var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
     var tMissed =tl.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
-    var tCancel =tl.filter(function(l){return l.status==='cancelled';}).length;
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var tComms  =weekComms.filter(function(c){return c.tutorId===t.id;}).length;
     var tStudents=S.students.filter(function(s){return s.tutorId===t.id&&s.status==='active';}).length;
@@ -1666,7 +1664,7 @@ function renderAnalytics(){
       +'<div style="margin-top:8px">'
       +statRow('\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E',    bs.done,     Math.max(bs.total,1),'var(--tut)')
       +statRow('\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E',    bs.missed,   Math.max(bs.total,1),'var(--danger)')
-      +statRow('\u0421\u043A\u0430\u0441\u043E\u0432\u0430\u043D\u043E',    bs.cancelled,Math.max(bs.total,1),'var(--t3)')
+
       +'</div>'
       +'</div>';
   });
@@ -1701,7 +1699,7 @@ function renderAnalytics(){
       +'<div class="an-tutor-stats">'
       +'<div class="an-stat-cell" title="\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E"><span class="an-stat-ico">\u2705</span>'+ts.done+'</div>'
       +'<div class="an-stat-cell" title="\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E"><span class="an-stat-ico">\u274C</span>'+ts.missed+'</div>'
-      +'<div class="an-stat-cell" title="\u0421\u043A\u0430\u0441\u043E\u0432\u0430\u043D\u043E"><span class="an-stat-ico">\uD83D\uDEAB</span>'+ts.cancelled+'</div>'
+
       +'<div class="an-stat-cell" title="\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0439"><span class="an-stat-ico">\uD83D\uDCAC</span>'+ts.comms+'</div>'
       +'<div class="an-stat-cell" title="\u0423\u0447\u043D\u0456\u0432"><span class="an-stat-ico">\uD83D\uDC65</span>'+ts.students+'</div>'
       +'</div>'
