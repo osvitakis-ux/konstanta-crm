@@ -1776,7 +1776,8 @@ async function exportBackup(fmt){
     var prof = await _sb.from('profiles').select('id,email,fn,ln,role,branch_id,perms');
     backup.data['profiles'] = prof.data || [];
 
-    var date = localDateStr(new Date());
+    var _d = new Date();
+    var date = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
     var blob, filename;
 
     if(fmt === 'json'){
