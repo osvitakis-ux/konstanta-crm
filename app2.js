@@ -224,28 +224,28 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
   admin: {
     label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:false,settings:true,danger:false,deleteAny:false},
     seeIncome:true, seeAll:true, canEditUsers:false, showGodBanner:false
   },
   network_admin: {
     label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#5b60d4,#29abe2)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -271,6 +271,7 @@ var NAV_CFG = [
   {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'settings',   ico:'\u25C9',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'profile',    ico:'\u25A3',  lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',  sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
+  {id:'crm',        ico:'\uD83D\uDCCB', lbl:'CRM',       sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
 ];
 
 var DEFAULT_NAV_CFG = NAV_CFG;
@@ -2105,6 +2106,7 @@ function startChannels(){
       else if(pg==='settings'  && typeof renderSettings ==='function') renderSettings();
       else if(pg==='users'     && typeof renderUsers    ==='function') renderUsers();
       else if(pg==='profile'   && typeof renderProfile  ==='function') renderProfile();
+    else if(pg==='crm'       && typeof renderCrm      ==='function') renderCrm();
       else if(pg==='reports'   && typeof renderReports  ==='function') renderReports();
     } catch(e) { console.warn('auto-refresh error:', e); }
   }, 15000);
@@ -2903,6 +2905,7 @@ function nav(page){
   if(page==='users')renderUsers();
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
+  if(page==='crm') renderCrm();
   if(page==='analytics')renderAnalytics();
   if(isCustomPage)renderCustomPage(page);
   if(window.innerWidth<=768)closeSidebar();
@@ -3514,6 +3517,131 @@ function updateSBUser(){
 
 
 
+// ═══════════════════════════════════════
+// CRM KANBAN
+// ═══════════════════════════════════════
+
+var CRM_COLS = [
+  {id:'lead',       lbl:'\u041D\u043E\u0432\u0438\u0439 \u043B\u0456\u0434',           ico:'\uD83D\uDFE1', color:'#f59e0b'},
+  {id:'request',    lbl:'\u0417\u0430\u043F\u0438\u0442',                                 ico:'\uD83D\uDCE9', color:'#3b82f6'},
+  {id:'trial',      lbl:'\u0422\u0435\u0441\u0442\u043E\u0432\u0438\u0439 \u0443\u0440\u043E\u043A',       ico:'\uD83C\uDFAF', color:'#8b5cf6'},
+  {id:'contract',   lbl:'\u041F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u043D\u044F \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0443', ico:'\uD83D\uDCDD', color:'#06b6d4'},
+  {id:'invoice',    lbl:'\u0412\u0438\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043D\u044F \u0440\u0430\u0445\u0443\u043D\u043A\u0443', ico:'\uD83D\uDCCB', color:'#f97316'},
+  {id:'payment',    lbl:'\u041E\u043F\u043B\u0430\u0442\u0430',                          ico:'\uD83D\uDCB3', color:'#10b981'},
+  {id:'won',        lbl:'\u0423\u0441\u043F\u0456\u0448\u043D\u043E \u0440\u0435\u0430\u043B\u0456\u0437\u043E\u0432\u0430\u043D\u043E', ico:'\u2705',       color:'#22c55e'},
+  {id:'lost',       lbl:'\u041D\u0435 \u0440\u0435\u0430\u043B\u0456\u0437\u043E\u0432\u0430\u043D\u043E', ico:'\uD83D\uDDD1\uFE0F', color:'#ef4444'},
+];
+
+var CRM_STAGE_LABELS = {
+  lead:'Новий лід',
+  request:'Запит',
+  trial:'Тестовий урок',
+  contract:'Підписання договору',
+  invoice:'Виставлення рахунку',
+  payment:'Оплата',
+  won:'Успішно реалізовано',
+  lost:'Не реалізовано'
+};
+
+function getCrmStage(s){
+  // Map student status to CRM stage
+  if(!s) return 'new';
+  if(s.crmStage) return s.crmStage;
+  var map = {active:'won', trial:'trial', paused:'lost', completed:'won'};
+  return map[s.status] || 'new';
+}
+
+async function setCrmStage(studentId, stage){
+  try {
+    await dbUpdate('students', studentId, {crmStage: stage});
+    // Update local state
+    var idx = S.students.findIndex(function(s){ return s.id === studentId; });
+    if(idx >= 0) S.students[idx].crmStage = stage;
+    renderCrm();
+    mkToast('\u0415\u0442\u0430\u043F \u043E\u043D\u043E\u0432\u043B\u0435\u043D\u043E');
+  } catch(e) {
+    mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+e.message, 'error');
+  }
+}
+
+function renderCrm(){
+  var el = document.getElementById('crm-board');
+  if(!el) return;
+
+  var students = S.students || [];
+
+  // Group by stage
+  var groups = {};
+  CRM_COLS.forEach(function(c){ groups[c.id] = []; });
+  students.forEach(function(s){
+    var stage = getCrmStage(s);
+    if(!groups[stage]) stage = 'new';
+    groups[stage].push(s);
+  });
+
+  // Render columns
+  var html = '';
+  CRM_COLS.forEach(function(col){
+    var cards = groups[col.id] || [];
+    var cardHtml = cards.map(function(s){
+      var tutor = s.tutorId ? (S.tutors||[]).find(function(t){ return t.id===s.tutorId; }) : null;
+      var lastComm = (S.comms||[]).filter(function(c){ return c.studentId===s.id; })
+        .sort(function(a,b){ return b.date > a.date ? 1 : -1; })[0];
+
+      return '<div class="crm-card" draggable="true" '
+        +'ondragstart="crmDragStart(event,\''+s.id+'\')" '
+        +'ondragend="crmDragEnd(event)" '
+        +'onclick="openStudM(\''+s.id+'\')">'
+        +'<div class="crm-card-name">'+s.fn+' '+s.ln+'</div>'
+        +(s.subject ? '<div class="crm-card-subj">'+s.subject+'</div>' : '')
+        +(tutor ? '<div class="crm-card-tutor">\uD83D\uDC64 '+tutor.fn+' '+tutor.ln+'</div>' : '')
+        +(s.phone||s.parentPhone ? '<div class="crm-card-phone">\uD83D\uDCDE '+(s.phone||s.parentPhone)+'</div>' : '')
+        +(lastComm ? '<div class="crm-card-comm">\uD83D\uDCAC '+fd(lastComm.date)+'</div>' : '')
+        +'<div class="crm-card-actions">'
+        +CRM_COLS.filter(function(c){ return c.id!==col.id; }).map(function(c){
+          return '<button class="crm-move-btn" title="\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0434\u043E: '+c.lbl+'" '
+            +'onclick="event.stopPropagation();setCrmStage(\''+s.id+'\',\''+c.id+'\')">'
+            +c.ico+'</button>';
+        }).join('')
+        +'</div>'
+        +'</div>';
+    }).join('');
+
+    html += '<div class="crm-col" '
+      +'ondragover="event.preventDefault()" '
+      +'ondrop="crmDrop(event,\''+col.id+'\')">'
+      +'<div class="crm-col-hdr" style="border-top:3px solid '+col.color+'">'
+        +'<span class="crm-col-ico">'+col.ico+'</span>'
+        +'<span class="crm-col-lbl">'+col.lbl+'</span>'
+        +'<span class="crm-col-cnt">'+cards.length+'</span>'
+      +'</div>'
+      +'<div class="crm-col-body">'+cardHtml+'</div>'
+      +'</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+var _crmDragId = null;
+
+function crmDragStart(e, studentId){
+  _crmDragId = studentId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '0.5';
+}
+
+function crmDragEnd(e){
+  e.currentTarget.style.opacity = '1';
+}
+
+function crmDrop(e, colId){
+  e.preventDefault();
+  if(_crmDragId){
+    setCrmStage(_crmDragId, colId);
+    _crmDragId = null;
+  }
+}
+
 // === Expose all functions to window ===
 window.R = R;
 window.P = P;
@@ -3698,6 +3826,12 @@ window.updateBranchSelector = updateBranchSelector;
 window.updateSBUser = updateSBUser;
 
 
+window.renderCrm = renderCrm;
+window.setCrmStage = setCrmStage;
+window.crmDragStart = crmDragStart;
+window.crmDragEnd = crmDragEnd;
+window.crmDrop = crmDrop;
+window.getCrmStage = getCrmStage;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
