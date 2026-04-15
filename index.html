@@ -468,6 +468,25 @@ body.role-tutor .comm-add-btn { display: none !important; }
 .ua-panel { display: none; }
 .ua-panel.active { display: block; }
 .ua-tab.active { background: var(--s2); }
+
+/* CRM Kanban */
+.crm-col{min-width:220px;max-width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.crm-col-hdr{background:var(--s1);border:1px solid var(--b1);border-radius:10px 10px 0 0;padding:10px 12px;display:flex;align-items:center;gap:8px}
+.crm-col-ico{font-size:16px}
+.crm-col-lbl{font-weight:700;font-size:12px;flex:1;text-transform:uppercase;letter-spacing:.5px}
+.crm-col-cnt{background:var(--s2);border:1px solid var(--b1);border-radius:20px;padding:1px 8px;font-size:11px;font-weight:700;color:var(--t2)}
+.crm-col-body{display:flex;flex-direction:column;gap:6px;min-height:100px;padding:4px 0}
+.crm-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;cursor:pointer;transition:box-shadow .15s,transform .15s;position:relative}
+.crm-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-1px);border-color:var(--adm)}
+.crm-card-name{font-weight:700;font-size:13px;margin-bottom:4px}
+.crm-card-subj{font-size:11px;color:var(--adm);margin-bottom:2px}
+.crm-card-tutor{font-size:11px;color:var(--t2);margin-bottom:2px}
+.crm-card-phone{font-size:11px;color:var(--t3)}
+.crm-card-comm{font-size:10px;color:var(--t3);margin-top:4px;padding-top:4px;border-top:1px solid var(--b1)}
+.crm-card-actions{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;opacity:0;transition:opacity .15s}
+.crm-card:hover .crm-card-actions{opacity:1}
+.crm-move-btn{background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:2px 6px;cursor:pointer;font-size:13px;transition:background .1s}
+.crm-move-btn:hover{background:var(--b1)}
 </style>
 </head>
 <body>
@@ -952,6 +971,11 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <button class="btn btn-g" onclick="gcResetLabels()">↺ Скинути до стандартних</button>
           </div>
         </div>
+      </div>
+
+      <!-- CRM Kanban -->
+      <div class="page" id="pg-crm">
+        <div id="crm-board" style="display:flex;gap:12px;overflow-x:auto;padding:4px 0 16px;min-height:60vh"></div>
       </div>
 
       <!-- ── PROFILE (Tutor) ── -->
