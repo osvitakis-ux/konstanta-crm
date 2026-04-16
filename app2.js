@@ -2905,7 +2905,13 @@ function nav(page){
   if(page==='users')renderUsers();
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
-  if(page==='crm') renderCrm();
+  var crmEl = document.getElementById('pg-crm');
+  if(page==='crm'){
+    if(crmEl) crmEl.style.display='flex';
+    renderCrm();
+  } else {
+    if(crmEl) crmEl.style.display='none';
+  }
   if(page==='analytics')renderAnalytics();
   if(isCustomPage)renderCustomPage(page);
   if(window.innerWidth<=768)closeSidebar();
