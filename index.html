@@ -472,11 +472,11 @@ body.role-tutor .comm-add-btn { display: none !important; }
 /* CRM Kanban */
 #pg-crm.active { display:block !important; }
 .crm-toolbar { display:flex; align-items:center; gap:10px; padding:0 0 12px; flex-shrink:0; }
-.crm-board-wrap { width:100%; overflow-x:auto; overflow-y:visible; padding-bottom:16px; }
+.crm-board-wrap { width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:16px; max-width:100%; }
 .crm-board-wrap::-webkit-scrollbar { height:8px; }
 .crm-board-wrap::-webkit-scrollbar-track { background:var(--s2); border-radius:4px; }
 .crm-board-wrap::-webkit-scrollbar-thumb { background:var(--b2); border-radius:4px; }
-#crm-board { display:inline-flex; gap:12px; min-width:100%; align-items:flex-start; padding:2px 2px 8px; }
+#crm-board { display:flex; gap:12px; width:max-content; align-items:flex-start; padding:2px 2px 8px; }
 .crm-col { width:210px; flex-shrink:0; display:flex; flex-direction:column; max-height:calc(100vh - 180px); background:var(--s2); border-radius:12px; border:1px solid var(--b1); overflow:hidden; transition:box-shadow .15s; }
 .crm-col.crm-over { box-shadow:0 0 0 2px var(--adm); background:rgba(41,171,226,.06); }
 .crm-col-hdr { padding:10px 12px 8px; display:flex; align-items:center; gap:7px; flex-shrink:0; }
