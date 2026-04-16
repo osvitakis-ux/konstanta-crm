@@ -559,7 +559,7 @@ function renderDashStats(){
     var d=new Date(l.date);
     return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
   });
-  var nb=document.getElementById('nb-s'); if(nb)nb.textContent=S.students.length;
+  var nb=document.getElementById('nb-s'); if(nb)nb.textContent=myStudents().length;
   var statsHtml='<div class="sc blue">'
     +'<div class="slbl">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432</div>'
     +'<div class="sval">'+ms.filter(function(s){return s.status==='active';}).length+'</div>'
@@ -664,13 +664,11 @@ function renderDashKpi(){
   }).concat([1]));
 
   // Summary footer row
-  var totalDone=0,totalMissed=0,totalCancel=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
 
   var rows=tutors.map(function(t){
     var tl=weekL.filter(function(l){return l.tutorId===t.id;});
     var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
     var tMissed =tl.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
-    var tCancel =tl.filter(function(l){return l.status==='cancelled';}).length;
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var tComms  =weekComms.filter(function(c){return c.tutorId===t.id;}).length;
     var tStudents=S.students.filter(function(s){return s.tutorId===t.id&&s.status==='active';}).length;
@@ -679,7 +677,6 @@ function renderDashKpi(){
     var barW    =maxDone>0?Math.round(tDone/maxDone*100):0;
     var pctColor=tPct>=80?'var(--tut)':tPct>=50?'var(--dir)':'var(--danger)';
 
-    totalDone+=tDone; totalMissed+=tMissed; totalCancel+=tCancel;
     totalPlanned+=tPlanned; totalTutComms+=tComms; totalStudents+=tStudents;
 
     // Trend vs prev week
@@ -710,9 +707,6 @@ function renderDashKpi(){
       +'<span style="font-weight:700;font-size:16px;color:'+(tMissed>0?'var(--danger)':'var(--t3)')+'">'+tMissed+'</span>'
       +'</td>'
 
-      +'<td style="text-align:center">'
-      +'<span style="font-size:14px;color:'+(tCancel>0?'var(--warn)':'var(--t3)')+'">'+tCancel+'</span>'
-      +'</td>'
 
       +'<td><div style="display:flex;align-items:center;gap:6px;justify-content:center">'
       +'<span style="font-weight:700;font-size:16px;color:var(--adm)">'+tComms+'</span>'
@@ -740,7 +734,6 @@ function renderDashKpi(){
     +'<td><span style="font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+totalDone+'</span></td>'
     +'<td style="text-align:center;color:var(--t2)">'+totalPlanned+'</td>'
     +'<td style="text-align:center;color:'+(totalMissed>0?'var(--danger)':'var(--t3)')+'">'+totalMissed+'</td>'
-    +'<td style="text-align:center;color:var(--warn)">'+totalCancel+'</td>'
     +'<td style="text-align:center;color:var(--adm)">'+totalTutComms+'</td>'
     +'<td style="text-align:center">'+totalStudents+'</td>'
     +'<td><span style="font-weight:700;color:'+totalPctColor+'">'+totalPct+'%</span></td>'
