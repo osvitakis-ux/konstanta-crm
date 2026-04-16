@@ -3590,7 +3590,12 @@ function renderCrm(){
   if(!el) return;
   // Allow horizontal scroll on CRM page
   var ct = document.getElementById('content');
-  if(ct){ ct.style.overflowX = 'auto'; ct.style.overflowY = 'hidden'; }
+  if(ct){
+    ct.style.overflowX = 'auto';
+    ct.style.overflowY = 'hidden';
+    ct.style.display = 'block';
+    ct.style.width = '100%';
+  }
   var students = S.students || [];
 
   var groups = {};
