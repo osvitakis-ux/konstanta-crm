@@ -798,7 +798,9 @@ function renderDashTrends(){
       var val = keyFn(w);
       var pct = Math.round(val/max*100);
       var isNow = (i===data.length-1);
-      var lbl = w.wr.mon.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit'});
+      var fmt = {day:'2-digit',month:'2-digit'};
+      var sun = new Date(w.wr.mon); sun.setDate(sun.getDate()+6);
+      var lbl = w.wr.mon.toLocaleDateString('uk-UA',fmt)+'–'+sun.toLocaleDateString('uk-UA',fmt);
       barsHtml += '<div class="trend-week'+(isNow?' trend-week-now':'')+'">'
         +'<div class="trend-week-val">'+val+'</div>'
         +'<div class="trend-week-bar-wrap">'
