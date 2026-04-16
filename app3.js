@@ -1,4 +1,3 @@
-
 window.SupabaseMini = (function(){
 
   function createClient(url, anonKey){
@@ -735,7 +734,8 @@ function renderDashKpi(){
   var totalEffective=totalDone+totalMissed;
   var totalPct=totalEffective>0?Math.round(totalDone/totalEffective*100):0;
   var totalPctColor=totalPct>=80?'var(--tut)':totalPct>=50?'var(--dir)':'var(--danger)';
-  rows+='<tr style="background:rgba(255,255,255,.03);font-weight:700;border-top:2px solid var(--b1)">'
+  if(R()!=='tutor'){
+    rows+='<tr style="background:rgba(255,255,255,.03);font-weight:700;border-top:2px solid var(--b1)">'
     +'<td><span style="font-size:12px;color:var(--t2);letter-spacing:.5px">\u0420\u0410\u0417\u041E\u041C / \u0421\u0415\u0420\u0415\u0414\u041D\u0404</span></td>'
     +'<td><span style="font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+totalDone+'</span></td>'
     +'<td style="text-align:center;color:var(--t2)">'+totalPlanned+'</td>'
@@ -745,8 +745,8 @@ function renderDashKpi(){
     +'<td style="text-align:center">'+totalStudents+'</td>'
     +'<td><span style="font-weight:700;color:'+totalPctColor+'">'+totalPct+'%</span></td>'
     +'</tr>';
-
-  tbody.innerHTML=rows;
+  }
+    tbody.innerHTML=rows;
 }
 
 function renderDashTrends(){
@@ -3914,5 +3914,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
