@@ -190,14 +190,6 @@ window.SupabaseMini = (function(){
 window.supabase = window.SupabaseMini;
 
 window.__startTime = Date.now();
-
-function localDateStr(d){
-  var y=d.getFullYear();
-  var m=String(d.getMonth()+1).padStart(2,'0');
-  var day=String(d.getDate()).padStart(2,'0');
-  return y+'-'+m+'-'+day;
-}
-
 window.onerror = function(msg, src, line, col, err) {
   // Skip CORS errors from external scripts
   if(msg === 'Script error.' || msg === 'Script error') {
@@ -238,7 +230,7 @@ var ROLES = {
   admin: {
     label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:false,settings:true,danger:false,deleteAny:false},
     seeIncome:true, seeAll:true, canEditUsers:false, showGodBanner:false
   },
@@ -270,13 +262,13 @@ var NAV_CFG = [
   {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'settings',   ico:'\u25C9',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
+  {id:'crm', ico:'▤', lbl:'CRM', sec:'Менеджмент'},
   {id:'profile',    ico:'\u25A3',  lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',  sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
-  {id:'crm',        ico:'\uD83D\uDCCB', lbl:'CRM',       sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
 ];
 
 var DEFAULT_NAV_CFG = NAV_CFG;
 
-var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430'};
+var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',crm:'CRM',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430'};
 
 var UA_PERMS=[
   {k:'students',  lbl:'\u0423\u0447\u043D\u0456 \u2014 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0456 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F'},
@@ -567,7 +559,7 @@ function renderDashStats(){
     var d=new Date(l.date);
     return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
   });
-  var nb=document.getElementById('nb-s'); if(nb)nb.textContent=myStudents().length;
+  var nb=document.getElementById('nb-s'); if(nb)nb.textContent=S.students.length;
   var statsHtml='<div class="sc blue">'
     +'<div class="slbl">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432</div>'
     +'<div class="sval">'+ms.filter(function(s){return s.status==='active';}).length+'</div>'
@@ -614,7 +606,7 @@ function renderDashKpi(){
   var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
   var missed  = weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
   var makeup  = weekL.filter(function(l){return l.status==='makeup';}).length;
-  var cancelled= 0; // removed from display but kept for compat
+  var cancelled=weekL.filter(function(l){return l.status==='cancelled';}).length;
   var planned = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
   var totalComms=weekComms.length;
   var total   = weekL.length;
@@ -663,7 +655,7 @@ function renderDashKpi(){
     : S.tutors;
 
   if(!tutors.length){
-    tbody.innerHTML='<tr><td colspan="7" class="empty" style="padding:20px">\u041D\u0435\u043C\u0430\u0454 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" class="empty" style="padding:20px">\u041D\u0435\u043C\u0430\u0454 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432</td></tr>';
     return;
   }
 
@@ -672,12 +664,13 @@ function renderDashKpi(){
   }).concat([1]));
 
   // Summary footer row
-  var totalDone=0,totalMissed=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
+  var totalDone=0,totalMissed=0,totalCancel=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
 
   var rows=tutors.map(function(t){
     var tl=weekL.filter(function(l){return l.tutorId===t.id;});
     var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
     var tMissed =tl.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
+    var tCancel =tl.filter(function(l){return l.status==='cancelled';}).length;
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var tComms  =weekComms.filter(function(c){return c.tutorId===t.id;}).length;
     var tStudents=S.students.filter(function(s){return s.tutorId===t.id&&s.status==='active';}).length;
@@ -686,7 +679,7 @@ function renderDashKpi(){
     var barW    =maxDone>0?Math.round(tDone/maxDone*100):0;
     var pctColor=tPct>=80?'var(--tut)':tPct>=50?'var(--dir)':'var(--danger)';
 
-    totalDone+=tDone; totalMissed+=tMissed;
+    totalDone+=tDone; totalMissed+=tMissed; totalCancel+=tCancel;
     totalPlanned+=tPlanned; totalTutComms+=tComms; totalStudents+=tStudents;
 
     // Trend vs prev week
@@ -717,6 +710,9 @@ function renderDashKpi(){
       +'<span style="font-weight:700;font-size:16px;color:'+(tMissed>0?'var(--danger)':'var(--t3)')+'">'+tMissed+'</span>'
       +'</td>'
 
+      +'<td style="text-align:center">'
+      +'<span style="font-size:14px;color:'+(tCancel>0?'var(--warn)':'var(--t3)')+'">'+tCancel+'</span>'
+      +'</td>'
 
       +'<td><div style="display:flex;align-items:center;gap:6px;justify-content:center">'
       +'<span style="font-weight:700;font-size:16px;color:var(--adm)">'+tComms+'</span>'
@@ -743,7 +739,7 @@ function renderDashKpi(){
     +'<td><span style="font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+totalDone+'</span></td>'
     +'<td style="text-align:center;color:var(--t2)">'+totalPlanned+'</td>'
     +'<td style="text-align:center;color:'+(totalMissed>0?'var(--danger)':'var(--t3)')+'">'+totalMissed+'</td>'
-    +
+    +'<td style="text-align:center;color:var(--warn)">'+totalCancel+'</td>'
     +'<td style="text-align:center;color:var(--adm)">'+totalTutComms+'</td>'
     +'<td style="text-align:center">'+totalStudents+'</td>'
     +'<td><span style="font-weight:700;color:'+totalPctColor+'">'+totalPct+'%</span></td>'
@@ -1671,7 +1667,7 @@ function renderAnalytics(){
       +'<div style="margin-top:8px">'
       +statRow('\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E',    bs.done,     Math.max(bs.total,1),'var(--tut)')
       +statRow('\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E',    bs.missed,   Math.max(bs.total,1),'var(--danger)')
-
+      +statRow('\u0421\u043A\u0430\u0441\u043E\u0432\u0430\u043D\u043E',    bs.cancelled,Math.max(bs.total,1),'var(--t3)')
       +'</div>'
       +'</div>';
   });
@@ -1706,7 +1702,7 @@ function renderAnalytics(){
       +'<div class="an-tutor-stats">'
       +'<div class="an-stat-cell" title="\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E"><span class="an-stat-ico">\u2705</span>'+ts.done+'</div>'
       +'<div class="an-stat-cell" title="\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E"><span class="an-stat-ico">\u274C</span>'+ts.missed+'</div>'
-
+      +'<div class="an-stat-cell" title="\u0421\u043A\u0430\u0441\u043E\u0432\u0430\u043D\u043E"><span class="an-stat-ico">\uD83D\uDEAB</span>'+ts.cancelled+'</div>'
       +'<div class="an-stat-cell" title="\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0439"><span class="an-stat-ico">\uD83D\uDCAC</span>'+ts.comms+'</div>'
       +'<div class="an-stat-cell" title="\u0423\u0447\u043D\u0456\u0432"><span class="an-stat-ico">\uD83D\uDC65</span>'+ts.students+'</div>'
       +'</div>'
@@ -1772,75 +1768,38 @@ function seedData(){}
 // ═══════════════════════════════════════
 // BACKUP & RESTORE
 // ═══════════════════════════════════════
-async function exportBackup(fmt){
-  fmt = fmt || 'json';
-  mkToast('Завантаження даних...');
+async function exportBackup(){
+  var btn = document.getElementById('backup-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Завантаження...'; }
   try{
+    // Load all data fresh from Supabase
     var tables = ['branches','tutors','students','lessons','payments','subjects','comms','pricing_rules','settings'];
     var backup = { version:1, created: new Date().toISOString(), data:{} };
     for(var i=0;i<tables.length;i++){
       var res = await _sb.from(tables[i]).select('*');
       backup.data[tables[i]] = res.data || [];
     }
+    // Also include profiles (without sensitive auth data)
     var prof = await _sb.from('profiles').select('id,email,fn,ln,role,branch_id,perms');
     backup.data['profiles'] = prof.data || [];
 
-    var _d = new Date();
-    var date = _d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
-    var blob, filename;
-
-    if(fmt === 'json'){
-      var content = JSON.stringify(backup, null, 2);
-      blob = new Blob([content], {type:'application/json'});
-      filename = 'konstanta-backup-' + date + '.json';
-
-    } else if(fmt === 'csv' || fmt === 'excel'){
-      // Multi-sheet CSV: one section per table separated by blank lines
-      var lines = [];
-      var tableNames = {
-        students:'Учні', tutors:'Репетитори',
-        lessons:'Заняття', payments:'Платежі',
-        comms:'Комунікації',
-        branches:'Філії', subjects:'Предмети'
-      };
-      var exportTables = ['students','tutors','lessons','payments','comms','branches','subjects'];
-
-      function escCsv(v){
-        if(v===null||v===undefined) return '';
-        var s = String(v);
-        if(s.includes(',') || s.includes('"') || s.indexOf('\n')>=0)
-          return '"' + s.replace(/"/g,'""') + '"';
-        return s;
-      }
-
-      exportTables.forEach(function(tbl){
-        var rows = backup.data[tbl] || [];
-        if(!rows.length) return;
-        lines.push('=== ' + (tableNames[tbl]||tbl) + ' ===');
-        var headers = Object.keys(rows[0]);
-        lines.push(headers.map(escCsv).join(','));
-        rows.forEach(function(row){
-          lines.push(headers.map(function(h){ return escCsv(row[h]); }).join(','));
-        });
-        lines.push('');
-      });
-
-      var ext = fmt === 'excel' ? '.csv' : '.csv';
-      var bom = '﻿'; // UTF-8 BOM for Excel
-      blob = new Blob([bom + lines.join('\n')], {type:'text/csv;charset=utf-8'});
-      filename = 'konstanta-export-' + date + ext;
-    }
-
-    var url = URL.createObjectURL(blob);
-    var a   = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click();
+    // Download as JSON file
+    var json = JSON.stringify(backup, null, 2);
+    var blob = new Blob([json], {type:'application/json'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    var date = localDateStr(new Date());
+    a.href     = url;
+    a.download = 'konstanta-backup-' + date + '.json';
+    document.body.appendChild(a);
+    a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    mkToast('Резервну копію збережено (' + fmt.toUpperCase() + ')');
+    mkToast('Резервну копію збережено');
   }catch(e){
     mkToast('Помилка: '+e.message,'error');
   }
+  if(btn){ btn.disabled=false; btn.textContent='⬇ Завантажити резервну копію'; }
 }
 
 function importBackupClick(){
@@ -2078,7 +2037,7 @@ async function loadAll(){
 // Normalize DB rows to match UI field names
 function normalizeStudent(r){ 
   var tutorIds = r.tutor_ids ? (Array.isArray(r.tutor_ids) ? r.tutor_ids : r.tutor_ids.split(',').filter(Boolean)) : (r.tutor_id ? [r.tutor_id] : []);
-  return Object.assign({}, r, { tutorId:r.tutor_id, tutorIds:tutorIds, branchId:r.branch_id, parentFn:r.parent_fn, parentPhone:r.parent_phone, crmStage:r.crm_stage||null }); 
+  return Object.assign({}, r, { tutorId:r.tutor_id, crmStage:r.crm_stage||null, crmResponsible:r.crm_responsible||null, crmDate:r.crm_date||null, tutorIds:tutorIds, branchId:r.branch_id, parentFn:r.parent_fn, parentPhone:r.parent_phone }); 
 }
 function normalizeLesson(r){  return Object.assign({}, r, { studentId:r.student_id, tutorId:r.tutor_id, branchId:r.branch_id, recurId:r.recur_id, recurType:r.recur_type, recurIndex:r.recur_index }); }
 function normalizePayment(r){ return Object.assign({}, r, { studentId:r.student_id, branchId:r.branch_id }); }
@@ -2090,26 +2049,20 @@ function normalizePricingRule(r){ return Object.assign({}, r, { subjectMatch:r.s
 // REALTIME
 // =
 function startChannels(){
-  // Auto-refresh every 15 seconds
-  setInterval(async function(){
-    if(!CU) return;
-    try {
-      await loadAll();
-      var pg = S.currentPage;
-      if(!pg) return;
-      if(pg==='dashboard'  && typeof renderDash      ==='function') renderDash();
-      else if(pg==='students'  && typeof renderStudents ==='function') renderStudents();
-      else if(pg==='tutors'    && typeof renderTutors   ==='function') renderTutors();
-      else if(pg==='schedule'  && typeof renderSch      ==='function') renderSch();
-      else if(pg==='lessons'   && typeof renderLessons  ==='function') renderLessons();
-      else if(pg==='payments'  && typeof renderPayments ==='function') renderPayments();
-      else if(pg==='settings'  && typeof renderSettings ==='function') renderSettings();
-      else if(pg==='users'     && typeof renderUsers    ==='function') renderUsers();
-      else if(pg==='profile'   && typeof renderProfile  ==='function') renderProfile();
-    else if(pg==='crm'       && typeof renderCrm      ==='function') renderCrm();
-      else if(pg==='reports'   && typeof renderReports  ==='function') renderReports();
-    } catch(e) { console.warn('auto-refresh error:', e); }
-  }, 15000);
+  var tableMap = {
+    students:'students', tutors:'tutors', lessons:'lessons',
+    payments:'payments', subjects:'subjects', comms:'comms',
+    pricing_rules:'pricingRules', branches:'branches', profiles:'users'
+  };
+  Object.keys(tableMap).forEach(function(table){
+    var key = tableMap[table];
+    var ch = _sb.channel('rt:'+table)
+      .on('postgres_changes',{ event:'*', schema:'public', table:table }, function(payload){
+        handleChange(key, table, payload);
+      })
+      .subscribe();
+    _channels.push(ch);
+  });
 }
 
 function stopChannels(){
@@ -2905,13 +2858,9 @@ function nav(page){
   if(page==='users')renderUsers();
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
-  var crmEl = document.getElementById('pg-crm');
-  if(page==='crm'){
-    if(crmEl) crmEl.style.display='flex';
-    renderCrm();
-  } else {
-    if(crmEl) crmEl.style.display='none';
-  }
+  var _crmEl=document.getElementById('pg-crm');
+  if(page==='crm'){if(_crmEl)_crmEl.style.display='flex';renderCrm();}
+  else{if(_crmEl)_crmEl.style.display='none';}
   if(page==='analytics')renderAnalytics();
   if(isCustomPage)renderCustomPage(page);
   if(window.innerWidth<=768)closeSidebar();
@@ -3020,8 +2969,7 @@ async function saveProfileEdit(){
 
 function buildSidebar(){
   const cfg=(S.godConfig)||{};
-  // Always use NAV_CFG as base - don't let stale godConfig override it
-  const navItems=[...NAV_CFG];
+  const navItems=cfg.navItems?[...cfg.navItems]:[...NAV_CFG];
   const role=R();
   const allowed=userNav();
   let html='',lastSec='';
@@ -3290,7 +3238,8 @@ function renderProfile(){
   var _ps=document.getElementById('pr-students');if(_ps)_ps.innerHTML=ms.length?ms.map(s=>('<tr><td>'+(s.fn)+' '+(s.ln)+'</td><td>'+(s.subject||'\u2014')+'</td><td>'+(bst(s.status))+'</td></tr>')).join(''):'<tr><td colspan="3"><div class="empty" style="padding:14px">\u041D\u0435\u043C\u0430\u0454 \u0443\u0447\u043D\u0456\u0432</div></td></tr>';
 
   // Lessons section removed from profile
-}
+
+
 
 function renderReports(){
   const months=['\u0421\u0456\u0447','\u041B\u044E\u0442','\u0411\u0435\u0440','\u041A\u0432\u0456','\u0422\u0440\u0430','\u0427\u0435\u0440','\u041B\u0438\u043F','\u0421\u0435\u0440','\u0412\u0435\u0440','\u0416\u043E\u0432','\u041B\u0438\u0441','\u0413\u0440\u0443'];
@@ -3523,73 +3472,55 @@ function updateSBUser(){
 
 
 
-
-// ═══════════════════════════════════════
 // CRM KANBAN
-// ═══════════════════════════════════════
-
 var CRM_COLS = [
-  {id:'lead',       lbl:'\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434',                   ico:'\uD83D\uDFE1', color:'#f59e0b'},
-  {id:'request',    lbl:'\u0417\u0430\u043f\u0438\u0442',                                       ico:'\uD83D\uDCE9', color:'#3b82f6'},
-  {id:'trial',      lbl:'\u0422\u0435\u0441\u0442\u043e\u0432\u0438\u0439 \u0443\u0440\u043e\u043a', ico:'\uD83C\uDFAF', color:'#8b5cf6'},
-  {id:'contract',   lbl:'\u041f\u0456\u0434\u043f\u0438\u0441\u0430\u043d\u043d\u044f \u0434\u043e\u0433\u043e\u0432\u043e\u0440\u0443', ico:'\uD83D\uDCDD', color:'#06b6d4'},
-  {id:'invoice',    lbl:'\u0412\u0438\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043d\u044f \u0440\u0430\u0445\u0443\u043d\u043a\u0443', ico:'\uD83D\uDCCB', color:'#f97316'},
-  {id:'payment',    lbl:'\u041e\u043f\u043b\u0430\u0442\u0430',                                 ico:'\uD83D\uDCB3', color:'#10b981'},
-  {id:'won',        lbl:'\u0423\u0441\u043f\u0456\u0448\u043d\u043e \u0440\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e', ico:'\u2705', color:'#22c55e'},
-  {id:'lost',       lbl:'\u041d\u0435 \u0440\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e', ico:'\uD83D\uDDD1\uFE0F', color:'#ef4444'},
+  {id:'lead',     lbl:'Новий лід',                   ico:'⬤', color:'#f59e0b'},
+  {id:'request',  lbl:'Запит',                                       ico:'✉', color:'#3b82f6'},
+  {id:'trial',    lbl:'Тестовий урок', ico:'◎', color:'#8b5cf6'},
+  {id:'contract', lbl:'Підписання договору', ico:'✍', color:'#06b6d4'},
+  {id:'invoice',  lbl:'Виставлення рахунку', ico:'▤', color:'#f97316'},
+  {id:'payment',  lbl:'Оплата',                                 ico:'◈', color:'#10b981'},
+  {id:'won',      lbl:'Успішно реалізовано', ico:'✅', color:'#22c55e'},
+  {id:'lost',     lbl:'Не реалізовано', ico:'❌', color:'#ef4444'},
 ];
-
-var CRM_STAGE_LABELS = {
-  lead:'\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434', request:'\u0417\u0430\u043f\u0438\u0442',
-  trial:'\u0422\u0435\u0441\u0442\u043e\u0432\u0438\u0439 \u0443\u0440\u043e\u043a', contract:'\u041f\u0456\u0434\u043f\u0438\u0441\u0430\u043d\u043d\u044f \u0434\u043e\u0433\u043e\u0432\u043e\u0440\u0443',
-  invoice:'\u0412\u0438\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043d\u044f \u0440\u0430\u0445\u0443\u043d\u043a\u0443', payment:'\u041e\u043f\u043b\u0430\u0442\u0430',
-  won:'\u0423\u0441\u043f\u0456\u0448\u043d\u043e \u0440\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e', lost:'\u041d\u0435 \u0440\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e'
-};
 
 function getCrmStage(s){
   if(!s) return 'lead';
   if(s.crmStage) return s.crmStage;
-  var map = {active:'won', trial:'trial', paused:'lost', completed:'won'};
-  return map[s.status] || 'lead';
+  var map={active:'won',trial:'trial',paused:'lost',completed:'won'};
+  return map[s.status]||'lead';
 }
 
 async function setCrmStage(studentId, stage){
-  // Optimistic update — show change immediately
-  var i = (S.students||[]).findIndex(function(s){ return s.id === studentId; });
-  var prevStage = i >= 0 ? (S.students[i].crmStage || S.students[i].crm_stage) : null;
-  if(i >= 0){ S.students[i].crmStage = stage; S.students[i].crm_stage = stage; }
+  var i=(S.students||[]).findIndex(function(s){return s.id===studentId;});
+  var prev=i>=0?(S.students[i].crmStage||S.students[i].crm_stage):null;
+  if(i>=0){S.students[i].crmStage=stage;S.students[i].crm_stage=stage;}
   renderCrm();
-  try {
-    await dbUpdate('students', studentId, {crm_stage: stage});
+  try{
+    await dbUpdate('students',studentId,{crm_stage:stage});
     mkToast('Етап оновлено');
-  } catch(e) {
-    // Rollback
-    if(i >= 0){ S.students[i].crmStage = prevStage; S.students[i].crm_stage = prevStage; }
+  }catch(e){
+    if(i>=0){S.students[i].crmStage=prev;S.students[i].crm_stage=prev;}
     renderCrm();
-    mkToast('Помилка: '+e.message, 'error');
+    mkToast('Помилка: '+e.message,'error');
   }
 }
 
 function openAddLead(){
-  // Pre-fill student modal with crm_stage=lead and open it
-  S.editId = null;
-  S._crmNewStage = 'lead';
-  document.getElementById('ms-title').textContent = '\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434';
-  var dl_s = document.getElementById('subj-list-s');
-  if(dl_s) dl_s.innerHTML = (S.subjects||[]).map(function(x){ return '<option value="'+x.name+'">'; }).join('');
-  var stList = document.getElementById('s-tutor-list');
-  var stSel  = document.getElementById('s-tutor');
-  if(stSel) stSel.innerHTML = (S.tutors||[]).map(function(t){ return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>'; }).join('');
-  if(stList) stList.innerHTML = (S.tutors||[]).map(function(t){
+  S.editId=null;
+  document.getElementById('ms-title').textContent='Новий лід';
+  var dl_s=document.getElementById('subj-list-s');
+  if(dl_s)dl_s.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
+  var stSel=document.getElementById('s-tutor');
+  if(stSel)stSel.innerHTML=(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+  var stList=document.getElementById('s-tutor-list');
+  if(stList)stList.innerHTML=(S.tutors||[]).map(function(t){
     return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px">'
-      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'
-      +mkAv(t.fn,t.ln,20)+'<span>'+t.fn+' '+t.ln+'</span></label>';
+      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'+mkAv(t.fn,t.ln,20)+'<span>'+t.fn+' '+t.ln+'</span></label>';
   }).join('');
-  ['fn','ln','age','grade','phone','email','notes'].forEach(function(f){
-    var el=document.getElementById('s-'+f); if(el) el.value='';
-  });
-  var pf=document.getElementById('s-parent-fn'); if(pf) pf.value='';
-  var pp=document.getElementById('s-parent-phone'); if(pp) pp.value='';
+  ['fn','ln','age','grade','phone','email','notes'].forEach(function(f){var el=document.getElementById('s-'+f);if(el)el.value='';});
+  var pf=document.getElementById('s-parent-fn');if(pf)pf.value='';
+  var pp=document.getElementById('s-parent-phone');if(pp)pp.value='';
   document.getElementById('s-status').value='trial';
   document.getElementById('s-src').value='referral';
   renderCustomFields('student','mo-student-cf');
@@ -3599,92 +3530,175 @@ function openAddLead(){
 function renderCrm(){
   var el = document.getElementById('crm-board');
   if(!el) return;
-  // Adjust left position based on sidebar visibility
   var crmEl = document.getElementById('pg-crm');
   if(crmEl){
     var sb = document.querySelector('.sb');
-    var sbW = (sb && sb.offsetWidth > 0) ? sb.offsetWidth : 0;
-    crmEl.style.left = sbW + 'px';
+    crmEl.style.left = (sb && sb.offsetWidth > 0 ? sb.offsetWidth : 224) + 'px';
   }
 
-  var students = S.students || [];
+  var fStage = (document.getElementById('crm-f-stage')||{value:''}).value||'';
+  var fMonth = (document.getElementById('crm-f-month')||{value:''}).value||'';
+  var fResp  = (document.getElementById('crm-f-resp') ||{value:''}).value||'';
+
+  // Populate responsible select on first render
+  var respSel = document.getElementById('crm-f-resp');
+  if(respSel && respSel.options.length <= 1){
+    (S.users||[]).filter(function(u){ return u.role==='god'||u.role==='director'||u.role==='admin'; })
+      .forEach(function(u){
+        var o = document.createElement('option');
+        o.value = u.id; o.textContent = u.fn+' '+u.ln;
+        respSel.appendChild(o);
+      });
+    respSel.value = fResp;
+  }
+
+  var students = (S.students||[]).filter(function(s){
+    if(fStage && getCrmStage(s) !== fStage) return false;
+    if(fMonth && (s.crmDate||'').slice(0,7) !== fMonth) return false;
+    if(fResp  && s.crmResponsible !== fResp) return false;
+    return true;
+  });
 
   var groups = {};
   CRM_COLS.forEach(function(c){ groups[c.id] = []; });
   students.forEach(function(s){
-    var stage = getCrmStage(s);
-    if(!groups[stage]) stage = 'lead';
-    groups[stage].push(s);
+    var st = getCrmStage(s);
+    if(!groups[st]) st = 'lead';
+    groups[st].push(s);
   });
 
-  var html = '';
-  CRM_COLS.forEach(function(col){
-    var cards = groups[col.id] || [];
-    var cardHtml = cards.map(function(s){
+  var cols = fStage ? CRM_COLS.filter(function(c){ return c.id===fStage; }) : CRM_COLS;
+
+  el.innerHTML = '';
+
+  cols.forEach(function(col){
+    var cards = groups[col.id]||[];
+
+    var colDiv = document.createElement('div');
+    colDiv.className = 'crm-col';
+    colDiv.addEventListener('dragover',  function(e){ crmDragOver(e); });
+    colDiv.addEventListener('dragleave', function(e){ crmDragLeave(e); });
+    colDiv.addEventListener('drop',      function(e){ crmDrop(e, col.id); });
+
+    var hdr = document.createElement('div');
+    hdr.className = 'crm-col-hdr';
+    hdr.style.borderTop = '3px solid ' + col.color;
+    hdr.innerHTML = '<span style="font-size:14px">'+col.ico+'</span>'
+      + '<span class="crm-col-lbl">'+col.lbl+'</span>'
+      + '<span class="crm-col-cnt">'+cards.length+'</span>';
+    colDiv.appendChild(hdr);
+
+    var body = document.createElement('div');
+    body.className = 'crm-col-body';
+
+    cards.forEach(function(s){
       var tutor = s.tutorId ? (S.tutors||[]).find(function(t){ return t.id===s.tutorId; }) : null;
-      var lastComm = (S.comms||[]).filter(function(c){ return c.studentId===s.id; })
-        .sort(function(a,b){ return (b.date||'') > (a.date||'') ? 1 : -1; })[0];
-      return '<div class="crm-card" draggable="true"'
-        +' ondragstart="crmDragStart(event,\''+s.id+'\')"'
-        +' ondragend="crmDragEnd(event)"'
-        +' onclick="openStudM(\''+s.id+'\')">'
-        +'<div class="crm-card-name">'+s.fn+' '+s.ln+'</div>'
+      var resp  = s.crmResponsible ? (S.users||[]).find(function(u){ return u.id===s.crmResponsible; }) : null;
+      var lc    = (S.comms||[]).filter(function(c){ return c.studentId===s.id; })
+                    .sort(function(a,b){ return (b.date||'')>(a.date||'')?1:-1; })[0];
+
+      var card = document.createElement('div');
+      card.className = 'crm-card';
+      card.draggable = true;
+
+      var sid = s.id;
+      card.addEventListener('dragstart', function(e){ crmDragStart(e, sid); });
+      card.addEventListener('dragend',   crmDragEnd);
+
+      var info = document.createElement('div');
+      info.innerHTML =
+        '<div class="crm-card-name">'+s.fn+' '+s.ln+'</div>'
         +(s.subject ? '<div class="crm-card-subj">'+s.subject+'</div>' : '')
-        +(tutor ? '<div class="crm-card-meta">\uD83D\uDC64 '+tutor.fn+' '+tutor.ln+'</div>' : '')
-        +(s.phone||s.parentPhone ? '<div class="crm-card-meta">\uD83D\uDCDE '+(s.phone||s.parentPhone)+'</div>' : '')
-        +(lastComm ? '<div class="crm-card-comm">\uD83D\uDCAC '+fd(lastComm.date)+'</div>' : '')
-        +'<div class="crm-card-btns">'
-        +CRM_COLS.filter(function(c){ return c.id!==col.id; }).map(function(c){
-          return '<button class="crm-mv" title="\u2192 '+c.lbl+'" onclick="event.stopPropagation();setCrmStage(\''+s.id+'\',\''+c.id+'\')">'
-            +c.ico+'</button>';
-        }).join('')
-        +'</div>'
-        +'</div>';
-    }).join('');
+        +(tutor ? '<div class="crm-card-meta">◈ '+tutor.fn+' '+tutor.ln+'</div>' : '')
+        +(resp  ? '<div class="crm-card-meta" style="color:var(--dir)">★ '+resp.fn+' '+resp.ln+'</div>' : '')
+        +((s.phone||s.parentPhone) ? '<div class="crm-card-meta">☎ '+(s.phone||s.parentPhone)+'</div>' : '')
+        +(s.crmDate ? '<div class="crm-card-comm">▣ '+fd(s.crmDate)+'</div>' : '')
+        +(lc ? '<div class="crm-card-comm">◎ '+fd(lc.date)+'</div>' : '');
+      info.querySelector('.crm-card-name').addEventListener('click', function(){ openStudM(sid); });
+      card.appendChild(info);
 
-    html += '<div class="crm-col"'
-      +' ondragover="crmDragOver(event)"'
-      +' ondragleave="crmDragLeave(event)"'
-      +' ondrop="crmDrop(event,\''+col.id+'\')">'
-      +'<div class="crm-col-hdr" style="border-top:3px solid '+col.color+'">'
-        +'<span style="font-size:15px">'+col.ico+'</span>'
-        +'<span class="crm-col-lbl">'+col.lbl+'</span>'
-        +'<span class="crm-col-cnt">'+cards.length+'</span>'
-      +'</div>'
-      +'<div class="crm-col-body">'+cardHtml+'</div>'
-      +'</div>';
+      // Action buttons
+      var acts = document.createElement('div');
+      acts.className = 'crm-card-actions';
+
+      var editBtn = document.createElement('button');
+      editBtn.className = 'crm-mv-btn';
+      editBtn.title = 'Редагувати';
+      editBtn.textContent = '✏';
+      editBtn.addEventListener('click', function(e){ e.stopPropagation(); openCrmCard(sid); });
+      acts.appendChild(editBtn);
+
+      CRM_COLS.filter(function(c){ return c.id !== col.id; }).forEach(function(c){
+        var btn = document.createElement('button');
+        btn.className = 'crm-mv-btn';
+        btn.title = '→ ' + c.lbl;
+        btn.textContent = c.ico;
+        (function(cid){ btn.addEventListener('click', function(e){ e.stopPropagation(); setCrmStage(sid, cid); }); })(c.id);
+        acts.appendChild(btn);
+      });
+      card.appendChild(acts);
+      body.appendChild(card);
+    });
+
+    colDiv.appendChild(body);
+    el.appendChild(colDiv);
   });
-
-  el.innerHTML = html;
 }
 
-var _crmDragId = null;
+function openCrmCard(studentId){
+  var s=(S.students||[]).find(function(x){return x.id===studentId;});
+  if(!s)return;
+  var mo=document.getElementById('mo-crm-card');
+  if(!mo){openStudM(studentId);return;}
+  document.getElementById('crm-card-name').textContent=s.fn+' '+s.ln;
+  var stageSel=document.getElementById('crm-card-stage');
+  if(stageSel)stageSel.value=getCrmStage(s);
+  var respSel=document.getElementById('crm-card-resp');
+  if(respSel){
+    respSel.innerHTML='<option value="">—</option>'
+      +(S.users||[]).filter(function(u){return u.role==='god'||u.role==='director'||u.role==='admin';})
+        .map(function(u){return '<option value="'+u.id+'"'+(s.crmResponsible===u.id?' selected':'')+'>'+u.fn+' '+u.ln+'</option>';}).join('');
+  }
+  var dateSel=document.getElementById('crm-card-date');
+  if(dateSel)dateSel.value=s.crmDate||'';
+  var notesSel=document.getElementById('crm-card-notes');
+  if(notesSel)notesSel.value=s.crm_notes||'';
+  S._crmEditId=studentId;
+  openM('mo-crm-card');
+}
 
-function crmDragStart(e, id){
-  _crmDragId = id;
-  e.dataTransfer.effectAllowed = 'move';
-  setTimeout(function(){ if(e.target) e.target.style.opacity = '0.4'; }, 0);
+async function saveCrmCard(){
+  var id=S._crmEditId;if(!id)return;
+  var stage=document.getElementById('crm-card-stage').value;
+  var resp=document.getElementById('crm-card-resp').value;
+  var date=document.getElementById('crm-card-date').value;
+  var notes=document.getElementById('crm-card-notes').value;
+  var i=(S.students||[]).findIndex(function(s){return s.id===id;});
+  if(i>=0){
+    S.students[i].crmStage=stage;S.students[i].crm_stage=stage;
+    S.students[i].crmResponsible=resp||null;S.students[i].crm_responsible=resp||null;
+    S.students[i].crmDate=date||null;S.students[i].crm_date=date||null;
+    S.students[i].crm_notes=notes||null;
+  }
+  closeM('mo-crm-card');renderCrm();
+  try{
+    await dbUpdate('students',id,{crm_stage:stage,crm_responsible:resp||null,crm_date:date||null,crm_notes:notes||null});
+    mkToast('Збережено');
+  }catch(e){mkToast('Помилка: '+e.message,'error');}
 }
-function crmDragEnd(e){
-  if(e.target) e.target.style.opacity = '1';
-  document.querySelectorAll('.crm-col').forEach(function(c){ c.classList.remove('crm-over'); });
+
+function crmClearFilters(){
+  var s=document.getElementById('crm-f-stage'),m=document.getElementById('crm-f-month'),r=document.getElementById('crm-f-resp');
+  if(s)s.value='';if(m)m.value='';if(r)r.value='';
+  renderCrm();
 }
-function crmDragOver(e){
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  var col = e.currentTarget;
-  document.querySelectorAll('.crm-col').forEach(function(c){ c.classList.remove('crm-over'); });
-  col.classList.add('crm-over');
-}
-function crmDragLeave(e){
-  if(!e.currentTarget.contains(e.relatedTarget))
-    e.currentTarget.classList.remove('crm-over');
-}
-function crmDrop(e, colId){
-  e.preventDefault();
-  document.querySelectorAll('.crm-col').forEach(function(c){ c.classList.remove('crm-over'); });
-  if(_crmDragId){ setCrmStage(_crmDragId, colId); _crmDragId = null; }
-}
+
+var _crmDragId=null;
+function crmDragStart(e,id){_crmDragId=id;e.dataTransfer.effectAllowed='move';setTimeout(function(){if(e.target)e.target.style.opacity='0.4';},0);}
+function crmDragEnd(e){if(e.target)e.target.style.opacity='1';document.querySelectorAll('.crm-col').forEach(function(c){c.classList.remove('crm-over');});}
+function crmDragOver(e){e.preventDefault();document.querySelectorAll('.crm-col').forEach(function(c){c.classList.remove('crm-over');});e.currentTarget.classList.add('crm-over');}
+function crmDragLeave(e){if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('crm-over');}
+function crmDrop(e,colId){e.preventDefault();document.querySelectorAll('.crm-col').forEach(function(c){c.classList.remove('crm-over');});if(_crmDragId){setCrmStage(_crmDragId,colId);_crmDragId=null;}}
 
 // === Expose all functions to window ===
 window.R = R;
@@ -3869,16 +3883,20 @@ window.renderTutors = renderTutors;
 window.updateBranchSelector = updateBranchSelector;
 window.updateSBUser = updateSBUser;
 
+}
 
 window.renderCrm = renderCrm;
 window.setCrmStage = setCrmStage;
-window.crmDragStart = crmDragStart;
-window.crmDragEnd = crmDragEnd;
-window.crmDrop = crmDrop;
 window.getCrmStage = getCrmStage;
 window.openAddLead = openAddLead;
+window.openCrmCard = openCrmCard;
+window.saveCrmCard = saveCrmCard;
+window.crmClearFilters = crmClearFilters;
+window.crmDragStart = crmDragStart;
+window.crmDragEnd = crmDragEnd;
 window.crmDragOver = crmDragOver;
 window.crmDragLeave = crmDragLeave;
+window.crmDrop = crmDrop;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
