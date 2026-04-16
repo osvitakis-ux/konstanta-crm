@@ -2403,6 +2403,7 @@ async function saveSettings(){
       phone:   document.getElementById('set-phone')?.value||'',
       email:   document.getElementById('set-email')?.value||'',
       address: document.getElementById('set-addr')?.value||'',
+      payment_details: document.getElementById('set-payment')?.value||'',
       updated_at: new Date().toISOString()
     });
     mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E');
@@ -2798,6 +2799,8 @@ function openStudM(id=null){
       var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';}}
   else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';}
   renderCustomFields('student','mo-student-cf');
+  var invBtn = document.getElementById('inv-btn');
+  if(invBtn) invBtn.style.display = (id && (R()==='god'||R()==='director')) ? 'inline-flex' : 'none';
   openM('mo-student');
 }
 
@@ -3832,206 +3835,166 @@ function crmInitScroll(){
   crmUpdateScrollBtns();
 }
 
-// === Expose all functions to window ===
-window.R = R;
-window.P = P;
-window.userPerms = userPerms;
-window.userNav = userNav;
-window.can = can;
-window.isSuperAdmin = isSuperAdmin;
-window.currentBranch = currentBranch;
-window.branchName = branchName;
-window.filterByBranch = filterByBranch;
-window.myBranchId = myBranchId;
-window.mkAv = mkAv;
-window.bst = bst;
-window.fd = fd;
-window.fd2 = fd2;
-window.sn = sn;
-window.tn = tn;
-window.mkToast = mkToast;
-window.popSel = popSel;
-window.openM = openM;
-window.closeM = closeM;
-window.toggleSidebar = toggleSidebar;
-window.closeSidebar = closeSidebar;
-window.myLessons = myLessons;
-window.myStudents = myStudents;
-window.myTutor = myTutor;
-window.calcPrice = calcPrice;
-window.autoFillPrice = autoFillPrice;
-window.getWeekRange = getWeekRange;
-window.inWeek = inWeek;
-window.dashKpiWeek = dashKpiWeek;
-window.renderDash = renderDash;
-window.showErr = showErr;
-window.renderDashStats = renderDashStats;
-window.renderDashKpi = renderDashKpi;
-window.renderDashTrends = renderDashTrends;
-window.renderDashBottom = renderDashBottom;
-window.renderCommLog = renderCommLog;
-window.sfilt = sfilt;
-window.renderStudents = renderStudents;
-window.renderLessons = renderLessons;
-window.renderPayments = renderPayments;
-window.renderCustomPage = renderCustomPage;
-window.saveCustomPageNotes = saveCustomPageNotes;
-window.gcGetConfig = gcGetConfig;
-window.gcSet = gcSet;
-window.gcTab = gcTab;
-window.renderConstructor = renderConstructor;
-window.gcRenderRoles = gcRenderRoles;
-window.gcLivePermChange = gcLivePermChange;
-window.gcResetRoles = gcResetRoles;
-window.gcGetNavItems = gcGetNavItems;
-window.gcRenderNav = gcRenderNav;
-window.gcEsc = gcEsc;
-window.gcLiveNavChange = gcLiveNavChange;
-window.gcLiveNavRole = gcLiveNavRole;
-window.gcDelNavItem = gcDelNavItem;
-window.gcAddNavItem = gcAddNavItem;
-window.gcResetNav = gcResetNav;
-window.gcDragStart = gcDragStart;
-window.gcDragOver = gcDragOver;
-window.gcDragLeave = gcDragLeave;
-window.gcDrop = gcDrop;
-window.gcGetFields = gcGetFields;
-window.gcRenderFields = gcRenderFields;
-window.gcLiveFieldLabel = gcLiveFieldLabel;
-window.gcLiveFieldTarget = gcLiveFieldTarget;
-window.gcLiveFieldReq = gcLiveFieldReq;
-window.gcLiveFieldOpts = gcLiveFieldOpts;
-window.gcDelField = gcDelField;
-window.gcClearFields = gcClearFields;
-window.gcAddField = gcAddField;
-window.gcGetLabels = gcGetLabels;
-window.gcRenderLabels = gcRenderLabels;
-window.gcLiveLabelChange = gcLiveLabelChange;
-window.gcApplyLabel = gcApplyLabel;
-window.gcResetLabel = gcResetLabel;
-window.gcResetAllLabels = gcResetAllLabels;
-window.applyGodConfig = applyGodConfig;
-window.renderCustomFields = renderCustomFields;
-window.gcSaveRoles = gcSaveRoles;
-window.gcSaveNav = gcSaveNav;
-window.gcSaveFields = gcSaveFields;
-window.gcResetLabels = gcResetLabels;
-window.gcSaveLabels = gcSaveLabels;
-window.gSearch = gSearch;
-window.renderAnalytics = renderAnalytics;
-window.saveS = saveS;
-window.loadS = loadS;
-window.saveSess = saveSess;
-window.loadSess = loadSess;
-window.seedData = seedData;
-window.exportBackup = exportBackup;
-window.importBackupClick = importBackupClick;
-window.importBackup = importBackup;
-window.initApp = initApp;
-window.doLogin = doLogin;
-window.doLogout = doLogout;
-window.loadProfile = loadProfile;
-window.uid = uid;
-window.setSaving = setSaving;
-window.setSynced = setSynced;
-window.loadAll = loadAll;
-window.normalizeStudent = normalizeStudent;
-window.normalizeLesson = normalizeLesson;
-window.normalizePayment = normalizePayment;
-window.normalizeTutor = normalizeTutor;
-window.normalizeComm = normalizeComm;
-window.normalizePricingRule = normalizePricingRule;
-window.startChannels = startChannels;
-window.stopChannels = stopChannels;
-window.handleChange = handleChange;
-window.refreshPage = refreshPage;
-window.loadTableFresh = loadTableFresh;
-window.dbInsert = dbInsert;
-window.dbUpdate = dbUpdate;
-window.dbDelete = dbDelete;
-window.saveStudent = saveStudent;
-window.delStudent = delStudent;
-window.saveTutor = saveTutor;
-window.delTutor = delTutor;
-window.saveLesson = saveLesson;
-window.delLesson = delLesson;
-window.doDelLesson = doDelLesson;
-window.savePayment = savePayment;
-window.delPay = delPay;
-window.updateParentInfo = updateParentInfo;
-window.saveComm = saveComm;
-window.delComm = delComm;
-window.saveSettings = saveSettings;
-window.addSubj = addSubj;
-window.delSubj = delSubj;
-window.addBranch = addBranch;
-window.delBranch = delBranch;
-window.editBranch = editBranch;
-window.savePriceRule = savePriceRule;
-window.editPriceRule = editPriceRule;
-window.delPriceRule = delPriceRule;
-window.renderUsers = renderUsers;
-window.openUserM = openUserM;
-window.saveUser = saveUser;
-window.delUser = delUser;
-window.openUserAccessM = openUserAccessM;
-window.uaPermChange = uaPermChange;
-window.uaResetPerm = uaResetPerm;
-window.uaNavChange = uaNavChange;
-window.resetAllUserAccess = resetAllUserAccess;
-window.setBranch = setBranch;
-window.clearData = clearData;
-window.startApp = startApp;
-window.openStudM = openStudM;
-window.openTutM = openTutM;
-window.openLessM = openLessM;
-window.openPayM = openPayM;
-window.openCommM = openCommM;
-window.nav = nav;
-window.openAdd = openAdd;
-window.chWk = chWk;
-window.schSetView = schSetView;
-window.toggleRecurOpts = toggleRecurOpts;
-window.previewRecur = previewRecur;
-window.uaTab = uaTab;
-window.toggleTutLink = toggleTutLink;
-window.toggleProfileEdit = toggleProfileEdit;
-window.saveProfileEdit = saveProfileEdit;
-window.buildSidebar = buildSidebar;
-window.buildUAHeader = buildUAHeader;
-window.buildUANav = buildUANav;
-window.buildUAPerms = buildUAPerms;
-window.buildUASummary = buildUASummary;
-window.genRecurDates = genRecurDates;
-window.renderBranches = renderBranches;
-window.renderPricingRules = renderPricingRules;
-window.renderProfile = renderProfile;
-window.renderReports = renderReports;
-window.renderSch = renderSch;
-window.renderSchDay = renderSchDay;
-window.renderSchWeek = renderSchWeek;
-window.renderSettings = renderSettings;
-window.renderTutors = renderTutors;
-window.updateBranchSelector = updateBranchSelector;
-window.updateSBUser = updateSBUser;
+// ═══════════════════════════════════════
+// INVOICE (РАХУНОК-ФАКТУРА)
+// ═══════════════════════════════════════
 
+function openInvoiceM(studentId){
+  // Only god and director can create invoices
+  if(R()!=='god' && R()!=='director'){
+    mkToast('\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return;
+  }
+  var s = (S.students||[]).find(function(x){ return x.id===studentId; });
+  if(!s){ mkToast('\u0423\u0447\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e','error'); return; }
 
-window.renderCrm = renderCrm;
-window.setCrmStage = setCrmStage;
-window.getCrmStage = getCrmStage;
-window.openAddLead = openAddLead;
-window.openCrmCard = openCrmCard;
-window.saveCrmCard = saveCrmCard;
-window.crmClearFilters = crmClearFilters;
-window.crmDragStart = crmDragStart;
-window.crmDragEnd = crmDragEnd;
-window.crmDragOver = crmDragOver;
-window.crmDragLeave = crmDragLeave;
-window.crmDrop = crmDrop;
-window.crmScroll = crmScroll;
-window.crmUpdateScrollBtns = crmUpdateScrollBtns;
-window.crmInitScroll = crmInitScroll;
-function localDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  var now = new Date();
+  var y = now.getFullYear(), m = now.getMonth();
+  var dateFrom = y+'-'+String(m+1).padStart(2,'0')+'-01';
+  var lastDay  = new Date(y, m+1, 0).getDate();
+  var dateTo   = y+'-'+String(m+1).padStart(2,'0')+'-'+lastDay;
+
+  var el = document.getElementById('mo-invoice');
+  if(!el) return;
+
+  document.getElementById('inv-student-name').textContent = s.fn+' '+s.ln;
+  document.getElementById('inv-date-from').value = dateFrom;
+  document.getElementById('inv-date-to').value   = dateTo;
+  document.getElementById('inv-price').value     = '';
+  document.getElementById('inv-email').value     = s.email||'';
+  document.getElementById('inv-notes').value     = '';
+
+  // Fill payment details from settings
+  var cfg = S.settings||{};
+  var payEl = document.getElementById('inv-payment');
+  if(payEl) payEl.value = cfg.payment_details||'';
+
+  S._invoiceStudentId = studentId;
+  calcInvoiceLessons();
+  openM('mo-invoice');
+}
+
+function calcInvoiceLessons(){
+  var sid   = S._invoiceStudentId;
+  var from  = document.getElementById('inv-date-from').value;
+  var to    = document.getElementById('inv-date-to').value;
+  var price = parseFloat(document.getElementById('inv-price').value)||0;
+
+  // Count PLANNED (not yet conducted) lessons
+  var lessons = (S.lessons||[]).filter(function(l){
+    return (l.studentId===sid||l.student_id===sid)
+      && (l.status==='planned'||l.status==='scheduled')
+      && l.date >= from && l.date <= to;
+  });
+
+  var total = lessons.length * price;
+  var el = document.getElementById('inv-preview');
+  if(!el) return;
+
+  if(!lessons.length){
+    el.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:8px 0">'
+      +'\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u0445 \u0443\u0440\u043e\u043a\u0456\u0432 \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434</div>';
+    return;
+  }
+
+  // Sort by date+time
+  lessons.sort(function(a,b){ return (a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||'')); });
+
+  var rows = lessons.map(function(l, i){
+    var tutor = l.tutorId ? (S.tutors||[]).find(function(t){return t.id===l.tutorId;}) : null;
+    return '<tr>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td>'+fd(l.date)+'</td>'
+      +'<td>'+(l.time||'\u2014')+'</td>'
+      +'<td>'+(l.subject||l.notes||'\u2014')+'</td>'
+      +'<td>'+(tutor ? tutor.fn+' '+tutor.ln : '\u2014')+'</td>'
+      +'<td style="text-align:right">'+(price ? price+' \u0433\u0440\u043d' : '\u2014')+'</td>'
+      +'</tr>';
+  }).join('');
+
+  el.innerHTML = '<table class="inv-table">'
+    +'<thead><tr>'
+    +'<th style="width:28px">#</th>'
+    +'<th>\u0414\u0430\u0442\u0430</th>'
+    +'<th>\u0427\u0430\u0441</th>'
+    +'<th>\u041f\u0440\u0435\u0434\u043c\u0435\u0442</th>'
+    +'<th>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440</th>'
+    +'<th style="text-align:right">\u0421\u0443\u043c\u0430</th>'
+    +'</tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'<tfoot><tr>'
+    +'<td colspan="5" style="font-weight:700">'
+      +'\u0420\u0410\u0417\u041e\u041c: '+lessons.length+' \u0443\u0440\u043e\u043a'+'\u0456\u0432'
+    +'</td>'
+    +'<td style="text-align:right;font-weight:700;color:var(--adm)">'
+      +(price ? total+' \u0433\u0440\u043d' : '\u2014')
+    +'</td>'
+    +'</tr></tfoot>'
+    +'</table>';
+}
+
+function sendInvoiceEmail(){
+  var sid   = S._invoiceStudentId;
+  var s     = (S.students||[]).find(function(x){ return x.id===sid; });
+  if(!s) return;
+
+  var from    = document.getElementById('inv-date-from').value;
+  var to      = document.getElementById('inv-date-to').value;
+  var price   = parseFloat(document.getElementById('inv-price').value)||0;
+  var email   = document.getElementById('inv-email').value.trim();
+  var notes   = document.getElementById('inv-notes').value.trim();
+  var payment = document.getElementById('inv-payment').value.trim();
+  var cfg     = S.settings||{};
+
+  var lessons = (S.lessons||[]).filter(function(l){
+    return (l.studentId===sid||l.student_id===sid)
+      && (l.status==='planned'||l.status==='scheduled')
+      && l.date >= from && l.date <= to;
+  }).sort(function(a,b){ return (a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||'')); });
+
+  if(!lessons.length){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u0445 \u0443\u0440\u043e\u043a\u0456\u0432 \u0437\u0430 \u043f\u0435\u0440\u0456\u043e\u0434','error'); return; }
+  if(!email){ mkToast('\u0412\u043a\u0430\u0436\u0456\u0442\u044c email \u043e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447\u0430','error'); return; }
+
+  var total   = lessons.length * price;
+  var center  = cfg.name  || '\u041a\u043e\u043d\u0441\u0442\u0430\u043d\u0442\u0430';
+  var cPhone  = cfg.phone || '';
+  var cEmail  = cfg.email || '';
+  var num     = 'INV-'+Date.now().toString().slice(-6);
+  var today   = fd(new Date().toISOString().slice(0,10));
+
+  var subject = '\u0420\u0430\u0445\u0443\u043d\u043e\u043a-\u0444\u0430\u043a\u0442\u0443\u0440\u0430 \u2116'+num+' \u2014 '+s.fn+' '+s.ln;
+
+  var body = center+'\n';
+  if(cPhone) body += '\u0422\u0435\u043b: '+cPhone+'\n';
+  if(cEmail) body += 'Email: '+cEmail+'\n';
+  body += '\n\u0420\u0410\u0425\u0423\u041d\u041e\u041a-\u0424\u0410\u041a\u0422\u0423\u0420\u0410 \u2116'+num+'\n';
+  body += '\u0414\u0430\u0442\u0430: '+today+'\n';
+  body += '\u041f\u0435\u0440\u0456\u043e\u0434: '+fd(from)+' \u2014 '+fd(to)+'\n\n';
+  body += '\u041e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447: '+s.fn+' '+s.ln+'\n\n';
+  body += '\u0417\u0410\u041f\u041b\u0410\u041d\u041e\u0412\u0410\u041d\u0406 \u0423\u0420\u041e\u041a\u0418:\n';
+  body += '\u2500'.repeat(40)+'\n';
+  lessons.forEach(function(l, i){
+    var tutor = l.tutorId ? (S.tutors||[]).find(function(t){return t.id===l.tutorId;}) : null;
+    body += (i+1)+'. '+fd(l.date)+(l.time?' \u043e '+l.time:'')+' | '+(l.subject||'')+(tutor?' (\u0440\u0435\u043f. '+tutor.fn+' '+tutor.ln+')':'')+'\n';
+  });
+  body += '\u2500'.repeat(40)+'\n';
+  body += '\u041a\u0456\u043b\u044c\u043a\u0456\u0441\u0442\u044c \u0443\u0440\u043e\u043a\u0456\u0432: '+lessons.length+'\n';
+  if(price){ body += '\u0426\u0456\u043d\u0430 \u0437\u0430 \u0443\u0440\u043e\u043a: '+price+' \u0433\u0440\u043d\n'; }
+  if(price){ body += '\u0421\u0423\u041c\u0410 \u0414\u041e \u041e\u041f\u041b\u0410\u0422\u0418: '+total+' \u0433\u0440\u043d\n'; }
+  if(payment){ body += '\n\u0420\u0415\u041a\u0412\u0406\u0417\u0418\u0422\u0418 \u0414\u041b\u042f \u041e\u041f\u041b\u0410\u0422\u0418:\n'+payment+'\n'; }
+  if(notes){ body += '\n\u041f\u0440\u0438\u043c\u0456\u0442\u043a\u0430: '+notes+'\n'; }
+
+  var mailto = 'mailto:'+encodeURIComponent(email)
+    +'?subject='+encodeURIComponent(subject)
+    +'&body='+encodeURIComponent(body);
+
+  window.location.href = mailto;
+  mkToast('\u0412\u0456\u0434\u043a\u0440\u0438\u0432\u0430\u0454\u043c\u043e email \u043a\u043b\u0456\u0454\u043d\u0442...');
+  closeM('mo-invoice');
+}
+
+window.openInvoiceM = openInvoiceM;
+window.calcInvoiceLessons = calcInvoiceLessons;
+window.sendInvoiceEmail = sendInvoiceEmail;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
@@ -4045,3 +4008,4 @@ document.addEventListener('change', function(e){
     }
   }
 });
+                                  
