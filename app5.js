@@ -3428,7 +3428,7 @@ function renderSchWeek(){
   hrs.forEach(h=>{
     html+=('<div class="scht">'+(String(h).padStart(2,'0'))+':00</div>');
     days.forEach(d=>{
-      const ds=d.toISOString().slice(0,10);
+      const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       const lsns=ml.filter(l=>l.date===ds&&parseInt((l.time||'0:0').split(':')[0])===h&&l.status!=='cancelled');
       html+=('<div class="schc" onclick="openLessM(null,\''+(ds)+'\',\''+(String(h).padStart(2,'0'))+':00\')">');
       lsns.forEach((l,i)=>{html+=('<div class="sche '+(ecls[i%ecls.length])+'" onclick="event.stopPropagation();openLessM(\''+(l.id)+'\')"><div style="font-weight:700">'+(l.recurId?'\uD83D\uDD01 ':'')+'<span>'+(l.subject)+'</span></div><div style="opacity:.75">'+(sn(l.studentId).split(' ')[0])+'</div></div>');});
@@ -4026,6 +4026,7 @@ window.crmDrop = crmDrop;
 window.crmScroll = crmScroll;
 window.crmUpdateScrollBtns = crmUpdateScrollBtns;
 window.crmInitScroll = crmInitScroll;
+function localDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
