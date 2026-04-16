@@ -1,4 +1,3 @@
-
 window.SupabaseMini = (function(){
 
   function createClient(url, anonKey){
@@ -678,6 +677,7 @@ function renderDashKpi(){
     var barW    =maxDone>0?Math.round(tDone/maxDone*100):0;
     var pctColor=tPct>=80?'var(--tut)':tPct>=50?'var(--dir)':'var(--danger)';
 
+    totalDone+=tDone; totalMissed+=tMissed;
     totalPlanned+=tPlanned; totalTutComms+=tComms; totalStudents+=tStudents;
 
     // Trend vs prev week
@@ -3907,5 +3907,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
