@@ -89,8 +89,7 @@ nav.sbnav{flex:1;overflow-y:auto;padding:10px 8px}
 .logoutbtn:hover{color:var(--danger);background:rgba(248,113,113,.1)}
 
 /* ─── MAIN ─── */
-.main{flex:1;display:flex;flex-direction:column;min-height:0}
-#content{flex:1;overflow-y:auto;padding:16px 16px 80px 16px;display:flex;flex-direction:column}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .topbar{height:56px;background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 22px;gap:14px;flex-shrink:0}
 .ptitle{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;flex:1;letter-spacing:-.3px}
 .search{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:6px 12px;width:210px}
@@ -110,7 +109,7 @@ nav.sbnav{flex:1;overflow-y:auto;padding:10px 8px}
 
 /* ─── PAGES ─── */
 .page{display:none;animation:fi .2s ease}
-.page.active{display:block;min-height:100%;overflow-y:auto;height:100%}
+.page.active{display:block}
 
 /* ─── CARDS ─── */
 .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
@@ -465,31 +464,26 @@ textarea{resize:vertical;min-height:72px}
 body.role-tutor .tutor-hidden { display: none !important; }
 body.role-tutor .comm-add-btn { display: none !important; }
 
-.ua-panel { display: none; }
-.ua-panel.active { display: block; }
-.ua-tab.active { background: var(--s2); }
-
-/* CRM Kanban */
-.crm-toolbar { display:flex; align-items:center; gap:10px; padding:0 0 12px; flex-shrink:0; }
-.crm-col { width:210px; flex-shrink:0; display:flex; flex-direction:column; max-height:calc(100vh - 180px); background:var(--s2); border-radius:12px; border:1px solid var(--b1); overflow:hidden; transition:box-shadow .15s; }
-.crm-col.crm-over { box-shadow:0 0 0 2px var(--adm); background:rgba(41,171,226,.06); }
-.crm-col-hdr { padding:10px 12px 8px; display:flex; align-items:center; gap:7px; flex-shrink:0; }
-.crm-col-lbl { font-weight:700; font-size:11px; flex:1; text-transform:uppercase; letter-spacing:.4px; color:var(--t1); }
-.crm-col-cnt { background:var(--s1); border:1px solid var(--b1); border-radius:20px; padding:1px 7px; font-size:11px; font-weight:700; color:var(--t2); }
-.crm-col-body { flex:1; overflow-y:auto; padding:4px 8px 8px; display:flex; flex-direction:column; gap:6px; }
-.crm-col-body::-webkit-scrollbar { width:3px; }
-.crm-col-body::-webkit-scrollbar-thumb { background:var(--b2); border-radius:3px; }
-.crm-card { background:var(--s1); border:1px solid var(--b1); border-radius:9px; padding:10px 11px 8px; cursor:grab; transition:box-shadow .15s,transform .15s,border-color .15s; user-select:none; }
-.crm-card:active { cursor:grabbing; }
-.crm-card:hover { box-shadow:0 3px 12px rgba(0,0,0,.1); transform:translateY(-1px); border-color:var(--adm); }
-.crm-card-name { font-weight:700; font-size:13px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.crm-card-subj { font-size:11px; color:var(--adm); margin-bottom:2px; }
-.crm-card-meta { font-size:11px; color:var(--t2); margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.crm-card-comm { font-size:10px; color:var(--t3); margin-top:5px; padding-top:5px; border-top:1px solid var(--b1); }
-.crm-card-btns { display:flex; gap:2px; margin-top:6px; flex-wrap:wrap; opacity:0; transition:opacity .15s; max-height:0; overflow:hidden; }
-.crm-card:hover .crm-card-btns { opacity:1; max-height:60px; }
-.crm-mv { background:var(--s2); border:1px solid var(--b1); border-radius:5px; padding:2px 5px; cursor:pointer; font-size:12px; line-height:1; transition:background .1s,transform .1s; }
-.crm-mv:hover { background:var(--b1); transform:scale(1.15); }</style>
+/* CRM */
+.crm-col{width:215px;flex-shrink:0;display:flex;flex-direction:column;max-height:calc(100vh - 140px);background:var(--s2);border-radius:12px;border:1px solid var(--b1);overflow:hidden}
+.crm-col.crm-over{box-shadow:0 0 0 2px var(--adm);background:rgba(41,171,226,.07)}
+.crm-col-hdr{padding:10px 12px 8px;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.crm-col-lbl{font-weight:700;font-size:11px;flex:1;text-transform:uppercase;letter-spacing:.4px}
+.crm-col-cnt{background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;color:var(--t2)}
+.crm-col-body{flex:1;overflow-y:auto;padding:4px 8px 8px;display:flex;flex-direction:column;gap:6px}
+.crm-card{background:var(--s1);border:1px solid var(--b1);border-radius:9px;padding:10px 11px 8px;cursor:grab;transition:box-shadow .15s,transform .15s}
+.crm-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.1);transform:translateY(-1px);border-color:var(--adm)}
+.crm-card-name{font-weight:700;font-size:13px;margin-bottom:4px;cursor:pointer}
+.crm-card-name:hover{color:var(--adm)}
+.crm-card-subj{font-size:11px;color:var(--adm);margin-bottom:2px}
+.crm-card-meta{font-size:11px;color:var(--t2);margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crm-card-comm{font-size:10px;color:var(--t3);margin-top:5px;padding-top:5px;border-top:1px solid var(--b1)}
+.crm-card-actions{display:flex;gap:2px;margin-top:6px;flex-wrap:wrap;opacity:0;transition:opacity .15s}
+.crm-card:hover .crm-card-actions{opacity:1}
+.crm-mv-btn{background:var(--s2);border:1px solid var(--b1);border-radius:5px;padding:2px 5px;cursor:pointer;font-size:12px;transition:background .1s}
+.crm-mv-btn:hover{background:var(--b1)}
+.ua-panel{display:none}.ua-panel.active{display:block}
+</style>
 </head>
 <body>
 
@@ -598,6 +592,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
                   <th title="Заняття зі статусом 'done' за тиждень">✅ Проведено</th>
                   <th title="Заплановано, ще не проведено">📅 Планів</th>
                   <th title="Учень не з'явився на заняття">❌ Пропущено</th>
+                  <th title="Скасовані заняття">🚫 Скасовано</th>
                   <th title="Комунікації (дзвінки / повідомлення) за тиждень">💬 Комунікацій</th>
                   <th title="Активні учні репетитора">👤 Учнів</th>
                   <th title="done / (done + missed) × 100%">📈 Виконання</th>
@@ -785,24 +780,14 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div><div class="god-banner-title">Режим Бога — повний доступ</div><div class="god-banner-text">Редагування системних налаштувань, скидання даних та управління базою</div></div>
         </div>
         <div class="tc">
-          <div class="card" id="branches-card">
-            <div class="ch"><span class="ct">🏢 Репетиторський центр «Константа»</span></div>
+          <div class="card"><div class="ch"><span class="ct">Репетиторський центр «Константа»</span></div>
             <div class="mdlb"><div class="fg">
-              <div class="fgr full"><label>Назва центру</label><input id="set-name" type="text"></div>
+              <div class="fgr full"><label>Назва</label><input id="set-name" type="text"></div>
               <div class="fgr"><label>Телефон</label><input id="set-phone" type="text"></div>
               <div class="fgr"><label>Email</label><input id="set-email" type="email"></div>
               <div class="fgr full"><label>Адреса</label><input id="set-addr" type="text"></div>
-              <div class="fgr full"><button class="btn btn-p" onclick="saveSettings()">💾 Зберегти налаштування</button></div>
+              <div class="fgr full"><button class="btn btn-p" onclick="saveSettings()">💾 Зберегти</button></div>
             </div></div>
-            <div style="border-top:1px solid var(--b1);padding:14px 18px 0">
-              <div class="ch" style="padding:0 0 10px"><span class="ct" style="font-size:13px">Філії</span></div>
-              <div id="branch-list"></div>
-              <div style="padding:8px 0 14px;display:flex;gap:8px">
-                <input id="new-branch-name" placeholder="Назва філії" style="flex:1">
-                <input id="new-branch-addr" placeholder="Адреса (необов.)" style="flex:1">
-                <button class="btn btn-p btn-sm" onclick="addBranch()">+ Додати</button>
-              </div>
-            </div>
           </div>
           <div class="card">
           <div class="ch">
@@ -838,12 +823,13 @@ body.role-tutor .comm-add-btn { display: none !important; }
               <div style="font-size:13px;color:var(--t2);margin-bottom:14px">
                 Збережіть всі дані центру у файл або відновіть із попередньої копії.
               </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                <span style="font-size:11px;color:var(--t2);font-weight:600">Формат:</span>
-                <button class="btn btn-p btn-sm" onclick="exportBackup('json')">⬇ JSON</button>
-                <button class="btn btn-p btn-sm" onclick="exportBackup('csv')">⬇ CSV</button>
-                <button class="btn btn-p btn-sm" onclick="exportBackup('excel')">⬇ Excel (CSV)</button>
-                <button id="restore-btn" class="btn btn-g btn-sm" onclick="importBackupClick()">⬆ Відновити з JSON</button>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button id="backup-btn" class="btn btn-p" onclick="exportBackup()">
+                  ⬇ Завантажити резервну копію
+                </button>
+                <button id="restore-btn" class="btn btn-g" onclick="importBackupClick()">
+                  ⬆ Відновити з копії
+                </button>
                 <input type="file" id="backup-file-input" accept=".json" style="display:none" onchange="importBackup(this)">
               </div>
               <div style="margin-top:12px;font-size:11px;color:var(--t3)">
@@ -852,7 +838,15 @@ body.role-tutor .comm-add-btn { display: none !important; }
             </div>
           </div>
 
-          
+          <div class="card" id="branches-card">
+          <div class="ch"><span class="ct">🏢 Філії</span></div>
+          <div style="padding:14px 18px" id="branch-list"></div>
+          <div style="padding:0 18px 18px;display:flex;gap:8px">
+            <input id="new-branch-name" placeholder="Назва філії" style="flex:1">
+            <input id="new-branch-addr" placeholder="Адреса (необов.)" style="flex:1">
+            <button class="btn btn-p btn-sm" onclick="addBranch()">+ Додати</button>
+          </div>
+        </div>
         <div class="card"><div class="ch"><span class="ct">Предмети та ціни</span></div>
             <div style="padding:14px 18px" id="set-subj-list"></div>
             <div style="padding:0 18px 18px;display:flex;gap:8px">
@@ -975,11 +969,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div>
       </div>
 
-
-
       <!-- ── PROFILE (Tutor) ── -->
       <div class="page" id="pg-profile">
-        <div style="display:flex;flex-direction:column;gap:14px;max-width:680px;margin:0 auto;overflow-y:auto">
+        <div class="tc">
           <div class="card">
               <div class="ch">
                 <span class="ct">Мій профіль</span>
@@ -1010,23 +1002,19 @@ body.role-tutor .comm-add-btn { display: none !important; }
               </div>
               <table><thead><tr><th>Ім'я</th><th>Предмет</th><th>Статус</th><th></th></tr></thead><tbody id="pr-students"></tbody></table>
             </div>
-
+            
+            <div class="card">
+              <div class="ch">
+                <span class="ct">💬 Комунікації</span>
+                <button class="btn btn-p btn-sm" onclick="openCommM(myTutor()&&myTutor().id)">+ Додати</button>
+              </div>
+              <div id="pr-comms"></div>
+            </div>
           </div>
         </div>
       </div>
 
     </div><!-- /content -->
-
-  <!-- CRM Kanban -->
-  <div id="pg-crm" style="display:none;position:fixed;top:56px;left:224px;right:0;bottom:0;background:var(--bg);z-index:10;flex-direction:column;padding:16px;box-sizing:border-box">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-shrink:0">
-      <button class="btn btn-p btn-sm" onclick="openAddLead()">+ Новий лід</button>
-      <span style="font-size:12px;color:var(--t3)">Перетягуйте картку між колонками</span>
-    </div>
-    <div style="flex:1;overflow-x:auto;overflow-y:hidden;min-height:0">
-      <div id="crm-board" style="display:flex;gap:12px;height:100%;align-items:flex-start;padding-bottom:16px;width:max-content;min-width:100%"></div>
-    </div>
-  </div>
   </div><!-- /main -->
 </div><!-- /layout -->
 </div><!-- /app -->
@@ -1225,56 +1213,112 @@ body.role-tutor .comm-add-btn { display: none !important; }
 // ═══════════════════════════════════════════════════════
 
 
-<!-- User modal -->
 <div class="mo" id="mo-user">
   <div class="mdl">
-    <div class="mdlh"><div class="mdlt" id="mu-title">Акаунт</div><button class="xbtn" onclick="closeM('mo-user')">×</button></div>
+    <div class="mdlh"><div class="mdlt" id="mu-title">Акаунт</div><button class="xbtn" onclick="closeM('mo-user')">x</button></div>
     <div class="mdlb"><div class="fg">
-      <div class="fgr"><label>Ім'я *</label><input id="u-fn" type="text"></div>
+      <div class="fgr"><label>Ім’я *</label><input id="u-fn" type="text"></div>
       <div class="fgr"><label>Прізвище</label><input id="u-ln" type="text"></div>
       <div class="fgr full"><label>Email</label><input id="u-email" type="email" disabled style="opacity:.5"></div>
       <div class="fgr"><label>Роль</label>
         <select id="u-role" onchange="toggleTutLink()">
-          <option id="u-role-god" value="god">⚡ Бог системи</option>
-          <option value="director">👑 Директор</option>
-          <option value="admin">🛡 Адміністратор</option>
-          <option value="tutor" selected>📚 Репетитор</option>
+          <option value="god">Бог системи</option>
+          <option value="director">Директор</option>
+          <option value="admin">Адміністратор</option>
+          <option value="tutor" selected>Репетитор</option>
         </select>
       </div>
       <div class="fgr" id="u-tlink-wrap" style="display:none">
-        <label>Прив'язати до репетитора</label>
+        <label>Прив’язати до репетитора</label>
         <select id="u-tlink"></select>
       </div>
     </div></div>
     <div class="mdlf">
-      <button class="btn btn-p" onclick="saveUser()">💾 Зберегти</button>
+      <button class="btn btn-p" onclick="saveUser()">Зберегти</button>
       <button class="btn btn-g" onclick="closeM('mo-user')">Скасувати</button>
     </div>
   </div>
 </div>
 
-<!-- User Access modal -->
 <div class="mo" id="mo-user-access">
   <div class="mdl" style="max-width:560px">
-    <div class="mdlh"><div class="mdlt">Доступ акаунту</div><button class="xbtn" onclick="closeM('mo-user-access')">×</button></div>
+    <div class="mdlh"><div class="mdlt">Доступ акаунту</div><button class="xbtn" onclick="closeM('mo-user-access')">x</button></div>
     <div class="mdlb">
       <div id="ua-user-info" style="margin-bottom:14px"></div>
       <div style="display:flex;gap:6px;margin-bottom:14px">
-        <button class="btn btn-g btn-sm ua-tab active" onclick="uaTab('perms',this)">🔐 Права</button>
-        <button class="btn btn-g btn-sm ua-tab" onclick="uaTab('nav',this)">📋 Навігація</button>
-        <button class="btn btn-g btn-sm ua-tab" onclick="uaTab('summary',this)">📊 Зведення</button>
+        <button class="btn btn-g btn-sm ua-tab active" onclick="uaTab('perms',this)">Права</button>
+        <button class="btn btn-g btn-sm ua-tab" onclick="uaTab('nav',this)">Навігація</button>
+        <button class="btn btn-g btn-sm ua-tab" onclick="uaTab('summary',this)">Зведення</button>
       </div>
       <div id="uap-perms" class="ua-panel active"><div id="ua-perms-grid"></div></div>
       <div id="uap-nav" class="ua-panel" style="display:none"><div id="ua-nav-grid"></div></div>
       <div id="uap-summary" class="ua-panel" style="display:none"><div id="ua-summary"></div></div>
     </div>
     <div class="mdlf" style="justify-content:space-between">
-      <button id="ua-reset-all" class="btn btn-d btn-sm" onclick="resetAllUserAccess()" style="display:none">↺ Скинути все</button>
+      <button id="ua-reset-all" class="btn btn-d btn-sm" onclick="resetAllUserAccess()" style="display:none">Скинути все</button>
       <button class="btn btn-g" onclick="closeM('mo-user-access')">Закрити</button>
     </div>
   </div>
 </div>
-
+<div class="mo" id="mo-crm-card">
+  <div class="mdl" style="max-width:420px">
+    <div class="mdlh">
+      <div class="mdlt" id="crm-card-name">CRM</div>
+      <button class="xbtn" onclick="closeM('mo-crm-card')">x</button>
+    </div>
+    <div class="mdlb"><div class="fg">
+      <div class="fgr full"><label>Етап</label>
+        <select id="crm-card-stage">
+          <option value="lead">Новий лід</option>
+          <option value="request">Запит</option>
+          <option value="trial">Тестовий урок</option>
+          <option value="contract">Підписання договору</option>
+          <option value="invoice">Виставлення рахунку</option>
+          <option value="payment">Оплата</option>
+          <option value="won">Успішно реалізовано</option>
+          <option value="lost">Не реалізовано</option>
+        </select>
+      </div>
+      <div class="fgr full"><label>Відповідальний (адміністратор)</label>
+        <select id="crm-card-resp"></select>
+      </div>
+      <div class="fgr"><label>Дата угоди</label>
+        <input id="crm-card-date" type="date">
+      </div>
+      <div class="fgr full"><label>Нотатки</label>
+        <textarea id="crm-card-notes" rows="3" placeholder="Коментар до угоди..."></textarea>
+      </div>
+    </div></div>
+    <div class="mdlf">
+      <button class="btn btn-p" onclick="saveCrmCard()">Зберегти</button>
+      <button class="btn btn-g" onclick="closeM('mo-crm-card')">Скасувати</button>
+    </div>
+  </div>
+</div>
+  <div id="pg-crm" style="display:none;position:fixed;top:56px;left:224px;right:0;bottom:0;background:var(--bg);z-index:10;flex-direction:column;padding:16px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-shrink:0;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="openAddLead()">+ Новий лід</button>
+      <select id="crm-f-stage" onchange="renderCrm()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:7px;background:var(--s1);color:var(--t1)">
+        <option value="">Всі етапи</option>
+        <option value="lead">Новий лід</option>
+        <option value="request">Запит</option>
+        <option value="trial">Тестовий урок</option>
+        <option value="contract">Підписання договору</option>
+        <option value="invoice">Виставлення рахунку</option>
+        <option value="payment">Оплата</option>
+        <option value="won">Успішно реалізовано</option>
+        <option value="lost">Не реалізовано</option>
+      </select>
+      <input id="crm-f-month" type="month" onchange="renderCrm()" title="Фільтр по місяцю" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:7px;background:var(--s1);color:var(--t1)">
+      <select id="crm-f-resp" onchange="renderCrm()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:7px;background:var(--s1);color:var(--t1)">
+        <option value="">Всі відповідальні</option>
+      </select>
+      <button class="btn btn-g btn-sm" onclick="crmClearFilters()">x Скинути</button>
+    </div>
+    <div style="flex:1;overflow-x:auto;overflow-y:hidden;min-height:0">
+      <div id="crm-board" style="display:flex;gap:12px;height:100%;align-items:flex-start;padding-bottom:16px;min-width:max-content"></div>
+    </div>
+  </div>
 <script src="app2.js"></script>
 </body>
 </html>
