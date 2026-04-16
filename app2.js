@@ -567,7 +567,7 @@ function renderDashStats(){
     var d=new Date(l.date);
     return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
   });
-  var nb=document.getElementById('nb-s'); if(nb)nb.textContent=S.students.length;
+  var nb=document.getElementById('nb-s'); if(nb)nb.textContent=myStudents().length;
   var statsHtml='<div class="sc blue">'
     +'<div class="slbl">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432</div>'
     +'<div class="sval">'+ms.filter(function(s){return s.status==='active';}).length+'</div>'
