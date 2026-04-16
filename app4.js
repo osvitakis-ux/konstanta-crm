@@ -2617,11 +2617,13 @@ async function startApp(){
   var lastPage = '';
   try{ lastPage = localStorage.getItem('sb_page')||''; }catch(e){}
   var allowedPages = userNav();
-  if(lastPage && allowedPages.indexOf(lastPage) >= 0){
-    try{ nav(lastPage); }catch(e){ console.error('restore nav error:',e); nav('dashboard'); }
-  } else {
-    nav('dashboard');
-  }
+  var startPage = (lastPage && allowedPages.indexOf(lastPage) >= 0) ? lastPage : 'dashboard';
+  try{ nav(startPage); }catch(e){ console.error('restore nav error:',e); nav('dashboard'); }
+
+  // Fresh reload in background to ensure data is up to date
+  loadAll().then(function(){
+    try{ nav(S.currentPage || startPage); }catch(e){}
+  }).catch(function(){});
 }
 
 // Keyboard
@@ -3975,5 +3977,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
