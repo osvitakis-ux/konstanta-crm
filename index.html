@@ -15,7 +15,7 @@
   --bg:#f0f4f8;--s1:#ffffff;--s2:#f5f7fa;--s3:#edf0f5;
   --b1:#dde3ed;--b2:#c8d0de;
 
-    --god:#2e3192;--god2:#5b60d4;--god-bg:rgba(46,49,146,.08);
+  --god:#2e3192;--god2:#5b60d4;--god-bg:rgba(46,49,146,.08);
   --dir:#a08800;--dir2:#c4a800;--dir-bg:rgba(192,160,0,.1);
   --adm:#0e86c0;--adm2:#1a9fd4;--adm-bg:rgba(14,134,192,.1);
   --tut:#1a9460;--tut2:#22b573;--tut-bg:rgba(26,148,96,.1);
@@ -470,24 +470,33 @@ body.role-tutor .comm-add-btn { display: none !important; }
 .ua-tab.active { background: var(--s2); }
 
 /* CRM Kanban */
-.crm-col{min-width:220px;max-width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
-.crm-col-hdr{background:var(--s1);border:1px solid var(--b1);border-radius:10px 10px 0 0;padding:10px 12px;display:flex;align-items:center;gap:8px}
-.crm-col-ico{font-size:16px}
-.crm-col-lbl{font-weight:700;font-size:12px;flex:1;text-transform:uppercase;letter-spacing:.5px}
-.crm-col-cnt{background:var(--s2);border:1px solid var(--b1);border-radius:20px;padding:1px 8px;font-size:11px;font-weight:700;color:var(--t2)}
-.crm-col-body{display:flex;flex-direction:column;gap:6px;min-height:100px;padding:4px 0}
-.crm-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;cursor:pointer;transition:box-shadow .15s,transform .15s;position:relative}
-.crm-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-1px);border-color:var(--adm)}
-.crm-card-name{font-weight:700;font-size:13px;margin-bottom:4px}
-.crm-card-subj{font-size:11px;color:var(--adm);margin-bottom:2px}
-.crm-card-tutor{font-size:11px;color:var(--t2);margin-bottom:2px}
-.crm-card-phone{font-size:11px;color:var(--t3)}
-.crm-card-comm{font-size:10px;color:var(--t3);margin-top:4px;padding-top:4px;border-top:1px solid var(--b1)}
-.crm-card-actions{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;opacity:0;transition:opacity .15s}
-.crm-card:hover .crm-card-actions{opacity:1}
-.crm-move-btn{background:var(--s2);border:1px solid var(--b1);border-radius:6px;padding:2px 6px;cursor:pointer;font-size:13px;transition:background .1s}
-.crm-move-btn:hover{background:var(--b1)}
-</style>
+#pg-crm { display:none; flex-direction:column; height:100%; }
+#pg-crm.active { display:flex; }
+.crm-toolbar { display:flex; align-items:center; gap:10px; padding:0 0 12px; flex-shrink:0; }
+.crm-board-wrap { flex:1; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; }
+.crm-board-wrap::-webkit-scrollbar { height:6px; }
+.crm-board-wrap::-webkit-scrollbar-track { background:var(--s2); border-radius:3px; }
+.crm-board-wrap::-webkit-scrollbar-thumb { background:var(--b2); border-radius:3px; }
+#crm-board { display:flex; gap:12px; min-width:max-content; height:100%; align-items:flex-start; padding:2px 2px 16px; }
+.crm-col { width:210px; flex-shrink:0; display:flex; flex-direction:column; max-height:calc(100vh - 180px); background:var(--s2); border-radius:12px; border:1px solid var(--b1); overflow:hidden; transition:box-shadow .15s; }
+.crm-col.crm-over { box-shadow:0 0 0 2px var(--adm); background:rgba(41,171,226,.06); }
+.crm-col-hdr { padding:10px 12px 8px; display:flex; align-items:center; gap:7px; flex-shrink:0; }
+.crm-col-lbl { font-weight:700; font-size:11px; flex:1; text-transform:uppercase; letter-spacing:.4px; color:var(--t1); }
+.crm-col-cnt { background:var(--s1); border:1px solid var(--b1); border-radius:20px; padding:1px 7px; font-size:11px; font-weight:700; color:var(--t2); }
+.crm-col-body { flex:1; overflow-y:auto; padding:4px 8px 8px; display:flex; flex-direction:column; gap:6px; }
+.crm-col-body::-webkit-scrollbar { width:3px; }
+.crm-col-body::-webkit-scrollbar-thumb { background:var(--b2); border-radius:3px; }
+.crm-card { background:var(--s1); border:1px solid var(--b1); border-radius:9px; padding:10px 11px 8px; cursor:grab; transition:box-shadow .15s,transform .15s,border-color .15s; user-select:none; }
+.crm-card:active { cursor:grabbing; }
+.crm-card:hover { box-shadow:0 3px 12px rgba(0,0,0,.1); transform:translateY(-1px); border-color:var(--adm); }
+.crm-card-name { font-weight:700; font-size:13px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.crm-card-subj { font-size:11px; color:var(--adm); margin-bottom:2px; }
+.crm-card-meta { font-size:11px; color:var(--t2); margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.crm-card-comm { font-size:10px; color:var(--t3); margin-top:5px; padding-top:5px; border-top:1px solid var(--b1); }
+.crm-card-btns { display:flex; gap:2px; margin-top:6px; flex-wrap:wrap; opacity:0; transition:opacity .15s; max-height:0; overflow:hidden; }
+.crm-card:hover .crm-card-btns { opacity:1; max-height:60px; }
+.crm-mv { background:var(--s2); border:1px solid var(--b1); border-radius:5px; padding:2px 5px; cursor:pointer; font-size:12px; line-height:1; transition:background .1s,transform .1s; }
+.crm-mv:hover { background:var(--b1); transform:scale(1.15); }</style>
 </head>
 <body>
 
@@ -975,7 +984,13 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
       <!-- CRM Kanban -->
       <div class="page" id="pg-crm">
-        <div id="crm-board" style="display:flex;gap:12px;overflow-x:auto;padding:4px 0 16px;min-height:60vh"></div>
+        <div class="crm-toolbar">
+          <button class="btn btn-p btn-sm" onclick="openAddLead()">+ Новий лід</button>
+          <span style="font-size:12px;color:var(--t3)">Перетягуйте картку між колонками</span>
+        </div>
+        <div class="crm-board-wrap">
+          <div id="crm-board"></div>
+        </div>
       </div>
 
       <!-- ── PROFILE (Tutor) ── -->
