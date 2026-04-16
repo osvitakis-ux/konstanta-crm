@@ -2078,7 +2078,7 @@ async function loadAll(){
 // Normalize DB rows to match UI field names
 function normalizeStudent(r){ 
   var tutorIds = r.tutor_ids ? (Array.isArray(r.tutor_ids) ? r.tutor_ids : r.tutor_ids.split(',').filter(Boolean)) : (r.tutor_id ? [r.tutor_id] : []);
-  return Object.assign({}, r, { tutorId:r.tutor_id, tutorIds:tutorIds, branchId:r.branch_id, parentFn:r.parent_fn, parentPhone:r.parent_phone }); 
+  return Object.assign({}, r, { tutorId:r.tutor_id, tutorIds:tutorIds, branchId:r.branch_id, parentFn:r.parent_fn, parentPhone:r.parent_phone, crmStage:r.crm_stage||null }); 
 }
 function normalizeLesson(r){  return Object.assign({}, r, { studentId:r.student_id, tutorId:r.tutor_id, branchId:r.branch_id, recurId:r.recur_id, recurType:r.recur_type, recurIndex:r.recur_index }); }
 function normalizePayment(r){ return Object.assign({}, r, { studentId:r.student_id, branchId:r.branch_id }); }
@@ -3548,14 +3548,19 @@ function getCrmStage(s){
 }
 
 async function setCrmStage(studentId, stage){
+  // Optimistic update — show change immediately
+  var i = (S.students||[]).findIndex(function(s){ return s.id === studentId; });
+  var prevStage = i >= 0 ? (S.students[i].crmStage || S.students[i].crm_stage) : null;
+  if(i >= 0){ S.students[i].crmStage = stage; S.students[i].crm_stage = stage; }
+  renderCrm();
   try {
     await dbUpdate('students', studentId, {crm_stage: stage});
-    var idx = (S.students||[]).findIndex(function(s){ return s.id === studentId; });
-    if(idx >= 0) S.students[idx].crmStage = stage;
-    renderCrm();
-    mkToast('\u0415\u0442\u0430\u043f \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e');
+    mkToast('Етап оновлено');
   } catch(e) {
-    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message, 'error');
+    // Rollback
+    if(i >= 0){ S.students[i].crmStage = prevStage; S.students[i].crm_stage = prevStage; }
+    renderCrm();
+    mkToast('Помилка: '+e.message, 'error');
   }
 }
 
@@ -3588,14 +3593,14 @@ function openAddLead(){
 function renderCrm(){
   var el = document.getElementById('crm-board');
   if(!el) return;
-  // Allow horizontal scroll on CRM page
-  var ct = document.getElementById('content');
-  if(ct){
-    ct.style.overflowX = 'auto';
-    ct.style.overflowY = 'hidden';
-    ct.style.display = 'block';
-    ct.style.width = '100%';
+  // Adjust left position based on sidebar visibility
+  var crmEl = document.getElementById('pg-crm');
+  if(crmEl){
+    var sb = document.querySelector('.sb');
+    var sbW = (sb && sb.offsetWidth > 0) ? sb.offsetWidth : 0;
+    crmEl.style.left = sbW + 'px';
   }
+
   var students = S.students || [];
 
   var groups = {};
