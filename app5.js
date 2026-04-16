@@ -768,80 +768,85 @@ function renderDashKpi(){
 
 function renderDashTrends(){
   if(!CU) return;
-  var offset=S.dashWeekOffset||0;
-  var weeks=[];
+  var offset = S.dashWeekOffset||0;
+  var weeks = [];
   for(var i=3;i>=0;i--){
-    var wr=getWeekRange(offset-i);
-    var weekL=S.lessons.filter(function(l){return inWeek(l.date,wr);});
-    var weekComms=(S.comms||[]).filter(function(c){return inWeek(c.date,wr);});
+    var wr = getWeekRange(offset-i);
+    var weekL = S.lessons.filter(function(l){return inWeek(l.date,wr);});
+    var weekComms = (S.comms||[]).filter(function(c){return inWeek(c.date,wr);});
     weeks.push({
       wr:wr,
-      done:weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length,
-      missed:weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length,
+      done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length,
+      missed: weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length,
       planned:weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length,
-      comms:weekComms.length,
+      comms:  weekComms.length,
     });
   }
 
-  function miniChart(containerId,data,colorFn,keyFn,unit){
-    var el=document.getElementById(containerId);
-    if(!el)return;
-    var max=Math.max.apply(null,data.map(keyFn).concat([1]));
-    var tutors=R()==='tutor'
-      ? S.tutors.filter(function(t){return t.accId===CU.id;})
-      : S.tutors;
+  var tutors = R()==='tutor'
+    ? S.tutors.filter(function(t){return CU && t.accId===CU.id;})
+    : S.tutors;
 
-    // Global bars
-    var barsHtml='';
-    data.forEach(function(w,i){
-      var val=keyFn(w);
-      var h=Math.max(4,Math.round(val/max*70));
-      var isActive=(i===data.length-1);
-      barsHtml+='<div class="trend-bar-wrap">'
-        +'<div class="trend-val">'+val+(unit||'')+'</div>'
-        +'<div class="trend-bar" style="height:'+h+'px;background:'+(isActive?colorFn:colorFn.replace(')',', .5)').replace('var(','rgba('))+'"></div>'
-        +'<div class="trend-lbl">'+w.wr.mon.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit'})+'</div>'
+  function miniChart(containerId, data, color, keyFn){
+    var el = document.getElementById(containerId);
+    if(!el) return;
+    var max = Math.max.apply(null, data.map(keyFn).concat([1]));
+
+    // Header bars
+    var barsHtml = '<div class="trend-weeks">';
+    data.forEach(function(w, i){
+      var val = keyFn(w);
+      var pct = Math.round(val/max*100);
+      var isNow = (i===data.length-1);
+      var lbl = w.wr.mon.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit'});
+      barsHtml += '<div class="trend-week'+(isNow?' trend-week-now':'')+'">'
+        +'<div class="trend-week-val">'+val+'</div>'
+        +'<div class="trend-week-bar-wrap">'
+          +'<div class="trend-week-bar" style="width:'+pct+'%;background:'+color+'"></div>'
+        +'</div>'
+        +'<div class="trend-week-lbl">'+lbl+'</div>'
         +'</div>';
     });
+    barsHtml += '</div>';
 
-    // Per-tutor trend lines (last 4 weeks)
-    var tutorRows='';
+    // Per-tutor rows
+    var tutorRows = '';
     tutors.slice(0,6).forEach(function(t){
-      var vals=data.map(function(w){
-        var wl=S.lessons.filter(function(l){return inWeek(l.date,w.wr)&&(l.tutor_id===t.id||l.tutorId===t.id);});
+      var vals = data.map(function(w){
         if(containerId==='dash-trend-comms'){
           return (S.comms||[]).filter(function(c){return inWeek(c.date,w.wr)&&(c.tutor_id===t.id||c.tutorId===t.id);}).length;
         }
-        return wl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
+        return S.lessons.filter(function(l){return inWeek(l.date,w.wr)&&(l.tutor_id===t.id||l.tutorId===t.id)&&(l.status==='done'||l.status==='completed');}).length;
       });
-      var tutMax=Math.max.apply(null,vals.concat([1]));
-      var segs=vals.map(function(v,i){
-        var h=Math.max(3,Math.round(v/tutMax*28));
-        var isLast=(i===vals.length-1);
-        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">'
-          +'<div style="font-size:9px;color:var(--t3);font-family:JetBrains Mono,monospace">'+v+'</div>'
-          +'<div style="width:100%;height:'+h+'px;border-radius:3px 3px 0 0;background:'+(isLast?colorFn:'var(--b2)')+'"></div>'
-          +'</div>';
-      }).join('');
-      tutorRows+='<div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.04)">'
-        +mkAv(t.fn,t.ln,20)
-        +'<span style="font-size:11px;color:var(--t2);width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+t.fn+' '+t.ln+'</span>'
-        +'<div style="flex:1;display:flex;align-items:flex-end;gap:4px;height:36px">'+segs+'</div>'
-        +'<span style="font-size:13px;font-weight:700;font-family:JetBrains Mono,monospace;color:var(--t1);width:24px;text-align:right">'+vals[vals.length-1]+'</span>'
-        +'</div>';
+      var tMax = Math.max.apply(null, vals.concat([1]));
+      var total = vals[vals.length-1];
+
+      tutorRows += '<div class="trend-tutor-row">'
+        + mkAv(t.fn, t.ln, 26)
+        + '<div class="trend-tutor-name">'+t.fn+' '+t.ln+'</div>'
+        + '<div class="trend-tutor-bars">'
+        + vals.map(function(v,i){
+            var pct = Math.round(v/tMax*100);
+            var isNow = (i===vals.length-1);
+            return '<div class="trend-tutor-col">'
+              +'<div class="trend-tutor-num">'+v+'</div>'
+              +'<div class="trend-tutor-bar-wrap">'
+                +'<div class="trend-tutor-bar" style="width:'+pct+'%;background:'+(isNow?color:'var(--b2)')+'"></div>'
+              +'</div>'
+              +'</div>';
+          }).join('')
+        + '</div>'
+        + '<div class="trend-tutor-total">'+total+'</div>'
+        + '</div>';
     });
 
-    el.innerHTML='<div style="display:flex;flex-direction:column">'
-      +'<div class="trend-chart">'+barsHtml+'</div>'
-      +tutorRows
-      +'</div>';
+    el.innerHTML = barsHtml + (tutorRows ? '<div class="trend-tutor-list">'+tutorRows+'</div>' : '');
   }
 
-  miniChart('dash-trend-lessons',weeks,'var(--tut)',function(w){return w.done;},'');
-  miniChart('dash-trend-comms',weeks,'var(--adm)',function(w){return w.comms;},'');
+  miniChart('dash-trend-lessons', weeks, 'var(--tut)', function(w){return w.done;});
+  miniChart('dash-trend-comms',   weeks, 'var(--adm)', function(w){return w.comms;});
 }
 
-// \u2500\u2500 Bottom row \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function renderDashBottom(){
   var now=new Date();
   var ml=myLessons();
@@ -4011,5 +4016,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
