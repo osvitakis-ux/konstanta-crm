@@ -1,4 +1,3 @@
-
 window.SupabaseMini = (function(){
 
   function createClient(url, anonKey){
@@ -665,8 +664,9 @@ function renderDashKpi(){
   }).concat([1]));
 
   // Summary footer row
-
-  var rows=tutors.map(function(t){
+  var totalDone=0,totalMissed=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
+  var rowsArr=[];
+  tutors.forEach(function(t){
     var tl=weekL.filter(function(l){return l.tutorId===t.id;});
     var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
     var tMissed =tl.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
@@ -690,7 +690,7 @@ function renderDashKpi(){
     else if(dd<0){trendTxt='\u2193'+dd;trendCls='down';}
     else if(prevTDone>0){trendTxt='='+tDone;trendCls='same';}
 
-    return '<tr>'
+    var rowHtml = '<tr>'
       +'<td><div style="display:flex;align-items:center;gap:8px">'+mkAv(t.fn,t.ln,28)
       +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
       +'<div style="font-size:10px;color:var(--t3)">'+( t.subj||'\u2014')+'</div></div></div></td>'
@@ -724,7 +724,9 @@ function renderDashKpi(){
       +'<div style="font-size:10px;color:var(--t3)">'+tDone+' / '+(tDone+tMissed)+'</div>'
       +'</td>'
       +'</tr>';
-  }).join('');
+    rowsArr.push(rowHtml);
+  });
+  var rows = rowsArr.join('');
 
   // Total row
   var totalEffective=totalDone+totalMissed;
@@ -3908,5 +3910,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
