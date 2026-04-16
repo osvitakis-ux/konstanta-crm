@@ -1,4 +1,3 @@
-
 window.SupabaseMini = (function(){
 
   function createClient(url, anonKey){
@@ -665,6 +664,7 @@ function renderDashKpi(){
   }).concat([1]));
 
   // Summary footer row
+  var totalDone=0,totalMissed=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
 
   var rows=tutors.map(function(t){
     var tl=weekL.filter(function(l){return l.tutorId===t.id;});
@@ -3908,5 +3908,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
