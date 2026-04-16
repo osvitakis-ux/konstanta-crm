@@ -3588,6 +3588,9 @@ function openAddLead(){
 function renderCrm(){
   var el = document.getElementById('crm-board');
   if(!el) return;
+  // Allow horizontal scroll on CRM page
+  var ct = document.getElementById('content');
+  if(ct){ ct.style.overflowX = 'auto'; ct.style.overflowY = 'hidden'; }
   var students = S.students || [];
 
   var groups = {};
