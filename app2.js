@@ -3517,101 +3517,118 @@ function updateSBUser(){
 
 
 
+
 // ═══════════════════════════════════════
 // CRM KANBAN
 // ═══════════════════════════════════════
 
 var CRM_COLS = [
-  {id:'lead',       lbl:'\u041D\u043E\u0432\u0438\u0439 \u043B\u0456\u0434',           ico:'\uD83D\uDFE1', color:'#f59e0b'},
-  {id:'request',    lbl:'\u0417\u0430\u043F\u0438\u0442',                                 ico:'\uD83D\uDCE9', color:'#3b82f6'},
-  {id:'trial',      lbl:'\u0422\u0435\u0441\u0442\u043E\u0432\u0438\u0439 \u0443\u0440\u043E\u043A',       ico:'\uD83C\uDFAF', color:'#8b5cf6'},
-  {id:'contract',   lbl:'\u041F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u043D\u044F \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0443', ico:'\uD83D\uDCDD', color:'#06b6d4'},
-  {id:'invoice',    lbl:'\u0412\u0438\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043D\u044F \u0440\u0430\u0445\u0443\u043D\u043A\u0443', ico:'\uD83D\uDCCB', color:'#f97316'},
-  {id:'payment',    lbl:'\u041E\u043F\u043B\u0430\u0442\u0430',                          ico:'\uD83D\uDCB3', color:'#10b981'},
-  {id:'won',        lbl:'\u0423\u0441\u043F\u0456\u0448\u043D\u043E \u0440\u0435\u0430\u043B\u0456\u0437\u043E\u0432\u0430\u043D\u043E', ico:'\u2705',       color:'#22c55e'},
-  {id:'lost',       lbl:'\u041D\u0435 \u0440\u0435\u0430\u043B\u0456\u0437\u043E\u0432\u0430\u043D\u043E', ico:'\uD83D\uDDD1\uFE0F', color:'#ef4444'},
+  {id:'lead',       lbl:'\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434',                   ico:'\uD83D\uDFE1', color:'#f59e0b'},
+  {id:'request',    lbl:'\u0417\u0430\u043f\u0438\u0442',                                       ico:'\uD83D\uDCE9', color:'#3b82f6'},
+  {id:'trial',      lbl:'\u0422\u0435\u0441\u0442\u043e\u0432\u0438\u0439 \u0443\u0440\u043e\u043a', ico:'\uD83C\uDFAF', color:'#8b5cf6'},
+  {id:'contract',   lbl:'\u041f\u0456\u0434\u043f\u0438\u0441\u0430\u043d\u043d\u044f \u0434\u043e\u0433\u043e\u0432\u043e\u0440\u0443', ico:'\uD83D\uDCDD', color:'#06b6d4'},
+  {id:'invoice',    lbl:'\u0412\u0438\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043d\u044f \u0440\u0430\u0445\u0443\u043d\u043a\u0443', ico:'\uD83D\uDCCB', color:'#f97316'},
+  {id:'payment',    lbl:'\u041e\u043f\u043b\u0430\u0442\u0430',                                 ico:'\uD83D\uDCB3', color:'#10b981'},
+  {id:'won',        lbl:'\u0423\u0441\u043f\u0456\u0448\u043d\u043e \u0440\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e', ico:'\u2705', color:'#22c55e'},
+  {id:'lost',       lbl:'\u041d\u0435 \u0440\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e', ico:'\uD83D\uDDD1\uFE0F', color:'#ef4444'},
 ];
 
 var CRM_STAGE_LABELS = {
-  lead:'Новий лід',
-  request:'Запит',
-  trial:'Тестовий урок',
-  contract:'Підписання договору',
-  invoice:'Виставлення рахунку',
-  payment:'Оплата',
-  won:'Успішно реалізовано',
-  lost:'Не реалізовано'
+  lead:'\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434', request:'\u0417\u0430\u043f\u0438\u0442',
+  trial:'\u0422\u0435\u0441\u0442\u043e\u0432\u0438\u0439 \u0443\u0440\u043e\u043a', contract:'\u041f\u0456\u0434\u043f\u0438\u0441\u0430\u043d\u043d\u044f \u0434\u043e\u0433\u043e\u0432\u043e\u0440\u0443',
+  invoice:'\u0412\u0438\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043d\u044f \u0440\u0430\u0445\u0443\u043d\u043a\u0443', payment:'\u041e\u043f\u043b\u0430\u0442\u0430',
+  won:'\u0423\u0441\u043f\u0456\u0448\u043d\u043e \u0440\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e', lost:'\u041d\u0435 \u0440\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e'
 };
 
 function getCrmStage(s){
-  // Map student status to CRM stage
-  if(!s) return 'new';
+  if(!s) return 'lead';
   if(s.crmStage) return s.crmStage;
   var map = {active:'won', trial:'trial', paused:'lost', completed:'won'};
-  return map[s.status] || 'new';
+  return map[s.status] || 'lead';
 }
 
 async function setCrmStage(studentId, stage){
   try {
-    await dbUpdate('students', studentId, {crmStage: stage});
-    // Update local state
-    var idx = S.students.findIndex(function(s){ return s.id === studentId; });
+    await dbUpdate('students', studentId, {crm_stage: stage});
+    var idx = (S.students||[]).findIndex(function(s){ return s.id === studentId; });
     if(idx >= 0) S.students[idx].crmStage = stage;
     renderCrm();
-    mkToast('\u0415\u0442\u0430\u043F \u043E\u043D\u043E\u0432\u043B\u0435\u043D\u043E');
+    mkToast('\u0415\u0442\u0430\u043f \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e');
   } catch(e) {
-    mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+e.message, 'error');
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message, 'error');
   }
+}
+
+function openAddLead(){
+  // Pre-fill student modal with crm_stage=lead and open it
+  S.editId = null;
+  S._crmNewStage = 'lead';
+  document.getElementById('ms-title').textContent = '\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434';
+  var dl_s = document.getElementById('subj-list-s');
+  if(dl_s) dl_s.innerHTML = (S.subjects||[]).map(function(x){ return '<option value="'+x.name+'">'; }).join('');
+  var stList = document.getElementById('s-tutor-list');
+  var stSel  = document.getElementById('s-tutor');
+  if(stSel) stSel.innerHTML = (S.tutors||[]).map(function(t){ return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>'; }).join('');
+  if(stList) stList.innerHTML = (S.tutors||[]).map(function(t){
+    return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px">'
+      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'
+      +mkAv(t.fn,t.ln,20)+'<span>'+t.fn+' '+t.ln+'</span></label>';
+  }).join('');
+  ['fn','ln','age','grade','phone','email','notes'].forEach(function(f){
+    var el=document.getElementById('s-'+f); if(el) el.value='';
+  });
+  var pf=document.getElementById('s-parent-fn'); if(pf) pf.value='';
+  var pp=document.getElementById('s-parent-phone'); if(pp) pp.value='';
+  document.getElementById('s-status').value='trial';
+  document.getElementById('s-src').value='referral';
+  renderCustomFields('student','mo-student-cf');
+  openM('mo-student');
 }
 
 function renderCrm(){
   var el = document.getElementById('crm-board');
   if(!el) return;
-
   var students = S.students || [];
 
-  // Group by stage
   var groups = {};
   CRM_COLS.forEach(function(c){ groups[c.id] = []; });
   students.forEach(function(s){
     var stage = getCrmStage(s);
-    if(!groups[stage]) stage = 'new';
+    if(!groups[stage]) stage = 'lead';
     groups[stage].push(s);
   });
 
-  // Render columns
   var html = '';
   CRM_COLS.forEach(function(col){
     var cards = groups[col.id] || [];
     var cardHtml = cards.map(function(s){
       var tutor = s.tutorId ? (S.tutors||[]).find(function(t){ return t.id===s.tutorId; }) : null;
       var lastComm = (S.comms||[]).filter(function(c){ return c.studentId===s.id; })
-        .sort(function(a,b){ return b.date > a.date ? 1 : -1; })[0];
-
-      return '<div class="crm-card" draggable="true" '
-        +'ondragstart="crmDragStart(event,\''+s.id+'\')" '
-        +'ondragend="crmDragEnd(event)" '
-        +'onclick="openStudM(\''+s.id+'\')">'
+        .sort(function(a,b){ return (b.date||'') > (a.date||'') ? 1 : -1; })[0];
+      return '<div class="crm-card" draggable="true"'
+        +' ondragstart="crmDragStart(event,\''+s.id+'\')"'
+        +' ondragend="crmDragEnd(event)"'
+        +' onclick="openStudM(\''+s.id+'\')">'
         +'<div class="crm-card-name">'+s.fn+' '+s.ln+'</div>'
         +(s.subject ? '<div class="crm-card-subj">'+s.subject+'</div>' : '')
-        +(tutor ? '<div class="crm-card-tutor">\uD83D\uDC64 '+tutor.fn+' '+tutor.ln+'</div>' : '')
-        +(s.phone||s.parentPhone ? '<div class="crm-card-phone">\uD83D\uDCDE '+(s.phone||s.parentPhone)+'</div>' : '')
+        +(tutor ? '<div class="crm-card-meta">\uD83D\uDC64 '+tutor.fn+' '+tutor.ln+'</div>' : '')
+        +(s.phone||s.parentPhone ? '<div class="crm-card-meta">\uD83D\uDCDE '+(s.phone||s.parentPhone)+'</div>' : '')
         +(lastComm ? '<div class="crm-card-comm">\uD83D\uDCAC '+fd(lastComm.date)+'</div>' : '')
-        +'<div class="crm-card-actions">'
+        +'<div class="crm-card-btns">'
         +CRM_COLS.filter(function(c){ return c.id!==col.id; }).map(function(c){
-          return '<button class="crm-move-btn" title="\u041F\u0435\u0440\u0435\u043C\u0456\u0441\u0442\u0438\u0442\u0438 \u0434\u043E: '+c.lbl+'" '
-            +'onclick="event.stopPropagation();setCrmStage(\''+s.id+'\',\''+c.id+'\')">'
+          return '<button class="crm-mv" title="\u2192 '+c.lbl+'" onclick="event.stopPropagation();setCrmStage(\''+s.id+'\',\''+c.id+'\')">'
             +c.ico+'</button>';
         }).join('')
         +'</div>'
         +'</div>';
     }).join('');
 
-    html += '<div class="crm-col" '
-      +'ondragover="event.preventDefault()" '
-      +'ondrop="crmDrop(event,\''+col.id+'\')">'
+    html += '<div class="crm-col"'
+      +' ondragover="crmDragOver(event)"'
+      +' ondragleave="crmDragLeave(event)"'
+      +' ondrop="crmDrop(event,\''+col.id+'\')">'
       +'<div class="crm-col-hdr" style="border-top:3px solid '+col.color+'">'
-        +'<span class="crm-col-ico">'+col.ico+'</span>'
+        +'<span style="font-size:15px">'+col.ico+'</span>'
         +'<span class="crm-col-lbl">'+col.lbl+'</span>'
         +'<span class="crm-col-cnt">'+cards.length+'</span>'
       +'</div>'
@@ -3624,22 +3641,30 @@ function renderCrm(){
 
 var _crmDragId = null;
 
-function crmDragStart(e, studentId){
-  _crmDragId = studentId;
+function crmDragStart(e, id){
+  _crmDragId = id;
   e.dataTransfer.effectAllowed = 'move';
-  e.currentTarget.style.opacity = '0.5';
+  setTimeout(function(){ if(e.target) e.target.style.opacity = '0.4'; }, 0);
 }
-
 function crmDragEnd(e){
-  e.currentTarget.style.opacity = '1';
+  if(e.target) e.target.style.opacity = '1';
+  document.querySelectorAll('.crm-col').forEach(function(c){ c.classList.remove('crm-over'); });
 }
-
+function crmDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  var col = e.currentTarget;
+  document.querySelectorAll('.crm-col').forEach(function(c){ c.classList.remove('crm-over'); });
+  col.classList.add('crm-over');
+}
+function crmDragLeave(e){
+  if(!e.currentTarget.contains(e.relatedTarget))
+    e.currentTarget.classList.remove('crm-over');
+}
 function crmDrop(e, colId){
   e.preventDefault();
-  if(_crmDragId){
-    setCrmStage(_crmDragId, colId);
-    _crmDragId = null;
-  }
+  document.querySelectorAll('.crm-col').forEach(function(c){ c.classList.remove('crm-over'); });
+  if(_crmDragId){ setCrmStage(_crmDragId, colId); _crmDragId = null; }
 }
 
 // === Expose all functions to window ===
@@ -3832,6 +3857,9 @@ window.crmDragStart = crmDragStart;
 window.crmDragEnd = crmDragEnd;
 window.crmDrop = crmDrop;
 window.getCrmStage = getCrmStage;
+window.openAddLead = openAddLead;
+window.crmDragOver = crmDragOver;
+window.crmDragLeave = crmDragLeave;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
