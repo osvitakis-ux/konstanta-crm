@@ -163,9 +163,9 @@ window.SupabaseMini = (function(){
             var lastPoll = Date.now();
             if(table){
               setInterval(async function(){
-                // Just trigger a refresh - loadTableFresh handles the actual reload
-                if(typeof refreshPage === 'function') refreshPage(table);
-              }, 8000);
+                // Just trigger a refresh - skip if currently saving
+                if(typeof refreshPage === 'function' && !window._saving) refreshPage(table);
+              }, 30000);
             }
           }
           return this;
@@ -2188,6 +2188,7 @@ async function saveStudent(){
     var mt=myTutor();
     if(mt){ obj.tutor_id=mt.id; obj.tutor_ids=mt.id; }
   }
+  window._saving = true;
   try{
     var saved;
     if(S.editId){
@@ -2204,8 +2205,8 @@ async function saveStudent(){
       mkToast('\u0423\u0447\u043D\u044F \u0434\u043E\u0434\u0430\u043D\u043E');
     }
     closeM('mo-student'); S.editId=null;
-    refreshPage('students');
-  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+    window._saving=false; refreshPage('students');
+  }catch(e){ window._saving=false; mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
 }
 
 async function delStudent(id){
@@ -2227,11 +2228,12 @@ async function saveTutor(){
     rating: parseInt(document.getElementById('t-rating')?.value)||5,
     branch_id: myBranchId()||null,
   };
+  window._saving = true;
   try{
     if(S.editId){ await dbUpdate('tutors',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }
     else         { await dbInsert('tutors',Object.assign({id:uid()},obj)); mkToast('\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430 \u0434\u043E\u0434\u0430\u043D\u043E'); }
-    closeM('mo-tutor'); S.editId=null; refreshPage('tutors');
-  }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
+    closeM('mo-tutor'); S.editId=null; window._saving=false; refreshPage('tutors');
+  }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
 }
 
 async function delTutor(id){
@@ -2258,8 +2260,9 @@ async function saveLesson(){
     notes:  document.getElementById('l-notes')?.value||'',
     branch_id: myBranchId()||null,
   };
+  window._saving = true;
   try{
-    if(S.editId){ await dbUpdate('lessons',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); closeM('mo-lesson'); refreshPage('lessons'); }
+    if(S.editId){ await dbUpdate('lessons',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); closeM('mo-lesson'); window._saving=false; refreshPage('lessons'); }
     else if(recurType && recurType!=='none'){
       var endDate  = document.getElementById('l-recur-end')?.value;
       var count    = parseInt(document.getElementById('l-recur-count')?.value)||10;
@@ -2314,11 +2317,12 @@ async function savePayment(){
     note:   document.getElementById('p-note')?.value||'',
     branch_id: myBranchId()||null,
   };
+  window._saving = true;
   try{
     if(S.editId){ await dbUpdate('payments',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }
     else         { await dbInsert('payments',Object.assign({id:uid()},obj)); mkToast('\u0417\u0430\u043F\u0438\u0441\u0430\u043D\u043E'); }
-    closeM('mo-payment'); S.editId=null; refreshPage('payments');
-  }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
+    closeM('mo-payment'); S.editId=null; window._saving=false; refreshPage('payments');
+  }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
 }
 
 async function delPay(id){
@@ -2348,14 +2352,15 @@ async function saveComm(){
   var tutorId=document.getElementById('cm-tutor')?.value, date=document.getElementById('cm-date')?.value;
   if(!tutorId){ mkToast('\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430','error'); return; }
   if(!date)   { mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0434\u0430\u0442\u0443','error'); return; }
+  window._saving = true;
   try{
     await dbInsert('comms',{ id:uid(), tutor_id:tutorId,
       student_id:document.getElementById('cm-student')?.value||null,
       date, type:document.getElementById('cm-type')?.value||'call',
       note:document.getElementById('cm-note')?.value||'',
       branch_id:myBranchId()||null });
-    closeM('mo-comm'); mkToast('Записано'); refreshPage('comms');
-  }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
+    closeM('mo-comm'); mkToast('Записано'); window._saving=false; refreshPage('comms');
+  }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
 }
 
 async function delComm(id){
@@ -2633,11 +2638,7 @@ async function startApp(){
   var startPage = (lastPage && allowedPages.indexOf(lastPage) >= 0) ? lastPage : 'dashboard';
   try{ nav(startPage); }catch(e){ console.error('restore nav error:',e); nav('dashboard'); }
 
-  // Fresh reload in background to ensure data is up to date
-  loadAll().then(function(){
-    try{ nav(S.currentPage || startPage); }catch(e){}
-  }).catch(function(){});
-}
+}  // startApp end
 
 // Keyboard
 
@@ -3990,5 +3991,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
