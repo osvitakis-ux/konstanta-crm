@@ -2652,39 +2652,44 @@ async function clearData(what){
 async function startApp(){
   document.getElementById('ls').style.display='none';
   document.getElementById('as').style.display='block';
+
+  // Refresh helper — re-renders current page
+  function reRender(){
+    var pg = S.currentPage;
+    if(!pg) return;
+    try{
+      if(pg==='dashboard')  renderDash();
+      else if(pg==='students')  renderStudents();
+      else if(pg==='tutors')    renderTutors();
+      else if(pg==='schedule')  renderSch();
+      else if(pg==='lessons')   renderLessons();
+      else if(pg==='payments')  renderPayments();
+      else if(pg==='reports')   renderReports();
+      else if(pg==='users')     renderUsers();
+      else if(pg==='settings')  renderSettings();
+      else if(pg==='profile')   renderProfile();
+      else if(pg==='crm')       renderCrm();
+    }catch(e){ console.warn('reRender:', e); }
+  }
+
+  // Load data, build UI, navigate — all in one await
   await loadAll();
   startChannels();
   buildSidebar(); updateSBUser(); updateBranchSelector();
-  // Set role class on body for CSS-based hiding
   document.body.className = document.body.className.replace(/\brole-\w+\b/g, '');
   document.body.classList.add('role-' + (CU ? CU.role : 'tutor'));
-  // Restore last visited page
+
   var lastPage = '';
   try{ lastPage = localStorage.getItem('sb_page')||''; }catch(e){}
   var allowedPages = userNav();
   var startPage = (lastPage && allowedPages.indexOf(lastPage) >= 0) ? lastPage : 'dashboard';
-  try{ nav(startPage); }catch(e){ console.error('restore nav error:',e); nav('dashboard'); }
+  try{ nav(startPage); }catch(e){ nav('dashboard'); }
 
-  // Refresh data in background silently — re-render current page when done
-  setTimeout(function(){
-    loadAll().then(function(){
-      var pg = S.currentPage;
-      if(!pg) return;
-      try{
-        if(pg==='dashboard') renderDash();
-        else if(pg==='students') renderStudents();
-        else if(pg==='tutors') renderTutors();
-        else if(pg==='schedule') renderSch();
-        else if(pg==='lessons') renderLessons();
-        else if(pg==='payments') renderPayments();
-        else if(pg==='reports') renderReports();
-        else if(pg==='users') renderUsers();
-        else if(pg==='settings') renderSettings();
-        else if(pg==='profile') renderProfile();
-        else if(pg==='crm') renderCrm();
-      }catch(e){}
-    }).catch(function(){});
-  }, 300);
+  // Second silent load to catch any data that arrived after first load
+  loadAll().then(function(){
+    buildSidebar(); updateSBUser();
+    reRender();
+  }).catch(function(){});
 
 }  // startApp end
 
