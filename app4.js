@@ -2189,10 +2189,23 @@ async function saveStudent(){
     if(mt){ obj.tutor_id=mt.id; obj.tutor_ids=mt.id; }
   }
   try{
-    if(S.editId){ await dbUpdate('students',S.editId,obj); mkToast('\u0423\u0447\u043D\u044F \u043E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }
-    else         { await dbInsert('students',Object.assign({id:uid()},obj)); mkToast('\u0423\u0447\u043D\u044F \u0434\u043E\u0434\u0430\u043D\u043E'); }
+    var saved;
+    if(S.editId){
+      saved = await dbUpdate('students',S.editId,obj);
+      var norm = normalizeStudent(Object.assign({id:S.editId},obj));
+      var i = S.students.findIndex(function(x){return x.id===S.editId;});
+      if(i>=0) S.students[i] = norm; else S.students.push(norm);
+      mkToast('\u0423\u0447\u043D\u044F \u043E\u043D\u043E\u0432\u043B\u0435\u043D\u043E');
+    } else {
+      var newId = uid();
+      var norm = normalizeStudent(Object.assign({id:newId},obj));
+      await dbInsert('students',Object.assign({id:newId},obj));
+      S.students.push(norm);
+      mkToast('\u0423\u0447\u043D\u044F \u0434\u043E\u0434\u0430\u043D\u043E');
+    }
     closeM('mo-student'); S.editId=null;
-  }catch(e){}
+    refreshPage('students');
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
 }
 
 async function delStudent(id){
@@ -2217,8 +2230,8 @@ async function saveTutor(){
   try{
     if(S.editId){ await dbUpdate('tutors',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }
     else         { await dbInsert('tutors',Object.assign({id:uid()},obj)); mkToast('\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430 \u0434\u043E\u0434\u0430\u043D\u043E'); }
-    closeM('mo-tutor'); S.editId=null;
-  }catch(e){}
+    closeM('mo-tutor'); S.editId=null; refreshPage('tutors');
+  }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
 }
 
 async function delTutor(id){
@@ -2246,7 +2259,7 @@ async function saveLesson(){
     branch_id: myBranchId()||null,
   };
   try{
-    if(S.editId){ await dbUpdate('lessons',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); closeM('mo-lesson'); }
+    if(S.editId){ await dbUpdate('lessons',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); closeM('mo-lesson'); refreshPage('lessons'); }
     else if(recurType && recurType!=='none'){
       var endDate  = document.getElementById('l-recur-end')?.value;
       var count    = parseInt(document.getElementById('l-recur-count')?.value)||10;
@@ -2304,8 +2317,8 @@ async function savePayment(){
   try{
     if(S.editId){ await dbUpdate('payments',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }
     else         { await dbInsert('payments',Object.assign({id:uid()},obj)); mkToast('\u0417\u0430\u043F\u0438\u0441\u0430\u043D\u043E'); }
-    closeM('mo-payment'); S.editId=null;
-  }catch(e){}
+    closeM('mo-payment'); S.editId=null; refreshPage('payments');
+  }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
 }
 
 async function delPay(id){
@@ -2341,7 +2354,7 @@ async function saveComm(){
       date, type:document.getElementById('cm-type')?.value||'call',
       note:document.getElementById('cm-note')?.value||'',
       branch_id:myBranchId()||null });
-    closeM('mo-comm'); mkToast('Записано');
+    closeM('mo-comm'); mkToast('Записано'); refreshPage('comms');
   }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
 }
 
