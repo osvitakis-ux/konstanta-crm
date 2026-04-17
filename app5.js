@@ -3994,9 +3994,23 @@ function sendInvoiceEmail(){
     +'?subject='+encodeURIComponent(subject)
     +'&body='+encodeURIComponent(body);
 
-  var _a=document.createElement('a');_a.href=mailto;_a.target='_blank';document.body.appendChild(_a);_a.click();setTimeout(function(){document.body.removeChild(_a);},100);
-  mkToast('\u0412\u0456\u0434\u043a\u0440\u0438\u0432\u0430\u0454\u043c\u043e email \u043a\u043b\u0456\u0454\u043d\u0442...');
-  closeM('mo-invoice');
+  // Show popup with open + copy options
+  var old = document.getElementById('inv-popup');
+  if(old) old.remove();
+  var pop = document.createElement('div');
+  pop.id = 'inv-popup';
+  pop.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 22px;box-shadow:0 8px 32px rgba(0,0,0,.3);z-index:9999;min-width:300px;text-align:center';
+  var copyText = 'Тема: '+subject+'\nОтримувач: '+email+'\n\n'+body;
+  document.body.appendChild(pop);
+  document.getElementById('inv-copy-btn').addEventListener('click', function(){
+    navigator.clipboard.writeText(copyText).then(function(){
+      document.getElementById('inv-copy-btn').textContent = 'Скопійовано ✔';
+      document.getElementById('inv-copy-btn').style.background = 'var(--tut)';
+      document.getElementById('inv-copy-btn').style.color = '#fff';
+    }).catch(function(){
+      prompt('Копіюйте Ctrl+A, Ctrl+C:', copyText);
+    });
+  });
 }
 
 window.calcInvoiceLessons = calcInvoiceLessons;
