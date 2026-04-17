@@ -470,7 +470,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
 .inv-table td{padding:5px 10px;border-bottom:1px solid var(--b1);color:var(--t1)}
 .inv-table tfoot td{background:var(--s2);font-size:13px;padding:8px 10px;border-top:2px solid var(--b1);font-weight:700}
 .inv-table tbody tr:hover td{background:rgba(41,171,226,.04)}
-/* Trend charts */
+/* Trend */
 .trend-weeks{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
 .trend-week{display:flex;flex-direction:column;gap:3px}
 .trend-week-now .trend-week-val{color:var(--t1);font-weight:700}
@@ -767,7 +767,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div class="sc yellow"><div class="slbl">Очікується</div><div class="sval" id="py-pend">0₴</div><span class="sico">⏳</span></div>
           <div class="sc red"><div class="slbl">Прострочено</div><div class="sval" id="py-over">0₴</div><span class="sico">⚠️</span></div>
         </div>
-        <!-- Invoice card (god/director only) -->
         <div class="card" id="inv-card" style="display:none">
           <div class="ch" style="display:flex;align-items:center;justify-content:space-between">
             <span class="ct">Рахунок-фактура</span>
@@ -775,24 +774,23 @@ body.role-tutor .comm-add-btn { display: none !important; }
           </div>
           <div style="padding:14px 18px">
             <div class="fg">
-              <div class="fgr full">
-                <label>Учень</label>
-                <select id="inv-student" onchange="calcInvoiceLessons()">
-                  <option value="">— оберіть учня —</option>
-                </select>
-              </div>
+              <div class="fgr full"><label>Учень</label><select id="inv-student" onchange="calcInvoiceLessons()"><option value="">— оберіть учня —</option></select></div>
               <div class="fgr"><label>Період з</label><input id="inv-date-from" type="date" onchange="calcInvoiceLessons()"></div>
               <div class="fgr"><label>Період по</label><input id="inv-date-to" type="date" onchange="calcInvoiceLessons()"></div>
               <div class="fgr"><label>Ціна за урок (грн)</label><input id="inv-price" type="number" min="0" placeholder="0" oninput="calcInvoiceLessons()"></div>
               <div class="fgr full"><label>Email отримувача</label><input id="inv-email" type="email" placeholder="email@example.com"></div>
-              <div class="fgr full">
-                <label>Реквізити для оплати</label>
-                <textarea id="inv-payment" rows="3" placeholder="IBAN, номер картки, банківські реквізити..."></textarea>
+              <div class="fgr" id="inv-phone-wrap" style="display:none">
+                <label>Телефон (вайбер)</label>
+                <input id="inv-phone" type="tel" placeholder="+380XXXXXXXXX" style="background:var(--s2)">
               </div>
+              <div class="fgr full"><label>Реквізити для оплати</label><textarea id="inv-payment" rows="3" placeholder="IBAN, номер картки..."></textarea></div>
               <div class="fgr full"><label>Примітка</label><textarea id="inv-notes" rows="2" placeholder="Додаткова інформація..."></textarea></div>
             </div>
             <div id="inv-preview" style="margin:8px 0 12px"></div>
-            <button class="btn btn-p" onclick="sendInvoiceEmail()">Відправити email</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-p" onclick="sendInvoiceEmail()">✉ Email</button>
+              <button onclick="sendViberInvoice()" style="background:#7360f2;color:#fff;border:none;padding:8px 16px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">🟣 Viber</button>
+            </div>
           </div>
         </div>
 
@@ -864,7 +862,10 @@ body.role-tutor .comm-add-btn { display: none !important; }
               <div class="fgr"><label>Телефон</label><input id="set-phone" type="text"></div>
               <div class="fgr"><label>Email</label><input id="set-email" type="email"></div>
               <div class="fgr full"><label>Адреса</label><input id="set-addr" type="text"></div>
-              <div class="fgr full"><label>Реквізити для оплати</label><textarea id="set-payment" rows="3" placeholder="IBAN, банк, картка..."></textarea></div>
+              <div class="fgr full"><label>Реквізити для оплати</label><textarea id="set-payment" rows="3" placeholder="IBAN, картка, банк..."></textarea></div>
+              <div class="fgr full" style="border-top:1px solid var(--b1);padding-top:10px;margin-top:4px"><div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">UniSender (Viber)</div></div>
+              <div class="fgr"><label>API ключ UniSender</label><input id="set-unisender-key" type="text" placeholder="..."></div>
+              <div class="fgr"><label>Ім'я відправника Viber</label><input id="set-viber-sender" type="text" placeholder="Константа"></div>
               <div class="fgr full"><button class="btn btn-p" onclick="saveSettings()">💾 Зберегти</button></div>
             </div></div>
           </div>
@@ -1293,24 +1294,10 @@ body.role-tutor .comm-add-btn { display: none !important; }
 // Використовує прямі fetch() запити до Supabase REST API
 // ═══════════════════════════════════════════════════════
 
-<div class="mo" id="mo-user"><div class="mdl"><div class="mdlh"><div class="mdlt" id="mu-title">Акаунт</div><button class="xbtn" onclick="closeM('mo-user')">x</button></div><div class="mdlb"><div class="fg"><div class="fgr"><label>Ім’я *</label><input id="u-fn" type="text"></div><div class="fgr"><label>Прізвище</label><input id="u-ln" type="text"></div><div class="fgr full"><label>Email</label><input id="u-email" type="email" disabled style="opacity:.5"></div><div class="fgr"><label>Роль</label><select id="u-role" onchange="toggleTutLink()"><option value="god">Бог</option><option value="director">Директор</option><option value="admin">Адмін</option><option value="tutor" selected>Репетитор</option></select></div><div class="fgr" id="u-tlink-wrap" style="display:none"><label>Прив’язати до репетитора</label><select id="u-tlink"></select></div></div></div><div class="mdlf"><button class="btn btn-p" onclick="saveUser()">Зберегти</button><button class="btn btn-g" onclick="closeM('mo-user')">Скасувати</button></div></div></div>
-<div class="mo" id="mo-user-access"><div class="mdl" style="max-width:560px"><div class="mdlh"><div class="mdlt">Доступ</div><button class="xbtn" onclick="closeM('mo-user-access')">x</button></div><div class="mdlb"><div id="ua-user-info" style="margin-bottom:14px"></div><div style="display:flex;gap:6px;margin-bottom:14px"><button class="btn btn-g btn-sm ua-tab active" onclick="uaTab('perms',this)">Права</button><button class="btn btn-g btn-sm ua-tab" onclick="uaTab('nav',this)">Навігація</button><button class="btn btn-g btn-sm ua-tab" onclick="uaTab('summary',this)">Зведення</button></div><div id="uap-perms" class="ua-panel active"><div id="ua-perms-grid"></div></div><div id="uap-nav" class="ua-panel" style="display:none"><div id="ua-nav-grid"></div></div><div id="uap-summary" class="ua-panel" style="display:none"><div id="ua-summary"></div></div></div><div class="mdlf" style="justify-content:space-between"><button id="ua-reset-all" class="btn btn-d btn-sm" onclick="resetAllUserAccess()" style="display:none">Скинути</button><button class="btn btn-g" onclick="closeM('mo-user-access')">Закрити</button></div></div></div>
+<div class="mo" id="mo-user"><div class="mdl"><div class="mdlh"><div class="mdlt" id="mu-title">Акаунт</div><button class="xbtn" onclick="closeM('mo-user')">x</button></div><div class="mdlb"><div class="fg"><div class="fgr"><label>Ім’я</label><input id="u-fn" type="text"></div><div class="fgr"><label>Прізвище</label><input id="u-ln" type="text"></div><div class="fgr full"><label>Email</label><input id="u-email" type="email" disabled style="opacity:.5"></div><div class="fgr"><label>Роль</label><select id="u-role" onchange="toggleTutLink()"><option value="god">Бог</option><option value="director">Директор</option><option value="admin">Адмін</option><option value="tutor" selected>Репетитор</option></select></div><div class="fgr" id="u-tlink-wrap" style="display:none"><label>Прив’язати до репетитора</label><select id="u-tlink"></select></div></div></div><div class="mdlf"><button class="btn btn-p" onclick="saveUser()">Зберегти</button><button class="btn btn-g" onclick="closeM('mo-user')">Скасувати</button></div></div></div>
+<div class="mo" id="mo-user-access"><div class="mdl" style="max-width:560px"><div class="mdlh"><div class="mdlt">Доступ</div><button class="xbtn" onclick="closeM('mo-user-access')">x</button></div><div class="mdlb"><div id="ua-user-info" style="margin-bottom:14px"></div><div style="display:flex;gap:6px;margin-bottom:14px"><button class="btn btn-g btn-sm ua-tab active" onclick="uaTab('perms',this)">Права</button><button class="btn btn-g btn-sm ua-tab" onclick="uaTab('nav',this)">Навіг.</button><button class="btn btn-g btn-sm ua-tab" onclick="uaTab('summary',this)">Зведення</button></div><div id="uap-perms" class="ua-panel active"><div id="ua-perms-grid"></div></div><div id="uap-nav" class="ua-panel" style="display:none"><div id="ua-nav-grid"></div></div><div id="uap-summary" class="ua-panel" style="display:none"><div id="ua-summary"></div></div></div><div class="mdlf" style="justify-content:space-between"><button id="ua-reset-all" class="btn btn-d btn-sm" onclick="resetAllUserAccess()" style="display:none">Скинути</button><button class="btn btn-g" onclick="closeM('mo-user-access')">Закрити</button></div></div></div>
 <div class="mo" id="mo-crm-card"><div class="mdl" style="max-width:420px"><div class="mdlh"><div class="mdlt" id="crm-card-name">CRM</div><button class="xbtn" onclick="closeM('mo-crm-card')">x</button></div><div class="mdlb"><div class="fg"><div class="fgr full"><label>Етап</label><select id="crm-card-stage"><option value="lead">Новий лід</option><option value="request">Запит</option><option value="trial">Тестовий</option><option value="contract">Підписання</option><option value="invoice">Рахунок</option><option value="payment">Оплата</option><option value="won">Успішно</option><option value="lost">Не реал.</option></select></div><div class="fgr full"><label>Відповідальний</label><select id="crm-card-resp"></select></div><div class="fgr"><label>Дата</label><input id="crm-card-date" type="date"></div><div class="fgr full"><label>Нотатки</label><textarea id="crm-card-notes" rows="3"></textarea></div></div></div><div class="mdlf"><button class="btn btn-p" onclick="saveCrmCard()">Зберегти</button><button class="btn btn-g" onclick="closeM('mo-crm-card')">Скасувати</button></div></div></div>
-  <div id="pg-crm" style="display:none;position:fixed;top:56px;left:224px;right:0;bottom:0;background:var(--bg);z-index:10;flex-direction:column;padding:14px 16px 0;box-sizing:border-box">
-    <div class="crm-toolbar">
-      <button class="crm-btn-add" onclick="openAddLead()"><span>+</span><span>Новий лід</span></button>
-      <div class="crm-filter-group"><span class="crm-filter-label">ЕТАП</span><select id="crm-f-stage" class="crm-filter-sel" onchange="renderCrm()"><option value="">Усі</option><option value="lead">Новий лід</option><option value="request">Запит</option><option value="trial">Тестовий</option><option value="contract">Підписання</option><option value="invoice">Рахунок</option><option value="payment">Оплата</option><option value="won">Успішно</option><option value="lost">Не реал.</option></select></div>
-      <div class="crm-filter-group"><span class="crm-filter-label">МІСЯЦЬ</span><input id="crm-f-month" type="month" class="crm-filter-sel" onchange="renderCrm()" style="min-width:120px"></div>
-      <div class="crm-filter-group"><span class="crm-filter-label">ВІДПОВ.</span><select id="crm-f-resp" class="crm-filter-sel" onchange="renderCrm()"><option value="">Усі</option></select></div>
-      <button class="crm-btn-clear" onclick="crmClearFilters()">× Скинути</button>
-      <div id="crm-stats" style="margin-left:auto;font-size:11px;color:var(--t2);display:flex;gap:12px"></div>
-    </div>
-    <div class="crm-board-wrap">
-      <button class="crm-scroll-btn crm-scroll-left" id="crm-scroll-left" onclick="crmScroll(-1)">&#8592;</button>
-      <div class="crm-board-scroll" id="crm-board-scroll"><div id="crm-board" style="display:flex;gap:10px;height:100%;align-items:flex-start;padding-bottom:16px;min-width:max-content"></div></div>
-      <button class="crm-scroll-btn crm-scroll-right" id="crm-scroll-right" onclick="crmScroll(1)">&#8594;</button>
-    </div>
-  </div>
+  <div id="pg-crm" style="display:none;position:fixed;top:56px;left:224px;right:0;bottom:0;background:var(--bg);z-index:10;flex-direction:column;padding:14px 16px 0;box-sizing:border-box"><div class="crm-toolbar"><button class="crm-btn-add" onclick="openAddLead()"><span>+</span><span>Новий лід</span></button><div class="crm-filter-group"><span class="crm-filter-label">ЕТАП</span><select id="crm-f-stage" class="crm-filter-sel" onchange="renderCrm()"><option value="">Усі</option><option value="lead">Новий лід</option><option value="request">Запит</option><option value="trial">Тестовий</option><option value="contract">Підписання</option><option value="invoice">Рахунок</option><option value="payment">Оплата</option><option value="won">Успішно</option><option value="lost">Не реал.</option></select></div><div class="crm-filter-group"><span class="crm-filter-label">МІСЯЦЬ</span><input id="crm-f-month" type="month" class="crm-filter-sel" onchange="renderCrm()" style="min-width:120px"></div><div class="crm-filter-group"><span class="crm-filter-label">ВІДПОВ.</span><select id="crm-f-resp" class="crm-filter-sel" onchange="renderCrm()"><option value="">Усі</option></select></div><button class="crm-btn-clear" onclick="crmClearFilters()">× Скинути</button><div id="crm-stats" style="margin-left:auto;font-size:11px;color:var(--t2);display:flex;gap:12px"></div></div><div class="crm-board-wrap"><button class="crm-scroll-btn crm-scroll-left" id="crm-scroll-left" onclick="crmScroll(-1)">&#8592;</button><div class="crm-board-scroll" id="crm-board-scroll"><div id="crm-board" style="display:flex;gap:10px;height:100%;align-items:flex-start;padding-bottom:16px;min-width:max-content"></div></div><button class="crm-scroll-btn crm-scroll-right" id="crm-scroll-right" onclick="crmScroll(1)">&#8594;</button></div></div>
 <script src="app5.js"></script>
 </body>
 </html>
