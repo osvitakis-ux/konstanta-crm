@@ -4066,6 +4066,23 @@ function sendInvoiceEmail(){
   clBtn.addEventListener('click', function(){ pop.remove(); });
   row.appendChild(clBtn);
 
+  // Viber button (if student has phone)
+  var studPhone = s.phone || s.parentPhone || '';
+  if(studPhone){
+    var vBtn = document.createElement('button');
+    vBtn.textContent = '⚫ Viber';
+    vBtn.style.cssText = 'background:#7360f2;color:#fff;border:none;padding:8px 16px;border-radius:9px;font-size:13px;cursor:pointer;font-weight:700';
+    vBtn.addEventListener('click', function(){
+      var phone = studPhone.replace(/[^0-9]/g,'');
+      if(phone.charAt(0)==='0') phone = '38'+phone;
+      var vText = subject+'\n\n'+shortBody;
+      var vLink = 'viber://chat?number='+phone+'&text='+encodeURIComponent(vText);
+      window.location.href = vLink;
+      pop.remove();
+    });
+    row.appendChild(vBtn);
+  }
+
   pop.appendChild(row);
   document.body.appendChild(pop);
 }
