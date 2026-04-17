@@ -4078,8 +4078,10 @@ function sendInvoiceEmail(){
       var phone = studPhone.replace(/[^0-9]/g,'');
       if(phone.charAt(0)==='0') phone = '38'+phone;
       var vText = subject+'\n\n'+shortBody;
-      var vLink = 'viber://chat?number='+phone+'&text='+encodeURIComponent(vText);
+      var vLink = 'viber://forward?text='+encodeURIComponent(vText);
       window.location.href = vLink;
+      // Show phone hint
+      mkToast('Вайбер відкрито. Оберіть: '+studPhone);
       pop.remove();
     });
     row.appendChild(vBtn);
@@ -4119,9 +4121,9 @@ function sendViberFromPanel(){
   var text = lines.join('\n');
   var cleanPhone = phone.replace(/[^0-9]/g,'');
   if(cleanPhone.charAt(0)==='0') cleanPhone = '38'+cleanPhone;
-  var vLink = 'viber://chat?number='+cleanPhone+'&text='+encodeURIComponent(text);
+  var vLink = 'viber://forward?text='+encodeURIComponent(text);
   window.location.href = vLink;
-  mkToast('Відкриваємо Viber...');
+  mkToast('Вайбер відкрито. Оберіть контакт: '+phone);
 }
 
 function updateInvPhone(){
