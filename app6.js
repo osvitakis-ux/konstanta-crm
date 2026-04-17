@@ -4092,6 +4092,20 @@ function sendInvoiceEmail(){
 window.calcInvoiceLessons = calcInvoiceLessons;
 window.sendInvoiceEmail = sendInvoiceEmail;
 window.openInvoicePanel = openInvoicePanel;
+function updateInvPhone(){
+  var sel = document.getElementById('inv-student');
+  var sid = sel ? sel.value : '';
+  var s = (S.students||[]).find(function(x){ return x.id===sid; });
+  var wrap = document.getElementById('inv-phone-wrap');
+  var phoneEl = document.getElementById('inv-phone');
+  var emailEl = document.getElementById('inv-email');
+  if(!s){ if(wrap) wrap.style.display='none'; return; }
+  var phone = s.parentPhone || s.parent_phone || s.phone || '';
+  var email = s.email || '';
+  if(phoneEl) phoneEl.value = phone;
+  if(emailEl) emailEl.value = email;
+  if(wrap) wrap.style.display = phone ? 'flex' : 'none';
+}
 window.updateInvPhone = updateInvPhone;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
@@ -4106,5 +4120,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
