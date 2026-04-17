@@ -4067,7 +4067,9 @@ function sendInvoiceEmail(){
   row.appendChild(clBtn);
 
   // Viber button (if student has phone)
-  var studPhone = s.phone || s.parentPhone || '';
+  // Priority: parent phone for invoices
+  var phoneEl = document.getElementById('inv-phone');
+  var studPhone = (phoneEl && phoneEl.value) || s.parentPhone || s.parent_phone || s.phone || '';
   if(studPhone){
     var vBtn = document.createElement('button');
     vBtn.textContent = '⚫ Viber';
@@ -4090,6 +4092,7 @@ function sendInvoiceEmail(){
 window.calcInvoiceLessons = calcInvoiceLessons;
 window.sendInvoiceEmail = sendInvoiceEmail;
 window.openInvoicePanel = openInvoicePanel;
+window.updateInvPhone = updateInvPhone;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
