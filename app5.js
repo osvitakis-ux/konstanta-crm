@@ -3994,7 +3994,7 @@ function sendInvoiceEmail(){
     +'?subject='+encodeURIComponent(subject)
     +'&body='+encodeURIComponent(body);
 
-  window.location.href = mailto;
+  var _a=document.createElement('a');_a.href=mailto;_a.target='_blank';document.body.appendChild(_a);_a.click();setTimeout(function(){document.body.removeChild(_a);},100);
   mkToast('\u0412\u0456\u0434\u043a\u0440\u0438\u0432\u0430\u0454\u043c\u043e email \u043a\u043b\u0456\u0454\u043d\u0442...');
   closeM('mo-invoice');
 }
@@ -4015,5 +4015,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
