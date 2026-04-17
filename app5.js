@@ -4073,7 +4073,6 @@ function sendInvoiceEmail(){
 window.calcInvoiceLessons = calcInvoiceLessons;
 window.sendInvoiceEmail = sendInvoiceEmail;
 window.openInvoicePanel = openInvoicePanel;
-window.sendViberInvoice = sendViberInvoice;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
