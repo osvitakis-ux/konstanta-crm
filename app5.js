@@ -2407,6 +2407,8 @@ async function saveSettings(){
       email:   document.getElementById('set-email')?.value||'',
       address: document.getElementById('set-addr')?.value||'',
       payment_details: document.getElementById('set-payment')?.value||'',
+      unisender_key: document.getElementById('set-unisender-key')?.value||'',
+      viber_sender:  document.getElementById('set-viber-sender')?.value||'',
       updated_at: new Date().toISOString()
     });
     mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E');
@@ -3990,9 +3992,21 @@ function sendInvoiceEmail(){
   if(payment){ body += '\n\u0420\u0415\u041a\u0412\u0406\u0417\u0418\u0422\u0418 \u0414\u041b\u042f \u041e\u041f\u041b\u0410\u0422\u0418:\n'+payment+'\n'; }
   if(notes){ body += '\n\u041f\u0440\u0438\u043c\u0456\u0442\u043a\u0430: '+notes+'\n'; }
 
+  // Short body for mailto (browsers limit URL length to ~2000 chars)
+  var shortBody = center+'\n'
+    +(cPhone?'Тел: '+cPhone+'\n':'')
+    +(cEmail?'Email: '+cEmail+'\n':'')
+    +'\nРАХУНОК-ФАКТУРА №'+num+'\n'
+    +'Період: '+fd(from)+' — '+fd(to)+'\n'
+    +'Отримувач: '+s.fn+' '+s.ln+'\n'
+    +'Кількість уроків: '+lessons.length+'\n'
+    +(price?'СУМА: '+total+' грн\n':'')
+    +(payment?'\nРЕКВІЗИТИ:\n'+payment+'\n':'')
+    +(notes?'\nПримітка: '+notes:'');
+
   var mailto = 'mailto:'+encodeURIComponent(email)
     +'?subject='+encodeURIComponent(subject)
-    +'&body='+encodeURIComponent(body);
+    +'&body='+encodeURIComponent(shortBody);
 
   // Show popup
   var oldPop = document.getElementById('inv-popup');
@@ -4020,8 +4034,16 @@ function sendInvoiceEmail(){
   var aLink = document.createElement('a');
   aLink.href = mailto;
   aLink.textContent = 'Відкрити пошту';
-  aLink.style.cssText = 'background:var(--adm);color:#fff;padding:8px 16px;border-radius:9px;text-decoration:none;font-size:13px;font-weight:700';
-  aLink.addEventListener('click', function(){ pop.remove(); });
+  aLink.style.cssText = 'background:var(--adm);color:#fff;padding:8px 16px;border-radius:9px;text-decoration:none;font-size:13px;font-weight:700;cursor:pointer';
+  aLink.addEventListener('click', function(e){
+    e.preventDefault();
+    pop.remove();
+    // Try multiple methods
+    try{ window.location.href = mailto; } catch(e1){}
+    setTimeout(function(){
+      try{ window.open(mailto,'_self'); } catch(e2){}
+    }, 100);
+  });
   row.appendChild(aLink);
 
   var cpBtn = document.createElement('button');
@@ -4051,6 +4073,7 @@ function sendInvoiceEmail(){
 window.calcInvoiceLessons = calcInvoiceLessons;
 window.sendInvoiceEmail = sendInvoiceEmail;
 window.openInvoicePanel = openInvoicePanel;
+window.sendViberInvoice = sendViberInvoice;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
