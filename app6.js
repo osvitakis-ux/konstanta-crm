@@ -4092,6 +4092,38 @@ function sendInvoiceEmail(){
 window.calcInvoiceLessons = calcInvoiceLessons;
 window.sendInvoiceEmail = sendInvoiceEmail;
 window.openInvoicePanel = openInvoicePanel;
+
+function sendViberFromPanel(){
+  var sel = document.getElementById('inv-student');
+  var sid = sel ? sel.value : '';
+  var s = (S.students||[]).find(function(x){ return x.id===sid; });
+  if(!s){ mkToast('Оберіть учня','error'); return; }
+  var phoneEl = document.getElementById('inv-phone');
+  var phone = (phoneEl && phoneEl.value) || s.parentPhone || s.parent_phone || s.phone || '';
+  if(!phone){ mkToast('Немає телефону батьків','error'); return; }
+  var from = document.getElementById('inv-date-from').value;
+  var to   = document.getElementById('inv-date-to').value;
+  var price = parseFloat(document.getElementById('inv-price').value)||0;
+  var payment = document.getElementById('inv-payment').value.trim();
+  var cfg = S.settings||{};
+  var center = cfg.name || 'Константа';
+  var lessons = (S.lessons||[]).filter(function(l){
+    return (l.studentId===sid||l.student_id===sid) && (l.status==='planned'||l.status==='scheduled') && l.date>=from && l.date<=to;
+  }).sort(function(a,b){ return (a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||'')); });
+  if(!lessons.length){ mkToast('Немає запланованих уроків','error'); return; }
+  var total = lessons.length * price;
+  var lines = [center, 'РАХУНОК-ФАКТУРА', 'Період: '+fd(from)+' — '+fd(to), 'Учень: '+s.fn+' '+s.ln, 'Уроків: '+lessons.length, ''];
+  lessons.forEach(function(l,i){ lines.push((i+1)+'. '+fd(l.date)+(l.time?' о '+l.time:'')); });
+  if(price){ lines.push(''); lines.push('СУМА: '+total+' грн'); }
+  if(payment){ lines.push(''); lines.push('РЕКВІЗИТИ:'); lines.push(payment); }
+  var text = lines.join('\n');
+  var cleanPhone = phone.replace(/[^0-9]/g,'');
+  if(cleanPhone.charAt(0)==='0') cleanPhone = '38'+cleanPhone;
+  var vLink = 'viber://chat?number='+cleanPhone+'&text='+encodeURIComponent(text);
+  window.location.href = vLink;
+  mkToast('Відкриваємо Viber...');
+}
+
 function updateInvPhone(){
   var sel = document.getElementById('inv-student');
   var sid = sel ? sel.value : '';
@@ -4106,6 +4138,7 @@ function updateInvPhone(){
   if(emailEl) emailEl.value = email;
   if(wrap) wrap.style.display = phone ? 'flex' : 'none';
 }
+window.sendViberFromPanel = sendViberFromPanel;
 window.updateInvPhone = updateInvPhone;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
