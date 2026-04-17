@@ -3994,23 +3994,58 @@ function sendInvoiceEmail(){
     +'?subject='+encodeURIComponent(subject)
     +'&body='+encodeURIComponent(body);
 
-  // Show popup with open + copy options
-  var old = document.getElementById('inv-popup');
-  if(old) old.remove();
+  // Show popup
+  var oldPop = document.getElementById('inv-popup');
+  if(oldPop) oldPop.remove();
+
+  var copyText = 'Тема: '+subject+'\nОтримувач: '+email+'\n\n'+body;
+
   var pop = document.createElement('div');
   pop.id = 'inv-popup';
   pop.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 22px;box-shadow:0 8px 32px rgba(0,0,0,.3);z-index:9999;min-width:300px;text-align:center';
-  var copyText = 'Тема: '+subject+'\nОтримувач: '+email+'\n\n'+body;
-  document.body.appendChild(pop);
-  document.getElementById('inv-copy-btn').addEventListener('click', function(){
+
+  var t = document.createElement('div');
+  t.style.cssText = 'font-weight:700;font-size:15px;margin-bottom:6px';
+  t.textContent = 'Рахунок готовий';
+  pop.appendChild(t);
+
+  var s = document.createElement('div');
+  s.style.cssText = 'font-size:12px;color:var(--t2);margin-bottom:14px';
+  s.innerHTML = 'Отримувач: <b>'+email+'</b>';
+  pop.appendChild(s);
+
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap';
+
+  var aLink = document.createElement('a');
+  aLink.href = mailto;
+  aLink.textContent = 'Відкрити пошту';
+  aLink.style.cssText = 'background:var(--adm);color:#fff;padding:8px 16px;border-radius:9px;text-decoration:none;font-size:13px;font-weight:700';
+  aLink.addEventListener('click', function(){ pop.remove(); });
+  row.appendChild(aLink);
+
+  var cpBtn = document.createElement('button');
+  cpBtn.textContent = 'Скопіювати текст';
+  cpBtn.style.cssText = 'background:var(--s2);border:1px solid var(--b1);padding:8px 16px;border-radius:9px;font-size:13px;cursor:pointer';
+  cpBtn.addEventListener('click', function(){
     navigator.clipboard.writeText(copyText).then(function(){
-      document.getElementById('inv-copy-btn').textContent = 'Скопійовано ✔';
-      document.getElementById('inv-copy-btn').style.background = 'var(--tut)';
-      document.getElementById('inv-copy-btn').style.color = '#fff';
+      cpBtn.textContent = 'Скопійовано ✔';
+      cpBtn.style.background = 'var(--tut)';
+      cpBtn.style.color = '#fff';
     }).catch(function(){
-      prompt('Копіюйте Ctrl+A, Ctrl+C:', copyText);
+      prompt('Копіюйте:', copyText);
     });
   });
+  row.appendChild(cpBtn);
+
+  var clBtn = document.createElement('button');
+  clBtn.textContent = 'Закрити';
+  clBtn.style.cssText = 'background:var(--s2);border:1px solid var(--b1);padding:8px 16px;border-radius:9px;font-size:13px;cursor:pointer';
+  clBtn.addEventListener('click', function(){ pop.remove(); });
+  row.appendChild(clBtn);
+
+  pop.appendChild(row);
+  document.body.appendChild(pop);
 }
 
 window.calcInvoiceLessons = calcInvoiceLessons;
