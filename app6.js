@@ -4095,6 +4095,20 @@ window.calcInvoiceLessons = calcInvoiceLessons;
 window.sendInvoiceEmail = sendInvoiceEmail;
 window.openInvoicePanel = openInvoicePanel;
 
+
+function openViberContact(){
+  var sel = document.getElementById('inv-student');
+  var sid = sel ? sel.value : '';
+  var s = (S.students||[]).find(function(x){ return x.id===sid; });
+  if(!s){ mkToast('Оберіть учня','error'); return; }
+  var phoneEl = document.getElementById('inv-phone');
+  var phone = (phoneEl && phoneEl.value) || s.parentPhone || s.parent_phone || s.phone || '';
+  if(!phone){ mkToast('Немає телефону батьків','error'); return; }
+  var cleanPhone = phone.replace(/[^0-9]/g,'');
+  if(cleanPhone.charAt(0)==='0') cleanPhone = '38'+cleanPhone;
+  window.location.href = 'viber://chat?number='+cleanPhone;
+  mkToast('Відкриваємо Viber чат...');
+}
 function sendViberFromPanel(){
   var sel = document.getElementById('inv-student');
   var sid = sel ? sel.value : '';
@@ -4121,9 +4135,18 @@ function sendViberFromPanel(){
   var text = lines.join('\n');
   var cleanPhone = phone.replace(/[^0-9]/g,'');
   if(cleanPhone.charAt(0)==='0') cleanPhone = '38'+cleanPhone;
-  var vLink = 'viber://forward?text='+encodeURIComponent(text);
-  window.location.href = vLink;
-  mkToast('Вайбер відкрито. Оберіть контакт: '+phone);
+  var cleanPhone = phone.replace(/[^0-9]/g,'');
+  if(cleanPhone.charAt(0)==='0') cleanPhone = '38'+cleanPhone;
+
+  // Copy text to clipboard, then open Viber chat
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(function(){
+      mkToast('Текст скопійовано! Вставте Ctrl+V у Viber');
+    });
+  }
+  setTimeout(function(){
+    window.location.href = 'viber://chat?number='+cleanPhone;
+  }, 400);
 }
 
 function updateInvPhone(){
@@ -4140,6 +4163,7 @@ function updateInvPhone(){
   if(emailEl) emailEl.value = email;
   if(wrap) wrap.style.display = phone ? 'flex' : 'none';
 }
+window.openViberContact = openViberContact;
 window.sendViberFromPanel = sendViberFromPanel;
 window.updateInvPhone = updateInvPhone;
 // Boot
@@ -4155,5 +4179,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
