@@ -2919,7 +2919,13 @@ function nav(page){
   const pel=document.getElementById('pg-'+page);if(pel)pel.classList.add('active');
   const nel=document.getElementById('ni-'+page);
   if(nel){nel.classList.add('active');nel.className=nel.className.replace(/ (god|dir|tut)/g,'');if(R()==='god')nel.classList.add('god');else if(R()==='director')nel.classList.add('dir');else if(R()==='tutor')nel.classList.add('tut');}
-  var branchSuffix=(!isSuperAdmin()&&myBranchId()&&S.branches.length>1)?' \u2014 '+branchName(myBranchId()):'';
+  var branchSuffix = '';
+  if(R()==='tutor'){
+    var _mt = S.tutors ? S.tutors.find(function(t){ return t.accId===CU.id||t.acc_uid===CU.id; }) : null;
+    if(_mt && _mt.subj) branchSuffix = ' — '+_mt.subj;
+  } else if(!isSuperAdmin() && myBranchId() && S.branches.length>1){
+    branchSuffix = ' — '+branchName(myBranchId());
+  }
   document.getElementById('ptitle').textContent=(PLABELS[page]||page)+branchSuffix;
   S.currentPage=page;
   try{ localStorage.setItem('sb_page', page); }catch(e){}
