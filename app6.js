@@ -3551,7 +3551,16 @@ function updateSBUser(){
   av.style.background=r.avatarBg;av.style.width='34px';av.style.height='34px';av.style.fontSize='13px';av.style.color=CU.role==='director'?'#1b1464':'#fff';av.style.fontFamily="'Syne',sans-serif";av.style.fontWeight='700';
   av.textContent=(CU.fn[0]||'')+(CU.ln[0]||'');
   document.getElementById('sb-name').textContent=CU.fn+' '+CU.ln;
-  document.getElementById('sb-rpill').innerHTML=('<span class="rpill '+(CU.role)+'">'+(r.icon)+' '+(r.label)+'</span>');
+
+  // For tutor role - show subject from tutor profile
+  var rpillText = r.icon+' '+r.label;
+  if(CU.role==='tutor'){
+    var myTutor = S.tutors ? S.tutors.find(function(t){ return t.accId===CU.id || t.acc_uid===CU.id; }) : null;
+    if(myTutor && myTutor.subj){
+      rpillText = r.icon+' '+myTutor.subj;
+    }
+  }
+  document.getElementById('sb-rpill').innerHTML='<span class="rpill '+CU.role+'">'+rpillText+'</span>';
 }
 
 
