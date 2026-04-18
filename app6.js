@@ -4197,6 +4197,42 @@ window.openViberContact = openViberContact;
 window.sendViberFromPanel = sendViberFromPanel;
 window.invSelectBranchPay = invSelectBranchPay;
 window.updateInvPhone = updateInvPhone;
+window.openAddBranchModal = openAddBranchModal;
+async function saveBranchModal(){
+  var nm      = (document.getElementById('br-name')||{value:''}).value.trim();
+  var addr    = (document.getElementById('br-addr')||{value:''}).value.trim();
+  var phone   = (document.getElementById('br-phone')||{value:''}).value.trim();
+  var email   = (document.getElementById('br-email')||{value:''}).value.trim();
+  var payment = (document.getElementById('br-payment')||{value:''}).value.trim();
+  if(!nm){ mkToast('Введіть назву','error'); return; }
+  var obj = {name:nm,address:addr,phone:phone,email:email,payment_details:payment};
+  try{
+    if(S._editBranchId){
+      await dbUpdate('branches',S._editBranchId,obj);
+      var i=(S.branches||[]).findIndex(function(b){return b.id===S._editBranchId;});
+      if(i>=0) S.branches[i]=Object.assign({},S.branches[i],obj);
+      mkToast('Філію оновлено');
+    } else {
+      var newId='b'+uid();
+      await dbInsert('branches',Object.assign({id:newId},obj));
+      S.branches.push(Object.assign({id:newId},obj));
+      mkToast('Філію додано');
+    }
+    closeM('mo-branch'); renderBranches(); updateBranchSelector();
+  }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
+}
+
+function openAddBranchModal(){
+  S._editBranchId=null;
+  var el=document.getElementById('mo-branch');
+  if(!el) return;
+  ['br-name','br-addr','br-phone','br-email','br-payment'].forEach(function(id){var f=document.getElementById(id);if(f)f.value='';});
+  var t=document.getElementById('mo-branch-title');
+  if(t) t.textContent='Нова філія';
+  openM('mo-branch');
+}
+
+window.saveBranchModal = saveBranchModal;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
@@ -4210,5 +4246,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-
-
