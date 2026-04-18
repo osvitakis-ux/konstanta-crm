@@ -2211,7 +2211,7 @@ async function saveStudent(){
     notes:  document.getElementById('s-notes')?.value||'',
     parent_fn:   (document.getElementById('s-parent-fn')?.value||'').trim(),
     parent_phone:(document.getElementById('s-parent-phone')?.value||'').trim(),
-    branch_id: myBranchId()||null,
+    branch_id: document.getElementById('s-branch')?.value || myBranchId()||null,
   };
   // Auto-link to current tutor if none selected
   if(R()==='tutor' && !obj.tutor_id){
@@ -2795,6 +2795,13 @@ function openStudM(id=null){
       var pf=document.getElementById('s-parent-fn');if(pf)pf.value=s.parentFn||'';
       var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';}}
   else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';}
+  // Populate branch select
+  var sBranchSel = document.getElementById('s-branch');
+  if(sBranchSel){
+    sBranchSel.innerHTML = '<option value="">— головна —</option>'
+      + (S.branches||[]).map(function(b){ return '<option value="'+b.id+'">'+b.name+'</option>'; }).join('');
+    if(id){ var _s=(S.students||[]).find(function(x){return x.id===id;}); if(_s) sBranchSel.value=_s.branchId||''; }
+  }
   renderCustomFields('student','mo-student-cf');
   var invBtn = document.getElementById('inv-btn');
   if(invBtn) invBtn.style.display = (id && (R()==='god'||R()==='director')) ? 'inline-flex' : 'none';
@@ -2808,6 +2815,14 @@ function openTutM(id=null){
   if(id){const t=S.tutors.find(x=>x.id===id);if(t){['fn','ln','phone','email','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value=t[f]||'';});document.getElementById('t-subj').value=t.subj||'';document.getElementById('t-rate').value=t.rate||'';}}
   else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});}
   renderCustomFields('tutor','mo-tutor-cf');
+  // Populate branch select
+  var tBranchSel = document.getElementById('t-branch');
+  if(tBranchSel){
+    tBranchSel.innerHTML = '<option value="">— головна —</option>'
+      + (S.branches||[]).map(function(b){ return '<option value="'+b.id+'">'+b.name+'</option>'; }).join('');
+    var _tId = arguments[0];
+    if(_tId){ var _t=(S.tutors||[]).find(function(x){return x.id===_tId;}); if(_t) tBranchSel.value=_t.branchId||''; }
+  }
   openM('mo-tutor');
 }
 
