@@ -2431,16 +2431,8 @@ async function delSubj(id){
   try{ await dbDelete('subjects',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
 }
 
-async function addBranch(){
-  var nm=(document.getElementById('new-branch-name')?.value||'').trim();
-  var addr=(document.getElementById('new-branch-addr')?.value||'').trim();
-  if(!nm){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443 \u0444\u0456\u043B\u0456\u0457','error'); return; }
-  try{
-    await dbInsert('branches',{id:'b'+uid(),name:nm,address:addr,phone:''});
-    document.getElementById('new-branch-name').value='';
-    document.getElementById('new-branch-addr').value='';
-    mkToast('\u0424\u0456\u043B\u0456\u044E \u0434\u043E\u0434\u0430\u043D\u043E');
-  }catch(e){}
+function addBranch(){
+  openAddBranchModal();
 }
 
 async function delBranch(id){
@@ -4198,6 +4190,9 @@ window.sendViberFromPanel = sendViberFromPanel;
 window.invSelectBranchPay = invSelectBranchPay;
 window.updateInvPhone = updateInvPhone;
 window.openAddBranchModal = openAddBranchModal;
+
+
+window.saveBranchModal = saveBranchModal;
 async function saveBranchModal(){
   var nm      = (document.getElementById('br-name')||{value:''}).value.trim();
   var addr    = (document.getElementById('br-addr')||{value:''}).value.trim();
@@ -4232,7 +4227,6 @@ function openAddBranchModal(){
   openM('mo-branch');
 }
 
-window.saveBranchModal = saveBranchModal;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
