@@ -603,7 +603,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
     </div>
     <div class="ptitle" id="ptitle">Дашборд</div>
       <div class="search"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук..." id="gsearch" oninput="gSearch(this.value)"></div>
-      <button class="btn btn-p" id="addbtn" onclick="openAdd()" style="display:none">+ Додати</button>
+      <button class="btn btn-p" id="addbtn" onclick="openAdd()" style="display:none">+ Додати філію</button>
     </div>
     <div class="content" id="content">
 
@@ -1144,7 +1144,8 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <select id="s-tutor" style="display:none"></select>
       </div>
       <div class="fgr"><label>Статус</label><select id="s-status"><option value="active">Активний</option><option value="trial">Пробне</option><option value="paused">Призупинений</option><option value="completed">Завершив</option></select></div>
-      <div class="fgr"><label>Джерело</label><select id="s-src"><option value="referral">Рекомендація</option><option value="internet">Інтернет</option><option value="social">Соцмережі</option><option value="other">Інше</option></select></div>      <div class="fgr full"><label>Нотатки</label><textarea id="s-notes"></textarea></div>
+      <div class="fgr"><label>Джерело</label><select id="s-src"><option value="referral">Рекомендація</option><option value="internet">Інтернет</option><option value="social">Соцмережі</option><option value="other">Інше</option></select></div>
+      <div class="fgr"><label>Філія</label><select id="s-branch"><option value="">— головна —</option></select></div>      <div class="fgr full"><label>Нотатки</label><textarea id="s-notes"></textarea></div>
     </div></div>
     <div id="mo-student-cf" class="fg" style="padding:0 24px 0;margin-top:0"></div>
     <div class="mdlf"><button class="btn btn-g" onclick="closeM('mo-student')">Скасувати</button><button class="btn btn-p" onclick="saveStudent()">💾 Зберегти</button></div>
@@ -1170,7 +1171,8 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fgr full"><label>Про репетитора</label><textarea id="t-bio"></textarea></div>
     </div></div>
     <div id="mo-tutor-cf" class="fg" style="padding:0 24px 0;margin-top:0"></div>
-    <div class="mdlf"><button class="btn btn-g" onclick="closeM('mo-tutor')">Скасувати</button><button class="btn btn-p" onclick="saveTutor()">💾 Зберегти</button></div>
+    <div class="fgr"><label>Філія</label><select id="t-branch"><option value="">— головна —</option></select></div>
+      <div class="mdlf"><button class="btn btn-g" onclick="closeM('mo-tutor')">Скасувати</button><button class="btn btn-p" onclick="saveTutor()">💾 Зберегти</button></div>
   </div>
 </div>
 <!-- Lesson -->
