@@ -431,8 +431,8 @@ function popSel(id,arr,valKey,lblFn,placeholder='\u2014'){const el=document.getE
 function openM(id){
   var el=document.getElementById(id);
   if(!el) return;
-  el.style.display='';
-  el.style.pointerEvents='';
+  el.style.display='flex';
+  el.style.pointerEvents='all';
   el.classList.add('open');
 }
 
