@@ -216,7 +216,7 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
@@ -230,7 +230,7 @@ var ROLES = {
   admin: {
     label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:false,settings:true,danger:false,deleteAny:false},
     seeIncome:true, seeAll:true, canEditUsers:false, showGodBanner:false
   },
@@ -579,7 +579,17 @@ function renderDashStats(){
     var d=new Date(l.date);
     return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
   });
-  var nb=document.getElementById('nb-s'); if(nb)nb.textContent=myStudents().length;
+  var nb=document.getElementById('nb-s');
+  if(nb){
+    var _cnt=0;
+    if(R()==='tutor'){
+      var _mt2=S.tutors?S.tutors.find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);}):null;
+      _cnt=_mt2?(S.students||[]).filter(function(s){return s.tutorId===_mt2.id||s.tutor_id===_mt2.id;}).length:0;
+    } else {
+      _cnt=myStudents().length;
+    }
+    nb.textContent=_cnt;
+  }
   var statsHtml='<div class="sc blue">'
     +'<div class="slbl">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432</div>'
     +'<div class="sval">'+ms.filter(function(s){return s.status==='active';}).length+'</div>'
@@ -2920,12 +2930,6 @@ function nav(page){
   const nel=document.getElementById('ni-'+page);
   if(nel){nel.classList.add('active');nel.className=nel.className.replace(/ (god|dir|tut)/g,'');if(R()==='god')nel.classList.add('god');else if(R()==='director')nel.classList.add('dir');else if(R()==='tutor')nel.classList.add('tut');}
   var branchSuffix = '';
-  if(R()==='tutor'){
-    var _mt = S.tutors ? S.tutors.find(function(t){ return t.accId===CU.id||t.acc_uid===CU.id; }) : null;
-    if(_mt && _mt.subj) branchSuffix = ' — '+_mt.subj;
-  } else if(!isSuperAdmin() && myBranchId() && S.branches.length>1){
-    branchSuffix = ' — '+branchName(myBranchId());
-  }
   document.getElementById('ptitle').textContent=(PLABELS[page]||page)+branchSuffix;
   S.currentPage=page;
   try{ localStorage.setItem('sb_page', page); }catch(e){}
