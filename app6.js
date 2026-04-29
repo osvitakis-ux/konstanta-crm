@@ -4369,6 +4369,7 @@ function sendInvoice2Email(){
   var bid     = currentBranch();
   var branch  = bid?(S.branches||[]).find(function(b){return b.id===bid;}):null;
   var center  = (branch&&branch.name)||cfg.name||'Константа';
+  var payment3 = (branch&&branch.payment_details)||payment||(cfg.payment_details)||'';
   var cPhone  = (branch&&branch.phone)||cfg.phone||'';
   var cEmail  = (branch&&branch.email)||cfg.email||'';
 
@@ -4388,7 +4389,7 @@ function sendInvoice2Email(){
 
   // Build message
   var lines = [];
-  lines.push('Вас вітає Репетиторський центр "'+center3+'"!');
+  lines.push('Вас вітає Репетиторський центр "'+center+'"!');
   lines.push('');
   lines.push('Рахунок на '+fd(from)+' – '+fd(to)+':');
   lines.push('');
@@ -4471,29 +4472,29 @@ function sendViber2FromPanel(){
   var lessons=(S.lessons||[]).filter(function(l){return (l.studentId===sid||l.student_id===sid)&&(l.status==='planned'||l.status==='scheduled')&&l.date>=from&&l.date<=to;}).sort(function(a,b){return (a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||''));});
   if(!lessons.length){mkToast('Немає запланованих уроків','error');return;}
   var total=lessons.length*price;
-  var lineArr=[center,'РАХУНОК-ФАКТУРА','Період: '+fd(from)+' — '+fd(to),'Учень: '+s.fn+' '+s.ln,'Уроків: '+lessons.length,''];
-  lessons.forEach(function(l,i){lineArr.push((i+1)+'. '+fd(l.date)+(l.time?' о '+l.time:''));});
-  if(price){lineArr.push('');lineArr.push('СУМА: '+total+' грн');}
-  if(payment){lineArr.push('');lineArr.push('РЕКВІЗИТИ:');lineArr.push(payment);}
-  var text=lineArr.join('\n');
-  var cleanPhone=phone.replace(/[^0-9]/g,'');
-  if(cleanPhone.charAt(0)==='0')cleanPhone='38'+cleanPhone;
-  navigator.clipboard.writeText(text).then(function(){mkToast('Текст скопійовано! Вставте Ctrl+V у Viber');}).catch(function(){});
-  setTimeout(function(){window.location.href='viber://chat?number='+cleanPhone;},400);
-}  var vLines = [];
+  var cfg3=S.settings||{};
+  var bid3=currentBranch();
+  var branch3=bid3?(S.branches||[]).find(function(b){return b.id===bid3;}):null;
+  var center3=(branch3&&branch3.name)||cfg3.name||'Константа';
+  var payment3=(branch3&&branch3.payment_details)||payment||(cfg3.payment_details)||'';
+  var vLines=[];
   vLines.push('Вас вітає Репетиторський центр "'+center3+'"!');
   vLines.push('');
   vLines.push('Рахунок на '+fd(from)+' – '+fd(to)+':');
   vLines.push('');
   lessons.forEach(function(l,i){ vLines.push((i+1)+'. '+fd(l.date)+(l.time?' о '+l.time:'')); });
   if(price){ vLines.push(''); vLines.push('Сума: '+total+' грн'); }
-  if(payment3){ vLines.push(''); vLines.push('Реквізити:'); vLines.push(payment3); }
+  if(payment3){ vLines.push(''); vLines.push('Платіж проводиться за такими реквізитами:'); vLines.push(payment3); }
   vLines.push('');
-  vLines.push('Призначення: за освітні послуги, '+s.ln+' '+(s.fn?s.fn[0]+'.':''));
+  vLines.push('Призначення платежу: за освітні послуги, '+s.ln+' '+(s.fn?s.fn[0]+'.':''));
   vLines.push('');
   vLines.push('Заздалегідь дякуємо за вчасну сплату 😊');
-  
-
+  var text=vLines.join('\n');
+  var cleanPhone=phone.replace(/[^0-9]/g,'');
+  if(cleanPhone.charAt(0)==='0')cleanPhone='38'+cleanPhone;
+  navigator.clipboard.writeText(text).then(function(){mkToast('Текст скопійовано! Вставте Ctrl+V у Viber');}).catch(function(){});
+  setTimeout(function(){window.location.href='viber://chat?number='+cleanPhone;},400);
+}
 window.renderInvoicePage = renderInvoicePage;
 window.inv2SelectStudent = inv2SelectStudent;
 window.calcInvoiceLessons2 = calcInvoiceLessons2;
