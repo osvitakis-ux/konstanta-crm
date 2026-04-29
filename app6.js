@@ -230,7 +230,7 @@ var ROLES = {
   admin: {
     label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','crm'],
+    nav:['dashboard','students','tutors','schedule','lessons','crm','invoice'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:false,settings:true,danger:false,deleteAny:false},
     seeIncome:true, seeAll:true, canEditUsers:false, showGodBanner:false
   },
@@ -268,7 +268,7 @@ var NAV_CFG = [
 
 var DEFAULT_NAV_CFG = NAV_CFG;
 
-var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',crm:'CRM',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430'};
+var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',crm:'CRM',invoice:'Рахунок',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430'};
 
 var UA_PERMS=[
   {k:'students',  lbl:'\u0423\u0447\u043D\u0456 \u2014 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0456 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F'},
@@ -883,7 +883,7 @@ function renderDashBottom(){
   // Right panel
   var rt=document.getElementById('dash-rt');
   var rb=document.getElementById('dash-rb');
-  if(P().seeIncome && R()!=='tutor'){
+  if(P().seeIncome && R()!=='tutor' && R()!=='admin'){
     if(rt)rt.textContent='\u041E\u0441\u0442\u0430\u043D\u043D\u0456 \u043F\u043B\u0430\u0442\u0435\u0436\u0456';
     var rec=[].concat(S.payments).sort(function(a,b){return new Date(b.date)-new Date(a.date);}).slice(0,6);
     if(rb)rb.innerHTML=rec.length
@@ -2951,6 +2951,13 @@ function nav(page){
   if(page==='users')renderUsers();
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
+  var _invEl=document.getElementById('pg-invoice');
+  if(page==='invoice'){
+    if(_invEl)_invEl.style.display='block';
+    renderInvoicePage();
+  } else {
+    if(_invEl)_invEl.style.display='none';
+  }
   var _crmEl=document.getElementById('pg-crm');
   if(page==='crm'){if(_crmEl)_crmEl.style.display='flex';renderCrm();}
   else{if(_crmEl)_crmEl.style.display='none';}
@@ -4128,6 +4135,35 @@ function sendInvoiceEmail(){
 
 window.calcInvoiceLessons = calcInvoiceLessons;
 window.sendInvoiceEmail = sendInvoiceEmail;
+function renderInvoicePage(){
+  // Populate inv2-student select
+  var sel = document.getElementById('inv2-student');
+  if(sel){
+    sel.innerHTML = '<option value="">— оберіть учня —</option>'
+      + (S.students||[]).map(function(s){
+          return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';
+        }).join('');
+  }
+
+  // Load payment details
+  var bid = currentBranch();
+  var branch = bid ? (S.branches||[]).find(function(b){ return b.id===bid; }) : null;
+  var payEl = document.getElementById('inv2-payment');
+  if(payEl && !payEl.value){
+    payEl.value = (branch&&branch.payment_details) || (S.settings&&S.settings.payment_details) || '';
+  }
+
+  // Set default period
+  var now = new Date();
+  var y=now.getFullYear(), m=now.getMonth();
+  var fromEl = document.getElementById('inv2-date-from');
+  var toEl   = document.getElementById('inv2-date-to');
+  if(fromEl && !fromEl.value){
+    fromEl.value = y+'-'+String(m+1).padStart(2,'0')+'-01';
+    toEl.value   = y+'-'+String(m+1).padStart(2,'0')+'-'+new Date(y,m+1,0).getDate();
+  }
+}
+
 window.openInvoicePanel = openInvoicePanel;
 
 
@@ -4263,6 +4299,166 @@ function openAddBranchModal(){
   openM('mo-branch');
 }
 
+function inv2SelectStudent(){
+  var sel = document.getElementById('inv2-student');
+  var sid = sel ? sel.value : '';
+  var s = (S.students||[]).find(function(x){ return x.id===sid; });
+  var phoneEl = document.getElementById('inv2-phone');
+  var emailEl = document.getElementById('inv2-email');
+  var wrap    = document.getElementById('inv2-phone-wrap');
+  if(!s){ if(wrap) wrap.style.display='none'; calcInvoiceLessons2(); return; }
+  var phone = s.parentPhone || s.parent_phone || s.phone || '';
+  if(phoneEl) phoneEl.value = phone;
+  if(emailEl) emailEl.value = s.email || '';
+  if(wrap) wrap.style.display = phone ? 'flex' : 'none';
+  calcInvoiceLessons2();
+}
+
+function calcInvoiceLessons2(){
+  var selEl = document.getElementById('inv2-student');
+  var sid   = selEl ? selEl.value : '';
+  var from  = (document.getElementById('inv2-date-from')||{value:''}).value;
+  var to    = (document.getElementById('inv2-date-to')||{value:''}).value;
+  var price = parseFloat((document.getElementById('inv2-price')||{value:0}).value)||0;
+
+  var lessons = (S.lessons||[]).filter(function(l){
+    return (l.studentId===sid||l.student_id===sid)
+      && (l.status==='planned'||l.status==='scheduled')
+      && l.date >= from && l.date <= to;
+  }).sort(function(a,b){ return (a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||'')); });
+
+  var total = lessons.length * price;
+  var el = document.getElementById('inv2-preview');
+  if(!el) return;
+
+  if(!sid||!lessons.length){
+    el.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:8px 0">'
+      + (!sid ? 'Оберіть учня' : 'Немає запланованих уроків за цей період') + '</div>';
+    return;
+  }
+
+  var rows = lessons.map(function(l,i){
+    var tutor = l.tutorId?(S.tutors||[]).find(function(t){return t.id===l.tutorId;}):null;
+    return '<tr><td>'+(i+1)+'</td><td>'+fd(l.date)+'</td><td>'+(l.time||'—')+'</td>'
+      +'<td>'+(l.subject||l.notes||'—')+'</td>'
+      +'<td>'+(tutor?tutor.fn+' '+tutor.ln:'—')+'</td>'
+      +'<td style="text-align:right">'+(price?price+' грн':'—')+'</td></tr>';
+  }).join('');
+
+  el.innerHTML = '<table class="inv-table">'
+    +'<thead><tr><th>#</th><th>Дата</th><th>Час</th><th>Предмет</th><th>Репетитор</th><th style="text-align:right">Сума</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'<tfoot><tr><td colspan="5" style="font-weight:700">РАЗОМ: '+lessons.length+' уроків</td>'
+    +'<td style="text-align:right;font-weight:700;color:var(--adm)">'+(price?total+' грн':'—')+'</td></tr></tfoot>'
+    +'</table>';
+}
+
+function sendInvoice2Email(){
+  var selEl = document.getElementById('inv2-student');
+  var sid   = selEl ? selEl.value : '';
+  var s = (S.students||[]).find(function(x){ return x.id===sid; });
+  if(!s){ mkToast('Оберіть учня','error'); return; }
+
+  var from    = (document.getElementById('inv2-date-from')||{value:''}).value;
+  var to      = (document.getElementById('inv2-date-to')||{value:''}).value;
+  var price   = parseFloat((document.getElementById('inv2-price')||{value:0}).value)||0;
+  var email   = (document.getElementById('inv2-email')||{value:''}).value.trim();
+  var payment = (document.getElementById('inv2-payment')||{value:''}).value.trim();
+  var notes   = (document.getElementById('inv2-notes')||{value:''}).value.trim();
+  var cfg     = S.settings||{};
+  var bid     = currentBranch();
+  var branch  = bid?(S.branches||[]).find(function(b){return b.id===bid;}):null;
+  var center  = (branch&&branch.name)||cfg.name||'Константа';
+  var cPhone  = (branch&&branch.phone)||cfg.phone||'';
+  var cEmail  = (branch&&branch.email)||cfg.email||'';
+
+  var lessons = (S.lessons||[]).filter(function(l){
+    return (l.studentId===sid||l.student_id===sid)&&(l.status==='planned'||l.status==='scheduled')&&l.date>=from&&l.date<=to;
+  }).sort(function(a,b){return (a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||''));});
+
+  if(!lessons.length){ mkToast('Немає запланованих уроків','error'); return; }
+  if(!email){ mkToast('Вкажіть email','error'); return; }
+
+  var total  = lessons.length*price;
+  var num    = 'INV-'+Date.now().toString().slice(-6);
+  var today  = fd(new Date().toISOString().slice(0,10));
+  var subject = 'Рахунок-фактура №'+num+' — '+s.fn+' '+s.ln;
+
+  var shortBody = center+'\n'+(cPhone?'Тел: '+cPhone+'\n':'')+(cEmail?'Email: '+cEmail+'\n':'')
+    +'\nРАХУНОК-ФАКТУРА №'+num+'\n'
+    +'Період: '+fd(from)+' — '+fd(to)+'\n'
+    +'Отримувач: '+s.fn+' '+s.ln+'\n'
+    +'Уроків: '+lessons.length+'\n'
+    +(price?'СУМА: '+total+' грн\n':'')
+    +(payment?'\nРЕКВІЗИТИ:\n'+payment+'\n':'')
+    +(notes?'\nПримітка: '+notes:'');
+
+  var mailto = 'mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(shortBody);
+
+  var oldPop = document.getElementById('inv-popup');
+  if(oldPop) oldPop.remove();
+  var pop = document.createElement('div');
+  pop.id='inv-popup';
+  pop.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 22px;box-shadow:0 8px 32px rgba(0,0,0,.3);z-index:9999;min-width:300px;text-align:center';
+  var t=document.createElement('div');t.style.cssText='font-weight:700;font-size:15px;margin-bottom:6px';t.textContent='Рахунок готовий';pop.appendChild(t);
+  var s2=document.createElement('div');s2.style.cssText='font-size:12px;color:var(--t2);margin-bottom:14px';s2.innerHTML='Отримувач: <b>'+email+'</b>';pop.appendChild(s2);
+  var row=document.createElement('div');row.style.cssText='display:flex;gap:8px;justify-content:center;flex-wrap:wrap';
+  var aLink=document.createElement('a');aLink.href=mailto;aLink.textContent='Відкрити пошту';aLink.style.cssText='background:var(--adm);color:#fff;padding:8px 16px;border-radius:9px;text-decoration:none;font-size:13px;font-weight:700';
+  aLink.addEventListener('click',function(){pop.remove();try{window.location.href=mailto;}catch(e){}});row.appendChild(aLink);
+  var copyBtn=document.createElement('button');copyBtn.textContent='Скопіювати текст';copyBtn.style.cssText='background:var(--s2);border:1px solid var(--b1);padding:8px 16px;border-radius:9px;font-size:13px;cursor:pointer';
+  var copyText='Тема: '+subject+'\n\n'+shortBody;
+  copyBtn.addEventListener('click',function(){navigator.clipboard.writeText(copyText).then(function(){copyBtn.textContent='Скопійовано ✔';copyBtn.style.background='var(--tut)';copyBtn.style.color='#fff';}).catch(function(){prompt('Копіюйте:',copyText);});});row.appendChild(copyBtn);
+  var clBtn=document.createElement('button');clBtn.textContent='Закрити';clBtn.style.cssText='background:var(--s2);border:1px solid var(--b1);padding:8px 16px;border-radius:9px;font-size:13px;cursor:pointer';
+  clBtn.addEventListener('click',function(){pop.remove();});row.appendChild(clBtn);
+  pop.appendChild(row);document.body.appendChild(pop);
+}
+
+function openViberContact2(){
+  var selEl=document.getElementById('inv2-student');
+  var sid=selEl?selEl.value:'';
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  if(!s){mkToast('Оберіть учня','error');return;}
+  var phone=(document.getElementById('inv2-phone')||{value:''}).value||s.parentPhone||s.parent_phone||s.phone||'';
+  if(!phone){mkToast('Немає телефону','error');return;}
+  var cleanPhone=phone.replace(/[^0-9]/g,'');
+  if(cleanPhone.charAt(0)==='0')cleanPhone='38'+cleanPhone;
+  window.location.href='viber://chat?number='+cleanPhone;
+  mkToast('Відкриваємо Viber...');
+}
+
+function sendViber2FromPanel(){
+  var selEl=document.getElementById('inv2-student');
+  var sid=selEl?selEl.value:'';
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  if(!s){mkToast('Оберіть учня','error');return;}
+  var phone=(document.getElementById('inv2-phone')||{value:''}).value||s.parentPhone||s.parent_phone||s.phone||'';
+  if(!phone){mkToast('Немає телефону','error');return;}
+  var from=(document.getElementById('inv2-date-from')||{value:''}).value;
+  var to=(document.getElementById('inv2-date-to')||{value:''}).value;
+  var price=parseFloat((document.getElementById('inv2-price')||{value:0}).value)||0;
+  var payment=(document.getElementById('inv2-payment')||{value:''}).value.trim();
+  var cfg=S.settings||{};
+  var center=cfg.name||'Константа';
+  var lessons=(S.lessons||[]).filter(function(l){return (l.studentId===sid||l.student_id===sid)&&(l.status==='planned'||l.status==='scheduled')&&l.date>=from&&l.date<=to;}).sort(function(a,b){return (a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||''));});
+  if(!lessons.length){mkToast('Немає запланованих уроків','error');return;}
+  var total=lessons.length*price;
+  var lineArr=[center,'РАХУНОК-ФАКТУРА','Період: '+fd(from)+' — '+fd(to),'Учень: '+s.fn+' '+s.ln,'Уроків: '+lessons.length,''];
+  lessons.forEach(function(l,i){lineArr.push((i+1)+'. '+fd(l.date)+(l.time?' о '+l.time:''));});
+  if(price){lineArr.push('');lineArr.push('СУМА: '+total+' грн');}
+  if(payment){lineArr.push('');lineArr.push('РЕКВІЗИТИ:');lineArr.push(payment);}
+  var text=lineArr.join('\n');
+  var cleanPhone=phone.replace(/[^0-9]/g,'');
+  if(cleanPhone.charAt(0)==='0')cleanPhone='38'+cleanPhone;
+  navigator.clipboard.writeText(text).then(function(){mkToast('Текст скопійовано! Вставте Ctrl+V у Viber');}).catch(function(){});
+  setTimeout(function(){window.location.href='viber://chat?number='+cleanPhone;},400);
+}
+
+window.renderInvoicePage = renderInvoicePage;
+window.inv2SelectStudent = inv2SelectStudent;
+window.calcInvoiceLessons2 = calcInvoiceLessons2;
+window.sendInvoice2Email = sendInvoice2Email;
+window.openViberContact2 = openViberContact2;
+window.sendViber2FromPanel = sendViber2FromPanel;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
