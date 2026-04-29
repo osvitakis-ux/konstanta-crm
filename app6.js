@@ -602,7 +602,7 @@ function renderDashStats(){
     +'<div class="sval">'+monthL.length+'</div>'
     +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+monthL.filter(function(l){return l.status==='done'||l.status==='completed';}).length+'</div>'
     +'<span class="sico">\u25C9</span></div>';
-  if(P().seeIncome && R()!=='tutor'){
+  if(P().seeIncome && R()!=='tutor' && R()!=='admin'){
     var inc=S.payments.filter(function(p){
       var d=new Date(p.date);
       return p.status==='paid'&&d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
@@ -925,16 +925,16 @@ function renderDashBottom(){
   var paid=S.payments.filter(function(p){return p.status==='paid';}).reduce(function(a,p){return a+p.amount;},0);
   var pend=S.payments.filter(function(p){return p.status==='pending';}).reduce(function(a,p){return a+p.amount;},0);
   var over=S.payments.filter(function(p){return p.status==='overdue';}).reduce(function(a,p){return a+p.amount;},0);
-  document.getElementById('dash-pay').innerHTML=(P().seeIncome && R()!=='tutor')
+  document.getElementById('dash-pay').innerHTML=(P().seeIncome && R()!=='tutor' && R()!=='admin')
     ?'<div class="ms"><span class="msl">\u2705 \u041E\u043F\u043B\u0430\u0447\u0435\u043D\u043E</span><span class="msv" style="color:var(--tut)">'+paid.toLocaleString('uk-UA')+'\u20B4</span></div>'
     +'<div class="ms"><span class="msl">\u23F3 \u041E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F</span><span class="msv" style="color:var(--dir)">'+pend.toLocaleString('uk-UA')+'\u20B4</span></div>'
     +'<div class="ms"><span class="msl">\u26A0\uFE0F \u041F\u0440\u043E\u0441\u0442\u0440\u043E\u0447\u0435\u043D\u043E</span><span class="msv" style="color:var(--danger)">'+over.toLocaleString('uk-UA')+'\u20B4</span></div>'
     +'<div class="ms"><span class="msl">\u0412\u0441\u044C\u043E\u0433\u043E \u043F\u043B\u0430\u0442\u0435\u0436\u0456\u0432</span><span class="msv">'+S.payments.length+'</span></div>'
-    :(R()==='tutor'?'':'<div class="empty"><div class="ei">\uD83D\uDD12</div>\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0443 \u0442\u0430 \u0430\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0443</div>');
+    :(R()==='tutor'||R()==='admin'?'':'<div class="empty"><div class="ei">\uD83D\uDD12</div>\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u044C');
   // Hide payment cards entirely for tutors
   var rbCard = document.getElementById('dash-rb-card');
   var payCard = document.getElementById('dash-pay-card');
-  var isTutor = R()==='tutor';
+  var isTutor = R()==='tutor' || R()==='admin';
   if(rbCard)  rbCard.style.display  = isTutor ? 'none' : '';
   if(payCard) payCard.style.display = isTutor ? 'none' : '';
 
@@ -943,7 +943,7 @@ function renderDashBottom(){
   if(cb)cb.style.display='none';
   // Hide payments block for tutors
   var pyBlock=document.getElementById('dash-pay');
-  if(pyBlock&&R()==='tutor') pyBlock.closest('.card') && (pyBlock.closest('.card').style.display='none');
+  if(pyBlock&&(R()==='tutor'||R()==='admin')) pyBlock.closest('.card') && (pyBlock.closest('.card').style.display='none');
 }
 
 function renderCommLog(){
