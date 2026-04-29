@@ -896,7 +896,7 @@ function renderDashBottom(){
         }).join('')+'</tbody></table>'
       :'<div class="empty" style="padding:20px"><div class="ei">\uD83D\uDCB3</div>\u041F\u043B\u0430\u0442\u0435\u0436\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</div>';
   } else {
-    if(rt)rt.textContent='\u041C\u043E\u0457 \u0443\u0447\u043D\u0456';
+    if(rt)rt.textContent=(R()==='tutor')?'\u041C\u043E\u0457 \u0443\u0447\u043D\u0456':'\u0423\u0447\u043D\u0456';
     var msArr=myStudents();
     if(rb)rb.innerHTML=msArr.length
       ?'<table><thead><tr><th>\u0406\u043C\'\u044F</th><th>\u041F\u0440\u0435\u0434\u043C\u0435\u0442</th><th>\u0421\u0442\u0430\u0442\u0443\u0441</th></tr></thead><tbody>'
@@ -3591,7 +3591,7 @@ var CRM_COLS = [
   {id:'request',  lbl:'Запит',                                       ico:'✉', color:'#3b82f6'},
   {id:'trial',    lbl:'Тестовий урок', ico:'◎', color:'#8b5cf6'},
   {id:'contract', lbl:'Підписання договору', ico:'✍', color:'#06b6d4'},
-  {id:'invoice',  lbl:'Виставлення рахунку', ico:'▤', color:'#f97316'},
+  {id:'invoice', ico:'▤', lbl:'Рахунок', sec:'Фінанси'},
   {id:'payment',  lbl:'Оплата',                                 ico:'◈', color:'#10b981'},
   {id:'won',      lbl:'Успішно реалізовано', ico:'✅', color:'#22c55e'},
   {id:'lost',     lbl:'Не реалізовано', ico:'❌', color:'#ef4444'},
