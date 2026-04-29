@@ -230,7 +230,7 @@ var ROLES = {
   admin: {
     label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm'],
+    nav:['dashboard','students','tutors','schedule','lessons','crm'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:false,settings:true,danger:false,deleteAny:false},
     seeIncome:true, seeAll:true, canEditUsers:false, showGodBanner:false
   },
