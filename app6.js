@@ -475,11 +475,14 @@ function myLessons(){
 }
 
 function myStudents(){
-  var all=filterByBranch(S.students||[]);
+  var all = S.students||[];
+  // seeAll roles (god, director, admin) see ALL students regardless of branch
   try{ if(P().seeAll) return all; }catch(e){ return all; }
+  // Others: filter by branch first
+  all = filterByBranch(all);
   var cuId = CU ? CU.id : null;
-  var mt=S.tutors.find(function(t){return t.accId===cuId||t.acc_uid===cuId;});
-  return mt ? all.filter(function(s){return s.tutorId===mt.id||s.tutor_id===mt.id;}) : all;
+  var mt = S.tutors.find(function(t){ return t.accId===cuId||t.acc_uid===cuId; });
+  return mt ? all.filter(function(s){ return s.tutorId===mt.id||s.tutor_id===mt.id; }) : all;
 }
 
 function myTutor(){return S.tutors.find(t=>t.accId===CU?.id)||null;}
