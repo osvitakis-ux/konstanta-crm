@@ -1338,6 +1338,40 @@ body.role-tutor .comm-add-btn { display: none !important; }
     </div>
   </div>
 </div>
+
+  <div id="pg-invoice" class="page">
+    <div class="card">
+      <div class="ch"><span class="ct">Рахунок-фактура</span></div>
+      <div style="padding:14px 18px">
+        <div class="fg">
+          <div class="fgr full"><label>Учень</label>
+            <select id="inv2-student" onchange="inv2SelectStudent()">
+              <option value="">— оберіть учня —</option>
+            </select>
+          </div>
+          <div class="fgr"><label>Період з</label><input id="inv2-date-from" type="date" onchange="calcInvoiceLessons2()"></div>
+          <div class="fgr"><label>Період по</label><input id="inv2-date-to" type="date" onchange="calcInvoiceLessons2()"></div>
+          <div class="fgr"><label>Ціна за урок (грн)</label><input id="inv2-price" type="number" min="0" placeholder="0" oninput="calcInvoiceLessons2()"></div>
+          <div class="fgr full"><label>Email отримувача</label><input id="inv2-email" type="email" placeholder="email@example.com"></div>
+          <div class="fgr" id="inv2-phone-wrap" style="display:none">
+            <label>Телефон (Viber)</label>
+            <input id="inv2-phone" type="tel" placeholder="+380XXXXXXXXX">
+          </div>
+          <div class="fgr full">
+            <label>Реквізити для оплати</label>
+            <textarea id="inv2-payment" rows="3" placeholder="IBAN, номер картки..."></textarea>
+          </div>
+          <div class="fgr full"><label>Примітка</label><textarea id="inv2-notes" rows="2" placeholder="Додаткова інформація..."></textarea></div>
+        </div>
+        <div id="inv2-preview" style="margin:8px 0 12px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-p" onclick="sendInvoice2Email()">✉ Email</button>
+          <button class="btn btn-sm" onclick="openViberContact2()" style="background:#7360f2;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⚫ Написати</button>
+          <button class="btn btn-sm" onclick="sendViber2FromPanel()" style="background:#5a4bc4;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⚫ Рахунок</button>
+        </div>
+      </div>
+    </div>
+  </div>
 <script src="app6.js"></script>
 </body>
 </html>
