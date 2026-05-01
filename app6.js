@@ -1822,7 +1822,7 @@ async function exportBackup(){
   if(btn){ btn.disabled=true; btn.textContent='Завантаження...'; }
   try{
     // Load all data fresh from Supabase
-    var tables = ['branches','tutors','students','lessons','payments','subjects','comms','pricing_rules','settings'];
+    var tables = ['settings','branches','subjects','pricing_rules','tutors','students','lessons','payments','comms','custom_fields'];
     var backup = { version:1, created: new Date().toISOString(), data:{} };
     for(var i=0;i<tables.length;i++){
       var res = await _sb.from(tables[i]).select('*');
@@ -1879,7 +1879,7 @@ async function importBackup(input){
 
     var stats = {};
     // Restore tables in correct order (deps first)
-    var order = ['branches','subjects','pricing_rules','tutors','students','lessons','payments','comms','settings'];
+    var order = ['settings','branches','subjects','pricing_rules','tutors','students','lessons','payments','comms'];
     for(var i=0;i<order.length;i++){
       var table = order[i];
       var rows  = backup.data[table];
@@ -1900,6 +1900,15 @@ async function importBackup(input){
     await loadAll();
     renderSch && renderSch();
     nav(S.currentPage||'dashboard');
+
+    // Restore profiles with upsert (preserve auth links)
+    if(backup.data['profiles'] && backup.data['profiles'].length){
+      for(var pi=0;pi<backup.data['profiles'].length;pi+=50){
+        var pc = backup.data['profiles'].slice(pi,pi+50);
+        await _sb.from('profiles').upsert(pc, {onConflict:'id'});
+      }
+      stats['profiles'] = backup.data['profiles'].length;
+    }
 
     var summary = Object.entries(stats).map(function(e){return e[0]+': '+e[1];}).join(', ');
     mkToast('Відновлено! '+summary);
