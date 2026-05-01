@@ -412,6 +412,15 @@ function bst(s){
   return '<span class="badge '+(m[s]||'bb')+'">'+( l[s]||s)+'</span>';
 }
 
+function localDateStr(date){
+  if(!date) return '';
+  var d = (date instanceof Date) ? date : new Date(date);
+  var y = d.getFullYear();
+  var m = String(d.getMonth()+1).padStart(2,'0');
+  var day = String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
+
 function fd(d){if(!d)return '\u2014';return new Date(d).toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric'});}
 
 function fd2(l,p){document.getElementById('lu').value=l;document.getElementById('lp').value=p;}
