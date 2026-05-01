@@ -1932,6 +1932,70 @@ async function importBackup(input){
   input.value='';
 }
 
+// ═══════════════════════════════════════
+// PRESENCE TRACKING
+// ═══════════════════════════════════════
+var _presenceInterval = null;
+
+async function updatePresence(online){
+  if(!CU || !_sb) return;
+  try{
+    await _sb.from('profiles').update({
+      is_online: online,
+      last_seen: new Date().toISOString()
+    }).eq('id', CU.id);
+  }catch(e){}
+}
+
+function startPresence(){
+  // Set online immediately
+  updatePresence(true);
+  // Heartbeat every 30 seconds
+  if(_presenceInterval) clearInterval(_presenceInterval);
+  _presenceInterval = setInterval(function(){
+    updatePresence(true);
+  }, 30000);
+  // Set offline on page hide/unload
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){
+      updatePresence(false);
+    } else {
+      updatePresence(true);
+    }
+  });
+  window.addEventListener('beforeunload', function(){
+    // Sync request to mark offline
+    if(navigator.sendBeacon && CU){
+      var url = _sb.supabaseUrl + '/rest/v1/profiles?id=eq.' + CU.id;
+      var body = JSON.stringify({is_online:false, last_seen:new Date().toISOString()});
+      navigator.sendBeacon(url, body);
+    }
+  });
+}
+
+function stopPresence(){
+  if(_presenceInterval){ clearInterval(_presenceInterval); _presenceInterval=null; }
+  updatePresence(false);
+}
+
+function formatLastSeen(ts){
+  if(!ts) return 'ніколи';
+  var now = new Date();
+  var d = new Date(ts);
+  var diff = Math.floor((now - d) / 1000); // seconds
+  if(diff < 60) return 'щойно';
+  if(diff < 3600) return Math.floor(diff/60) + ' хв тому';
+  if(diff < 86400) return Math.floor(diff/3600) + ' год тому';
+  var days = Math.floor(diff/86400);
+  if(days === 1) return 'вчора';
+  if(days < 7) return days + ' дн. тому';
+  return d.toLocaleDateString('uk-UA', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function presenceDot(isOnline){
+  return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(isOnline?'#22c55e':'#94a3b8')+';margin-right:5px;flex-shrink:0" title="'+(isOnline?'Онлайн':'Офлайн')+'"></span>';
+}
+
 async function initApp(){
   // Wait for Supabase SDK to load (retry up to 3s)
   var sdkWait = 0;
@@ -2029,6 +2093,7 @@ async function doLogin(){
 }
 
 async function doLogout(){
+  stopPresence();
   stopChannels();
   await _sb.auth.signOut();
 }
@@ -2548,7 +2613,10 @@ async function renderUsers(){
     av.style.cssText='background:'+ro.avatarBg+';width:38px;height:38px;font-size:14px;font-weight:700;flex-shrink:0;color:#fff';
     av.textContent=(u.fn?.[0]||'?')+(u.ln?.[0]||'');
     var info=document.createElement('div');info.className='uin';
-    info.innerHTML='<div class="uinn">'+u.fn+' '+(u.ln||'')+'</div><div class="uinm">'+(u.email||'\u2014')+'</div>';
+    var onlineDot = u.is_online ? '●' : '○';
+    var lastSeenStr = u.last_seen ? formatLastSeen(u.last_seen) : 'ніколи';
+    var onlineColor = u.is_online ? '#22c55e' : '#94a3b8';
+    info.innerHTML='<div class="uinn" style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:'+onlineColor+';flex-shrink:0;display:inline-block"></span>'+u.fn+' '+(u.ln||'')+'</div>'+'<div class="uinm">'+(u.email||'—')+'</div>'+' <div style="font-size:10px;color:var(--t3)">'+(u.is_online ? '• Онлайн' : 'Вхід: '+lastSeenStr)+'</div>';
     var rpill=document.createElement('span');rpill.className='rpill '+u.role;
     rpill.innerHTML=ro.icon+' '+ro.label;
     var btns=document.createElement('div');btns.style.cssText='display:flex;gap:6px;margin-left:auto;align-items:center';
@@ -2692,6 +2760,7 @@ async function clearData(what){
 // APP START
 // =
 async function startApp(){
+  startPresence();
   document.getElementById('ls').style.display='none';
   document.getElementById('as').style.display='block';
 
