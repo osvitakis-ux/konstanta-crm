@@ -263,6 +263,8 @@ var NAV_CFG = [
   {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'settings',   ico:'\u25C9',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'crm', ico:'▤', lbl:'CRM', sec:'Менеджмент'},
+  {id:'invoice', ico:'▤', lbl:'Рахунок', sec:'Рахунок'},
+  {id:'invoice-log', ico:'▤', lbl:'Історія', sec:'Рахунок'},
   {id:'profile',    ico:'\u25A3',  lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',  sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
 ];
 
