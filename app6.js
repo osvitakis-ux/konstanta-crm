@@ -2974,7 +2974,7 @@ function openLessM(id=null,date=null,time=null){
     }
   } else {
     ['l-std','l-subj','l-tutor','l-price','l-notes'].forEach(f=>document.getElementById(f).value='');
-    document.getElementById('l-date').value=date||new Date().toISOString().slice(0,10);
+    document.getElementById('l-date').value=date||localDateStr(new Date());
     document.getElementById('l-time').value=time||'10:00';
     document.getElementById('l-dur').value=60;
     document.getElementById('l-stat').value='planned';
@@ -2990,7 +2990,7 @@ function openPayM(id=null){
   S.editId=id;document.getElementById('mp-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043F\u043B\u0430\u0442\u0456\u0436':'\u041D\u043E\u0432\u0438\u0439 \u043F\u043B\u0430\u0442\u0456\u0436';
   popSel('p-std',S.students,'id',function(s){return s.fn+' '+s.ln;},'\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F');
   const months=['\u0421\u0456\u0447\u0435\u043D\u044C','\u041B\u044E\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u041A\u0432\u0456\u0442\u0435\u043D\u044C','\u0422\u0440\u0430\u0432\u0435\u043D\u044C','\u0427\u0435\u0440\u0432\u0435\u043D\u044C','\u041B\u0438\u043F\u0435\u043D\u044C','\u0421\u0435\u0440\u043F\u0435\u043D\u044C','\u0412\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0416\u043E\u0432\u0442\u0435\u043D\u044C','\u041B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043D\u044C'];
-  document.getElementById('p-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('p-date').value=localDateStr(new Date());
   document.getElementById('p-mon').value=months[new Date().getMonth()];
   if(id){const p=S.payments.find(x=>x.id===id);if(p){document.getElementById('p-std').value=p.studentId||'';document.getElementById('p-amt').value=p.amount||'';document.getElementById('p-mth').value=p.method||'cash';document.getElementById('p-date').value=p.date||'';document.getElementById('p-stat').value=p.status||'paid';document.getElementById('p-mon').value=p.month||months[new Date().getMonth()];document.getElementById('p-note').value=p.note||'';}}
   else{document.getElementById('p-std').value='';document.getElementById('p-amt').value='';document.getElementById('p-mth').value='cash';document.getElementById('p-stat').value='paid';document.getElementById('p-note').value='';}
@@ -3018,7 +3018,7 @@ function openCommM(tutorId){
       }).join('');
   }
   var dateEl=document.getElementById('cm-date');
-  if(dateEl)dateEl.value=new Date().toISOString().slice(0,10);
+  if(dateEl)dateEl.value=localDateStr(new Date());
   openM('mo-comm');
 }
 
@@ -3357,7 +3357,7 @@ function genRecurDates(startDate,recurType,endDate,count,interval){
   for(let i=0;i<maxCount;i++){
     if(i>0){
       if(end&&cur>end)break;
-      dates.push(cur.toISOString().slice(0,10));
+      dates.push(localDateStr(cur));
     }
     const next=new Date(cur);
     if(recurType==='daily'){next.setDate(next.getDate()+1);}
