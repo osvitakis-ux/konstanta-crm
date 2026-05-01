@@ -1140,6 +1140,32 @@ body.role-tutor .comm-add-btn { display: none !important; }
           </div>
         </div>
       </div>
+      <div id="pg-invoice-log" class="page" style="overflow-y:auto">
+        <div class="card">
+          <div class="ch">
+            <span class="ct">Історія надсилань рахунків</span>
+            <button class="btn btn-g btn-sm" onclick="renderInvoiceLog()" style="margin-left:auto">↻ Оновити</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr style="background:var(--s2)">
+                  <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Час</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Учень</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Період</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Урокі / Сума</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Канал</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Отримувач</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Відправник / Філія</th>
+                </tr>
+              </thead>
+              <tbody id="inv-log-tbody">
+                <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">Завантаження...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
