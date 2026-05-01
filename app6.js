@@ -216,14 +216,14 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','invoice','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','invoice','invoice-log','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','invoice','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','invoice','invoice-log','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -237,7 +237,7 @@ var ROLES = {
   network_admin: {
     label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#5b60d4,#29abe2)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','invoice','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','invoice','invoice-log','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -268,7 +268,7 @@ var NAV_CFG = [
 
 var DEFAULT_NAV_CFG = NAV_CFG;
 
-var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',crm:'CRM',invoice:'Рахунок',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430'};
+var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',crm:'CRM',invoice:'Рахунок','invoice-log':'Історія рахунків',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430'};
 
 var UA_PERMS=[
   {k:'students',  lbl:'\u0423\u0447\u043D\u0456 \u2014 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0456 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F'},
@@ -3052,6 +3052,12 @@ function nav(page){
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
   var _invEl=document.getElementById('pg-invoice');
+  var _invLogEl = document.getElementById('pg-invoice-log');
+  if(page==='invoice-log'){
+    if(_invLogEl){ _invLogEl.style.display='block'; renderInvoiceLog(); }
+  } else {
+    if(_invLogEl) _invLogEl.style.display='none';
+  }
   if(page==='invoice'){
     if(_invEl)_invEl.style.display='block';
     renderInvoicePage();
@@ -3692,6 +3698,7 @@ var CRM_COLS = [
   {id:'trial',    lbl:'Тестовий урок', ico:'◎', color:'#8b5cf6'},
   {id:'contract', lbl:'Підписання договору', ico:'✍', color:'#06b6d4'},
   {id:'invoice', ico:'▤', lbl:'Рахунок', sec:'Рахунок'},
+  {id:'invoice-log', ico:'▤', lbl:'Історія', sec:'Рахунок'},
   {id:'payment',  lbl:'Оплата',                                 ico:'◈', color:'#10b981'},
   {id:'won',      lbl:'Успішно реалізовано', ico:'✅', color:'#22c55e'},
   {id:'lost',     lbl:'Не реалізовано', ico:'❌', color:'#ef4444'},
@@ -4151,6 +4158,8 @@ function sendInvoiceEmail(){
     +'&body='+encodeURIComponent(shortBody);
 
   // Show popup
+  // Log invoice
+  logInvoice('email', email, sid, from, to, lessons.length, total);
   var oldPop = document.getElementById('inv-popup');
   if(oldPop) oldPop.remove();
 
@@ -4592,15 +4601,36 @@ function sendViber2FromPanel(){
   var text=vLines.join('\n');
   var cleanPhone=phone.replace(/[^0-9]/g,'');
   if(cleanPhone.charAt(0)==='0')cleanPhone='38'+cleanPhone;
+  // Log invoice
+  logInvoice('viber', phone, sid, from, to, lessons.length, total);
   navigator.clipboard.writeText(text).then(function(){mkToast('Текст скопійовано! Вставте Ctrl+V у Viber');}).catch(function(){});
   setTimeout(function(){window.location.href='viber://chat?number='+cleanPhone;},400);
 }
+async function logInvoice(channel, recipient, studentId, from, to, lessonsCount, total){
+  if(!CU || !_sb) return;
+  try{
+    await _sb.from('invoice_log').insert({
+      sent_by: CU.id,
+      student_id: studentId || null,
+      period_from: from || null,
+      period_to: to || null,
+      lessons_count: lessonsCount || 0,
+      total_amount: total || 0,
+      channel: channel,
+      recipient: recipient || '',
+      branch_id: currentBranch() || null
+    });
+  }catch(e){ console.warn('logInvoice error:', e); }
+}
+
 window.renderInvoicePage = renderInvoicePage;
 window.inv2SelectStudent = inv2SelectStudent;
 window.calcInvoiceLessons2 = calcInvoiceLessons2;
 window.sendInvoice2Email = sendInvoice2Email;
 window.openViberContact2 = openViberContact2;
 window.sendViber2FromPanel = sendViber2FromPanel;
+window.renderInvoiceLog = renderInvoiceLog;
+window.logInvoice = logInvoice;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
