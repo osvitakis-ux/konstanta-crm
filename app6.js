@@ -3541,7 +3541,7 @@ function renderTutors(){
       +'<td><div style="display:flex;gap:4px">'
       +(ce
         ?'<button class="btn btn-g btn-sm" onclick="openTutM(this.dataset.id)" data-id="'+t.id+'">\u270F\uFE0F</button>'
-         +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delTutor('+t.id+')">\uD83D\uDDD1</button>'
+         +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delTutor(this.dataset.id)" data-id="'+t.id+'">\uD83D\uDDD1</button>'
         :'<span style="font-size:10px;color:var(--t3)">перегляд</span>')
       +'</div></td>'
       +'</tr>';
