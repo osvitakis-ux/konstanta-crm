@@ -603,7 +603,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
     </div>
     <div class="ptitle" id="ptitle">Дашборд</div>
       <div class="search"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук..." id="gsearch" oninput="gSearch(this.value)"></div>
-      <button class="btn btn-p" id="addbtn" onclick="openAdd()" style="display:none">+ Додати філію</button>
+      <button class="btn btn-p" id="addbtn" onclick="openAdd()" style="display:none">+ Додати</button>
     </div>
     <div class="content" id="content">
 
@@ -776,7 +776,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <div class="card" id="inv-card" style="display:none">
           <div class="ch" style="display:flex;align-items:center;justify-content:space-between">
             <span class="ct">Рахунок-фактура</span>
-            <button class="btn btn-g btn-sm" onclick="document.getElementById('inv-card').style.display='none'">× Згорнути</button>
+            <button class="btn btn-g btn-sm" onclick="document.getElementById('inv-card').style.display='none'">&times; Згорнути</button>
           </div>
           <div style="padding:14px 18px">
             <div class="fg">
@@ -790,15 +790,11 @@ body.role-tutor .comm-add-btn { display: none !important; }
               <div class="fgr"><label>Ціна за урок (грн)</label><input id="inv-price" type="number" min="0" placeholder="0" oninput="calcInvoiceLessons()"></div>
               <div class="fgr full"><label>Email отримувача</label><input id="inv-email" type="email" placeholder="email@example.com"></div>
               <div class="fgr" id="inv-phone-wrap" style="display:none">
-                <label>Телефон (вайбер)</label>
+                <label>Телефон (Viber)</label>
                 <input id="inv-phone" type="tel" placeholder="+380XXXXXXXXX">
               </div>
               <div class="fgr full">
-                <label>Реквізити для оплати
-                  <select id="inv-branch-pay" onchange="invSelectBranchPay()" style="margin-left:8px;font-size:11px;padding:2px 6px;border:1px solid var(--b1);border-radius:6px;background:var(--s1)">
-                    <option value="">з налаштувань</option>
-                  </select>
-                </label>
+                <label>Реквізити для оплати <select id="inv-branch-pay" onchange="invSelectBranchPay()" style="margin-left:8px;font-size:11px;padding:2px 6px;border:1px solid var(--b1);border-radius:6px;background:var(--s1)"><option value="">з налаштувань</option></select></label>
                 <textarea id="inv-payment" rows="3" placeholder="IBAN, номер картки..."></textarea>
               </div>
               <div class="fgr full"><label>Примітка</label><textarea id="inv-notes" rows="2" placeholder="Додаткова інформація..."></textarea></div>
@@ -806,8 +802,8 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <div id="inv-preview" style="margin:8px 0 12px"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-p" onclick="sendInvoiceEmail()">✉ Email</button>
-              <button class="btn btn-sm" onclick="openViberContact()" style="background:#7360f2;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⚫ Написати</button>
-              <button class="btn btn-sm" onclick="sendViberFromPanel()" style="background:#5a4bc4;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⚫ Рахунок</button>
+              <button class="btn btn-sm" onclick="openViberContact()" style="background:#7360f2;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⬤ Написати</button>
+              <button class="btn btn-sm" onclick="sendViberFromPanel()" style="background:#5a4bc4;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⬤ Рахунок</button>
             </div>
           </div>
         </div>
@@ -874,15 +870,22 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div><div class="god-banner-title">Режим Бога — повний доступ</div><div class="god-banner-text">Редагування системних налаштувань, скидання даних та управління базою</div></div>
         </div>
         <div class="tc">
-          <div class="card"><div class="ch"><span class="ct">Репетиторський центр «Константа»</span></div>
+          <div class="card">
+            <div class="ch"><span class="ct">Репетиторський центр «Константа»</span></div>
             <div class="mdlb"><div class="fg">
               <div class="fgr full"><label>Назва</label><input id="set-name" type="text"></div>
               <div class="fgr"><label>Телефон</label><input id="set-phone" type="text"></div>
               <div class="fgr"><label>Email</label><input id="set-email" type="email"></div>
               <div class="fgr full"><label>Адреса</label><input id="set-addr" type="text"></div>
-              <div class="fgr full"><label>Реквізити для оплати (головні)</label><textarea id="set-payment" rows="3" placeholder="IBAN, картка, банк..."></textarea></div>
-              <div class="fgr full"><button class="btn btn-p" onclick="saveSettings()">💾 Зберегти</button></div>
+              <div class="fgr full"><button class="btn btn-p" onclick="saveSettings()">💾 Зберегти налаштування</button></div>
             </div></div>
+            <div style="border-top:1px solid var(--b1);padding:14px 18px 4px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <span style="font-weight:700;font-size:13px">🏢 Філії</span>
+                <button class="btn btn-p btn-sm" onclick="addBranch()">+ Додати філію</button>
+              </div>
+              <div id="branch-list"></div>
+            </div>
           </div>
           <div class="card">
           <div class="ch">
@@ -933,15 +936,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             </div>
           </div>
 
-          <div class="card" id="branches-card">
-          <div class="ch"><span class="ct">🏢 Філії</span></div>
-          <div style="padding:14px 18px" id="branch-list"></div>
-          <div style="padding:0 18px 18px;display:flex;gap:8px">
-            <input id="new-branch-name" placeholder="Назва філії" style="flex:1">
-            <input id="new-branch-addr" placeholder="Адреса (необов.)" style="flex:1">
-            <button class="btn btn-p btn-sm" onclick="addBranch()">+ Додати</button>
-          </div>
-        </div>
+          
         <div class="card"><div class="ch"><span class="ct">Предмети та ціни</span></div>
             <div style="padding:14px 18px" id="set-subj-list"></div>
             <div style="padding:0 18px 18px;display:flex;gap:8px">
@@ -1111,40 +1106,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
       </div>
 
       </div><!-- /god-constructor-wrap -->
-
-      <div id="pg-invoice" class="page" style="overflow-y:auto;padding-bottom:40px">
-        <div class="card">
-          <div class="ch"><span class="ct">Рахунок-фактура</span></div>
-          <div style="padding:14px 18px">
-            <div class="fg">
-              <div class="fgr full"><label>Учень</label>
-                <select id="inv2-student" onchange="inv2SelectStudent()">
-                  <option value="">— оберіть учня —</option>
-                </select>
-              </div>
-              <div class="fgr"><label>Період з</label><input id="inv2-date-from" type="date" onchange="calcInvoiceLessons2()"></div>
-              <div class="fgr"><label>Період по</label><input id="inv2-date-to" type="date" onchange="calcInvoiceLessons2()"></div>
-              <div class="fgr"><label>Ціна за урок (грн)</label><input id="inv2-price" type="number" min="0" placeholder="0" oninput="calcInvoiceLessons2()"></div>
-              <div class="fgr full"><label>Email отримувача</label><input id="inv2-email" type="email" placeholder="email@example.com"></div>
-              <div class="fgr" id="inv2-phone-wrap" style="display:none">
-                <label>Телефон (Viber)</label>
-                <input id="inv2-phone" type="tel" placeholder="+380XXXXXXXXX">
-              </div>
-              <div class="fgr full">
-                <label>Реквізити для оплати</label>
-                <textarea id="inv2-payment" rows="3" placeholder="IBAN, номер картки..."></textarea>
-              </div>
-              <div class="fgr full"><label>Примітка</label><textarea id="inv2-notes" rows="2" placeholder="Додаткова інформація..."></textarea></div>
-            </div>
-            <div id="inv2-preview" style="margin:8px 0 12px"></div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-p" onclick="sendInvoice2Email()">✉ Email</button>
-              <button class="btn btn-sm" onclick="openViberContact2()" style="background:#7360f2;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⚫ Написати</button>
-              <button class="btn btn-sm" onclick="sendViber2FromPanel()" style="background:#5a4bc4;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⚫ Рахунок</button>
-            </div>
-          </div>
-        </div>
-      </div>
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
@@ -1348,31 +1309,41 @@ body.role-tutor .comm-add-btn { display: none !important; }
 <div class="mo" id="mo-user"><div class="mdl"><div class="mdlh"><div class="mdlt" id="mu-title">Акаунт</div><button class="xbtn" onclick="closeM('mo-user')">x</button></div><div class="mdlb"><div class="fg"><div class="fgr"><label>Ім’я *</label><input id="u-fn" type="text"></div><div class="fgr"><label>Прізвище</label><input id="u-ln" type="text"></div><div class="fgr full"><label>Email</label><input id="u-email" type="email" disabled style="opacity:.5"></div><div class="fgr"><label>Роль</label><select id="u-role" onchange="toggleTutLink()"><option value="god">Бог</option><option value="director">Директор</option><option value="admin">Адмін</option><option value="tutor" selected>Репетитор</option></select></div><div class="fgr" id="u-tlink-wrap" style="display:none"><label>Прив’язати до репетитора</label><select id="u-tlink"></select></div></div></div><div class="mdlf"><button class="btn btn-p" onclick="saveUser()">Зберегти</button><button class="btn btn-g" onclick="closeM('mo-user')">Скасувати</button></div></div></div>
 <div class="mo" id="mo-user-access"><div class="mdl" style="max-width:560px"><div class="mdlh"><div class="mdlt">Доступ</div><button class="xbtn" onclick="closeM('mo-user-access')">x</button></div><div class="mdlb"><div id="ua-user-info" style="margin-bottom:14px"></div><div style="display:flex;gap:6px;margin-bottom:14px"><button class="btn btn-g btn-sm ua-tab active" onclick="uaTab('perms',this)">Права</button><button class="btn btn-g btn-sm ua-tab" onclick="uaTab('nav',this)">Навігація</button><button class="btn btn-g btn-sm ua-tab" onclick="uaTab('summary',this)">Зведення</button></div><div id="uap-perms" class="ua-panel active"><div id="ua-perms-grid"></div></div><div id="uap-nav" class="ua-panel" style="display:none"><div id="ua-nav-grid"></div></div><div id="uap-summary" class="ua-panel" style="display:none"><div id="ua-summary"></div></div></div><div class="mdlf" style="justify-content:space-between"><button id="ua-reset-all" class="btn btn-d btn-sm" onclick="resetAllUserAccess()" style="display:none">Скинути</button><button class="btn btn-g" onclick="closeM('mo-user-access')">Закрити</button></div></div></div>
 <div class="mo" id="mo-crm-card"><div class="mdl" style="max-width:420px"><div class="mdlh"><div class="mdlt" id="crm-card-name">CRM</div><button class="xbtn" onclick="closeM('mo-crm-card')">x</button></div><div class="mdlb"><div class="fg"><div class="fgr full"><label>Етап</label><select id="crm-card-stage"><option value="lead">Новий лід</option><option value="request">Запит</option><option value="trial">Тестовий</option><option value="contract">Підписання</option><option value="invoice">Рахунок</option><option value="payment">Оплата</option><option value="won">Успішно</option><option value="lost">Не реал.</option></select></div><div class="fgr full"><label>Відповідальний</label><select id="crm-card-resp"></select></div><div class="fgr"><label>Дата</label><input id="crm-card-date" type="date"></div><div class="fgr full"><label>Нотатки</label><textarea id="crm-card-notes" rows="3"></textarea></div></div></div><div class="mdlf"><button class="btn btn-p" onclick="saveCrmCard()">Зберегти</button><button class="btn btn-g" onclick="closeM('mo-crm-card')">Скасувати</button></div></div></div>
+<div class="mo" id="mo-branch"><div class="mdl" style="max-width:460px"><div class="mdlh"><div class="mdlt" id="mo-branch-title">Філія</div><button class="xbtn" onclick="closeM('mo-branch')">x</button></div><div class="mdlb"><div class="fg"><div class="fgr full"><label>Назва *</label><input id="br-name" type="text" placeholder="Філія № 1"></div><div class="fgr full"><label>Адреса</label><input id="br-addr" type="text" placeholder="вул. Прикладна, 1"></div><div class="fgr"><label>Телефон</label><input id="br-phone" type="tel" placeholder="+380XXXXXXXXX"></div><div class="fgr"><label>Email (відправник)</label><input id="br-email" type="email" placeholder="branch@example.com"></div><div class="fgr full"><label>Реквізити для оплати</label><textarea id="br-payment" rows="4" placeholder="IBAN, номер картки..."></textarea></div></div></div><div class="mdlf"><button class="btn btn-p" onclick="saveBranchModal()">Зберегти</button><button class="btn btn-g" onclick="closeM('mo-branch')">Скасувати</button></div></div></div>
   <div id="pg-crm" style="display:none;position:fixed;top:56px;left:224px;right:0;bottom:0;background:var(--bg);z-index:10;flex-direction:column;padding:14px 16px 0;box-sizing:border-box"><div class="crm-toolbar"><button class="crm-btn-add" onclick="openAddLead()"><span>+</span><span>Новий лід</span></button><button class="crm-btn-add" onclick="nav('invoice')" style="background:var(--tut)">▤ Рахунок</button><div class="crm-filter-group"><span class="crm-filter-label">ЕТАП</span><select id="crm-f-stage" class="crm-filter-sel" onchange="renderCrm()"><option value="">Усі</option><option value="lead">Новий лід</option><option value="request">Запит</option><option value="trial">Тестовий</option><option value="contract">Підписання</option><option value="invoice">Рахунок</option><option value="payment">Оплата</option><option value="won">Успішно</option><option value="lost">Не реал.</option></select></div><div class="crm-filter-group"><span class="crm-filter-label">МІСЯЦЬ</span><input id="crm-f-month" type="month" class="crm-filter-sel" onchange="renderCrm()" style="min-width:120px"></div><div class="crm-filter-group"><span class="crm-filter-label">ВІДПОВ.</span><select id="crm-f-resp" class="crm-filter-sel" onchange="renderCrm()"><option value="">Усі</option></select></div><button class="crm-btn-clear" onclick="crmClearFilters()">× Скинути</button><div id="crm-stats" style="margin-left:auto;font-size:11px;color:var(--t2);display:flex;gap:12px"></div></div><div class="crm-board-wrap"><button class="crm-scroll-btn crm-scroll-left" id="crm-scroll-left" onclick="crmScroll(-1)">&#8592;</button><div class="crm-board-scroll" id="crm-board-scroll"><div id="crm-board" style="display:flex;gap:10px;height:100%;align-items:flex-start;padding-bottom:16px;min-width:max-content"></div></div><button class="crm-scroll-btn crm-scroll-right" id="crm-scroll-right" onclick="crmScroll(1)">&#8594;</button></div></div>
-
-<div class="mo" id="mo-branch">
-  <div class="mdl" style="max-width:460px">
-    <div class="mdlh">
-      <div class="mdlt" id="mo-branch-title">Філія</div>
-      <button class="xbtn" onclick="closeM('mo-branch')">x</button>
-    </div>
-    <div class="mdlb"><div class="fg">
-      <div class="fgr full"><label>Назва *</label><input id="br-name" type="text" placeholder="Філія № 1"></div>
-      <div class="fgr full"><label>Адреса</label><input id="br-addr" type="text" placeholder="вул. Прикладна, 1"></div>
-      <div class="fgr"><label>Телефон</label><input id="br-phone" type="tel" placeholder="+380XXXXXXXXX"></div>
-      <div class="fgr"><label>Email (відправник)</label><input id="br-email" type="email" placeholder="branch@example.com"></div>
-      <div class="fgr full">
-        <label>Реквізити для оплати</label>
-        <textarea id="br-payment" rows="4" placeholder="IBAN, номер картки..."></textarea>
+      <div id="pg-invoice" class="page" style="overflow-y:auto;padding-bottom:40px">
+        <div class="card">
+          <div class="ch"><span class="ct">Рахунок-фактура</span></div>
+          <div style="padding:14px 18px">
+            <div class="fg">
+              <div class="fgr full"><label>Учень</label>
+                <select id="inv2-student" onchange="inv2SelectStudent()">
+                  <option value="">— оберіть учня —</option>
+                </select>
+              </div>
+              <div class="fgr"><label>Період з</label><input id="inv2-date-from" type="date" onchange="calcInvoiceLessons2()"></div>
+              <div class="fgr"><label>Період по</label><input id="inv2-date-to" type="date" onchange="calcInvoiceLessons2()"></div>
+              <div class="fgr"><label>Ціна за урок (грн)</label><input id="inv2-price" type="number" min="0" placeholder="0" oninput="calcInvoiceLessons2()"></div>
+              <div class="fgr full"><label>Email отримувача</label><input id="inv2-email" type="email" placeholder="email@example.com"></div>
+              <div class="fgr" id="inv2-phone-wrap" style="display:none">
+                <label>Телефон (Viber)</label>
+                <input id="inv2-phone" type="tel" placeholder="+380XXXXXXXXX">
+              </div>
+              <div class="fgr full">
+                <label>Реквізити для оплати</label>
+                <textarea id="inv2-payment" rows="3" placeholder="IBAN, номер картки..."></textarea>
+              </div>
+              <div class="fgr full"><label>Примітка</label><textarea id="inv2-notes" rows="2" placeholder="Додаткова інформація..."></textarea></div>
+            </div>
+            <div id="inv2-preview" style="margin:8px 0 12px"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-p" onclick="sendInvoice2Email()">✉ Email</button>
+              <button class="btn btn-sm" onclick="openViberContact2()" style="background:#7360f2;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⬤ Написати</button>
+              <button class="btn btn-sm" onclick="sendViber2FromPanel()" style="background:#5a4bc4;color:#fff;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">⬤ Рахунок</button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div></div>
-    <div class="mdlf">
-      <button class="btn btn-p" onclick="saveBranchModal()">Зберегти</button>
-      <button class="btn btn-g" onclick="closeM('mo-branch')">Скасувати</button>
-    </div>
-  </div>
-</div>
-
 <script src="app6.js"></script>
 </body>
 </html>
