@@ -1878,23 +1878,36 @@ async function importBackup(input){
     }
 
     var stats = {};
-    // Restore tables in correct order (deps first)
+    var errors = [];
+    // Restore in correct order: delete dependents first, then parents
+    // DELETE order (reverse of insert): comms, payments, lessons, students, tutors, pricing_rules, subjects, branches, settings
+    var deleteOrder = ['comms','payments','lessons','students','tutors','pricing_rules','subjects','branches','settings'];
+    for(var di=0;di<deleteOrder.length;di++){
+      var dt = deleteOrder[di];
+      if(backup.data[dt] && backup.data[dt].length){
+        var dr = await _sb.from(dt).delete().neq('id','______none______');
+        if(dr.error) errors.push('del '+dt+': '+dr.error.message);
+      }
+    }
+    // INSERT order: parents first
     var order = ['settings','branches','subjects','pricing_rules','tutors','students','lessons','payments','comms'];
     for(var i=0;i<order.length;i++){
       var table = order[i];
       var rows  = backup.data[table];
       if(!rows || !rows.length){ stats[table]=0; continue; }
-      // Delete existing
-      await _sb.from(table).delete().neq('id','');
-      // Insert backup rows in chunks of 50
       var inserted = 0;
       for(var j=0;j<rows.length;j+=50){
         var chunk = rows.slice(j,j+50);
-        var res = await _sb.from(table).insert(chunk);
-        if(!res.error) inserted += chunk.length;
+        var res = await _sb.from(table).upsert(chunk, {onConflict:'id'});
+        if(res.error){
+          errors.push(table+': '+res.error.message);
+        } else {
+          inserted += chunk.length;
+        }
       }
       stats[table] = inserted;
     }
+    if(errors.length) console.warn('Backup restore errors:', errors);
 
     // Reload all data
     await loadAll();
