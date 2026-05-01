@@ -4629,6 +4629,48 @@ window.calcInvoiceLessons2 = calcInvoiceLessons2;
 window.sendInvoice2Email = sendInvoice2Email;
 window.openViberContact2 = openViberContact2;
 window.sendViber2FromPanel = sendViber2FromPanel;
+async function renderInvoiceLog(){
+  var pg = document.getElementById('pg-invoice-log');
+  if(!pg) return;
+  var tbody = document.getElementById('inv-log-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--t3)">Завантаження...</td></tr>';
+  try{
+    var res = await _sb.from('invoice_log')
+      .select('*, profiles!sent_by(fn,ln), students!student_id(fn,ln), branches!branch_id(name)')
+      .order('sent_at', {ascending: false})
+      .limit(200);
+    if(res.error) throw res.error;
+    var rows = res.data || [];
+    if(!rows.length){
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--t3)">Рахунків немає</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r){
+      var sender = r.profiles ? (r.profiles.fn+' '+r.profiles.ln) : '—';
+      var student = r.students ? (r.students.fn+' '+r.students.ln) : '—';
+      var branch = r.branches ? r.branches.name : '—';
+      var sentAt = r.sent_at ? new Date(r.sent_at).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+      var period = (r.period_from ? fd(r.period_from) : '') + (r.period_to ? ' – '+fd(r.period_to) : '');
+      var channelIcon = r.channel==='viber' ? '⚫ Viber' : '✉ Email';
+      var amount = r.total_amount ? r.total_amount+' грн' : '—';
+      var chColor = r.channel==='viber' ? '#7360f2' : 'var(--adm)';
+      var chBg = r.channel==='viber' ? 'rgba(115,96,242,.15)' : 'rgba(41,171,226,.15)';
+      return '<tr>'
+        +'<td style="font-size:11px;color:var(--t2)">'+sentAt+'</td>'
+        +'<td><b>'+student+'</b></td>'
+        +'<td style="font-size:11px">'+period+'</td>'
+        +'<td style="font-size:11px">'+r.lessons_count+' / '+amount+'</td>'
+        +'<td><span style="font-size:11px;background:'+chBg+';color:'+chColor+';padding:2px 8px;border-radius:20px">'+channelIcon+'</span></td>'
+        +'<td style="font-size:11px">'+r.recipient+'</td>'
+        +'<td style="font-size:11px;color:var(--t2)">'+sender+'<br><span style="color:var(--t3)">'+branch+'</span></td>'
+        +'</tr>';
+    }).join('');
+  }catch(e){
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--danger)">Помилка: '+e.message+'</td></tr>';
+  }
+}
+
 window.renderInvoiceLog = renderInvoiceLog;
 window.logInvoice = logInvoice;
 // Boot
