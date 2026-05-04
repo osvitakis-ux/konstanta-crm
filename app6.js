@@ -3478,7 +3478,7 @@ function renderSch(){
   const tf   = document.getElementById('sch-tutor-filter');
   if(btnW) btnW.classList.toggle('active-view', view==='week');
   if(btnD) btnD.classList.toggle('active-view', view==='day');
-  if(tf)   tf.style.display = view==='day' ? 'block' : 'none';
+  if(tf)   tf.style.display = (can('tutors') && R()!=='tutor') ? 'block' : 'none';
   // Update prev/next labels
   const prevBtn = document.getElementById('sch-prev');
   const nextBtn = document.getElementById('sch-next');
@@ -3561,6 +3561,12 @@ function renderSchDay(){
 
 
 function renderSchWeek(){
+  // Populate tutor filter if needed
+  var tf2 = document.getElementById('sch-tutor-filter');
+  if(tf2 && tf2.options.length <= 1){
+    tf2.innerHTML = '<option value="">Усі репетитори</option>'
+      + (S.tutors||[]).map(function(t){ return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>'; }).join('');
+  }
   const now=new Date(), sow=new Date(now);
   const dy=now.getDay()===0?6:now.getDay()-1;
   sow.setDate(now.getDate()-dy+S.weekOffset*7); sow.setHours(0,0,0,0);
@@ -3571,7 +3577,13 @@ function renderSchWeek(){
   const ecls=['ec0','ec1','ec2','ec3','ec4'];
   let html='<div class="schh" style="background:var(--s1)">\u0427\u0430\u0441</div>';
   days.forEach((d,i)=>{const today=d.toDateString()===now.toDateString();html+=('<div class="schh" style="'+(today?'color:var(--adm);border-bottom:2px solid var(--adm)':'')+'">'+(dnames[i])+'<br><span style="font-size:9px;font-weight:400;color:var(--t3);font-family:JetBrains Mono,monospace">'+(d.getDate())+'.'+(String(d.getMonth()+1).padStart(2,'0'))+'</span></div>');});
-  const ml=myLessons();
+  // Apply tutor filter for week view
+  var _schTf = document.getElementById('sch-tutor-filter');
+  var _schTid = _schTf ? _schTf.value : '';
+  const ml = myLessons().filter(function(l){
+    if(!_schTid) return true;
+    return l.tutorId === _schTid || l.tutor_id === _schTid;
+  });
   hrs.forEach(h=>{
     html+=('<div class="scht">'+(String(h).padStart(2,'0'))+':00</div>');
     days.forEach(d=>{
