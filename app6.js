@@ -216,28 +216,28 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','invoice','invoice-log','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','reports','crm','invoice','invoice-log','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','invoice','invoice-log','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','reports','crm','invoice','invoice-log','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
   admin: {
     label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','crm','invoice'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','crm','invoice'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:false,settings:true,danger:false,deleteAny:false},
     seeIncome:true, seeAll:true, canEditUsers:false, showGodBanner:false
   },
   network_admin: {
     label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#5b60d4,#29abe2)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','invoice','invoice-log','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','reports','crm','invoice','invoice-log','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -270,7 +270,7 @@ var NAV_CFG = [
 
 var DEFAULT_NAV_CFG = NAV_CFG;
 
-var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',crm:'CRM',invoice:'Рахунок','invoice-log':'Історія рахунків',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430'};
+var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',crm:'CRM',invoice:'Рахунок',comms:'Комунікації',missed:'Пропущені уроки','invoice-log':'Історія рахунків',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430'};
 
 var UA_PERMS=[
   {k:'students',  lbl:'\u0423\u0447\u043D\u0456 \u2014 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0456 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F'},
@@ -2400,6 +2400,8 @@ async function saveLesson(){
     price:  parseFloat(document.getElementById('l-price')?.value)||0,
     status: document.getElementById('l-stat')?.value||'planned',
     notes:  document.getElementById('l-notes')?.value||'',
+    missed_date: (document.getElementById('l-missed-date')||{value:null}).value||null,
+    makeup_date: (document.getElementById('l-makeup-date')||{value:null}).value||null,
     branch_id: myBranchId()||null,
   };
   window._saving = true;
@@ -2990,6 +2992,9 @@ function openLessM(id=null,date=null,time=null){
       document.getElementById('l-stat').value=l.status||'planned';
       document.getElementById('l-price').value=l.price||'';
       document.getElementById('l-notes').value=l.notes||'';
+      var _md=document.getElementById('l-missed-date');if(_md)_md.value=l.missed_date||'';
+      var _mk=document.getElementById('l-makeup-date');if(_mk)_mk.value=l.makeup_date||'';
+      if(typeof onLessStatChange==='function')onLessStatChange();
       if(l.recurId){
         const siblings=S.lessons.filter(x=>x.recurId===l.recurId);
         const box=document.getElementById('recur-preview');
@@ -3003,7 +3008,10 @@ function openLessM(id=null,date=null,time=null){
     document.getElementById('l-time').value=time||'10:00';
     document.getElementById('l-dur').value=60;
     document.getElementById('l-stat').value='planned';
-    var _sf=document.getElementById('l-std-search'); if(_sf) _sf.value='';
+    var _sf=document.getElementById('l-std-search');if(_sf)_sf.value='';
+    var _cm=document.getElementById('l-missed-date');if(_cm)_cm.value='';
+    var _ck=document.getElementById('l-makeup-date');if(_ck)_ck.value='';
+    if(typeof onLessStatChange==='function')onLessStatChange();
     const mt=myTutor();if(mt)document.getElementById('l-tutor').value=mt.id;
   }
   renderCustomFields('lesson','mo-lesson-cf');
@@ -3078,6 +3086,27 @@ function nav(page){
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
   var _invEl=document.getElementById('pg-invoice');
+  // Comms page
+  var _commsEl = document.getElementById('pg-comms');
+  if(page==='comms'){
+    if(_commsEl){ _commsEl.style.display='block'; }
+    // Populate filters
+    var _csf=document.getElementById('comm-f-student');
+    if(_csf&&_csf.options.length<=1) _csf.innerHTML='<option value="">Усі учні</option>'+(myStudents()||[]).map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
+    var _ctf=document.getElementById('comm-f-tutor');
+    if(_ctf&&_ctf.options.length<=1) _ctf.innerHTML='<option value="">Усі репетитори</option>'+(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+    renderCommsPage();
+  } else { if(_commsEl) _commsEl.style.display='none'; }
+
+  // Missed lessons page
+  var _missEl = document.getElementById('pg-missed');
+  if(page==='missed'){
+    if(_missEl){ _missEl.style.display='block'; }
+    var _msf=document.getElementById('missed-f-student');
+    if(_msf&&_msf.options.length<=1) _msf.innerHTML='<option value="">Усі учні</option>'+(myStudents()||[]).map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
+    renderMissedLessons();
+  } else { if(_missEl) _missEl.style.display='none'; }
+
   var _invLogEl = document.getElementById('pg-invoice-log');
   if(page==='invoice-log'){
     if(_invLogEl){ _invLogEl.style.display='block'; renderInvoiceLog(); }
@@ -4728,3 +4757,71 @@ document.addEventListener('change', function(e){
     }
   }
 });
+
+
+function onLessStatChange(){
+  var stat = (document.getElementById('l-stat')||{value:''}).value;
+  var mkWrap = document.getElementById('l-makeup-wrap');
+  var msWrap = document.getElementById('l-miss-wrap');
+  if(mkWrap) mkWrap.style.display = stat==='makeup'?'block':'none';
+  if(msWrap) msWrap.style.display = (stat==='missed'||stat==='makeup')?'block':'none';
+}
+
+function renderCommsPage(){
+  var tbody  = document.getElementById('comms-tbody');
+  if(!tbody) return;
+  var fStud  = (document.getElementById('comm-f-student')||{value:''}).value;
+  var fTutor = (document.getElementById('comm-f-tutor')||{value:''}).value;
+  var fType  = (document.getElementById('comm-f-type')||{value:''}).value;
+  var comms  = [].concat(S.comms||[]).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  if(fStud)  comms = comms.filter(function(c){return (c.studentId||c.student_id)===fStud;});
+  if(fTutor) comms = comms.filter(function(c){return (c.tutorId||c.tutor_id)===fTutor;});
+  if(fType)  comms = comms.filter(function(c){return c.type===fType;});
+  var ico = {call:'\u260E',message:'\uD83D\uDCAC',meeting:'\uD83E\uDD1D',email:'\u2709',other:'\uD83D\uDCCB',msg:'\uD83D\uDCAC',meet:'\uD83E\uDD1D'};
+  if(!comms.length){
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0439 \u043d\u0435\u043c\u0430\u0454</td></tr>';
+    return;
+  }
+  tbody.innerHTML = comms.map(function(c){
+    var tutor   = (S.tutors||[]).find(function(t){return t.id===(c.tutorId||c.tutor_id);});
+    var student = (S.students||[]).find(function(s){return s.id===(c.studentId||c.student_id);});
+    return '<tr><td style="font-size:11px;color:var(--t2)">'+fd(c.date)+'</td>'
+      +'<td>'+(ico[c.type]||'\uD83D\uDCCB')+' '+(c.type||'\u2014')+'</td>'
+      +'<td>'+(student?student.fn+' '+student.ln:'\u2014')+'</td>'
+      +'<td>'+(tutor?tutor.fn+' '+tutor.ln:'\u2014')+'</td>'
+      +'<td>'+(c.note||'\u2014')+'</td></tr>';
+  }).join('');
+}
+
+function renderMissedLessons(){
+  var tbody = document.getElementById('missed-tbody');
+  if(!tbody) return;
+  var fStud = (document.getElementById('missed-f-student')||{value:''}).value;
+  var missed = (S.lessons||[]).filter(function(l){return l.status==='missed'||l.status==='makeup';})
+    .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  if(fStud) missed = missed.filter(function(l){return (l.studentId||l.student_id)===fStud;});
+  if(!missed.length){
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0438\u0445 \u0443\u0440\u043e\u043a\u0456\u0432 \u043d\u0435\u043c\u0430\u0454</td></tr>';
+    return;
+  }
+  tbody.innerHTML = missed.map(function(l){
+    var student=(S.students||[]).find(function(s){return s.id===(l.studentId||l.student_id);});
+    var tutor  =(S.tutors||[]).find(function(t){return t.id===(l.tutorId||l.tutor_id);});
+    var stLbl  =l.status==='missed'
+      ?'<span style="color:#ef4444;font-weight:600">\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e</span>'
+      :'<span style="color:#f59e0b;font-weight:600">\u0412\u0456\u0434\u043f\u0440\u0430\u0446\u044c\u043e\u0432\u0430\u043d\u043e</span>';
+    var mdDate=l.missed_date?fd(l.missed_date):'\u2014';
+    var mkDate=l.makeup_date?fd(l.makeup_date):'\u2014';
+    return '<tr><td>'+fd(l.date)+'</td>'
+      +'<td>'+(student?student.fn+' '+student.ln:'\u2014')+'</td>'
+      +'<td>'+(tutor?tutor.fn+' '+tutor.ln:'\u2014')+'</td>'
+      +'<td>'+(l.subject||'\u2014')+'</td>'
+      +'<td>'+stLbl+'</td>'
+      +'<td style="font-size:11px;color:var(--t2)">'+mdDate+'</td>'
+      +'<td style="font-size:11px;color:var(--t2)">'+mkDate+'</td></tr>';
+  }).join('');
+}
+
+window.onLessStatChange = onLessStatChange;
+window.renderCommsPage = renderCommsPage;
+window.renderMissedLessons = renderMissedLessons;
