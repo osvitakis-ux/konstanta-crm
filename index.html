@@ -1170,6 +1170,62 @@ body.role-tutor .comm-add-btn { display: none !important; }
           </div>
         </div>
       </div>
+      <div id="pg-comms" class="page" style="overflow-y:auto">
+        <div class="card">
+          <div class="ch"><span class="ct">Комунікації</span></div>
+          <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--b1)">
+            <select id="comm-f-student" onchange="renderCommsPage()" style="flex:1;min-width:160px;font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
+              <option value="">Усі учні</option>
+            </select>
+            <select id="comm-f-tutor" onchange="renderCommsPage()" style="flex:1;min-width:160px;font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
+              <option value="">Усі репетитори</option>
+            </select>
+            <select id="comm-f-type" onchange="renderCommsPage()" style="flex:1;min-width:120px;font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
+              <option value="">Усі типи</option>
+              <option value="call">Дзвінок</option>
+              <option value="message">Повідомлення</option>
+              <option value="meeting">Зустріч</option>
+              <option value="email">Email</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead><tr style="background:var(--s2)">
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Дата</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Тип</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Учень</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Репетитор</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Нотатка</th>
+              </tr></thead>
+              <tbody id="comms-tbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">Завантаження...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div id="pg-missed" class="page" style="overflow-y:auto">
+        <div class="card">
+          <div class="ch"><span class="ct">Пропущені уроки</span></div>
+          <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--b1)">
+            <select id="missed-f-student" onchange="renderMissedLessons()" style="flex:1;min-width:200px;font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
+              <option value="">Усі учні</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead><tr style="background:var(--s2)">
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Дата</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Учень</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Репетитор</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Предмет</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Статус</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Дата пропуску</th>
+                <th style="padding:8px 10px;text-align:left;font-size:11px;color:var(--t2);border-bottom:2px solid var(--b1)">Дата відпрацювання</th>
+              </tr></thead>
+              <tbody id="missed-tbody"><tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">Завантаження...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
@@ -1248,7 +1304,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fgr"><label>Тривалість</label><select id="l-dur"><option value="60">60 хв</option><option value="90">90 хв</option><option value="120">120 хв</option></select></div>
       <div class="fgr"><label>Дата *</label><input id="l-date" type="date"></div>
       <div class="fgr"><label>Час *</label><input id="l-time" type="time" value="10:00"></div>
-      <div class="fgr"><label>Статус</label><select id="l-stat"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="missed">Пропущене</option><option value="makeup">Відпрацювання</option></select></div>
+      <div class="fgr"><label>Статус</label><select id="l-stat" onchange="onLessStatChange()"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="missed">Пропущене</option><option value="makeup">Відпрацювання</option></select></div>
       <div class="fgr"><label>Вартість ₴</label>
         <div style="display:flex;gap:6px">
           <input id="l-price" type="number" placeholder="0" style="flex:1">
