@@ -244,7 +244,7 @@ var ROLES = {
   tutor: {
     label:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440', icon:'\uD83D\uDCDA', color:'var(--tut)',
     avatarBg:'linear-gradient(135deg,#22b573,#7ac943)',
-    nav:['dashboard','students','schedule','lessons','profile'],
+    nav:['dashboard','students','schedule','lessons','comms','missed','profile'],
     can:{students:true,tutors:false,lessons:true,payments:false,users:false,settings:false,danger:false,deleteAny:false},
     seeIncome:false, seeAll:false, canEditUsers:false, showGodBanner:false
   },
@@ -4810,6 +4810,9 @@ function onLessStatChange(){
 
 function renderCommsPage(){
   var tbody  = document.getElementById('comms-tbody');
+  if(!tbody) return;
+  var _tutorSelfId=null;
+  if(typeof R==='function'&&R()==='tutor'){var _myT=(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);});if(_myT)_tutorSelfId=_myT.id;}
   if(!tbody) return;
   var fStud  = (document.getElementById('comm-f-student')||{value:''}).value;
   var fTutor = (document.getElementById('comm-f-tutor')||{value:''}).value;
