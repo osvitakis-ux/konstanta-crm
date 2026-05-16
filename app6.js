@@ -2394,7 +2394,8 @@ async function saveLesson(){
     student_id: studentId,
     tutor_id:   document.getElementById('l-tutor')?.value||null,
     subject:    document.getElementById('l-subj')?.value||'',
-    date, time: document.getElementById('l-time')?.value||'',
+    date: date,
+    time: document.getElementById('l-time')?.value||'',
     dur:    parseInt(document.getElementById('l-dur')?.value)||60,
     price:  parseFloat(document.getElementById('l-price')?.value)||0,
     status: document.getElementById('l-stat')?.value||'planned',
@@ -2877,6 +2878,26 @@ window.doDelLesson = doDelLesson;
 window.saveCustomPageNotes = saveCustomPageNotes;
 window.renderAnalytics = renderAnalytics;
 
+function lStdSearch(val){
+  var dl = document.getElementById('l-std-list');
+  var hidden = document.getElementById('l-std');
+  if(!dl) return;
+  var q = val.toLowerCase();
+  var matches = (S.students||[]).filter(function(s){
+    return (s.fn+' '+s.ln).toLowerCase().includes(q) || (s.ln+' '+s.fn).toLowerCase().includes(q);
+  }).slice(0, 20);
+  dl.innerHTML = matches.map(function(s){
+    return '<option value="'+s.fn+' '+s.ln+'" data-id="'+s.id+'">';
+  }).join('');
+  // Try to match exact selection
+  var exact = (S.students||[]).find(function(s){
+    return (s.fn+' '+s.ln) === val || (s.ln+' '+s.fn) === val;
+  });
+  if(exact && hidden) hidden.value = exact.id;
+  else if(matches.length===1 && hidden) hidden.value = matches[0].id;
+  else if(hidden) hidden.value = '';
+}
+
 function openStudM(id=null){
   if(!can('students')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
   S.editId=id;document.getElementById('ms-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0443\u0447\u043D\u044F':'\u041D\u043E\u0432\u0438\u0439 \u0443\u0447\u0435\u043D\u044C';
@@ -2959,6 +2980,8 @@ function openLessM(id=null,date=null,time=null){
     const l=S.lessons.find(x=>x.id===id);
     if(l){
       document.getElementById('l-std').value=l.studentId||'';
+      var _s = (S.students||[]).find(function(x){return x.id===l.studentId;});
+      if(_s){ var sf=document.getElementById('l-std-search'); if(sf) sf.value=_s.fn+' '+_s.ln; }
       document.getElementById('l-subj').value=l.subject||'';
       document.getElementById('l-tutor').value=l.tutorId||'';
       document.getElementById('l-date').value=l.date||'';
@@ -2980,6 +3003,7 @@ function openLessM(id=null,date=null,time=null){
     document.getElementById('l-time').value=time||'10:00';
     document.getElementById('l-dur').value=60;
     document.getElementById('l-stat').value='planned';
+    var _sf=document.getElementById('l-std-search'); if(_sf) _sf.value='';
     const mt=myTutor();if(mt)document.getElementById('l-tutor').value=mt.id;
   }
   renderCustomFields('lesson','mo-lesson-cf');
@@ -3094,6 +3118,8 @@ function chWk(d){
 
 
 function schSetView(v){
+  if(S.weekOffset === undefined) S.weekOffset = 0;
+  if(S.dayOffset === undefined) S.dayOffset = 0;
   S.schView = v;
   if(v === 'week') S.weekOffset = S.weekOffset || 0;
   else             S.dayOffset  = S.dayOffset  || 0;
@@ -3590,7 +3616,9 @@ function renderSchWeek(){
       const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       const lsns=ml.filter(l=>l.date===ds&&parseInt((l.time||'0:0').split(':')[0])===h&&l.status!=='cancelled');
       html+=('<div class="schc" onclick="openLessM(null,\''+(ds)+'\',\''+(String(h).padStart(2,'0'))+':00\')">');
-      lsns.forEach((l,i)=>{html+=('<div class="sche '+(ecls[i%ecls.length])+'" onclick="event.stopPropagation();openLessM(\''+(l.id)+'\')"><div style="font-weight:700">'+(l.recurId?'\uD83D\uDD01 ':'')+'<span>'+(l.subject)+'</span></div><div style="opacity:.75">'+(sn(l.studentId).split(' ')[0])+'</div></div>');});
+      lsns.forEach((l,i)=>{
+        var ecl = l.status==='completed'?'ec-done':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':'ec-plan';
+        html+=('<div class="sche '+ecl+'" onclick="event.stopPropagation();openLessM(\''+(l.id)+'\')"><div style="font-weight:700">'+(l.recurId?'\uD83D\uDD01 ':'')+'<span>'+(l.subject)+'</span></div><div style="opacity:.75">'+(sn(l.studentId).split(' ')[0])+(l.dur&&l.dur>60?' ('+Math.round(l.dur/60*10)/10+'год)':'')+'</div></div>');});
       html+='</div>';
     });
   });
@@ -3755,7 +3783,7 @@ function openAddLead(){
   ['fn','ln','age','grade','phone','email','notes'].forEach(function(f){var el=document.getElementById('s-'+f);if(el)el.value='';});
   var pf=document.getElementById('s-parent-fn');if(pf)pf.value='';
   var pp=document.getElementById('s-parent-phone');if(pp)pp.value='';
-  document.getElementById('s-status').value='trial';
+  document.getElementById('s-status').value='active';
   document.getElementById('s-src').value='referral';
   renderCustomFields('student','mo-student-cf');
   openM('mo-student');
