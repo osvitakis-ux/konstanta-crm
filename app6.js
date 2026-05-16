@@ -3028,7 +3028,7 @@ function openPayM(id=null){
   const months=['\u0421\u0456\u0447\u0435\u043D\u044C','\u041B\u044E\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u041A\u0432\u0456\u0442\u0435\u043D\u044C','\u0422\u0440\u0430\u0432\u0435\u043D\u044C','\u0427\u0435\u0440\u0432\u0435\u043D\u044C','\u041B\u0438\u043F\u0435\u043D\u044C','\u0421\u0435\u0440\u043F\u0435\u043D\u044C','\u0412\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0416\u043E\u0432\u0442\u0435\u043D\u044C','\u041B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043D\u044C'];
   document.getElementById('p-date').value=localDateStr(new Date());
   document.getElementById('p-mon').value=months[new Date().getMonth()];
-  if(id){const p=S.payments.find(x=>x.id===id);if(p){document.getElementById('p-std').value=p.studentId||'';document.getElementById('p-amt').value=p.amount||'';document.getElementById('p-mth').value=p.method||'cash';document.getElementById('p-date').value=p.date||'';document.getElementById('p-stat').value=p.status||'paid';document.getElementById('p-mon').value=p.month||months[new Date().getMonth()];document.getElementById('p-note').value=p.note||'';}}
+  if(id){const p=S.payments.find(x=>x.id===id);if(p){setStudentSearch('p-std', p.studentId||'');document.getElementById('p-amt').value=p.amount||'';document.getElementById('p-mth').value=p.method||'cash';document.getElementById('p-date').value=p.date||'';document.getElementById('p-stat').value=p.status||'paid';document.getElementById('p-mon').value=p.month||months[new Date().getMonth()];document.getElementById('p-note').value=p.note||'';}}
   else{document.getElementById('p-std').value='';document.getElementById('p-amt').value='';document.getElementById('p-mth').value='cash';document.getElementById('p-stat').value='paid';document.getElementById('p-note').value='';}
   renderCustomFields('payment','mo-payment-cf');
   openM('mo-payment');
@@ -4067,12 +4067,9 @@ function openInvoicePanel(){
   if(!card) return;
 
   // Populate student select
-  var sel = document.getElementById('inv-student');
-  if(sel){
-    sel.innerHTML = '<option value="">— оберіть учня —</option>'
-      + (S.students||[]).map(function(s){
-          return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';
-        }).join('');
+  // inv-student is now a hidden field with search
+  var sel = {options:{length:0}}; if(false){
+    populateStudentSearch('inv-student', myStudents());
   }
 
   // Default period: current month
@@ -4321,10 +4318,7 @@ function renderInvoicePage(){
   // Populate inv2-student select
   var sel = document.getElementById('inv2-student');
   if(sel){
-    sel.innerHTML = '<option value="">— оберіть учня —</option>'
-      + (S.students||[]).map(function(s){
-          return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';
-        }).join('');
+    populateStudentSearch('inv2-student', myStudents());
   }
 
   // Load payment details
@@ -4350,8 +4344,7 @@ window.openInvoicePanel = openInvoicePanel;
 
 
 function openViberContact(){
-  var sel = document.getElementById('inv-student');
-  var sid = sel ? sel.value : '';
+  var sid = (document.getElementById('inv-student')||{value:''}).value;
   var s = (S.students||[]).find(function(x){ return x.id===sid; });
   if(!s){ mkToast('Оберіть учня','error'); return; }
   var phoneEl = document.getElementById('inv-phone');
@@ -4482,8 +4475,7 @@ function openAddBranchModal(){
 }
 
 function inv2SelectStudent(){
-  var sel = document.getElementById('inv2-student');
-  var sid = sel ? sel.value : '';
+  var sid = (document.getElementById('inv2-student')||{value:''}).value;
   var s = (S.students||[]).find(function(x){ return x.id===sid; });
   var phoneEl = document.getElementById('inv2-phone');
   var emailEl = document.getElementById('inv2-email');
@@ -4497,8 +4489,7 @@ function inv2SelectStudent(){
 }
 
 function calcInvoiceLessons2(){
-  var selEl = document.getElementById('inv2-student');
-  var sid   = selEl ? selEl.value : '';
+  var sid = (document.getElementById('inv2-student')||{value:''}).value;
   var from  = (document.getElementById('inv2-date-from')||{value:''}).value;
   var to    = (document.getElementById('inv2-date-to')||{value:''}).value;
   var price = parseFloat((document.getElementById('inv2-price')||{value:0}).value)||0;
@@ -4746,6 +4737,46 @@ async function renderInvoiceLog(){
 
 window.renderInvoiceLog = renderInvoiceLog;
 window.logInvoice = logInvoice;
+function studentSearch(input, hiddenId, callbackFn){
+  var val = input.value;
+  var dl = document.getElementById(hiddenId+'-list');
+  var hidden = document.getElementById(hiddenId);
+  var q = val.toLowerCase();
+  var src = hiddenId==='p-std' ? (S.students||[]) : myStudents();
+  var matches = src.filter(function(s){
+    return (s.fn+' '+s.ln).toLowerCase().includes(q)
+      || (s.ln+' '+s.fn).toLowerCase().includes(q)
+      || (s.ln).toLowerCase().startsWith(q);
+  }).slice(0,30);
+  if(dl) dl.innerHTML = matches.map(function(s){
+    return '<option value="'+s.fn+' '+s.ln+'" data-id="'+s.id+'">';
+  }).join('');
+  var exact = src.find(function(s){ return s.fn+' '+s.ln===val || s.ln+' '+s.fn===val; });
+  if(exact && hidden) hidden.value = exact.id;
+  else if(matches.length===1 && hidden) hidden.value = matches[0].id;
+  else if(hidden && !val) hidden.value = '';
+  if(callbackFn && window[callbackFn]) window[callbackFn]();
+}
+
+function populateStudentSearch(fieldId, src){
+  src = src || myStudents();
+  var dl = document.getElementById(fieldId+'-list');
+  if(dl) dl.innerHTML = (src||[]).map(function(s){
+    return '<option value="'+s.fn+' '+s.ln+'" data-id="'+s.id+'">';
+  }).join('');
+}
+
+function setStudentSearch(fieldId, studentId){
+  var hidden = document.getElementById(fieldId);
+  var input  = document.getElementById(fieldId+'-search');
+  if(hidden) hidden.value = studentId||'';
+  if(input && studentId){
+    var s = (S.students||[]).find(function(x){return x.id===studentId;});
+    if(s) input.value = s.fn+' '+s.ln;
+    else input.value = '';
+  } else if(input) input.value = '';
+}
+
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
