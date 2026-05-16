@@ -58,7 +58,7 @@ body{font-family:'Karla',sans-serif;background:var(--bg);color:var(--t1);min-hei
 .layout{display:flex;height:100vh;overflow:hidden}
 
 /* ─── SIDEBAR ─── */
-.sb{width:224px;height:100vh;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;transition:width .2s}
+.sb{z-index:10;width:224px;height:100vh;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;transition:width .2s}
 .sblogo{padding:20px 18px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:10px;position:relative}
 .sblogo::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--logo-yellow),var(--logo-blue),transparent)}
 .sbli{width:32px;height:32px;background:linear-gradient(135deg,var(--logo-yellow),var(--logo-blue));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
@@ -89,7 +89,7 @@ nav.sbnav{flex:1;overflow-y:auto;padding:10px 8px}
 
 /* ─── MAIN ─── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.topbar{height:56px;background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 22px;gap:14px;flex-shrink:0}
+.topbar{z-index:20;height:56px;background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 22px;gap:14px;flex-shrink:0}
 .ptitle{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;flex:1;letter-spacing:-.3px}
 .search{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:6px 12px;width:210px}
 .search input{background:none;border:none;outline:none;color:var(--t1);font-size:13px;width:100%;font-family:'Karla',sans-serif}
