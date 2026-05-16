@@ -785,9 +785,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div style="padding:14px 18px">
             <div class="fg">
               <div class="fgr full"><label>Учень</label>
-                <select id="inv-student" onchange="calcInvoiceLessons();updateInvPhone()">
-                  <option value="">— оберіть учня —</option>
-                </select>
+                <input id="inv-student-search" list="inv-student-list" placeholder="Учень..." autocomplete="off" oninput="studentSearch(this,'inv-student','calcInvoiceLessons');updateInvPhone()" style="width:100%;">
+<datalist id="inv-student-list"></datalist>
+<input type="hidden" id="inv-student">
               </div>
               <div class="fgr"><label>Період з</label><input id="inv-date-from" type="date" onchange="calcInvoiceLessons()"></div>
               <div class="fgr"><label>Період по</label><input id="inv-date-to" type="date" onchange="calcInvoiceLessons()"></div>
@@ -1117,9 +1117,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div style="padding:14px 18px">
             <div class="fg">
               <div class="fgr full"><label>Учень</label>
-                <select id="inv2-student" onchange="inv2SelectStudent()">
-                  <option value="">— оберіть учня —</option>
-                </select>
+                <input id="inv2-student-search" list="inv2-student-list" placeholder="Учень..." autocomplete="off" oninput="studentSearch(this,'inv2-student','inv2SelectStudent')" style="width:100%;">
+<datalist id="inv2-student-list"></datalist>
+<input type="hidden" id="inv2-student">
               </div>
               <div class="fgr"><label>Період з</label><input id="inv2-date-from" type="date" onchange="calcInvoiceLessons2()"></div>
               <div class="fgr"><label>Період по</label><input id="inv2-date-to" type="date" onchange="calcInvoiceLessons2()"></div>
@@ -1174,9 +1174,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <div class="card">
           <div class="ch"><span class="ct">Комунікації</span></div>
           <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--b1)">
-            <select id="comm-f-student" onchange="renderCommsPage()" style="flex:1;min-width:160px;font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
-              <option value="">Усі учні</option>
-            </select>
+            <input id="comm-f-student-search" list="comm-f-student-list" placeholder="Учень..." autocomplete="off" oninput="studentSearch(this,'comm-f-student','renderCommsPage')" style="width:100%;flex:1;min-width:160px;font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
+<datalist id="comm-f-student-list"></datalist>
+<input type="hidden" id="comm-f-student">
             <select id="comm-f-tutor" onchange="renderCommsPage()" style="flex:1;min-width:160px;font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
               <option value="">Усі репетитори</option>
             </select>
@@ -1206,9 +1206,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <div class="card">
           <div class="ch"><span class="ct">Пропущені уроки</span></div>
           <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--b1)">
-            <select id="missed-f-student" onchange="renderMissedLessons()" style="flex:1;min-width:200px;font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
-              <option value="">Усі учні</option>
-            </select>
+            <input id="missed-f-student-search" list="missed-f-student-list" placeholder="Учень..." autocomplete="off" oninput="studentSearch(this,'missed-f-student','renderMissedLessons')" style="width:100%;flex:1;min-width:200px;font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
+<datalist id="missed-f-student-list"></datalist>
+<input type="hidden" id="missed-f-student">
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -1355,7 +1355,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
   <div class="mdl">
     <div class="mdlh"><div class="mdlt" id="mp-title">Платіж</div><button class="xbtn" onclick="closeM('mo-payment')">×</button></div>
     <div class="mdlb"><div class="fg">
-      <div class="fgr"><label>Учень *</label><select id="p-std"></select></div>
+      <div class="fgr"><label>Учень *</label><input id="p-std-search" list="p-std-list" placeholder="Учень..." autocomplete="off" oninput="studentSearch(this,'p-std')" style="width:100%;">
+<datalist id="p-std-list"></datalist>
+<input type="hidden" id="p-std"></div>
       <div class="fgr"><label>Сума ₴ *</label><input id="p-amt" type="number"></div>
       <div class="fgr"><label>Спосіб</label><select id="p-mth"><option value="cash">Готівка</option><option value="card">Картка</option><option value="transfer">Переказ</option></select></div>
       <div class="fgr"><label>Дата</label><input id="p-date" type="date"></div>
@@ -1400,7 +1402,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <label>Батьки</label>
         <div id="cm-parent-info" style="padding:6px 10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)"></div>
       </div>
-      <div class="fgr"><label>Учень</label><select id="cm-student" onchange="updateParentInfo()"></select></div>
+      <div class="fgr"><label>Учень</label><input id="cm-student-search" list="cm-student-list" placeholder="Учень..." autocomplete="off" oninput="studentSearch(this,'cm-student','updateParentInfo')" style="width:100%;">
+<datalist id="cm-student-list"></datalist>
+<input type="hidden" id="cm-student"></div>
       <div class="fgr"><label>Дата *</label><input id="cm-date" type="date"></div>
       <div class="fgr"><label>Тип</label>
         <select id="cm-type">
