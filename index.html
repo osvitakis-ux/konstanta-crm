@@ -6,7 +6,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <!-- v202604081403 -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0.0">
 <title>Репетиторський центр "Константа"</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Karla:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -532,6 +532,100 @@ body.role-tutor .comm-add-btn { display: none !important; }
 .crm-scroll-left{left:4px}.crm-scroll-right{right:4px}
 .crm-board-wrap{position:relative;flex:1;min-height:0}
 .ua-panel{display:none}.ua-panel.active{display:block}
+
+/* ═══════════════════════════════════════
+   MOBILE ADAPTIVE (max-width: 768px)
+═══════════════════════════════════════ */
+@media(max-width:768px){
+
+  /* Layout */
+  .layout{flex-direction:column}
+  #content{padding:12px 10px;overflow-x:hidden}
+
+  /* Topbar */
+  .topbar{padding:0 10px 0 54px;height:50px;gap:8px}
+  #ptitle{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+
+  /* Cards */
+  .card{border-radius:12px;margin-bottom:10px}
+  .ch{padding:12px 14px 10px}
+  .ct{font-size:14px}
+
+  /* Grid layouts */
+  .sgrid{grid-template-columns:1fr 1fr!important}
+  .kpi-grid{grid-template-columns:1fr 1fr!important}
+  .tc{grid-template-columns:1fr!important}
+  .fg{grid-template-columns:1fr!important}
+  .fgr{min-width:unset!important}
+  .fgr.full{grid-column:span 1!important}
+
+  /* Tables - horizontal scroll */
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;font-size:12px}
+  th,td{white-space:nowrap;padding:6px 8px}
+
+  /* Modal */
+  .mdl{max-width:100%!important;width:100%!important;margin:0!important;
+       border-radius:16px 16px 0 0!important;position:fixed!important;
+       bottom:0!important;left:0!important;right:0!important;
+       max-height:90vh!important;overflow-y:auto}
+  .mo{align-items:flex-end!important}
+  .mdlb{padding:14px 16px}
+  .mdlf{padding:10px 16px 20px;gap:8px}
+  .mdlf .btn{flex:1;text-align:center}
+
+  /* Schedule */
+  #pg-schedule .card{overflow-x:auto}
+  #schg{font-size:11px}
+  .sche{font-size:10px;padding:3px 5px}
+  .scht{font-size:10px;padding:2px 4px}
+  .schc{min-height:40px}
+
+  /* CRM board */
+  #pg-crm{left:0!important;top:50px!important}
+  .crm-col{width:200px}
+
+  /* Dashboard stats */
+  .sc{padding:12px 14px}
+  .sval{font-size:20px}
+  .slbl{font-size:10px}
+
+  /* Buttons */
+  .btn{font-size:12px;padding:6px 12px}
+  .btn-sm{font-size:11px;padding:4px 8px}
+
+  /* Invoice page */
+  #pg-invoice,.page{padding-bottom:60px}
+
+  /* Form inputs */
+  input,select,textarea{font-size:16px!important} /* prevent iOS zoom */
+
+  /* Users list */
+  .ucard{flex-wrap:wrap;gap:8px}
+
+  /* Schedule toolbar */
+  .sch-toolbar{flex-wrap:wrap;gap:6px}
+  #sch-tutor-filter{width:100%}
+
+  /* Lessons / payments table */
+  .ms{padding:10px 12px}
+  .msrow{flex-wrap:wrap}
+
+  /* Nav badges */
+  .nbadge{font-size:9px;min-width:14px;height:14px}
+
+  /* Sidebar */
+  .sbfoot{padding:10px 12px}
+  .ucard{padding:8px 10px}
+}
+
+@media(max-width:420px){
+  .sgrid{grid-template-columns:1fr!important}
+  .kpi-grid{grid-template-columns:1fr!important}
+  #ptitle{max-width:120px;font-size:13px}
+  .topbar{padding-left:50px}
+  .mdl{border-radius:12px 12px 0 0!important}
+}
+
 </style>
 </head>
 <body>
