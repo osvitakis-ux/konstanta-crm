@@ -3060,8 +3060,8 @@ function openCommM(tutorId){
 
 
 function nav(page){
-  // Close sidebar on mobile after navigation
-  if(window.innerWidth <= 768){
+  // Close sidebar on small screens after navigation
+  if(window.innerWidth <= 980){
     var sb = document.querySelector('.sb');
     var overlay = document.getElementById('sb-overlay');
     if(sb) sb.classList.remove('open');
