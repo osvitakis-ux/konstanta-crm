@@ -372,6 +372,9 @@ textarea{resize:vertical;min-height:72px}
       transition:transform .25s ease;box-shadow:4px 0 20px rgba(0,0,0,.2)}
   .sb.open{transform:translateX(0)}
   .sb-overlay.open{display:block}
+  /* Content takes full width on mobile */
+  #content{margin-left:0!important;width:100%!important}
+  .layout{overflow:hidden}
 
   /* main: full width, offset for hamburger */
   .layout{flex-direction:column}
@@ -640,6 +643,21 @@ body.role-tutor .comm-add-btn { display: none !important; }
   body{
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+@media(max-width:768px){
+  /* Sidebar hidden by default on mobile */
+  .sb{width:280px!important;min-width:unset!important}
+  /* Content takes full screen width */
+  #content{
+    margin-left:0!important;
+    width:100vw!important;
+    max-width:100vw!important;
+    box-sizing:border-box!important;
+    padding:10px!important;
+  }
+  /* Topbar spans full width */
+  .topbar{left:0!important;padding-left:52px!important}
 }
 </style>
 </head>
