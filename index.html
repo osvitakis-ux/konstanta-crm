@@ -626,6 +626,21 @@ body.role-tutor .comm-add-btn { display: none !important; }
   .mdl{border-radius:12px 12px 0 0!important}
 }
 
+
+@media(max-width:768px){
+  /* Use dvh (dynamic viewport height) for mobile browsers with address bar */
+  .layout{
+    height: 100dvh;
+    height: calc(var(--vh, 1vh) * 100);
+  }
+  #content{
+    padding-bottom: 80px;
+  }
+  /* Fix for iOS Safari bottom bar */
+  body{
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
 </style>
 </head>
 <body>
