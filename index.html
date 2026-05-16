@@ -356,7 +356,7 @@ textarea{resize:vertical;min-height:72px}
 /* ═══════════════════════════════════
    MOBILE RESPONSIVE ≤768px
    ═══════════════════════════════════ */
-.hamburger{display:none;position:fixed;top:10px;left:10px;z-index:400;
+.hamburger{display:none; /* shown via media query */position:fixed;top:10px;left:10px;z-index:400;
   width:38px;height:38px;background:var(--s1);border:1px solid var(--b1);
   border-radius:9px;align-items:center;justify-content:center;cursor:pointer;
   font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
@@ -680,6 +680,32 @@ body.role-tutor .comm-add-btn { display: none !important; }
   .sc{padding:12px 14px}
   .sval{font-size:22px}
   .fg{grid-template-columns:1fr 1fr}
+}
+
+/* Collapsible sidebar for smaller screens */
+@media(max-width:1200px){
+  #as{overflow:hidden}
+  .sb{
+    position:fixed!important;
+    top:0;left:0;bottom:0;
+    z-index:200;
+    transform:translateX(-100%);
+    transition:transform .25s ease;
+    box-shadow:4px 0 20px rgba(0,0,0,.2);
+  }
+  .sb.open{transform:translateX(0)}
+  .sb-overlay{z-index:190}
+  .sb-overlay.open{display:block}
+  .hamburger{display:flex!important}
+  #content{
+    margin-left:0!important;
+    width:100%!important;
+    padding:16px!important;
+  }
+  .topbar{
+    left:0!important;
+    padding-left:56px!important;
+  }
 }
 </style>
 </head>
