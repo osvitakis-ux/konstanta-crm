@@ -3113,7 +3113,7 @@ function nav(page){
   if(page==='missed'){
     if(_missEl){ _missEl.style.display='block'; }
     var _msf=document.getElementById('missed-f-student');
-    var _msf=document.getElementById('missed-f-student-search');
+
     if(_msf) populateStudentSearch('missed-f-student', myStudents());
   } else { if(_missEl) _missEl.style.display='none'; }
 
