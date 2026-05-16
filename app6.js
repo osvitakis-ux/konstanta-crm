@@ -3105,8 +3105,8 @@ function nav(page){
   if(page==='missed'){
     if(_missEl){ _missEl.style.display='block'; }
     var _msf=document.getElementById('missed-f-student');
-    if(_msf&&_msf.options.length<=1) _msf.innerHTML='<option value="">Усі учні</option>'+(myStudents()||[]).map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
-    renderMissedLessons();
+    var _msf=document.getElementById('missed-f-student-search');
+    if(_msf) populateStudentSearch('missed-f-student', myStudents());
   } else { if(_missEl) _missEl.style.display='none'; }
 
   var _invLogEl = document.getElementById('pg-invoice-log');
