@@ -3094,10 +3094,10 @@ function nav(page){
     if(_commsEl){ _commsEl.style.display='block'; }
     // Populate filters
     var _csf=document.getElementById('comm-f-student');
-    if(_csf&&_csf.options.length<=1) _csf.innerHTML='<option value="">Усі учні</option>'+(myStudents()||[]).map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
+    var _csf=document.getElementById('comm-f-student-search');
+    if(_csf) { populateStudentSearch('comm-f-student', myStudents()); }
     var _ctf=document.getElementById('comm-f-tutor');
-    if(_ctf&&_ctf.options.length<=1) _ctf.innerHTML='<option value="">Усі репетитори</option>'+(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
-    renderCommsPage();
+    if(_ctf&&_ctf.options.length<=1) _ctf.innerHTML='<option value=>Усі репетитори</option>'+(S.tutors||[]).map(function(t){return '<option value=+t.id+>'+t.fn+' '+t.ln+'</option>';}).join('');
   } else { if(_commsEl) _commsEl.style.display='none'; }
 
   // Missed lessons page
