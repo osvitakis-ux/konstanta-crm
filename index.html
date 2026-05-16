@@ -410,7 +410,7 @@ textarea{resize:vertical;min-height:72px}
 ═══════════════════════════════ */
 
 /* Desktop ≥1201px: sidebar always visible */
-@media(min-width:1201px){
+@media(min-width:769px){
   .hamburger{display:none!important}
   .sb{position:relative!important;transform:none!important;
       box-shadow:none!important;width:224px!important;flex-shrink:0}
@@ -419,7 +419,7 @@ textarea{resize:vertical;min-height:72px}
 }
 
 /* Tablet/mobile ≤1200px: sidebar collapsible */
-@media(max-width:1200px){
+@media(max-width:768px){
   .hamburger{display:flex!important;position:fixed!important;
              top:10px;left:10px;z-index:600!important;
              width:38px;height:38px}
