@@ -4835,6 +4835,8 @@ function renderCommsPage(){
   var fTutor = (document.getElementById('comm-f-tutor')||{value:''}).value;
   var fType  = (document.getElementById('comm-f-type')||{value:''}).value;
   var comms  = [].concat(S.comms||[]).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  // Apply tutor self-filter
+  if(_tutorSelfId) comms = comms.filter(function(c){ return (c.tutorId||c.tutor_id)===_tutorSelfId; });
   if(fStud)  comms = comms.filter(function(c){return (c.studentId||c.student_id)===fStud;});
   if(fTutor) comms = comms.filter(function(c){return (c.tutorId||c.tutor_id)===fTutor;});
   if(fType)  comms = comms.filter(function(c){return c.type===fType;});
