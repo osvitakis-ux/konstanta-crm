@@ -3042,6 +3042,13 @@ function openCommM(tutorId){
   if(!can('lessons')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
   var mo=document.getElementById('mo-comm');
   if(!mo)return;
+  // Auto-set tutor for tutor role
+  if(typeof R==='function' && R()==='tutor' && !tutorId){
+    var _myT=(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);});
+    if(_myT) tutorId=_myT.id;
+  }
+  var tWrap=document.getElementById('cm-tutor-wrap');
+  if(tWrap) tWrap.style.display = (typeof R==='function'&&R()==='tutor')?'none':'';
   var tSel=document.getElementById('cm-tutor');
   if(tSel){
     tSel.innerHTML='<option value="">\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430</option>'
