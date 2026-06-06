@@ -2402,6 +2402,7 @@ async function saveLesson(){
     price:  parseFloat(document.getElementById('l-price')?.value)||0,
     status: document.getElementById('l-stat')?.value||'planned',
     notes:  document.getElementById('l-notes')?.value||'',
+    hw:     (document.getElementById('l-hw')||{value:''}).value||'',
     missed_date: (document.getElementById('l-missed-date')||{value:null}).value||null,
     makeup_date: (document.getElementById('l-makeup-date')||{value:null}).value||null,
     branch_id: myBranchId()||null,
@@ -2994,6 +2995,7 @@ function openLessM(id=null,date=null,time=null){
       document.getElementById('l-stat').value=l.status||'planned';
       document.getElementById('l-price').value=l.price||'';
       document.getElementById('l-notes').value=l.notes||'';
+      var _hw=document.getElementById('l-hw');if(_hw)_hw.value=l.hw||'';
       var _md=document.getElementById('l-missed-date');if(_md)_md.value=l.missed_date||'';
       var _mk=document.getElementById('l-makeup-date');if(_mk)_mk.value=l.makeup_date||'';
       if(typeof onLessStatChange==='function')onLessStatChange();
@@ -3017,6 +3019,7 @@ function openLessM(id=null,date=null,time=null){
     const mt=myTutor();if(mt)document.getElementById('l-tutor').value=mt.id;
   }
   renderCustomFields('lesson','mo-lesson-cf');
+  var _db=document.getElementById('del-lesson-btn');if(_db)_db.style.display=id&&can('lessons')?'inline-flex':'none';
   openM('mo-lesson');
 }
 
@@ -4785,6 +4788,20 @@ function setStudentSearch(fieldId, studentId){
   } else if(input) input.value = '';
 }
 
+async function deleteLessonFromModal(){
+  var id = S.editId;
+  if(!id){ mkToast('ID not found','error'); return; }
+  if(!confirm('Видалити це заняття?')) return;
+  try{
+    await dbDelete('lessons', id);
+    S.lessons = (S.lessons||[]).filter(function(l){ return l.id!==id; });
+    closeM('mo-lesson');
+    mkToast('Заняття видалено');
+    refreshPage(S.currentPage||'schedule');
+  }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
+}
+
+window.deleteLessonFromModal=deleteLessonFromModal;
 // Boot
 document.addEventListener('DOMContentLoaded', initApp);
 
