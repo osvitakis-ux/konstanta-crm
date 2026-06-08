@@ -645,9 +645,17 @@ function renderDashKpi(){
   var tlbl=document.getElementById('dash-tutor-week-lbl');
   if(tlbl)tlbl.textContent=wr.label;
 
-  var allL=S.lessons;
+  // For tutor role - show only own data
+  var allL = (R()==='tutor') ? myLessons() : S.lessons;
+  var _selfTutorRec = (R()==='tutor')
+    ? (S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);})
+    : null;
   var weekL=allL.filter(function(l){return inWeek(l.date,wr);});
-  var weekComms=(S.comms||[]).filter(function(c){return inWeek(c.date,wr);});
+  var weekComms=(S.comms||[]).filter(function(c){
+    if(!inWeek(c.date,wr)) return false;
+    if(_selfTutorRec) return (c.tutorId||c.tutor_id)===_selfTutorRec.id;
+    return true;
+  });
 
   var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
   var missed  = weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
@@ -697,7 +705,7 @@ function renderDashKpi(){
   if(!tbody)return;
 
   var tutors=R()==='tutor'
-    ? S.tutors.filter(function(t){return CU && t.accId===CU.id;})
+    ? S.tutors.filter(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);})
     : S.tutors;
 
   if(!tutors.length){
@@ -794,12 +802,15 @@ function renderDashKpi(){
 
 function renderDashTrends(){
   if(!CU) return;
+  var _selfTR=(R()==='tutor')?(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);}):null;
+  var _trendLessons = _selfTR ? S.lessons.filter(function(l){return (l.tutorId||l.tutor_id)===_selfTR.id;}) : S.lessons;
+  var _trendComms   = _selfTR ? (S.comms||[]).filter(function(c){return (c.tutorId||c.tutor_id)===_selfTR.id;}) : (S.comms||[]);
   var offset = S.dashWeekOffset||0;
   var weeks = [];
   for(var i=3;i>=0;i--){
     var wr = getWeekRange(offset-i);
-    var weekL = S.lessons.filter(function(l){return inWeek(l.date,wr);});
-    var weekComms = (S.comms||[]).filter(function(c){return inWeek(c.date,wr);});
+    var weekL = _trendLessons.filter(function(l){return inWeek(l.date,wr);});
+    var weekComms = _trendComms.filter(function(c){return inWeek(c.date,wr);});
     weeks.push({
       wr:wr,
       done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length,
