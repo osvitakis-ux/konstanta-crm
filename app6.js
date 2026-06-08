@@ -630,10 +630,12 @@ function renderDashStats(){
       +'<div class="sval">\uD83D\uDD12</div>'
       +'<div class="ssub">\u0422\u0456\u043B\u044C\u043A\u0438 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440</div><span class="sico">\u25C8</span></div>';
   }
+    if(R()!=='tutor'){
   statsHtml+='<div class="sc red">'
     +'<div class="slbl">\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432</div>'
     +'<div class="sval">'+S.tutors.length+'</div>'
     +'<div class="ssub">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445</div><span class="sico">\u25C8</span></div>';
+  }
   document.getElementById('dash-stats').innerHTML=statsHtml;
 }
 
