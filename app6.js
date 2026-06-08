@@ -3465,10 +3465,8 @@ function genRecurDates(startDate,recurType,endDate,count,interval){
   const maxCount=count?Math.min(parseInt(count),200):104;
   let cur=new Date(start);
   for(let i=0;i<maxCount;i++){
-    if(i>0){
-      if(end&&cur>end)break;
-      dates.push(localDateStr(cur));
-    }
+    if(end&&cur>end)break;
+    dates.push(localDateStr(cur));
     const next=new Date(cur);
     if(recurType==='daily'){next.setDate(next.getDate()+1);}
     else if(recurType==='weekly'){next.setDate(next.getDate()+7);}
