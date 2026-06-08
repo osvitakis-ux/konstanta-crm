@@ -2143,7 +2143,7 @@ async function loadAll(){
     { table:'lessons',       key:'lessons',  order:'date' },
     { table:'payments',      key:'payments', order:'date' },
     { table:'subjects',      key:'subjects' },
-    { table:'comms',         key:'comms',    order:'date' },
+    { table:'comms',         key:'comms',    order:'date', tutorFilter:true },
     { table:'pricing_rules', key:'pricingRules' },
   ];
   const results = await Promise.all(
@@ -2154,6 +2154,20 @@ async function loadAll(){
     })
   );
   tables.forEach(function(t, i){ S[t.key] = results[i].data || []; });
+
+  // After tutors loaded: re-fetch comms with tutor filter if role=tutor
+  if(CU && CU.role === 'tutor'){
+    S.tutors = S.tutors.map(normalizeTutor);
+    var _selfT = S.tutors.find(function(t){
+      return t.accId===CU.id || t.acc_uid===CU.id;
+    });
+    if(_selfT){
+      var _commsQ = await _sb.from('comms').select('*')
+        .eq('tutor_id', _selfT.id)
+        .order('date', {ascending:false});
+      S.comms = _commsQ.data || [];
+    }
+  }
 
   // Settings
   var _set = await _sb.from('settings').select('*').eq('id','main').single(); var set = _set.data;
