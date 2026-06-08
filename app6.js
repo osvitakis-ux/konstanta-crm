@@ -600,9 +600,9 @@ function renderDashStats(){
     var _cnt=0;
     if(R()==='tutor'){
       var _mt2=S.tutors?S.tutors.find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);}):null;
-      _cnt=_mt2?(S.students||[]).filter(function(s){return s.tutorId===_mt2.id||s.tutor_id===_mt2.id;}).length:0;
+      _cnt=_mt2?(S.students||[]).filter(function(s){return (s.tutorId===_mt2.id||s.tutor_id===_mt2.id)&&s.status==='active';}).length:0;
     } else {
-      _cnt=myStudents().length;
+      _cnt=myStudents().filter(function(s){return s.status==='active';}).length;
     }
     nb.textContent=_cnt;
   }
