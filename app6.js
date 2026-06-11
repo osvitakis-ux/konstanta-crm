@@ -503,48 +503,48 @@ var ROLES = {
   }
 }, NAV_CFG = [ {
   id: "dashboard",
-  ico: "⊞",
+  ico: "\u229E",
   lbl: "Дашборд",
   sec: "Головне"
 }, {
   id: "students",
-  ico: "◎",
+  ico: "\u25CE",
   lbl: "Учні",
   sec: "Головне",
   badge: !0
 }, {
   id: "tutors",
-  ico: "◈",
+  ico: "\u25C8",
   lbl: "Репетитори",
   sec: "Головне"
 }, {
   id: "schedule",
-  ico: "▦",
+  ico: "\u25A6",
   lbl: "Розклад",
   sec: "Навчання"
 }, {
   id: "lessons",
-  ico: "◉",
+  ico: "\u25C9",
   lbl: "Заняття",
   sec: "Навчання"
 }, {
   id: "payments",
-  ico: "◈",
+  ico: "\u25C8",
   lbl: "Оплата",
   sec: "Фінанси"
 }, {
   id: "reports",
-  ico: "◧",
+  ico: "\u25E7",
   lbl: "Аналітика",
   sec: "Фінанси"
 }, {
   id: "analytics",
-  ico: "▤",
+  ico: "\u25A4",
   lbl: "Статистика",
   sec: "Фінанси"
 }, {
   id: "users",
-  ico: "◎",
+  ico: "\u25CE",
   lbl: "Акаунти",
   sec: "Система"
 }, {
@@ -554,7 +554,7 @@ var ROLES = {
   sec: "Система"
 }, {
   id: "settings",
-  ico: "◉",
+  ico: "\u25C9",
   lbl: "Налаштування",
   sec: "Система"
 }, {
@@ -564,7 +564,7 @@ var ROLES = {
   sec: "Менеджмент"
 }, {
   id: "invoice",
-  ico: "▤",
+  ico: "\u25A4",
   lbl: "Рахунок",
   sec: "Рахунок"
 }, {
@@ -574,17 +574,17 @@ var ROLES = {
   sec: "Рахунок"
 }, {
   id: "comms",
-  ico: "▤",
+  ico: "\u25A4",
   lbl: "Комунікації",
   sec: "Навчання"
 }, {
   id: "missed",
-  ico: "▤",
+  ico: "\u25A4",
   lbl: "Пропущені",
   sec: "Навчання"
 }, {
   id: "profile",
-  ico: "▣",
+  ico: "\u25A3",
   lbl: "Мій профіль",
   sec: "Особисте"
 } ], DEFAULT_NAV_CFG = NAV_CFG, PLABELS = {
@@ -1256,11 +1256,11 @@ function renderCommLog() {
     return (b.date || "").localeCompare(a.date || "");
   }).slice(0, 20), typeIco = {
     call: "\uD83D\uDCDE",
-    message: "ὊC",
+    message: "\uD83D\uDCAC",
     meeting: "\uD83D\uDCAC",
     email: "὎7",
     other: "\uD83E\uDD1D",
-    msg: "ὊC",
+    msg: "\uD83D\uDCAC",
     meet: "\uD83D\uDCAC"
   }, comms = comms.length ? comms.map(function(c) {
     var tutor = S.tutors.find(function(t) {
@@ -1861,7 +1861,7 @@ function renderAnalytics() {
     }) : comms, b.id ? students.filter(function(s) {
       return s.branchId === b.id || s.branch_id === b.id;
     }) : students);
-    Math.max(overallStats.total, 1), branchRows += '<div class="an-branch-card"><div class="an-branch-title">Ἶ2 ' + b.name + '</div><div class="an-kpi-row">' + kpi("✅", "Проведено", bs.done, null, "var(--tut)") + kpi("❌", "Пропущено", bs.missed, null, "var(--danger)") + kpi("ὐ4", "Відпрацьовано", bs.done, null, "var(--adm)") + kpi("ὊC", "Комунікацій", bs.comms, null, "var(--god2)") + kpi("὆5", "Учнів", bs.students, null, "var(--dir)") + '</div><div style="margin-top:8px">' + statRow("Проведено", bs.done, Math.max(bs.total, 1), "var(--tut)") + statRow("Пропущено", bs.missed, Math.max(bs.total, 1), "var(--danger)") + statRow("Скасовано", bs.cancelled, Math.max(bs.total, 1), "var(--t3)") + "</div></div>";
+    Math.max(overallStats.total, 1), branchRows += '<div class="an-branch-card"><div class="an-branch-title">Ἶ2 ' + b.name + '</div><div class="an-kpi-row">' + kpi("✅", "Проведено", bs.done, null, "var(--tut)") + kpi("❌", "Пропущено", bs.missed, null, "var(--danger)") + kpi("ὐ4", "Відпрацьовано", bs.done, null, "var(--adm)") + kpi("\uD83D\uDCAC", "Комунікацій", bs.comms, null, "var(--god2)") + kpi("὆5", "Учнів", bs.students, null, "var(--dir)") + '</div><div style="margin-top:8px">' + statRow("Проведено", bs.done, Math.max(bs.total, 1), "var(--tut)") + statRow("Пропущено", bs.missed, Math.max(bs.total, 1), "var(--danger)") + statRow("Скасовано", bs.cancelled, Math.max(bs.total, 1), "var(--t3)") + "</div></div>";
   }), tutorRows = "", filtBranch = document.getElementById("an-branch")?.value || "", 
   filtTutor = document.getElementById("an-tutor")?.value || "", (visibleTutors = now.filter(function(t) {
     return !(filtBranch && t.branchId !== filtBranch && t.branch_id !== filtBranch || filtTutor && t.id !== filtTutor);
@@ -1890,7 +1890,7 @@ function renderAnalytics() {
     90: "3 місяці",
     year: "Рік",
     all: "За весь час"
-  }[rangeEl] || rangeEl, document.getElementById("an-content").innerHTML = '<div class="an-section-title">ἱ0 Загальна статистика — ' + visibleTutors + '</div><div class="an-kpi-row an-kpi-row--big">' + kpi("✅", "Проведено уроків", overallStats.done, overallStats.total + " всього", "var(--tut)") + kpi("❌", "Пропущено уроків", overallStats.missed, Math.round(overallStats.missed / Math.max(overallStats.total, 1) * 100) + "%", "var(--danger)") + kpi("ὐ4", "Відпрацьовано", overallStats.done, Math.round(overallStats.income) + " ₴", "var(--adm)") + kpi("ὊC", "Комунікацій", overallStats.comms, "з батьками", "var(--god2)") + kpi("὆5", "Активних учнів", students.filter(function(s) {
+  }[rangeEl] || rangeEl, document.getElementById("an-content").innerHTML = '<div class="an-section-title">ἱ0 Загальна статистика — ' + visibleTutors + '</div><div class="an-kpi-row an-kpi-row--big">' + kpi("✅", "Проведено уроків", overallStats.done, overallStats.total + " всього", "var(--tut)") + kpi("❌", "Пропущено уроків", overallStats.missed, Math.round(overallStats.missed / Math.max(overallStats.total, 1) * 100) + "%", "var(--danger)") + kpi("ὐ4", "Відпрацьовано", overallStats.done, Math.round(overallStats.income) + " ₴", "var(--adm)") + kpi("\uD83D\uDCAC", "Комунікацій", overallStats.comms, "з батьками", "var(--god2)") + kpi("὆5", "Активних учнів", students.filter(function(s) {
     return "active" === s.status;
   }).length, students.length + " всього", "var(--dir)") + "</div>" + (1 < fromDate.length ? '<div class="an-section-title" style="margin-top:20px">Ἶ2 По філіях</div><div class="an-branches-grid">' + branchRows + "</div>" : "") + '<div class="an-section-title" style="margin-top:20px">὆4 По репетиторах</div><div class="an-tutor-header"><div style="min-width:140px">Репетитор</div><div class="an-tutor-stats"><span>✅ Провів</span><span>❌ Пропуск</span><span>ὪB Скасов</span><span>ὊC Комун</span><span>὆5 Учні</span></div><div style="flex:1;font-size:10px;color:var(--t2);padding-left:8px">% від лідера</div></div><div>' + tutorRows + "</div>");
 }
@@ -3390,5 +3390,25 @@ function renderSchWeek() {
   g.innerHTML = html;
 }
 
+
+function updateSBUser(){
+  if(!CU) return;
+  var r = ROLES[CU.role];
+  var av = document.getElementById('sb-av');
+  if(av){
+    av.style.background = r ? r.avatarBg : '#888';
+    av.style.width = '34px'; av.style.height = '34px';
+    av.style.fontSize = '13px'; av.style.borderRadius = '50%';
+    av.style.display = 'flex'; av.style.alignItems = 'center';
+    av.style.justifyContent = 'center';
+    av.style.color = CU.role === 'director' ? '#1b1464' : '#fff';
+    av.style.fontFamily = "'Syne',sans-serif"; av.style.fontWeight = '700';
+    av.textContent = (CU.fn ? CU.fn[0] : '') + (CU.ln ? CU.ln[0] : '');
+  }
+  var nm = document.getElementById('sb-name');
+  if(nm) nm.textContent = CU.fn + ' ' + CU.ln;
+  var rp = document.getElementById('sb-rpill');
+  if(rp && r) rp.innerHTML = '<span class="rpill ' + CU.role + '">' + r.icon + ' ' + r.label + '</span>';
+}
 
 initApp();
