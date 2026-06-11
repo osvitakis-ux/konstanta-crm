@@ -309,7 +309,7 @@ function renderCommsPage() {
   if (fStud) comms = comms.filter(function(c) { return (c.studentId || c.student_id) === fStud; });
   if (fTutor) comms = comms.filter(function(c) { return (c.tutorId || c.tutor_id) === fTutor; });
   if (fType) comms = comms.filter(function(c) { return c.type === fType; });
-  var ico = {call: '\u260E', message: '\uD83D\uDCAC', meeting: '\uD83E\uDD1D', email: '\u2709', other: '\uD83D\uDCCB'};
+  var ico = {call: '\u260E', message: '💬', meeting: '🤝', email: '\u2709', other: '📋'};
   if (!comms.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">' + '\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0439 \u043d\u0435\u043c\u0430\u0454' + '</td></tr>';
     return;
@@ -318,7 +318,7 @@ function renderCommsPage() {
     var tutor = (S.tutors || []).find(function(t) { return t.id === (c.tutorId || c.tutor_id); });
     var student = (S.students || []).find(function(s) { return s.id === (c.studentId || c.student_id); });
     return '<tr><td style="font-size:11px;color:var(--t2)">' + fd(c.date) + '</td>'
-      + '<td>' + (ico[c.type] || '\uD83D\uDCCB') + ' ' + (c.type || '\u2014') + '</td>'
+      + '<td>' + (ico[c.type] || '📋') + ' ' + (c.type || '\u2014') + '</td>'
       + '<td>' + (student ? student.fn + ' ' + student.ln : '\u2014') + '</td>'
       + '<td>' + (tutor ? tutor.fn + ' ' + tutor.ln : '\u2014') + '</td>'
       + '<td>' + (c.note || '\u2014') + '</td></tr>';
