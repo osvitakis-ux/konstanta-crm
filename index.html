@@ -797,6 +797,13 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <button class="btn btn-g btn-sm" onclick="chWk(0)">Сьогодні</button>
           <!-- Tutor filter (day view) -->
           <select id="sch-tutor-filter" style="display:none;width:160px;font-size:12px" onchange="renderSch()">
+          <select id="sch-status-filter" onchange="renderSch()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1)">
+            <option value="">Всі статуси</option>
+            <option value="planned">Заплановані</option>
+            <option value="completed">Проведені</option>
+            <option value="missed">Пропущені</option>
+            <option value="makeup">Відпрацювання</option>
+          </select>
             <option value="">Всі репетитори</option>
           </select>
         </div>
