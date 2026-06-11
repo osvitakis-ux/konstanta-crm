@@ -3290,7 +3290,16 @@ function buildSidebar(){
     if(!isBuiltin&&!isCustom)return;
     if(isCustom&&!roleAllowed)return;
     if(n.sec!==lastSec){html+=('<div class="nsec">'+(n.sec)+'</div>');lastSec=n.sec;}
-    html+=('<div class="ni" id="ni-'+(n.id)+'" onclick="nav(\''+(n.id)+'\')"><span class="nico">'+(n.ico)+'</span>'+(n.lbl)+(n.badge?`<span class="nbadge" id="nb-s">0</span>`:'')+'</div>');
+    html+=('<div class="ni" id="ni-'+(n.id)+'" onclick="nav(\''+(n.id)+'\')"><span class="nico">'+(n.ico)+'</span>'+(n.lbl)+(n.badge?(function(){
+        var _cnt=0;
+        if(typeof R==='function'&&R()==='tutor'){
+          var _mt=(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);});
+          _cnt=_mt?(S.students||[]).filter(function(s){return (s.tutorId===_mt.id||s.tutor_id===_mt.id)&&s.status==='active';}).length:0;
+        } else {
+          _cnt=(S.students||[]).filter(function(s){return s.status==='active';}).length;
+        }
+        return '<span class="nbadge" id="nb-s">'+(_cnt||'')+'</span>';
+      })():'')+'</div>');
   });
   document.getElementById('sbnav').innerHTML=html;
 }
