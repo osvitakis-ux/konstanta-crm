@@ -251,7 +251,142 @@ window.SupabaseMini = {
       }
     };
   }
-}, window.supabase = window.SupabaseMini, window.__startTime = Date.now();
+}
+
+function studentSearch(input, hiddenId, callbackFn) {
+  var val = input.value;
+  var dl = document.getElementById(hiddenId + '-list');
+  var hidden = document.getElementById(hiddenId);
+  var q = val.toLowerCase();
+  var src = hiddenId === 'p-std' ? (S.students || []) : myStudents();
+  var matches = src.filter(function(s) {
+    return (s.fn + ' ' + s.ln).toLowerCase().includes(q) ||
+           (s.ln + ' ' + s.fn).toLowerCase().includes(q) ||
+           (s.ln).toLowerCase().startsWith(q);
+  }).slice(0, 30);
+  if (dl) dl.innerHTML = matches.map(function(s) {
+    return '<option value="' + s.fn + ' ' + s.ln + '" data-id="' + s.id + '">';
+  }).join('');
+  var exact = src.find(function(s) { return s.fn + ' ' + s.ln === val || s.ln + ' ' + s.fn === val; });
+  if (exact && hidden) hidden.value = exact.id;
+  else if (matches.length === 1 && hidden) hidden.value = matches[0].id;
+  else if (hidden && !val) hidden.value = '';
+  if (callbackFn && window[callbackFn]) window[callbackFn]();
+}
+
+function populateStudentSearch(fieldId, src) {
+  src = src || myStudents();
+  var dl = document.getElementById(fieldId + '-list');
+  if (dl) dl.innerHTML = (src || []).map(function(s) {
+    return '<option value="' + s.fn + ' ' + s.ln + '" data-id="' + s.id + '">';
+  }).join('');
+}
+
+function setStudentSearch(fieldId, studentId) {
+  var hidden = document.getElementById(fieldId);
+  var input = document.getElementById(fieldId + '-search');
+  if (hidden) hidden.value = studentId || '';
+  if (input && studentId) {
+    var s = (S.students || []).find(function(x) { return x.id === studentId; });
+    if (s) input.value = s.fn + ' ' + s.ln;
+    else input.value = '';
+  } else if (input) input.value = '';
+}
+
+function renderCommsPage() {
+  var tbody = document.getElementById('comms-tbody');
+  if (!tbody) return;
+  var _tutorSelfId = null;
+  if (typeof R === 'function' && R() === 'tutor') {
+    var _myT = (S.tutors || []).find(function(t) { return CU && (t.accId === CU.id || t.acc_uid === CU.id); });
+    if (_myT) _tutorSelfId = _myT.id;
+  }
+  var fStud = (document.getElementById('comm-f-student') || {value:''}).value;
+  var fTutor = (document.getElementById('comm-f-tutor') || {value:''}).value;
+  var fType = (document.getElementById('comm-f-type') || {value:''}).value;
+  var comms = [].concat(S.comms || []).sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+  if (_tutorSelfId) comms = comms.filter(function(c) { return (c.tutorId || c.tutor_id) === _tutorSelfId; });
+  if (fStud) comms = comms.filter(function(c) { return (c.studentId || c.student_id) === fStud; });
+  if (fTutor) comms = comms.filter(function(c) { return (c.tutorId || c.tutor_id) === fTutor; });
+  if (fType) comms = comms.filter(function(c) { return c.type === fType; });
+  var ico = {call: '\u260E', message: '\uD83D\uDCAC', meeting: '\uD83E\uDD1D', email: '\u2709', other: '\uD83D\uDCCB'};
+  if (!comms.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">' + '\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0439 \u043d\u0435\u043c\u0430\u0454' + '</td></tr>';
+    return;
+  }
+  tbody.innerHTML = comms.map(function(c) {
+    var tutor = (S.tutors || []).find(function(t) { return t.id === (c.tutorId || c.tutor_id); });
+    var student = (S.students || []).find(function(s) { return s.id === (c.studentId || c.student_id); });
+    return '<tr><td style="font-size:11px;color:var(--t2)">' + fd(c.date) + '</td>'
+      + '<td>' + (ico[c.type] || '\uD83D\uDCCB') + ' ' + (c.type || '\u2014') + '</td>'
+      + '<td>' + (student ? student.fn + ' ' + student.ln : '\u2014') + '</td>'
+      + '<td>' + (tutor ? tutor.fn + ' ' + tutor.ln : '\u2014') + '</td>'
+      + '<td>' + (c.note || '\u2014') + '</td></tr>';
+  }).join('');
+}
+
+function renderMissedLessons() {
+  var tbody = document.getElementById('missed-tbody');
+  if (!tbody) return;
+  var fStud = (document.getElementById('missed-f-student') || {value:''}).value;
+  var _tutorSelfId2 = null;
+  if (typeof R === 'function' && R() === 'tutor') {
+    var _myT2 = (S.tutors || []).find(function(t) { return CU && (t.accId === CU.id || t.acc_uid === CU.id); });
+    if (_myT2) _tutorSelfId2 = _myT2.id;
+  }
+  var missed = (S.lessons || []).filter(function(l) {
+    return (l.status === 'missed' || l.status === 'makeup') &&
+           (!_tutorSelfId2 || (l.tutorId || l.tutor_id) === _tutorSelfId2);
+  }).sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+  if (fStud) missed = missed.filter(function(l) { return (l.studentId || l.student_id) === fStud; });
+  if (!missed.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">' + '\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0438\u0445 \u0443\u0440\u043e\u043a\u0456\u0432 \u043d\u0435\u043c\u0430\u0454' + '</td></tr>';
+    return;
+  }
+  tbody.innerHTML = missed.map(function(l) {
+    var student = (S.students || []).find(function(s) { return s.id === (l.studentId || l.student_id); });
+    var tutor = (S.tutors || []).find(function(t) { return t.id === (l.tutorId || l.tutor_id); });
+    var stLbl = l.status === 'missed'
+      ? '<span style="color:#ef4444;font-weight:600">\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e</span>'
+      : '<span style="color:#f59e0b;font-weight:600">\u0412\u0456\u0434\u043f\u0440\u0430\u0446\u044c\u043e\u0432\u0430\u043d\u043e</span>';
+    return '<tr><td>' + fd(l.date) + '</td>'
+      + '<td>' + (student ? student.fn + ' ' + student.ln : '\u2014') + '</td>'
+      + '<td>' + (tutor ? tutor.fn + ' ' + tutor.ln : '\u2014') + '</td>'
+      + '<td>' + (l.subject || '\u2014') + '</td>'
+      + '<td>' + stLbl + '</td>'
+      + '<td style="font-size:11px;color:var(--t2)">' + (l.missed_date ? fd(l.missed_date) : '\u2014') + '</td>'
+      + '<td style="font-size:11px;color:var(--t2)">' + (l.makeup_date ? fd(l.makeup_date) : '\u2014') + '</td></tr>';
+  }).join('');
+}
+
+async function logInvoice(channel, recipient, studentId, from, to, lessonsCount, total) {
+  if (!CU || !_sb) return;
+  try {
+    await _sb.from('invoice_log').insert({
+      sent_by: CU.id, student_id: studentId || null,
+      period_from: from || null, period_to: to || null,
+      lessons_count: lessonsCount || 0, total_amount: total || 0,
+      channel: channel, recipient: recipient || '', branch_id: currentBranch() || null
+    });
+  } catch(e) { console.warn('logInvoice error:', e); }
+}
+
+function onLessStatChange() {
+  var stat = (document.getElementById('l-stat') || {value:''}).value;
+  var mkWrap = document.getElementById('l-makeup-wrap');
+  var msWrap = document.getElementById('l-miss-wrap');
+  if (mkWrap) mkWrap.style.display = stat === 'makeup' ? 'block' : 'none';
+  if (msWrap) msWrap.style.display = (stat === 'missed' || stat === 'makeup') ? 'block' : 'none';
+}
+
+window.studentSearch = studentSearch;
+window.populateStudentSearch = populateStudentSearch;
+window.setStudentSearch = setStudentSearch;
+window.renderCommsPage = renderCommsPage;
+window.renderMissedLessons = renderMissedLessons;
+window.logInvoice = logInvoice;
+window.onLessStatChange = onLessStatChange;
+window.supabase = window.SupabaseMini, window.__startTime = Date.now();
 
 var ROLES = {
   god: {
@@ -3255,139 +3390,5 @@ function renderSchWeek() {
   g.innerHTML = html;
 }
 
-
-function studentSearch(input, hiddenId, callbackFn) {
-  var val = input.value;
-  var dl = document.getElementById(hiddenId + '-list');
-  var hidden = document.getElementById(hiddenId);
-  var q = val.toLowerCase();
-  var src = hiddenId === 'p-std' ? (S.students || []) : myStudents();
-  var matches = src.filter(function(s) {
-    return (s.fn + ' ' + s.ln).toLowerCase().includes(q) ||
-           (s.ln + ' ' + s.fn).toLowerCase().includes(q) ||
-           (s.ln).toLowerCase().startsWith(q);
-  }).slice(0, 30);
-  if (dl) dl.innerHTML = matches.map(function(s) {
-    return '<option value="' + s.fn + ' ' + s.ln + '" data-id="' + s.id + '">';
-  }).join('');
-  var exact = src.find(function(s) { return s.fn + ' ' + s.ln === val || s.ln + ' ' + s.fn === val; });
-  if (exact && hidden) hidden.value = exact.id;
-  else if (matches.length === 1 && hidden) hidden.value = matches[0].id;
-  else if (hidden && !val) hidden.value = '';
-  if (callbackFn && window[callbackFn]) window[callbackFn]();
-}
-
-function populateStudentSearch(fieldId, src) {
-  src = src || myStudents();
-  var dl = document.getElementById(fieldId + '-list');
-  if (dl) dl.innerHTML = (src || []).map(function(s) {
-    return '<option value="' + s.fn + ' ' + s.ln + '" data-id="' + s.id + '">';
-  }).join('');
-}
-
-function setStudentSearch(fieldId, studentId) {
-  var hidden = document.getElementById(fieldId);
-  var input = document.getElementById(fieldId + '-search');
-  if (hidden) hidden.value = studentId || '';
-  if (input && studentId) {
-    var s = (S.students || []).find(function(x) { return x.id === studentId; });
-    if (s) input.value = s.fn + ' ' + s.ln;
-    else input.value = '';
-  } else if (input) input.value = '';
-}
-
-function renderCommsPage() {
-  var tbody = document.getElementById('comms-tbody');
-  if (!tbody) return;
-  var _tutorSelfId = null;
-  if (typeof R === 'function' && R() === 'tutor') {
-    var _myT = (S.tutors || []).find(function(t) { return CU && (t.accId === CU.id || t.acc_uid === CU.id); });
-    if (_myT) _tutorSelfId = _myT.id;
-  }
-  var fStud = (document.getElementById('comm-f-student') || {value:''}).value;
-  var fTutor = (document.getElementById('comm-f-tutor') || {value:''}).value;
-  var fType = (document.getElementById('comm-f-type') || {value:''}).value;
-  var comms = [].concat(S.comms || []).sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
-  if (_tutorSelfId) comms = comms.filter(function(c) { return (c.tutorId || c.tutor_id) === _tutorSelfId; });
-  if (fStud) comms = comms.filter(function(c) { return (c.studentId || c.student_id) === fStud; });
-  if (fTutor) comms = comms.filter(function(c) { return (c.tutorId || c.tutor_id) === fTutor; });
-  if (fType) comms = comms.filter(function(c) { return c.type === fType; });
-  var ico = {call: '\u260E', message: '\uD83D\uDCAC', meeting: '\uD83E\uDD1D', email: '\u2709', other: '\uD83D\uDCCB'};
-  if (!comms.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">' + '\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0439 \u043d\u0435\u043c\u0430\u0454' + '</td></tr>';
-    return;
-  }
-  tbody.innerHTML = comms.map(function(c) {
-    var tutor = (S.tutors || []).find(function(t) { return t.id === (c.tutorId || c.tutor_id); });
-    var student = (S.students || []).find(function(s) { return s.id === (c.studentId || c.student_id); });
-    return '<tr><td style="font-size:11px;color:var(--t2)">' + fd(c.date) + '</td>'
-      + '<td>' + (ico[c.type] || '\uD83D\uDCCB') + ' ' + (c.type || '\u2014') + '</td>'
-      + '<td>' + (student ? student.fn + ' ' + student.ln : '\u2014') + '</td>'
-      + '<td>' + (tutor ? tutor.fn + ' ' + tutor.ln : '\u2014') + '</td>'
-      + '<td>' + (c.note || '\u2014') + '</td></tr>';
-  }).join('');
-}
-
-function renderMissedLessons() {
-  var tbody = document.getElementById('missed-tbody');
-  if (!tbody) return;
-  var fStud = (document.getElementById('missed-f-student') || {value:''}).value;
-  var _tutorSelfId2 = null;
-  if (typeof R === 'function' && R() === 'tutor') {
-    var _myT2 = (S.tutors || []).find(function(t) { return CU && (t.accId === CU.id || t.acc_uid === CU.id); });
-    if (_myT2) _tutorSelfId2 = _myT2.id;
-  }
-  var missed = (S.lessons || []).filter(function(l) {
-    return (l.status === 'missed' || l.status === 'makeup') &&
-           (!_tutorSelfId2 || (l.tutorId || l.tutor_id) === _tutorSelfId2);
-  }).sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
-  if (fStud) missed = missed.filter(function(l) { return (l.studentId || l.student_id) === fStud; });
-  if (!missed.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">' + '\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0438\u0445 \u0443\u0440\u043e\u043a\u0456\u0432 \u043d\u0435\u043c\u0430\u0454' + '</td></tr>';
-    return;
-  }
-  tbody.innerHTML = missed.map(function(l) {
-    var student = (S.students || []).find(function(s) { return s.id === (l.studentId || l.student_id); });
-    var tutor = (S.tutors || []).find(function(t) { return t.id === (l.tutorId || l.tutor_id); });
-    var stLbl = l.status === 'missed'
-      ? '<span style="color:#ef4444;font-weight:600">\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e</span>'
-      : '<span style="color:#f59e0b;font-weight:600">\u0412\u0456\u0434\u043f\u0440\u0430\u0446\u044c\u043e\u0432\u0430\u043d\u043e</span>';
-    return '<tr><td>' + fd(l.date) + '</td>'
-      + '<td>' + (student ? student.fn + ' ' + student.ln : '\u2014') + '</td>'
-      + '<td>' + (tutor ? tutor.fn + ' ' + tutor.ln : '\u2014') + '</td>'
-      + '<td>' + (l.subject || '\u2014') + '</td>'
-      + '<td>' + stLbl + '</td>'
-      + '<td style="font-size:11px;color:var(--t2)">' + (l.missed_date ? fd(l.missed_date) : '\u2014') + '</td>'
-      + '<td style="font-size:11px;color:var(--t2)">' + (l.makeup_date ? fd(l.makeup_date) : '\u2014') + '</td></tr>';
-  }).join('');
-}
-
-async function logInvoice(channel, recipient, studentId, from, to, lessonsCount, total) {
-  if (!CU || !_sb) return;
-  try {
-    await _sb.from('invoice_log').insert({
-      sent_by: CU.id, student_id: studentId || null,
-      period_from: from || null, period_to: to || null,
-      lessons_count: lessonsCount || 0, total_amount: total || 0,
-      channel: channel, recipient: recipient || '', branch_id: currentBranch() || null
-    });
-  } catch(e) { console.warn('logInvoice error:', e); }
-}
-
-function onLessStatChange() {
-  var stat = (document.getElementById('l-stat') || {value:''}).value;
-  var mkWrap = document.getElementById('l-makeup-wrap');
-  var msWrap = document.getElementById('l-miss-wrap');
-  if (mkWrap) mkWrap.style.display = stat === 'makeup' ? 'block' : 'none';
-  if (msWrap) msWrap.style.display = (stat === 'missed' || stat === 'makeup') ? 'block' : 'none';
-}
-
-window.studentSearch = studentSearch;
-window.populateStudentSearch = populateStudentSearch;
-window.setStudentSearch = setStudentSearch;
-window.renderCommsPage = renderCommsPage;
-window.renderMissedLessons = renderMissedLessons;
-window.logInvoice = logInvoice;
-window.onLessStatChange = onLessStatChange;
 
 initApp();
