@@ -2858,6 +2858,44 @@ window.logInvoice = logInvoice;
 window.renderInvoiceLog = renderInvoiceLog;
 window.onLessStatChange = onLessStatChange;
 
+
+// Modal wrappers for backward compatibility
+function openStudM(id) { openM('student', id); }
+function openTutM(id)  { openM('tutor',   id); }
+function openLessM(id, date, time) {
+  if(id) openM('lesson', id);
+  else {
+    openM('lesson', null);
+    if(date) setTimeout(function(){
+      var d=document.getElementById('l-date'); if(d) d.value=date;
+      var t=document.getElementById('l-time'); if(t) t.value=time||'10:00';
+    }, 50);
+  }
+}
+function openPayM(id)  { openM('payment', id); }
+function openCommM(tutorId) {
+  openM('comm', null);
+  if(tutorId) setTimeout(function(){
+    var s=document.getElementById('cm-tutor'); if(s) s.value=tutorId;
+  }, 50);
+  else if(typeof R==='function' && R()==='tutor'){
+    setTimeout(function(){
+      var myT=(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);});
+      if(myT){
+        var s=document.getElementById('cm-tutor'); if(s) s.value=myT.id;
+        var w=document.getElementById('cm-tutor-wrap'); if(w) w.style.display='none';
+      }
+    }, 50);
+  }
+}
+function openBranchM(id) { openM('branch', id); }
+function deleteLessonFromModal() {
+  if(!S.editId) return;
+  if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0446\u0435 \u0437\u0430\u043d\u044f\u0442\u0442\u044f?')) return;
+  dbDelete('lessons', S.editId);
+  closeM('mo-lesson');
+}
+
 document.addEventListener('DOMContentLoaded', initApp);
 
 // Tutor checkbox visual feedback
