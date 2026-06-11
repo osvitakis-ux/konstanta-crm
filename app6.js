@@ -309,7 +309,7 @@ function renderCommsPage() {
   if (fStud) comms = comms.filter(function(c) { return (c.studentId || c.student_id) === fStud; });
   if (fTutor) comms = comms.filter(function(c) { return (c.tutorId || c.tutor_id) === fTutor; });
   if (fType) comms = comms.filter(function(c) { return c.type === fType; });
-  var ico = {call: '\u260E', message: '💬', meeting: '🤝', email: '\u2709', other: '📋'};
+  var ico = {call: '\u260E', message: '\uD83D\uDCAC', meeting: '\uD83E\uDD1D', email: '\u2709', other: '\uD83D\uDCCB'};
   if (!comms.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">' + '\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0439 \u043d\u0435\u043c\u0430\u0454' + '</td></tr>';
     return;
@@ -318,7 +318,7 @@ function renderCommsPage() {
     var tutor = (S.tutors || []).find(function(t) { return t.id === (c.tutorId || c.tutor_id); });
     var student = (S.students || []).find(function(s) { return s.id === (c.studentId || c.student_id); });
     return '<tr><td style="font-size:11px;color:var(--t2)">' + fd(c.date) + '</td>'
-      + '<td>' + (ico[c.type] || '📋') + ' ' + (c.type || '\u2014') + '</td>'
+      + '<td>' + (ico[c.type] || '\uD83D\uDCCB') + ' ' + (c.type || '\u2014') + '</td>'
       + '<td>' + (student ? student.fn + ' ' + student.ln : '\u2014') + '</td>'
       + '<td>' + (tutor ? tutor.fn + ' ' + tutor.ln : '\u2014') + '</td>'
       + '<td>' + (c.note || '\u2014') + '</td></tr>';
@@ -412,7 +412,7 @@ var ROLES = {
   },
   director: {
     label: "Директор",
-    icon: "ὅ1",
+    icon: "\uD83D\uDCDA",
     color: "var(--dir)",
     avatarBg: "linear-gradient(135deg,#d9e021,#fcee21)",
     nav: [ "dashboard", "students", "tutors", "schedule", "lessons", "comms", "missed", "payments", "reports", "crm", "invoice", "invoice-log", "comms", "missed", "users", "settings" ],
@@ -440,7 +440,7 @@ var ROLES = {
   },
   admin: {
     label: "Адміністратор",
-    icon: "Ὦ1️",
+    icon: "\uD83C\uDF10",
     color: "var(--adm)",
     avatarBg: "linear-gradient(135deg,#29abe2,#3fa9f5)",
     nav: [ "dashboard", "students", "tutors", "schedule", "lessons", "comms", "missed", "crm", "invoice" ],
@@ -461,7 +461,7 @@ var ROLES = {
   },
   network_admin: {
     label: "Адмін мережі",
-    icon: "ἱ0",
+    icon: "\uD83C\uDFE2",
     color: "var(--god2)",
     avatarBg: "linear-gradient(135deg,#5b60d4,#29abe2)",
     nav: [ "dashboard", "students", "tutors", "schedule", "lessons", "comms", "missed", "payments", "reports", "crm", "invoice", "invoice-log", "comms", "missed", "users", "settings" ],
@@ -482,7 +482,7 @@ var ROLES = {
   },
   tutor: {
     label: "Репетитор",
-    icon: "ὍA",
+    icon: "\uD83D\uDEE1",
     color: "var(--tut)",
     avatarBg: "linear-gradient(135deg,#22b573,#7ac943)",
     nav: [ "dashboard", "students", "schedule", "lessons", "comms", "missed", "profile" ],
@@ -549,7 +549,7 @@ var ROLES = {
   sec: "Система"
 }, {
   id: "branches",
-  ico: "Ἶ2",
+  ico: "\uD83D\uDCCB",
   lbl: "Філії",
   sec: "Система"
 }, {
@@ -696,17 +696,17 @@ var ROLES = {
   seeAll: "Бачити всі записи (не тільки свої)"
 }, COMM_TYPES = {
   call: {
-    ico: "ὍE",
+    ico: "\uD83D\uDCDE",
     label: "Дзвінок",
     color: "#29abe2"
   },
   msg: {
-    ico: "ὊC",
+    ico: "\uD83D\uDCAC",
     label: "Повідомлення",
     color: "#22b573"
   },
   meeting: {
-    ico: "ᾑD",
+    ico: "\uD83D\uDCAC",
     label: "Зустріч",
     color: "#d9e021"
   },
@@ -716,7 +716,7 @@ var ROLES = {
     color: "#a78bfa"
   },
   other: {
-    ico: "ὌB",
+    ico: "\uD83E\uDD1D",
     label: "Інше",
     color: "#7a8aaa"
   }
@@ -1095,14 +1095,14 @@ function renderDashKpi() {
     accent: "var(--danger)",
     tr: trend(missed, lbl)
   }, {
-    ico: "ὊC",
+    ico: "\uD83D\uDCAC",
     val: totalComms,
     lbl: "Комунікацій",
     sub: "Дзвінки та повідомлення",
     accent: "var(--adm)",
     tr: trend(totalComms, prevComms)
   }, {
-    ico: "Ὄ8",
+    ico: "\uD83D\uDCC8",
     val: pct + "%",
     lbl: "Виконання плану",
     sub: done + " з " + total + " занять",
@@ -1255,13 +1255,13 @@ function renderCommLog() {
   (el || el2) && (comms = [].concat(S.comms || []).sort(function(a, b) {
     return (b.date || "").localeCompare(a.date || "");
   }).slice(0, 20), typeIco = {
-    call: "ὍE",
+    call: "\uD83D\uDCDE",
     message: "ὊC",
-    meeting: "ᾑD",
+    meeting: "\uD83D\uDCAC",
     email: "὎7",
-    other: "ὌB",
+    other: "\uD83E\uDD1D",
     msg: "ὊC",
-    meet: "ᾑD"
+    meet: "\uD83D\uDCAC"
   }, comms = comms.length ? comms.map(function(c) {
     var tutor = S.tutors.find(function(t) {
       return t.id === c.tutorId;
@@ -1271,7 +1271,7 @@ function renderCommLog() {
     }, student = c.studentId ? S.students.find(function(s) {
       return s.id === c.studentId;
     }) : null;
-    return '<div class="comm-item"><div class="comm-ico">' + (typeIco[c.type] || "ὌB") + '</div><div class="comm-body"><div class="comm-meta"><span class="comm-type">' + (c.type || "інше") + '</span><span class="comm-tutor">' + tutor.fn + " " + tutor.ln + "</span>" + (student ? '<span style="font-size:11px;color:var(--t3)">→ ' + student.fn + " " + student.ln + "</span>" : "") + '<span class="comm-date">' + fd((c.date || "").slice(0, 10)) + '</span></div><div class="comm-note">' + (c.note || "—") + '</div></div><button onclick="delComm(this.dataset.id)" data-id="' + c.id + '" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:14px;flex-shrink:0">&times;</button></div>';
+    return '<div class="comm-item"><div class="comm-ico">' + (typeIco[c.type] || "\uD83E\uDD1D") + '</div><div class="comm-body"><div class="comm-meta"><span class="comm-type">' + (c.type || "інше") + '</span><span class="comm-tutor">' + tutor.fn + " " + tutor.ln + "</span>" + (student ? '<span style="font-size:11px;color:var(--t3)">→ ' + student.fn + " " + student.ln + "</span>" : "") + '<span class="comm-date">' + fd((c.date || "").slice(0, 10)) + '</span></div><div class="comm-note">' + (c.note || "—") + '</div></div><button onclick="delComm(this.dataset.id)" data-id="' + c.id + '" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:14px;flex-shrink:0">&times;</button></div>';
   }).join("") : '<div class="empty" style="padding:20px"><div class="ei">ὊC</div>Комунікацій ще не записано</div>', 
   el && (el.innerHTML = comms), el2) && (el2.innerHTML = comms);
 }
@@ -1418,19 +1418,19 @@ function gcRenderRoles() {
     locked: !0
   }, {
     role: "director",
-    ico: "ὅ1",
+    ico: "\uD83D\uDCDA",
     lbl: "Директор",
     clr: "var(--dir)",
     locked: !(grid.className = "role-editor")
   }, {
     role: "admin",
-    ico: "Ὦ1",
+    ico: "\uD83C\uDF10",
     lbl: "Адміністратор",
     clr: "var(--adm)",
     locked: !1
   }, {
     role: "tutor",
-    ico: "ὍA",
+    ico: "\uD83D\uDEE1",
     lbl: "Репетитор",
     clr: "var(--tut)",
     locked: !1
@@ -1480,9 +1480,9 @@ function gcGetNavItems() {
 function gcRenderNav() {
   var ni = gcGetNavItems(), rk = [ "god", "director", "admin", "tutor" ], rico = {
     god: "⚡",
-    director: "ὅ1",
-    admin: "Ὦ1",
-    tutor: "ὍA"
+    director: "\uD83D\uDCDA",
+    admin: "\uD83C\uDF10",
+    tutor: "\uD83D\uDEE1"
   }, el = document.getElementById("gc-nav-editor"), wrap = document.createElement("div");
   wrap.className = "nav-editor", ni.forEach(function(n, i) {
     var idx, del, rArr = n.roles || rk, row = document.createElement("div"), dh = (row.className = "nav-edit-row", 
