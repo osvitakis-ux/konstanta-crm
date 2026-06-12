@@ -677,7 +677,7 @@ function renderDashKpi(){
   if(!tbody)return;
 
   var tutors=R()==='tutor'
-    ? S.tutors.filter(function(t){return CU && t.accId===CU.id;})
+    ? S.tutors.filter(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);})
     : S.tutors;
 
   if(!tutors.length){
@@ -774,12 +774,15 @@ function renderDashKpi(){
 
 function renderDashTrends(){
   if(!CU) return;
+  var _selfTR=(R()==='tutor')?(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);}):null;
+  var _trendLessons=_selfTR?S.lessons.filter(function(l){return (l.tutorId||l.tutor_id)===_selfTR.id;}):S.lessons;
+  var _trendComms=_selfTR?(S.comms||[]).filter(function(c){return (c.tutorId||c.tutor_id)===_selfTR.id;}):(S.comms||[]);
   var offset = S.dashWeekOffset||0;
   var weeks = [];
   for(var i=3;i>=0;i--){
     var wr = getWeekRange(offset-i);
-    var weekL = S.lessons.filter(function(l){return inWeek(l.date,wr);});
-    var weekComms = (S.comms||[]).filter(function(c){return inWeek(c.date,wr);});
+    var weekL = _trendLessons.filter(function(l){return inWeek(l.date,wr);});
+    var weekComms = _trendComms.filter(function(c){return inWeek(c.date,wr);});
     weeks.push({
       wr:wr,
       done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length,
