@@ -795,8 +795,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <span id="wklbl" style="font-size:12px;color:var(--t2);min-width:190px;text-align:center;font-family:'JetBrains Mono',monospace"></span>
           <button class="btn btn-g btn-sm" onclick="chWk(1)"  id="sch-next">Наступний →</button>
           <button class="btn btn-g btn-sm" onclick="chWk(0)">Сьогодні</button>
-          <!-- Tutor filter (day view) -->
-          <select id="sch-tutor-filter" style="display:none;width:160px;font-size:12px" onchange="renderSch()">
+          <!-- Filters -->
           <select id="sch-status-filter" onchange="renderSch()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1)">
             <option value="">Всі статуси</option>
             <option value="planned">Заплановані</option>
@@ -804,7 +803,8 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <option value="missed">Пропущені</option>
             <option value="makeup">Відпрацювання</option>
           </select>
-            <option value="">Всі репетитори</option>
+          <select id="sch-tutor-filter" style="display:none;font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1)" onchange="renderSch()">
+            <option value="">Усі репетитори</option>
           </select>
         </div>
         <div class="card" style="overflow-x:auto"><div class="schg" id="schg"></div></div>
