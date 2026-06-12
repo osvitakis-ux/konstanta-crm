@@ -4262,6 +4262,146 @@ window.logInvoice=logInvoice;
 window.renderInvoiceLog=renderInvoiceLog;
 window.onLessStatChange=onLessStatChange;
 
+
+// ── Invoice panel helpers ──
+function updateInvPhone(){
+  var sid=(document.getElementById('inv-student')||{value:''}).value;
+  var wrap=document.getElementById('inv-phone-wrap');
+  if(!sid||!wrap){if(wrap)wrap.style.display='none';return;}
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  wrap.style.display=s&&s.phone?'block':'none';
+  var ph=document.getElementById('inv-phone');
+  if(ph&&s) ph.value=s.phone||'';
+}
+
+function openViberContact(){
+  var sid=(document.getElementById('inv-student')||{value:''}).value;
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  var phone=s&&s.phone?s.phone.replace(/\D/g,''):'';
+  if(phone) window.open('viber://chat?number='+phone);
+  else mkToast('\u041d\u0435\u043c\u0430\u0454 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0443','error');
+}
+
+function openViberContact2(){
+  var sid=(document.getElementById('inv2-student')||{value:''}).value;
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  var phone=s&&s.phone?s.phone.replace(/\D/g,''):'';
+  if(phone) window.open('viber://chat?number='+phone);
+  else mkToast('\u041d\u0435\u043c\u0430\u0454 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0443','error');
+}
+
+function sendViberFromPanel(){
+  var sid=(document.getElementById('inv-student')||{value:''}).value;
+  var from=(document.getElementById('inv-date-from')||{value:''}).value;
+  var to=(document.getElementById('inv-date-to')||{value:''}).value;
+  var price=parseFloat((document.getElementById('inv-price')||{value:'0'}).value)||0;
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  if(!s){mkToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f','error');return;}
+  var lessons=(S.lessons||[]).filter(function(l){
+    return (l.studentId||l.student_id)===sid&&l.date>=from&&l.date<=to&&(l.status==='done'||l.status==='completed');
+  });
+  var total=lessons.length*price;
+  var pay=(document.getElementById('inv-payment')||{value:''}).value;
+  var text='\u0420\u0430\u0445\u0443\u043d\u043e\u043a \u0437\u0430 '+from+'\u2013'+to+'\n\u0423\u0440\u043e\u043a\u0456\u0432: '+lessons.length+'\n\u0421\u0443\u043c\u0430: '+total+'\u0433\u0440\u043d\n'+pay;
+  if(navigator.clipboard) navigator.clipboard.writeText(text).then(function(){mkToast('\u0421\u043a\u043e\u043f\u0456\u0439\u043e\u0432\u0430\u043d\u043e');});
+  var phone=s.phone?s.phone.replace(/\D/g,''):'';
+  if(phone) window.open('viber://chat?number='+phone);
+}
+
+function sendViber2FromPanel(){
+  var sid=(document.getElementById('inv2-student')||{value:''}).value;
+  var from=(document.getElementById('inv2-date-from')||{value:''}).value;
+  var to=(document.getElementById('inv2-date-to')||{value:''}).value;
+  var price=parseFloat((document.getElementById('inv2-price')||{value:'0'}).value)||0;
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  if(!s){mkToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f','error');return;}
+  var lessons=(S.lessons||[]).filter(function(l){
+    return (l.studentId||l.student_id)===sid&&l.date>=from&&l.date<=to&&(l.status==='done'||l.status==='completed');
+  });
+  var total=lessons.length*price;
+  var pay=(document.getElementById('inv2-payment')||{value:''}).value;
+  var text='\u0420\u0430\u0445\u0443\u043d\u043e\u043a \u0437\u0430 '+from+'\u2013'+to+'\n\u0423\u0440\u043e\u043a\u0456\u0432: '+lessons.length+'\n\u0421\u0443\u043c\u0430: '+total+'\u0433\u0440\u043d\n'+pay;
+  if(navigator.clipboard) navigator.clipboard.writeText(text).then(function(){mkToast('\u0421\u043a\u043e\u043f\u0456\u0439\u043e\u0432\u0430\u043d\u043e');});
+  var phone=s.phone?s.phone.replace(/\D/g,''):'';
+  if(phone) window.open('viber://chat?number='+phone);
+}
+
+function inv2SelectStudent(){
+  var sid=(document.getElementById('inv2-student')||{value:''}).value;
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  var wrap=document.getElementById('inv2-phone-wrap');
+  if(wrap) wrap.style.display=s&&s.phone?'block':'none';
+  var ph=document.getElementById('inv2-phone');
+  if(ph&&s) ph.value=s.phone||'';
+  if(ph&&s&&s.email){var em=document.getElementById('inv2-email');if(em)em.value=s.email||'';}
+  calcInvoiceLessons2&&calcInvoiceLessons2();
+}
+
+function calcInvoiceLessons2(){
+  var sid=(document.getElementById('inv2-student')||{value:''}).value;
+  var from=(document.getElementById('inv2-date-from')||{value:''}).value;
+  var to=(document.getElementById('inv2-date-to')||{value:''}).value;
+  var price=parseFloat((document.getElementById('inv2-price')||{value:'0'}).value)||0;
+  var prev=document.getElementById('inv2-preview');
+  if(!prev) return;
+  if(!sid||!from||!to){prev.innerHTML='';return;}
+  var lessons=(S.lessons||[]).filter(function(l){
+    return (l.studentId||l.student_id)===sid&&l.date>=from&&l.date<=to&&l.status!=='cancelled';
+  });
+  var done=lessons.filter(function(l){return l.status==='done'||l.status==='completed';});
+  var total=done.length*price;
+  prev.innerHTML='<div style="font-size:12px;color:var(--t2);margin:4px 0">\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u0443\u0440\u043e\u043a\u0456\u0432: '+lessons.length+' (\u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e: '+done.length+')</div>'
+    +'<div style="font-size:14px;font-weight:700">\u0421\u0443\u043c\u0430: '+total+'\u0433\u0440\u043d</div>';
+}
+
+// ── Branch modal ──
+function openBranchM(id){
+  var b=id?(S.branches||[]).find(function(x){return x.id===id;}):null;
+  document.getElementById('br-name').value=b?b.name||'':'';
+  document.getElementById('br-addr').value=b?b.address||b.addr||'':'';
+  document.getElementById('br-phone').value=b?b.phone||'':'';
+  document.getElementById('br-email').value=b?b.email||'':'';
+  var pay=document.getElementById('br-payment');
+  if(pay) pay.value=b?b.payment_details||b.payment||'':'';
+  S.editId=id||null;
+  openM('branch',null);
+}
+
+async function saveBranchModal(){
+  var name=document.getElementById('br-name').value.trim();
+  if(!name){mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043d\u0430\u0437\u0432\u0443','error');return;}
+  var obj={
+    name:name,
+    address:(document.getElementById('br-addr')||{value:''}).value,
+    phone:(document.getElementById('br-phone')||{value:''}).value,
+    email:(document.getElementById('br-email')||{value:''}).value,
+    payment_details:(document.getElementById('br-payment')||{value:''}).value
+  };
+  try{
+    if(S.editId) await dbUpdate('branches',S.editId,obj);
+    else{ obj.id='br'+Date.now(); await dbInsert('branches',obj); }
+    mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e');
+    closeM('mo-branch');
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error'); }
+}
+
+// ── Lesson delete ──
+function deleteLessonFromModal(){
+  if(!S.editId) return;
+  if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0446\u0435 \u0437\u0430\u043d\u044f\u0442\u0442\u044f?')) return;
+  dbDelete('lessons',S.editId);
+  closeM('mo-lesson');
+}
+
+// ── Schedule nav ──
+function schNav(d){ chWk(d); }
+function renderNav(){ buildSidebar(); }
+
+// ── Invoice page ──
+function renderInvoicePage(){
+  populateStudentSearch&&populateStudentSearch('inv2-student', myStudents());
+}
+
 document.addEventListener('DOMContentLoaded', initApp);
 
 // Tutor checkbox visual feedback
