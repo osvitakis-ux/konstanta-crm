@@ -2212,8 +2212,8 @@ async function saveStudent(){
     phone:  document.getElementById('s-phone')?.value||'',
     email:  document.getElementById('s-email')?.value||'',
     subject:document.getElementById('s-subj')?.value||'',
-    tutor_id:(function(){var cbs=document.querySelectorAll('.st-tutor-cb:checked');return cbs.length?cbs[0].value:null;})(),
-    tutor_ids:(function(){return Array.from(document.querySelectorAll('.st-tutor-cb:checked')).map(function(cb){return cb.value;}).join(',');})(),
+    tutor_id:(function(){var sel=document.getElementById('s-tutor-list');return sel?sel.value||null:null;})(),
+    tutor_ids:(function(){return (function(){var sel=document.getElementById('s-tutor-list');return sel&&sel.value?sel.value:'';})();})(),
     status: document.getElementById('s-status')?.value||'active',
     src:    document.getElementById('s-src')?.value||'referral',
     notes:  document.getElementById('s-notes')?.value||'',
@@ -2795,25 +2795,21 @@ function openStudM(id=null){
   var stSel=document.getElementById('s-tutor');
   if(stSel){stSel.innerHTML=S.tutors.map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');}
   if(stList){
-    stList.innerHTML=S.tutors.map(function(t){
-      return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px;user-select:none">'
-        +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'
-        +mkAv(t.fn,t.ln,20)
-        +'<span>'+t.fn+' '+t.ln+'</span>'
-        +'</label>';
-    }).join('');
+    stList.innerHTML='<option value="">— Оберіть репетитора —</option>'
+      +S.tutors.map(function(t){
+        return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';
+      }).join('');
+
+
   }
   const flds=['fn','ln','age','grade','phone','email','notes'];
   const pflds=[];
   if(id){const s=S.students.find(x=>x.id===id);if(s){flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value=s[f]||'';});document.getElementById('s-subj').value=s.subject||'';// Set multi-select values for tutors
   // Set tutor checkboxes
   var _tIds=s.tutorIds||(s.tutorId?[s.tutorId]:[]);
-  document.querySelectorAll('.st-tutor-cb').forEach(function(cb){
-    cb.checked=_tIds.indexOf(cb.value)>=0;
-    // Highlight selected
-    cb.closest('label').style.background=cb.checked?'rgba(41,171,226,.15)':'var(--s1)';
-    cb.closest('label').style.borderColor=cb.checked?'var(--adm)':'var(--b1)';
-  });document.getElementById('s-status').value=s.status||'active';document.getElementById('s-src').value=s.src||'referral';
+  if(stList && stList.tagName==='SELECT'){
+    stList.value=_tIds[0]||'';
+  }document.getElementById('s-status').value=s.status||'active';document.getElementById('s-src').value=s.src||'referral';
       var pf=document.getElementById('s-parent-fn');if(pf)pf.value=s.parentFn||'';
       var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';}}
   else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';}
