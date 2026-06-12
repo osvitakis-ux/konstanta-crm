@@ -4421,6 +4421,47 @@ function renderInvoicePage(){
   populateStudentSearch&&populateStudentSearch('inv2-student', myStudents());
 }
 
+
+function calcTutorRating(tutorId){
+  var now=new Date(), fourWeeksAgo=new Date(now);
+  fourWeeksAgo.setDate(now.getDate()-28);
+  var from=localDateStr(fourWeeksAgo), today=localDateStr(now);
+  var lessons=(S.lessons||[]).filter(function(l){
+    return (l.tutorId||l.tutor_id)===tutorId&&l.date>=from&&l.date<=today;
+  });
+  var done=lessons.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
+  var missed=lessons.filter(function(l){return l.status==='missed';}).length;
+  var total=done+missed;
+  var pct=total>0?Math.round(done/total*100):null;
+  if(pct===null) return 5;
+  if(pct>=90&&missed===0) return 5;
+  if(pct>=75) return 4;
+  if(pct>=60) return 3;
+  if(pct>=40) return 2;
+  return 1;
+}
+
+async function updateAllTutorRatings(){
+  if(!_sb||!CU) return;
+  if(R()!=='god'&&R()!=='director'&&R()!=='admin') return;
+  var updated=0;
+  for(var i=0;i<(S.tutors||[]).length;i++){
+    var t=S.tutors[i];
+    var nr=calcTutorRating(t.id);
+    if(nr!==t.rating){
+      try{await _sb.from('tutors').update({rating:nr}).eq('id',t.id);t.rating=nr;updated++;}catch(e){}
+    }
+  }
+  if(updated>0) mkToast('\u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e');
+}
+
+function scheduleDailyRatingUpdate(){
+  var now=new Date(), next9=new Date(now);
+  next9.setHours(9,0,0,0);
+  if(next9<=now) next9.setDate(next9.getDate()+1);
+  setTimeout(function(){ updateAllTutorRatings(); setInterval(updateAllTutorRatings,86400000); }, next9-now);
+}
+
 document.addEventListener('DOMContentLoaded', initApp);
 
 // Tutor checkbox visual feedback
