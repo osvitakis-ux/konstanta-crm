@@ -693,11 +693,12 @@ function renderDashKpi(){
   var totalDone=0,totalMissed=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
   var rowsArr=[];
   tutors.forEach(function(t){
-    var tl=weekL.filter(function(l){return l.tutorId===t.id;});
+    var tl=weekL.filter(function(l){return (l.tutorId||l.tutor_id)===t.id;});
     var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
     var tMissed =tl.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
-    var tComms  =weekComms.filter(function(c){return c.tutorId===t.id;}).length;
+    var tComms    =weekComms.filter(function(c){return (c.tutorId||c.tutor_id)===t.id;}).length;
+    var tCancelled=tl.filter(function(l){return l.status==='cancelled';}).length;
     var tStudents=S.students.filter(function(s){return s.tutorId===t.id&&s.status==='active';}).length;
     var tTotal  =tDone+tMissed; // denominator: only lessons that happened or were missed
     var tPct    =tTotal>0?Math.round(tDone/tTotal*100):tPlanned>0?0:100;
@@ -735,15 +736,10 @@ function renderDashKpi(){
       +'<span style="font-weight:700;font-size:16px;color:'+(tMissed>0?'var(--danger)':'var(--t3)')+'">'+tMissed+'</span>'
       +'</td>'
 
-
       +'<td><div style="display:flex;align-items:center;gap:6px;justify-content:center">'
       +'<span style="font-weight:700;font-size:16px;color:var(--adm)">'+tComms+'</span>'
-
       +'</div></td>'
 
-      +'<td style="text-align:center">'
-      +'<span style="font-size:14px">'+tStudents+'</span>'
-      +'</td>'
 
       +'<td>'
       +'<div style="font-weight:700;font-size:15px;color:'+pctColor+'">'+tPct+'%</div>'
