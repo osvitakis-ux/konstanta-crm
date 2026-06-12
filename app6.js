@@ -3451,33 +3451,91 @@ function renderSchDay(){
 
 
 function renderSchWeek(){
-  const now=new Date(), sow=new Date(now);
-  const dy=now.getDay()===0?6:now.getDay()-1;
+  var _schTf = document.getElementById('sch-tutor-filter');
+  var _schStat = (document.getElementById('sch-status-filter')||{value:''}).value;
+  var _schTid = _schTf ? _schTf.value : '';
+
+  var now=new Date(), sow=new Date(now);
+  var dy=now.getDay()===0?6:now.getDay()-1;
   sow.setDate(now.getDate()-dy+S.weekOffset*7); sow.setHours(0,0,0,0);
-  const days=Array.from({length:7},(_,i)=>{const d=new Date(sow);d.setDate(sow.getDate()+i);return d;});
-  const dnames=['\u041F\u043D','\u0412\u0442','\u0421\u0440','\u0427\u0442','\u041F\u0442','\u0421\u0431','\u041D\u0434'];
+  var days=Array.from({length:7},function(_,i){var d=new Date(sow);d.setDate(sow.getDate()+i);return d;});
+  var dnames=['\u041f\u043d','\u0412\u0442','\u0421\u0440','\u0427\u0442','\u041f\u0442','\u0421\u0431','\u041d\u0434'];
   document.getElementById('wklbl').textContent=((days[0].toLocaleDateString('uk-UA',{day:'numeric',month:'short'}))+' \u2014 '+(days[6].toLocaleDateString('uk-UA',{day:'numeric',month:'short'})));
-  const hrs=Array.from({length:13},(_,i)=>i+8);
-  const ecls=['ec0','ec1','ec2','ec3','ec4'];
-  let html='<div class="schh" style="background:var(--s1)">\u0427\u0430\u0441</div>';
-  days.forEach((d,i)=>{const today=d.toDateString()===now.toDateString();html+=('<div class="schh" style="'+(today?'color:var(--adm);border-bottom:2px solid var(--adm)':'')+'">'+(dnames[i])+'<br><span style="font-size:9px;font-weight:400;color:var(--t3);font-family:JetBrains Mono,monospace">'+(d.getDate())+'.'+(String(d.getMonth()+1).padStart(2,'0'))+'</span></div>');});
-  const ml=myLessons();
-  hrs.forEach(h=>{
-    html+=('<div class="scht">'+(String(h).padStart(2,'0'))+':00</div>');
-    days.forEach(d=>{
-      const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      const lsns=ml.filter(l=>l.date===ds&&parseInt((l.time||'0:0').split(':')[0])===h&&l.status!=='cancelled');
-      html+=('<div class="schc" onclick="openLessM(null,\''+(ds)+'\',\''+(String(h).padStart(2,'0'))+':00\')">');
-      lsns.forEach((l,i)=>{html+=('<div class="sche '+(ecls[i%ecls.length])+'" onclick="event.stopPropagation();openLessM(\''+(l.id)+'\')"><div style="font-weight:700">'+(l.recurId?'\uD83D\uDD01 ':'')+'<span>'+(l.subject)+'</span></div><div style="opacity:.75">'+(sn(l.studentId).split(' ')[0])+'</div></div>');});
+
+  // Populate tutor filter
+  if(_schTf && _schTf.options.length<=1){
+    _schTf.innerHTML='<option value="">\u0423\u0441\u0456 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438</option>'
+      +(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+  }
+  if(_schTf) _schTf.style.display = (can('tutors')&&R()!=='tutor')?'inline-block':'none';
+  var _sf=document.getElementById('sch-status-filter');
+  if(_sf) _sf.style.display='inline-block';
+
+  // Filter lessons
+  var ml = myLessons().filter(function(l){
+    if(_schTid && (l.tutorId||l.tutor_id)!==_schTid) return false;
+    if(l.status==='cancelled') return false;
+    if(_schStat){
+      if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
+      return l.status===_schStat;
+    }
+    return true;
+  });
+
+  // 30-min granularity: 8:00 - 21:00 = 26 half-slots
+  var SLOT_H = 23;
+  var slots = [];
+  for(var h=8; h<21; h++){
+    slots.push({h:h, m:0});
+    slots.push({h:h, m:30});
+  }
+
+  // Header row
+  var html='<div class="schh" style="background:var(--s1)">\u0427\u0430\u0441</div>';
+  days.forEach(function(d,i){
+    var today=d.toDateString()===now.toDateString();
+    html+=('<div class="schh" style="'+(today?'color:var(--adm);border-bottom:2px solid var(--adm)':'')+'">'+dnames[i]+'<br><span style="font-size:9px;font-weight:400;color:var(--t3);font-family:JetBrains Mono,monospace">'+d.getDate()+'.'+(String(d.getMonth()+1).padStart(2,'0'))+'</span></div>');
+  });
+
+  // Slot rows
+  slots.forEach(function(slot){
+    var h=slot.h, m=slot.m;
+    var slotLabel = m===0 ? (String(h).padStart(2,'0')+':00') : '';
+    html+=('<div class="scht" style="font-size:9px;align-items:'+(m===0?'flex-start':'center')+';border-top:'+(m===0?'1px solid var(--b1)':'1px dashed rgba(0,0,0,.06)+')+'">'+(slotLabel)+'</div>');
+
+    days.forEach(function(d){
+      var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      var timeStr=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+      var lsns=ml.filter(function(l){
+        var lt=l.time||'';
+        var lh=parseInt(lt.split(':')[0]||'0');
+        var lm=parseInt(lt.split(':')[1]||'0');
+        return l.date===ds && lh===h && lm===m;
+      });
+      html+=('<div class="schc" style="border-top:'+(m===0?'':'none')+'" onclick="openLessM(null,\''+ds+'\',\''+timeStr+'\')">');
+      lsns.forEach(function(l){
+        var ecl = (l.status==='completed'||l.status==='done') ? 'ec-done'
+                : l.status==='missed' ? 'ec-miss'
+                : l.status==='makeup' ? 'ec-make'
+                : 'ec-plan';
+        var durMin  = parseInt(l.dur)||60;
+        var nSlots  = Math.max(1, Math.round(durMin/30));
+        var heightPx = nSlots * SLOT_H - 3;
+        var durLabel = durMin!==60 ? ' <span style="font-size:9px;opacity:.7">'+(durMin>=60?(durMin/60)+'\u0433\u043e\u0434':(durMin+'\u0445\u0432'))+'</span>' : '';
+        html+=('<div class="sche '+ecl+'" style="min-height:'+heightPx+'px" onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'
+          +'<div style="font-weight:700;font-size:11px">'+(l.recurId?'\uD83D\uDD01 ':'')+'<span>'+l.subject+'</span>'+durLabel+'</div>'
+          +'<div style="opacity:.75;font-size:10px">'+sn(l.studentId).split(' ')[0]+'</div>'
+          +'</div>');
+      });
       html+='</div>';
     });
   });
-  const g=document.getElementById('schg');
+
+  var g=document.getElementById('schg');
   g.style.gridTemplateColumns='52px repeat(7,1fr)';
-  g.style.gridTemplateRows=('auto repeat('+(hrs.length)+',46px)');
+  g.style.gridTemplateRows='auto repeat('+slots.length+','+SLOT_H+'px)';
   g.innerHTML=html;
 }
-
 
 
 function renderSettings(){
@@ -4161,10 +4219,14 @@ function setStudentSearch(fieldId, studentId) {
 
 function onLessStatChange(){
   var stat = (document.getElementById('l-stat')||{value:''}).value;
-  var mkWrap = document.getElementById('l-makeup-wrap');
-  var msWrap = document.getElementById('l-miss-wrap');
-  if(mkWrap) mkWrap.style.display = stat==='makeup' ? 'block' : 'none';
-  if(msWrap) msWrap.style.display = (stat==='missed'||stat==='makeup') ? 'block' : 'none';
+  var mkWrap  = document.getElementById('l-makeup-wrap');
+  var msWrap  = document.getElementById('l-miss-wrap');
+  var splWrap = document.getElementById('l-split-wrap');
+  var dur     = parseInt((document.getElementById('l-dur')||{value:'60'}).value)||60;
+  if(mkWrap)  mkWrap.style.display  = stat==='makeup' ? 'block' : 'none';
+  if(msWrap)  msWrap.style.display  = (stat==='missed'||stat==='makeup') ? 'block' : 'none';
+  // Show split option for missed lessons with 60min duration
+  if(splWrap) splWrap.style.display = (stat==='missed' && dur===60) ? 'block' : 'none';
 }
 
 function renderCommsPage(){
@@ -4460,6 +4522,49 @@ function scheduleDailyRatingUpdate(){
   next9.setHours(9,0,0,0);
   if(next9<=now) next9.setDate(next9.getDate()+1);
   setTimeout(function(){ updateAllTutorRatings(); setInterval(updateAllTutorRatings,86400000); }, next9-now);
+}
+
+
+async function splitLessonTo30(){
+  var id = S.editId;
+  if(!id){ mkToast('Не знайдено урок', 'error'); return; }
+  var orig = (S.lessons||[]).find(function(l){ return l.id===id; });
+  if(!orig){ mkToast('Урок не знайдено', 'error'); return; }
+  if(!confirm('Розбити цей урок на 2 × 30 хв?')) return;
+
+  // Get original time and calculate second slot (+30 min)
+  var lt    = orig.time||'10:00';
+  var lh    = parseInt(lt.split(':')[0]);
+  var lm    = parseInt(lt.split(':')[1]||'0');
+  var lm2   = lm + 30;
+  var lh2   = lh + Math.floor(lm2/60);
+  lm2       = lm2 % 60;
+  var time2 = String(lh2).padStart(2,'0')+':'+String(lm2).padStart(2,'0');
+
+  var base = {
+    studentId:  orig.studentId||orig.student_id,
+    student_id: orig.studentId||orig.student_id,
+    tutorId:    orig.tutorId||orig.tutor_id,
+    tutor_id:   orig.tutorId||orig.tutor_id,
+    subject:    orig.subject||'',
+    date:       orig.date,
+    status:     'missed',
+    dur:        30,
+    price:      orig.price||0,
+    branchId:   orig.branchId||orig.branch_id,
+    branch_id:  orig.branchId||orig.branch_id,
+  };
+
+  try{
+    // Update original lesson to 30 min
+    await dbUpdate('lessons', id, {dur:30});
+    // Create second 30-min lesson
+    await dbInsert('lessons', Object.assign({}, base, {time: time2, id: uid()}));
+    mkToast('Урок розбито на 2 × 30 хв');
+    closeM('mo-lesson');
+  }catch(e){
+    mkToast('Помилка: '+e.message, 'error');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
