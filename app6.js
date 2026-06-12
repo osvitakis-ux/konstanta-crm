@@ -946,7 +946,10 @@ function renderCommLog(){
   var el  = document.getElementById('dash-comm-log');
   var el2 = document.getElementById('dash-comm-log2');
   if(!el && !el2) return;
-  var comms=[].concat(S.comms||[]).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,20);
+  var _selfCommT=(R()==='tutor')?(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);}):null;
+  var comms=[].concat(S.comms||[])
+    .filter(function(c){return !_selfCommT||(c.tutorId||c.tutor_id)===_selfCommT.id;})
+    .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,20);
   var typeIco={call:'📞',message:'💬',meeting:'🤝',email:'📧',other:'📋',msg:'💬',meet:'🤝'};
   var html;
   if(!comms.length){
@@ -2388,7 +2391,13 @@ function updateParentInfo(){
 }
 
 async function saveComm(){
-  var tutorId=document.getElementById('cm-tutor')?.value, date=document.getElementById('cm-date')?.value;
+  var _cmTutEl=document.getElementById('cm-tutor');
+  var tutorId=_cmTutEl?_cmTutEl.value:'';
+  if(typeof R==='function'&&R()==='tutor'){
+    var _myComT=(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);});
+    if(_myComT) tutorId=_myComT.id;
+  }
+  var date=document.getElementById('cm-date')?.value;
   if(!tutorId){ mkToast('\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430','error'); return; }
   if(!date)   { mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0434\u0430\u0442\u0443','error'); return; }
   window._saving = true;
@@ -2890,6 +2899,11 @@ function openPayM(id=null){
 
 
 function openCommM(tutorId){
+  // Auto-set own tutorId for tutor role
+  if(!tutorId && typeof R==='function' && R()==='tutor'){
+    var _myT=(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);});
+    if(_myT) tutorId=_myT.id;
+  }
   if(!can('lessons')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
   var mo=document.getElementById('mo-comm');
   if(!mo)return;
