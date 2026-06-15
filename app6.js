@@ -3246,6 +3246,14 @@ function buildUASummary(u){
 
 
 
+
+function localDateStr(d){
+  var year  = d.getFullYear();
+  var month = String(d.getMonth()+1).padStart(2,'0');
+  var day   = String(d.getDate()).padStart(2,'0');
+  return year+'-'+month+'-'+day;
+}
+
 function genRecurDates(startDate,recurType,endDate,count,interval){
   const dates=[];
   const start=new Date(startDate+'T12:00:00');
