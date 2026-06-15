@@ -2856,7 +2856,7 @@ function openLessM(id=null,date=null,time=null){
   if(id){
     const l=S.lessons.find(x=>x.id===id);
     if(l){
-      document.getElementById('l-std').value=l.studentId||'';
+      document.getElementById('l-std').value=l.studentId||l.student_id||'';
       document.getElementById('l-subj').value=l.subject||'';
       document.getElementById('l-tutor').value=l.tutorId||'';
       document.getElementById('l-date').value=l.date||'';
@@ -2873,10 +2873,6 @@ function openLessM(id=null,date=null,time=null){
       }
     }
   } else {
-    // Keep student + subject + tutor from previous form if opened from schedule
-    var _prevStd  = (document.getElementById('l-std')||{value:''}).value;
-    var _prevSubj = (document.getElementById('l-subj')||{value:''}).value;
-    var _prevTutor= (document.getElementById('l-tutor')||{value:''}).value;
     ['l-price','l-notes','l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
       var el=document.getElementById(f); if(el) el.value='';
     });
@@ -2888,14 +2884,8 @@ function openLessM(id=null,date=null,time=null){
     document.getElementById('l-dur').value=60;
     document.getElementById('l-stat').value='planned';
     // Restore student/subject/tutor from previous entry (or set defaults)
-    if(date){
-      // Opened from schedule cell - keep previous student/subject/tutor
-      if(_prevStd)   document.getElementById('l-std').value=_prevStd;
-      if(_prevSubj)  document.getElementById('l-subj').value=_prevSubj;
-      if(_prevTutor) document.getElementById('l-tutor').value=_prevTutor;
-    }
     const mt=myTutor();
-    if(mt && !_prevTutor) document.getElementById('l-tutor').value=mt.id;
+    if(mt && !(document.getElementById('l-tutor')||{value:''}).value) document.getElementById('l-tutor').value=mt.id;
   }
   renderCustomFields('lesson','mo-lesson-cf');
   // Show/hide delete buttons
