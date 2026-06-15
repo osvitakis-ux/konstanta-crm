@@ -3520,6 +3520,7 @@ function renderSchWeek(){
     if(l.status==='cancelled') return false;
     if(_schStat){
       if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
+      if(_schStat==='completed') return l.status==='completed'||l.status==='done';
       return l.status===_schStat;
     }
     return true;
@@ -3565,7 +3566,10 @@ function renderSchWeek(){
 
       // Non-split lessons
       nonSplit.forEach(function(l){
-        var ecl=(l.status==='completed'||l.status==='done'||l.status==='makeup')?'ec-done':l.status==='missed'?'ec-miss':'ec-plan';
+        var ecl=l.status==='missed'?'ec-miss'
+                :l.status==='makeup'?'ec-make'
+                :(l.status==='completed'||l.status==='done')?'ec-done'
+                :'ec-plan';
         var durMin=parseInt(l.dur)||60;
         var nSlots=Math.max(1,Math.round(durMin/30));
         var heightPx=nSlots*SLOT_H-3;
@@ -3583,7 +3587,10 @@ function renderSchWeek(){
         var partH=Math.floor(groupH/parts.length)-1;
         html+='<div style="min-height:'+groupH+'px;border-radius:6px;overflow:hidden;border:2px solid rgba(245,158,11,.5);display:flex;flex-direction:column">';
         parts.forEach(function(l,pi){
-          var ecl=(l.status==='completed'||l.status==='done'||l.status==='makeup')?'ec-done':l.status==='missed'?'ec-miss':'ec-plan';
+          var ecl=l.status==='missed'?'ec-miss'
+                :l.status==='makeup'?'ec-make'
+                :(l.status==='completed'||l.status==='done')?'ec-done'
+                :'ec-plan';
           html+=('<div class="sche '+ecl+'" style="flex:1;min-height:'+partH+'px;border-radius:0;border:none;'+(pi<parts.length-1?'border-bottom:1px dashed rgba(0,0,0,.2)':'')+'" onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'
             +'<div style="font-weight:700;font-size:10px">&#9988; <span>'+l.subject+'</span></div>'
             +'<div style="opacity:.75;font-size:9px">'+sn(l.studentId).split(' ')[0]+' · 30хв</div>'
