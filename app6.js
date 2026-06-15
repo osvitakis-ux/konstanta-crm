@@ -2883,7 +2883,7 @@ function openLessM(id,date,time){
 
   // Always clear ALL fields first
   ['l-std','l-subj','l-tutor','l-price','l-notes',
-   'l-miss-date','l-makeup-date','l-hw','l-std-search'].forEach(function(f){
+   'l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
     var el=document.getElementById(f); if(el) el.value='';
   });
   document.getElementById('l-dur').value=60;
@@ -2899,11 +2899,8 @@ function openLessM(id,date,time){
 
   // Populate dropdowns AFTER clearing
   document.getElementById('ml-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F':'\u041D\u043E\u0432\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F';
-  // Populate student datalist
-  var _dl=document.getElementById('l-std-list');
-  if(_dl) _dl.innerHTML=(myStudents()||[]).map(function(s){
-    return '<option value="'+s.fn+' '+s.ln+'" data-id="'+s.id+'">';
-  }).join('');
+  // Populate student select
+  popSel('l-std', myStudents(), 'id', function(s){return s.fn+' '+s.ln;}, 'Оберіть учня');
   var dl_l=document.getElementById('subj-list-l');
   if(dl_l) dl_l.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
   popSel('l-tutor',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447');
@@ -2913,12 +2910,6 @@ function openLessM(id,date,time){
     var l=(S.lessons||[]).find(function(x){return x.id===id;});
     if(l){
       document.getElementById('l-std').value=l.studentId||l.student_id||'';
-      var _stdId=l.studentId||l.student_id;
-      var _stdEl=document.getElementById('l-std-search');
-      if(_stdEl){
-        var _s=_stdId?(S.students||[]).find(function(x){return x.id===_stdId;}):null;
-        _stdEl.value=_s?(_s.fn+' '+_s.ln):'';
-      }
       document.getElementById('l-subj').value=l.subject||'';
       document.getElementById('l-tutor').value=l.tutorId||l.tutor_id||'';
       document.getElementById('l-date').value=l.date||'';
