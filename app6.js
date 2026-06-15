@@ -216,14 +216,14 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','branches','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','branches','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -237,7 +237,7 @@ var ROLES = {
   network_admin: {
     label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#5b60d4,#29abe2)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports','crm','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','branches','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
