@@ -4561,17 +4561,14 @@ async function splitLessonTo30(){
   var baseStatus = orig.status||'missed';
 
   var base = {
-    studentId:  orig.studentId||orig.student_id,
     student_id: orig.studentId||orig.student_id,
-    tutorId:    orig.tutorId||orig.tutor_id,
     tutor_id:   orig.tutorId||orig.tutor_id,
     subject:    orig.subject||'',
     date:       orig.date,
     status:     baseStatus,
     dur:        30,
     price:      Math.round((orig.price||0)/nParts),
-    branchId:   orig.branchId||orig.branch_id,
-    branch_id:  orig.branchId||orig.branch_id,
+    branch_id:  orig.branchId||orig.branch_id||null,
   };
 
   try{
