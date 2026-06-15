@@ -426,7 +426,7 @@ function mkToast(msg,type='success'){
   document.body.appendChild(e);setTimeout(()=>e.remove(),3000);
 }
 
-function popSel(id,arr,valKey,lblFn,placeholder='\u2014'){const el=document.getElementById(id);if(!el)return;const cur=el.value;el.innerHTML=("<option value=\"\">"+(placeholder)+"</option>")+arr.map(x=>("<option value=\""+(x[valKey])+"\">"+(lblFn(x))+"</option>")).join('');el.value=cur;}
+function popSel(id,arr,valKey,lblFn,placeholder='\u2014'){const el=document.getElementById(id);if(!el)return;el.innerHTML=("<option value=\"\">"+(placeholder)+"</option>")+arr.map(x=>("<option value=\""+(x[valKey])+"\">"+(lblFn(x))+"</option>")).join('');}
 
 function openM(id){
   var el=document.getElementById(id);
