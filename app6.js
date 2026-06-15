@@ -2839,67 +2839,68 @@ function openTutM(id=null){
 }
 
 
-function openLessM(id=null,date=null,time=null){
+function openLessM(id,date,time){
   if(!can('lessons')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
-  S.editId=id;document.getElementById('ml-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F':'\u041D\u043E\u0432\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F';
-  popSel('l-std',myStudents(),'id',function(s){return s.fn+' '+s.ln;},'\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F');
-  // Populate subject datalist for lesson modal
-  var dl_l=document.getElementById('subj-list-l');
-  if(dl_l){dl_l.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');}
-  popSel('l-tutor',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447');
+  S.editId=id||null;
+
+  // Always clear ALL fields first
+  ['l-std','l-subj','l-tutor','l-price','l-notes',
+   'l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
+    var el=document.getElementById(f); if(el) el.value='';
+  });
+  document.getElementById('l-dur').value=60;
+  document.getElementById('l-stat').value='planned';
   document.getElementById('l-recur').value='none';
   document.getElementById('l-recur-end').value='';
   document.getElementById('l-recur-count').value='';
   document.getElementById('l-recur-interval').value='7';
-  document.getElementById('recur-preview').style.display='none';
-  toggleRecurOpts();
+  var mw=document.getElementById('l-miss-wrap'); if(mw) mw.style.display='none';
+  var mkw=document.getElementById('l-makeup-wrap'); if(mkw) mkw.style.display='none';
+  var spw=document.getElementById('l-split-wrap'); if(spw) spw.style.display='none';
+  var rp=document.getElementById('recur-preview'); if(rp) rp.style.display='none';
+
+  // Populate dropdowns AFTER clearing
+  document.getElementById('ml-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F':'\u041D\u043E\u0432\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F';
+  popSel('l-std',myStudents(),'id',function(s){return s.fn+' '+s.ln;},'\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F');
+  var dl_l=document.getElementById('subj-list-l');
+  if(dl_l) dl_l.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
+  popSel('l-tutor',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447');
+  toggleRecurOpts&&toggleRecurOpts();
+
   if(id){
-    const l=S.lessons.find(x=>x.id===id);
+    var l=(S.lessons||[]).find(function(x){return x.id===id;});
     if(l){
       document.getElementById('l-std').value=l.studentId||l.student_id||'';
       document.getElementById('l-subj').value=l.subject||'';
-      document.getElementById('l-tutor').value=l.tutorId||'';
+      document.getElementById('l-tutor').value=l.tutorId||l.tutor_id||'';
       document.getElementById('l-date').value=l.date||'';
       document.getElementById('l-time').value=l.time||'10:00';
       document.getElementById('l-dur').value=l.dur||60;
       document.getElementById('l-stat').value=l.status||'planned';
       document.getElementById('l-price').value=l.price||'';
       document.getElementById('l-notes').value=l.notes||'';
+      onLessStatChange&&onLessStatChange();
       if(l.recurId){
-        const siblings=S.lessons.filter(x=>x.recurId===l.recurId);
-        const box=document.getElementById('recur-preview');
-        box.style.display='block';
-        box.innerHTML=('<span style="color:var(--adm)">\uD83D\uDD01 \u041F\u043E\u0432\u0442\u043E\u0440\u044E\u0432\u0430\u043D\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F</span> \u2014 \u0441\u0435\u0440\u0456\u044F \u0437 <b>'+(siblings.length)+'</b> \u0437\u0430\u043D\u044F\u0442\u044C. \u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u043C\u0456\u043D\u044E\u0454 \u0442\u0456\u043B\u044C\u043A\u0438 <b>\u0446\u0435</b> \u0437\u0430\u043D\u044F\u0442\u0442\u044F.');
+        var siblings=(S.lessons||[]).filter(function(x){return x.recurId===l.recurId;});
+        var box=document.getElementById('recur-preview');
+        if(box){box.style.display='block';box.innerHTML='<span style="color:var(--adm)">\uD83D\uDD01 \u041F\u043E\u0432\u0442\u043E\u0440\u044E\u0432\u0430\u043D\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F</span> \u2014 \u0441\u0435\u0440\u0456\u044F \u0437 <b>'+siblings.length+'</b> \u0437\u0430\u043D\u044F\u0442\u044C.';}
       }
     }
   } else {
-    // Clear ALL fields for new lesson
-    ['l-std','l-subj','l-price','l-notes','l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
-      var el=document.getElementById(f); if(el) el.value='';
-    });
-    document.getElementById('l-tutor').value='';
-    var mw=document.getElementById('l-miss-wrap'); if(mw) mw.style.display='none';
-    var mkw=document.getElementById('l-makeup-wrap'); if(mkw) mkw.style.display='none';
-    var spw=document.getElementById('l-split-wrap'); if(spw) spw.style.display='none';
     document.getElementById('l-date').value=date||localDateStr(new Date());
     document.getElementById('l-time').value=time||'10:00';
-    document.getElementById('l-dur').value=60;
-    document.getElementById('l-stat').value='planned';
-    // Auto-set own tutor for tutor role
-    const mt=myTutor();
+    var mt=myTutor();
     if(mt) document.getElementById('l-tutor').value=mt.id;
   }
-  renderCustomFields('lesson','mo-lesson-cf');
-  // Show/hide delete buttons
-  var _db=document.getElementById('del-lesson-btn');
-  if(_db) _db.style.display=id?'inline-flex':'none';
-  var _sb2=document.getElementById('del-series-btn');
-  if(_sb2){
-    var _lr=id?(S.lessons||[]).find(function(l){return l.id===id;}):null;
-    _sb2.style.display=(_lr&&_lr.recurId)?'inline-flex':'none';
-  }
+
+  renderCustomFields&&renderCustomFields('lesson','mo-lesson-cf');
+  var db=document.getElementById('del-lesson-btn');
+  if(db) db.style.display=id?'inline-flex':'none';
+  var sb=document.getElementById('del-series-btn');
+  if(sb){var lr=id?(S.lessons||[]).find(function(l){return l.id===id;}):null;sb.style.display=(lr&&lr.recurId)?'inline-flex':'none';}
   openM('mo-lesson');
 }
+
 
 
 function openPayM(id=null){
