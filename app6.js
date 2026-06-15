@@ -965,7 +965,14 @@ function renderCommLog(){
 function sfilt(f,el){sfCur=f;document.querySelectorAll('#sfchips .chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderStudents();}
 
 function renderStudents(){
-  var data=myStudents();
+  var _q=(document.getElementById('gsearch')||{value:''}).value.toLowerCase().trim();
+  var data=myStudents().filter(function(s){
+    if(!_q) return true;
+    return (s.fn+' '+s.ln).toLowerCase().includes(_q)
+        || (s.ln+' '+s.fn).toLowerCase().includes(_q)
+        || (s.phone||'').includes(_q)
+        || (s.email||'').toLowerCase().includes(_q);
+  });
   if(sfCur!=='all') data=data.filter(function(s){return s.status===sfCur;});
   var tot=document.getElementById('st-total');
   if(tot) tot.textContent=data.length+' \u0437 '+myStudents().length;
@@ -1617,7 +1624,10 @@ function gcResetLabels(){gcResetAllLabels();}
 
 function gcSaveLabels(){mkToast('\u0422\u0435\u043A\u0441\u0442\u0438 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E \u2705');}
 
-function gSearch(q){if(q.length>1&&S.currentPage!=='students'){nav('students');}}
+function gSearch(q){
+  if(S.currentPage!=='students') nav('students');
+  renderStudents();
+}
 
 // = Supabase integration =
 // =
