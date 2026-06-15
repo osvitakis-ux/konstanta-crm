@@ -2873,19 +2873,39 @@ function openLessM(id=null,date=null,time=null){
       }
     }
   } else {
-    ['l-std','l-subj','l-tutor','l-price','l-notes','l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
+    // Keep student + subject + tutor from previous form if opened from schedule
+    var _prevStd  = (document.getElementById('l-std')||{value:''}).value;
+    var _prevSubj = (document.getElementById('l-subj')||{value:''}).value;
+    var _prevTutor= (document.getElementById('l-tutor')||{value:''}).value;
+    ['l-price','l-notes','l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
       var el=document.getElementById(f); if(el) el.value='';
     });
     var mw=document.getElementById('l-miss-wrap'); if(mw) mw.style.display='none';
     var mkw=document.getElementById('l-makeup-wrap'); if(mkw) mkw.style.display='none';
     var spw=document.getElementById('l-split-wrap'); if(spw) spw.style.display='none';
-    document.getElementById('l-date').value=date||new Date().toISOString().slice(0,10);
+    document.getElementById('l-date').value=date||localDateStr(new Date());
     document.getElementById('l-time').value=time||'10:00';
     document.getElementById('l-dur').value=60;
     document.getElementById('l-stat').value='planned';
-    const mt=myTutor();if(mt)document.getElementById('l-tutor').value=mt.id;
+    // Restore student/subject/tutor from previous entry (or set defaults)
+    if(date){
+      // Opened from schedule cell - keep previous student/subject/tutor
+      if(_prevStd)   document.getElementById('l-std').value=_prevStd;
+      if(_prevSubj)  document.getElementById('l-subj').value=_prevSubj;
+      if(_prevTutor) document.getElementById('l-tutor').value=_prevTutor;
+    }
+    const mt=myTutor();
+    if(mt && !_prevTutor) document.getElementById('l-tutor').value=mt.id;
   }
   renderCustomFields('lesson','mo-lesson-cf');
+  // Show/hide delete buttons
+  var _db=document.getElementById('del-lesson-btn');
+  if(_db) _db.style.display=id?'inline-flex':'none';
+  var _sb2=document.getElementById('del-series-btn');
+  if(_sb2){
+    var _lr=id?(S.lessons||[]).find(function(l){return l.id===id;}):null;
+    _sb2.style.display=(_lr&&_lr.recurId)?'inline-flex':'none';
+  }
   openM('mo-lesson');
 }
 
@@ -4612,6 +4632,26 @@ async function splitLessonTo30(){
     closeM('mo-lesson');
   }catch(e){
     mkToast('Помилка: '+e.message, 'error');
+  }
+}
+
+
+async function deleteLessonSeriesFromModal(){
+  if(!S.editId) return;
+  var l=(S.lessons||[]).find(function(x){return x.id===S.editId;});
+  if(!l||!l.recurId){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u0441\u0435\u0440\u0456\u0457','error'); return; }
+  var series=S.lessons.filter(function(x){return x.recurId===l.recurId;});
+  if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0432\u0441\u044e \u0441\u0435\u0440\u0456\u044e? ('+series.length+' \u0443\u0440\u043e\u043a\u0456\u0432)')) return;
+  try{
+    for(var i=0;i<series.length;i++){
+      await _sb.from('lessons').delete().eq('id',series[i].id);
+    }
+    S.lessons=S.lessons.filter(function(x){return x.recurId!==l.recurId;});
+    mkToast('\u0421\u0435\u0440\u0456\u044e \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043e ('+series.length+' \u0443\u0440\u043e\u043a\u0456\u0432)');
+    closeM('mo-lesson');
+    renderSch();
+  }catch(e){
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');
   }
 }
 
