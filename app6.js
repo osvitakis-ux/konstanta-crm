@@ -426,7 +426,7 @@ function mkToast(msg,type='success'){
   document.body.appendChild(e);setTimeout(()=>e.remove(),3000);
 }
 
-function popSel(id,arr,valKey,lblFn,placeholder='\u2014'){const el=document.getElementById(id);if(!el)return;const cur=el.value;el.innerHTML=("<option value=\"\">"+(placeholder)+"</option>")+arr.map(x=>("<option value=\""+(x[valKey])+"\">"+(lblFn(x))+"</option>")).join('');el.value=cur;}
+function popSel(id,arr,valKey,lblFn,placeholder='\u2014'){const el=document.getElementById(id);if(!el)return;el.innerHTML=("<option value=\"\">"+(placeholder)+"</option>")+arr.map(x=>("<option value=\""+(x[valKey])+"\">"+(lblFn(x))+"</option>")).join('');}
 
 function openM(id){
   var el=document.getElementById(id);
@@ -2873,9 +2873,11 @@ function openLessM(id=null,date=null,time=null){
       }
     }
   } else {
-    ['l-price','l-notes','l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
+    // Clear ALL fields for new lesson
+    ['l-std','l-subj','l-price','l-notes','l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
       var el=document.getElementById(f); if(el) el.value='';
     });
+    document.getElementById('l-tutor').value='';
     var mw=document.getElementById('l-miss-wrap'); if(mw) mw.style.display='none';
     var mkw=document.getElementById('l-makeup-wrap'); if(mkw) mkw.style.display='none';
     var spw=document.getElementById('l-split-wrap'); if(spw) spw.style.display='none';
@@ -2883,9 +2885,9 @@ function openLessM(id=null,date=null,time=null){
     document.getElementById('l-time').value=time||'10:00';
     document.getElementById('l-dur').value=60;
     document.getElementById('l-stat').value='planned';
-    // Restore student/subject/tutor from previous entry (or set defaults)
+    // Auto-set own tutor for tutor role
     const mt=myTutor();
-    if(mt && !(document.getElementById('l-tutor')||{value:''}).value) document.getElementById('l-tutor').value=mt.id;
+    if(mt) document.getElementById('l-tutor').value=mt.id;
   }
   renderCustomFields('lesson','mo-lesson-cf');
   // Show/hide delete buttons
