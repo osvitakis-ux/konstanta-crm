@@ -80,7 +80,7 @@ window.SupabaseMini = (function(){
         try {
           var res = await fetch(_url + '/auth/v1/token?grant_type=password', {
             method: 'POST',
-            headers: { 'Content-Type':'application/json', 'apikey': _key },
+            headers: { 'Content-Type':'application/json', 'apikey': _key, 'Authorization': 'Bearer ' + _key },
             body: JSON.stringify({ email: creds.email, password: creds.password })
           });
           var data = await res.json();
