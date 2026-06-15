@@ -988,37 +988,65 @@ function renderStudents(){
   document.getElementById('st-table').innerHTML=html;
 }
 function renderLessons(){
-  var sf=document.getElementById('lf-subj'), stf=document.getElementById('lf-stat');
-  var cv=sf&&sf.value||'', sv=stf&&stf.value||'';
-  if(sf){
-    var c=sf.value;
-    sf.innerHTML='<option value="">\u0412\u0441\u0456 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u0438</option>'
-      +S.subjects.map(function(s){return '<option value="'+s.name+'">'+s.name+'</option>';}).join('');
-    sf.value=c;
+  var stf = document.getElementById('lf-stat');
+  var sdf = document.getElementById('lf-student');
+  var sv  = stf ? stf.value : '';
+  var sdv = sdf ? sdf.value : '';
+
+  if(sdf){
+    var cur = sdf.value;
+    var studs = myStudents().sort(function(a,b){
+      return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');
+    });
+    sdf.innerHTML = '<option value="">\u0412\u0441\u0456 \u0443\u0447\u043d\u0456</option>'
+      + studs.map(function(s){
+          return '<option value="'+s.id+'"'+(s.id===cur?' selected':'')+'>'+s.fn+' '+s.ln+'</option>';
+        }).join('');
   }
-  var data=[].concat(myLessons()).sort(function(a,b){return new Date(b.date+'T'+b.time)-new Date(a.date+'T'+a.time);});
-  if(cv) data=data.filter(function(l){return l.subject===cv;});
-  if(sv) data=data.filter(function(l){return l.status===sv;});
+
+  var data = [].concat(myLessons()).sort(function(a,b){
+    return new Date(b.date+'T'+(b.time||'00:00'))-new Date(a.date+'T'+(a.time||'00:00'));
+  });
+  if(sdv) data=data.filter(function(l){return (l.studentId||l.student_id)===sdv;});
+  if(sv)  data=data.filter(function(l){
+    if(sv==='done') return l.status==='done'||l.status==='completed';
+    return l.status===sv;
+  });
+
+  var hasMissed = sv==='missed'||sv==='makeup'||
+    (!sv&&data.some(function(l){return l.status==='missed'||l.status==='makeup';}));
+  var mc=document.getElementById('lt-miss-col');
+  var mkc=document.getElementById('lt-makeup-col');
+  if(mc)  mc.style.display=hasMissed?'':'none';
+  if(mkc) mkc.style.display=hasMissed?'':'none';
+
   var ce=can('lessons');
-  var ri=function(l){return l.recurId?'<span title="\u041F\u043E\u0432\u0442\u043E\u0440\u044E\u0432\u0430\u043D\u0435" style="color:var(--adm);font-size:10px">\uD83D\uDD01</span>':'';};
+  var ri=function(l){return l.recurId?'<span style="color:var(--adm);font-size:10px">\uD83D\uDD01</span>':'';};
+
   var html=data.length?data.map(function(l){
+    var mc2=hasMissed?('<td style="font-size:11px;color:var(--danger)">'+(l.missed_date?fd(l.missed_date):'\u2014')+'</td>'):'';
+    var mk2=hasMissed?('<td style="font-size:11px;color:#f59e0b">'+(l.makeup_date?fd(l.makeup_date):'\u2014')+'</td>'):'';
     var btns=ce
       ?('<button class="btn btn-g btn-sm" onclick="openLessM(this.dataset.id)" data-id="'+l.id+'">\u270F\uFE0F</button>'
         +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delLesson(this.dataset.id)" data-id="'+l.id+'">\uD83D\uDDD1</button>')
-      :'<span style="font-size:10px;color:var(--t3)">\u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434</span>';
+      :'';
     return '<tr>'
-      +'<td>'+sn(l.studentId)+'</td>'
-      +'<td>'+l.subject+' '+ri(l)+'</td>'
-      +'<td>'+(l.tutorId?tn(l.tutorId):'\u2014')+'</td>'
+      +'<td>'+sn(l.studentId||l.student_id)+'</td>'
+      +'<td>'+(l.subject||'\u2014')+' '+ri(l)+'</td>'
+      +'<td style="font-size:12px">'+(l.tutorId||l.tutor_id?tn(l.tutorId||l.tutor_id):'\u2014')+'</td>'
       +'<td style="font-family:JetBrains Mono,monospace;font-size:11px">'+fd(l.date)+' '+(l.time||'')+'</td>'
       +'<td>'+(l.dur||60)+' \u0445\u0432</td>'
-      +'<td style="font-size:12px;color:var(--t2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(l.notes||'\u2014')+'</td>'
+      +mc2+mk2
+      +'<td style="font-size:11px;color:var(--t2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(l.notes||'\u2014')+'</td>'
       +'<td>'+bst(l.status)+'</td>'
       +'<td><div style="display:flex;gap:3px">'+btns+'</div></td>'
       +'</tr>';
-  }).join(''):'<tr><td colspan="8"><div class="empty"><div class="ei">\uD83D\uDCDA</div>\u0417\u0430\u043D\u044F\u0442\u044C \u043D\u0435\u043C\u0430\u0454</div></td></tr>';
+  }).join('')
+  :'<tr><td colspan="10"><div class="empty"><div class="ei">\uD83D\uDCDA</div>\u0417\u0430\u043D\u044F\u0442\u044C \u043D\u0435\u043C\u0430\u0454</div></td></tr>';
+
   document.getElementById('lt-table').innerHTML=html;
 }
+
 function renderPayments(){
   // Show invoice toolbar only for god/director
   var invToolbar = document.getElementById('inv-toolbar');
