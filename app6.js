@@ -2812,7 +2812,16 @@ function openStudM(id=null){
   }document.getElementById('s-status').value=s.status||'active';document.getElementById('s-src').value=s.src||'referral';
       var pf=document.getElementById('s-parent-fn');if(pf)pf.value=s.parentFn||'';
       var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';}}
-  else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';}
+  else{
+    ['fn','ln','age','grade','phone','email','notes','parent-fn','parent-phone','subj'].forEach(function(f){
+      var el=document.getElementById('s-'+f); if(el) el.value='';
+    });
+    document.getElementById('s-status').value='active';
+    document.getElementById('s-src').value='referral';
+    var stSel=document.getElementById('s-tutor-list')||document.getElementById('s-tutor');
+    if(stSel) stSel.value='';
+    var brSel=document.getElementById('s-branch'); if(brSel) brSel.value='';
+  }
   renderCustomFields('student','mo-student-cf');
   var invBtn = document.getElementById('inv-btn');
   if(invBtn) invBtn.style.display = (id && (R()==='god'||R()==='director')) ? 'inline-flex' : 'none';
@@ -2864,7 +2873,12 @@ function openLessM(id=null,date=null,time=null){
       }
     }
   } else {
-    ['l-std','l-subj','l-tutor','l-price','l-notes'].forEach(f=>document.getElementById(f).value='');
+    ['l-std','l-subj','l-tutor','l-price','l-notes','l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
+      var el=document.getElementById(f); if(el) el.value='';
+    });
+    var mw=document.getElementById('l-miss-wrap'); if(mw) mw.style.display='none';
+    var mkw=document.getElementById('l-makeup-wrap'); if(mkw) mkw.style.display='none';
+    var spw=document.getElementById('l-split-wrap'); if(spw) spw.style.display='none';
     document.getElementById('l-date').value=date||new Date().toISOString().slice(0,10);
     document.getElementById('l-time').value=time||'10:00';
     document.getElementById('l-dur').value=60;
@@ -4232,7 +4246,7 @@ function onLessStatChange(){
   if(mkWrap)  mkWrap.style.display  = stat==='makeup' ? 'block' : 'none';
   if(msWrap)  msWrap.style.display  = (stat==='missed'||stat==='makeup') ? 'block' : 'none';
   // Show split option for missed lessons with 60min duration
-  if(splWrap) splWrap.style.display = (stat==='missed' && dur===60) ? 'block' : 'none';
+  if(splWrap) splWrap.style.display = ((stat==='missed'||stat==='makeup') && dur>=60) ? 'block' : 'none';
 }
 
 function renderCommsPage(){
@@ -4536,16 +4550,15 @@ async function splitLessonTo30(){
   if(!id){ mkToast('Не знайдено урок', 'error'); return; }
   var orig = (S.lessons||[]).find(function(l){ return l.id===id; });
   if(!orig){ mkToast('Урок не знайдено', 'error'); return; }
-  if(!confirm('Розбити цей урок на 2 × 30 хв?')) return;
+  var curDur = parseInt((document.getElementById('l-dur')||{value:'60'}).value)||parseInt(orig.dur)||60;
+  var nParts = Math.floor(curDur/30);
+  if(nParts < 2){ mkToast('Тривалість має бути мінімум 60 хв', 'error'); return; }
+  if(!confirm('Розбити урок ('+curDur+' хв) на '+nParts+' × 30 хв?')) return;
 
-  // Get original time and calculate second slot (+30 min)
-  var lt    = orig.time||'10:00';
-  var lh    = parseInt(lt.split(':')[0]);
-  var lm    = parseInt(lt.split(':')[1]||'0');
-  var lm2   = lm + 30;
-  var lh2   = lh + Math.floor(lm2/60);
-  lm2       = lm2 % 60;
-  var time2 = String(lh2).padStart(2,'0')+':'+String(lm2).padStart(2,'0');
+  var lt  = orig.time||'10:00';
+  var lh0 = parseInt(lt.split(':')[0]);
+  var lm0 = parseInt(lt.split(':')[1]||'0');
+  var baseStatus = orig.status||'missed';
 
   var base = {
     studentId:  orig.studentId||orig.student_id,
@@ -4554,19 +4567,25 @@ async function splitLessonTo30(){
     tutor_id:   orig.tutorId||orig.tutor_id,
     subject:    orig.subject||'',
     date:       orig.date,
-    status:     'missed',
+    status:     baseStatus,
     dur:        30,
-    price:      orig.price||0,
+    price:      Math.round((orig.price||0)/nParts),
     branchId:   orig.branchId||orig.branch_id,
     branch_id:  orig.branchId||orig.branch_id,
   };
 
   try{
-    // Update original lesson to 30 min
-    await dbUpdate('lessons', id, {dur:30});
-    // Create second 30-min lesson
-    await dbInsert('lessons', Object.assign({}, base, {time: time2, id: uid()}));
-    mkToast('Урок розбито на 2 × 30 хв');
+    // Update original to 30 min
+    await dbUpdate('lessons', id, {dur:30, price: base.price});
+    // Create remaining parts
+    for(var p=1; p<nParts; p++){
+      var totalMins = lm0 + 30*p;
+      var newH = lh0 + Math.floor(totalMins/60);
+      var newM = totalMins % 60;
+      var newTime = String(newH).padStart(2,'0')+':'+String(newM).padStart(2,'0');
+      await dbInsert('lessons', Object.assign({}, base, {time: newTime, id: uid()}));
+    }
+    mkToast('Урок розбито на '+nParts+' × 30 хв');
     closeM('mo-lesson');
   }catch(e){
     mkToast('Помилка: '+e.message, 'error');
