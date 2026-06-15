@@ -3533,20 +3533,42 @@ function renderSchWeek(){
         return l.date===ds && lh===h && lm===m;
       });
       html+=('<div class="schc" style="border-top:'+(m===0?'':'none')+'" onclick="openLessM(null,\''+ds+'\',\''+timeStr+'\')">');
+      // Group split lessons visually
+      var splitGroups = {}, nonSplit = [];
       lsns.forEach(function(l){
-        var ecl = (l.status==='completed'||l.status==='done') ? 'ec-done'
-                : l.status==='missed' ? 'ec-miss'
-                : l.status==='makeup' ? 'ec-make'
-                : 'ec-plan';
-        var durMin  = parseInt(l.dur)||60;
-        var nSlots  = Math.max(1, Math.round(durMin/30));
-        var heightPx = nSlots * SLOT_H - 3;
-        var durLabel = durMin!==60 ? ' <span style="font-size:9px;opacity:.7">'+(durMin>=60?(durMin/60)+'\u0433\u043e\u0434':(durMin+'\u0445\u0432'))+'</span>' : '';
+        if(l.split_group_id){ if(!splitGroups[l.split_group_id])splitGroups[l.split_group_id]=[]; splitGroups[l.split_group_id].push(l); }
+        else { nonSplit.push(l); }
+      });
+
+      // Non-split lessons
+      nonSplit.forEach(function(l){
+        var ecl=(l.status==='completed'||l.status==='done'||l.status==='makeup')?'ec-done':l.status==='missed'?'ec-miss':'ec-plan';
+        var durMin=parseInt(l.dur)||60;
+        var nSlots=Math.max(1,Math.round(durMin/30));
+        var heightPx=nSlots*SLOT_H-3;
+        var durLabel=durMin!==60?' <span style="font-size:9px;opacity:.7">'+(durMin>=60?(durMin/60)+'\u0433\u043e\u0434':(durMin+'\u0445\u0432'))+'</span>':'';
         html+=('<div class="sche '+ecl+'" style="min-height:'+heightPx+'px" onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'
           +'<div style="font-weight:700;font-size:11px">'+(l.recurId?'\uD83D\uDD01 ':'')+'<span>'+l.subject+'</span>'+durLabel+'</div>'
           +'<div style="opacity:.75;font-size:10px">'+sn(l.studentId).split(' ')[0]+'</div>'
           +'</div>');
       });
+
+      // Split groups — render as vertically divided cell
+      Object.values(splitGroups).forEach(function(parts){
+        parts.sort(function(a,b){return (a.split_index||0)-(b.split_index||0);});
+        var groupH=parts.length*SLOT_H-3;
+        var partH=Math.floor(groupH/parts.length)-1;
+        html+='<div style="min-height:'+groupH+'px;border-radius:6px;overflow:hidden;border:2px solid rgba(245,158,11,.5);display:flex;flex-direction:column">';
+        parts.forEach(function(l,pi){
+          var ecl=(l.status==='completed'||l.status==='done'||l.status==='makeup')?'ec-done':l.status==='missed'?'ec-miss':'ec-plan';
+          html+=('<div class="sche '+ecl+'" style="flex:1;min-height:'+partH+'px;border-radius:0;border:none;'+(pi<parts.length-1?'border-bottom:1px dashed rgba(0,0,0,.2)':'')+'" onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'
+            +'<div style="font-weight:700;font-size:10px">&#9988; <span>'+l.subject+'</span></div>'
+            +'<div style="opacity:.75;font-size:9px">'+sn(l.studentId).split(' ')[0]+' · 30хв</div>'
+            +'</div>');
+        });
+        html+='</div>';
+      });
+;
       html+='</div>';
     });
   });
@@ -4571,16 +4593,20 @@ async function splitLessonTo30(){
     branch_id:  orig.branchId||orig.branch_id||null,
   };
 
+  var splitGroupId = id; // use original id as group id
   try{
-    // Update original to 30 min
-    await dbUpdate('lessons', id, {dur:30, price: base.price});
+    // Update original to 30 min, mark as part of split group
+    await dbUpdate('lessons', id, {dur:30, price: base.price, split_group_id: splitGroupId, split_index: 0});
     // Create remaining parts
     for(var p=1; p<nParts; p++){
       var totalMins = lm0 + 30*p;
       var newH = lh0 + Math.floor(totalMins/60);
       var newM = totalMins % 60;
       var newTime = String(newH).padStart(2,'0')+':'+String(newM).padStart(2,'0');
-      await dbInsert('lessons', Object.assign({}, base, {time: newTime, id: uid()}));
+      await dbInsert('lessons', Object.assign({}, base, {
+        time: newTime, id: uid(),
+        split_group_id: splitGroupId, split_index: p
+      }));
     }
     mkToast('Урок розбито на '+nParts+' × 30 хв');
     closeM('mo-lesson');
