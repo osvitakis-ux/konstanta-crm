@@ -587,7 +587,7 @@ function renderDashStats(){
     +'<div class="sc green">'
     +'<div class="slbl">\u0417\u0430\u043D\u044F\u0442\u044C \u0446\u044C\u043E\u0433\u043E \u043C\u0456\u0441\u044F\u0446\u044F</div>'
     +'<div class="sval">'+monthL.length+'</div>'
-    +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+monthL.filter(function(l){return l.status==='done'||l.status==='completed';}).length+'</div>'
+    +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+monthL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length+'</div>'
     +'<span class="sico">\u25C9</span></div>';
   if(P().seeIncome && R()!=='tutor'){
     var inc=S.payments.filter(function(p){
@@ -629,7 +629,7 @@ function renderDashKpi(){
     return true;
   });
 
-  var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
+  var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
   var missed  = weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
   var makeup  = weekL.filter(function(l){return l.status==='makeup';}).length;
   var cancelled=weekL.filter(function(l){return l.status==='cancelled';}).length;
@@ -640,7 +640,7 @@ function renderDashKpi(){
 
   var wrPrev=getWeekRange(offset-1);
   var prevL  =allL.filter(function(l){return inWeek(l.date,wrPrev);});
-  var prevDone=prevL.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
+  var prevDone=prevL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
   var prevMissed=prevL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
   var prevComms=(S.comms||[]).filter(function(c){return inWeek(c.date,wrPrev);}).length;
   var prevPct =prevL.length>0?Math.round(prevDone/prevL.length*100):0;
@@ -686,7 +686,7 @@ function renderDashKpi(){
   }
 
   var maxDone=Math.max.apply(null,tutors.map(function(t){
-    return weekL.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed');}).length;
+    return weekL.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).length;
   }).concat([1]));
 
   // Summary footer row
@@ -694,7 +694,7 @@ function renderDashKpi(){
   var rowsArr=[];
   tutors.forEach(function(t){
     var tl=weekL.filter(function(l){return (l.tutorId||l.tutor_id)===t.id;});
-    var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
+    var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
     var tMissed =tl.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var tComms    =weekComms.filter(function(c){return (c.tutorId||c.tutor_id)===t.id;}).length;
@@ -710,7 +710,7 @@ function renderDashKpi(){
 
     // Trend vs prev week
     var prevTl=prevL.filter(function(l){return l.tutorId===t.id;});
-    var prevTDone=prevTl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
+    var prevTDone=prevTl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
     var trendTxt='', trendCls='same';
     var dd=tDone-prevTDone;
     if(dd>0){trendTxt='\u2191+'+dd;trendCls='up';}
@@ -781,7 +781,7 @@ function renderDashTrends(){
     var weekComms = _trendComms.filter(function(c){return inWeek(c.date,wr);});
     weeks.push({
       wr:wr,
-      done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length,
+      done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length,
       missed: weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length,
       planned:weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length,
       comms:  weekComms.length,
@@ -823,7 +823,7 @@ function renderDashTrends(){
         if(containerId==='dash-trend-comms'){
           return (S.comms||[]).filter(function(c){return inWeek(c.date,w.wr)&&(c.tutor_id===t.id||c.tutorId===t.id);}).length;
         }
-        return S.lessons.filter(function(l){return inWeek(l.date,w.wr)&&(l.tutor_id===t.id||l.tutorId===t.id)&&(l.status==='done'||l.status==='completed');}).length;
+        return S.lessons.filter(function(l){return inWeek(l.date,w.wr)&&(l.tutor_id===t.id||l.tutorId===t.id)&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).length;
       });
       var tMax = Math.max.apply(null, vals.concat([1]));
       var total = vals[vals.length-1];
@@ -1665,12 +1665,12 @@ function renderAnalytics(){
   }
 
   function calcStats(lessonsArr, commsArr, studentsArr){
-    var done     = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
+    var done     = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
     var missed   = lessonsArr.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
     var cancelled= lessonsArr.filter(function(l){return l.status==='cancelled';}).length;
     var planned  = lessonsArr.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var total    = lessonsArr.length;
-    var income   = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed';})
+    var income   = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';})
                     .reduce(function(s,l){return s+(parseFloat(l.price)||0);},0);
     return { done, missed, cancelled, planned, total, income,
       students: studentsArr.length,
@@ -1720,7 +1720,7 @@ function renderAnalytics(){
   if(!visibleTutors.length) visibleTutors = tutors;
 
   var maxDone = Math.max.apply(null, visibleTutors.map(function(t){
-    return lessons.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed');}).length;
+    return lessons.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).length;
   }).concat([1]));
 
   visibleTutors.forEach(function(t){
@@ -4385,7 +4385,7 @@ function sendViberFromPanel(){
   var s=(S.students||[]).find(function(x){return x.id===sid;});
   if(!s){mkToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f','error');return;}
   var lessons=(S.lessons||[]).filter(function(l){
-    return (l.studentId||l.student_id)===sid&&l.date>=from&&l.date<=to&&(l.status==='done'||l.status==='completed');
+    return (l.studentId||l.student_id)===sid&&l.date>=from&&l.date<=to&&(l.status==='done'||l.status==='completed'||l.status==='makeup');
   });
   var total=lessons.length*price;
   var pay=(document.getElementById('inv-payment')||{value:''}).value;
@@ -4403,7 +4403,7 @@ function sendViber2FromPanel(){
   var s=(S.students||[]).find(function(x){return x.id===sid;});
   if(!s){mkToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f','error');return;}
   var lessons=(S.lessons||[]).filter(function(l){
-    return (l.studentId||l.student_id)===sid&&l.date>=from&&l.date<=to&&(l.status==='done'||l.status==='completed');
+    return (l.studentId||l.student_id)===sid&&l.date>=from&&l.date<=to&&(l.status==='done'||l.status==='completed'||l.status==='makeup');
   });
   var total=lessons.length*price;
   var pay=(document.getElementById('inv2-payment')||{value:''}).value;
@@ -4435,7 +4435,7 @@ function calcInvoiceLessons2(){
   var lessons=(S.lessons||[]).filter(function(l){
     return (l.studentId||l.student_id)===sid&&l.date>=from&&l.date<=to&&l.status!=='cancelled';
   });
-  var done=lessons.filter(function(l){return l.status==='done'||l.status==='completed';});
+  var done=lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';});
   var total=done.length*price;
   prev.innerHTML='<div style="font-size:12px;color:var(--t2);margin:4px 0">\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u0443\u0440\u043e\u043a\u0456\u0432: '+lessons.length+' (\u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e: '+done.length+')</div>'
     +'<div style="font-size:14px;font-weight:700">\u0421\u0443\u043c\u0430: '+total+'\u0433\u0440\u043d</div>';
@@ -4497,7 +4497,7 @@ function calcTutorRating(tutorId){
   var lessons=(S.lessons||[]).filter(function(l){
     return (l.tutorId||l.tutor_id)===tutorId&&l.date>=from&&l.date<=today;
   });
-  var done=lessons.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
+  var done=lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
   var missed=lessons.filter(function(l){return l.status==='missed';}).length;
   var total=done+missed;
   var pct=total>0?Math.round(done/total*100):null;
