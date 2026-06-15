@@ -105,11 +105,11 @@ nav.sbnav{flex:1;overflow-y:auto;padding:10px 8px}
 .btn-god{background:linear-gradient(135deg,var(--god),var(--god2));color:#fff}
 .content{flex:1;overflow-y:auto;padding:22px}
 @keyframes su{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}to{opacity:1;transform:translateY(0)}}
 
 /* ─── PAGES ─── */
 .page{display:none;animation:fi .2s ease}
-.page.active{display:block}
+.page.active{display:block;animation:fi .15s ease forwards}
 
 /* ─── CARDS ─── */
 .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
@@ -557,13 +557,13 @@ body.role-tutor .comm-add-btn { display: none !important; }
   <!-- MAIN -->
   <div class="main">
     <div class="topbar">
-      <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-      <div id="syncdot" style="width:8px;height:8px;border-radius:50%;background:var(--t3);flex-shrink:0;transition:.3s"></div>
-      <span id="sync-lbl" style="font-size:11px;color:var(--t3)"></span>
-    <div class="ptitle" id="ptitle">Дашборд</div>
+      <div class="ptitle" id="ptitle">Дашборд</div>
       <div class="search"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук..." id="gsearch" oninput="gSearch(this.value)"></div>
       <button class="btn btn-p" id="addbtn" onclick="openAdd()" style="display:none">+ Додати</button>
-    </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+        <div id="syncdot" style="width:8px;height:8px;border-radius:50%;background:var(--t3);flex-shrink:0;transition:.3s"></div>
+        <span id="sync-lbl" style="font-size:11px;color:var(--t3)"></span>
+      </div>
     </div>
     <div class="content" id="content">
 
@@ -571,7 +571,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="page active" id="pg-dashboard">
 
         <!-- ═══ GLOBAL KPI CARDS ═══ -->
-        <div class="sgrid" id="dash-stats"></div>
+        <div class="sgrid" id="dash-stats" style="min-height:80px"></div>
 
         <!-- ═══ WEEK NAVIGATION + SUMMARY ═══ -->
         <div class="card" style="margin-bottom:16px">
@@ -585,7 +585,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             </div>
           </div>
           <!-- 4 summary cards -->
-          <div class="kpi-grid" id="dash-week-kpi" style="padding:0 18px 16px"></div>
+          <div class="kpi-grid" id="dash-week-kpi"" style="min-height:160px style="padding:0 18px 16px"></div>
         </div>
 
         <!-- ═══ PER-TUTOR KPI TABLE ═══ -->
@@ -1074,7 +1074,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
                 <span class="ct">Мій профіль</span>
                 <button class="btn btn-g btn-sm" onclick="toggleProfileEdit()">✏️ Редагувати</button>
               </div>
-              <div style="padding:18px" id="pr-info"></div>
+              <div style="padding:18px;min-height:200px" id="pr-info"></div>
               <div id="pr-edit-form" style="display:none;padding:0 18px 18px">
                 <div class="fg" style="margin-top:0">
                   <div class="fgr"><label>Ім'я</label><input id="pr-fn" type="text"></div>
