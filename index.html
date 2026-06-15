@@ -703,6 +703,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="missed">Пропущені</option><option value="makeup">Відпрацювання</option></select>
           </div>
           <table><thead><tr><th>Учень</th><th>Предмет</th><th>Репетитор</th><th>Дата та час</th><th>Тривалість</th><th id="lt-miss-col" style="display:none">Дата пропуску</th><th id="lt-makeup-col" style="display:none">Відпрацювання</th><th>Нотатки</th><th>Статус</th><th></th></tr></thead><tbody id="lt-table"></tbody></table>
+        </div>
       </div>
 
       <!-- ── PAYMENTS ── -->
@@ -1032,7 +1033,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div></div>
       <div class="fgr full" style="grid-column:1/-1">
         <label>Репетитор(и)</label>
-        <select id="s-tutor-list" style="width:100%"></select>
+        <select id="s-tutor-list" style="width:100%"></select></div>
         <select id="s-tutor" style="display:none"></select>
       </div>
       <div class="fgr"><label>Статус</label><select id="s-status"><option value="active">Активний</option><option value="trial">Пробне</option><option value="paused">Призупинений</option><option value="completed">Завершив</option></select></div>
@@ -1082,12 +1083,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fgr"><label>Статус</label><select id="l-stat"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="missed">Пропущене</option><option value="makeup">Відпрацювання</option></select></div>
       <div id="l-miss-wrap" style="display:none" class="fgr"><label>Дата пропуску</label><input id="l-miss-date" type="date"></div>
       <div id="l-makeup-wrap" style="display:none" class="fgr"><label>Дата відпрацювання</label><input id="l-makeup-date" type="date"></div>
-      <div id="l-split-wrap" style="display:none" class="fgr full">
-        <div style="background:rgba(245,158,11,.12);border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-          <div><div style="font-weight:600;font-size:13px">Розбити на ×30 хв</div><div style="font-size:11px;color:var(--t2)">Створити кілька занять по 30 хв</div></div>
-          <button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="splitLessonTo30()">✂️ Розбити</button>
-        </div>
-      </div>
+      <div id="l-split-wrap" style="display:none" class="fgr full"><div style="background:rgba(245,158,11,.12);border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px"><div><div style="font-weight:600;font-size:13px">Розбити на ×30 хв</div><div style="font-size:11px;color:var(--t2)">Кілька занять по 30 хв замість одного</div></div><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="splitLessonTo30()">✂️ Розбити</button></div></div>
       <div class="fgr"><label>Вартість ₴</label>
         <div style="display:flex;gap:6px">
           <input id="l-price" type="number" placeholder="0" style="flex:1">
@@ -1127,8 +1123,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
     </div></div>
     <div class="mdlf">
       <div id="mo-lesson-cf" class="fg" style="padding:0 24px 0;margin:0 0 4px 0"></div>
-      <button class="btn btn-g" onclick="closeM('mo-lesson')">Скасувати</button>
-      <button class="btn btn-g" id="recur-preview-btn" style="display:none" onclick="previewRecur()">👁 Переглянути</button>
       <button class="btn btn-g" onclick="closeM('mo-lesson')">Скасувати</button>
       <button class="btn btn-d" id="del-lesson-btn" onclick="deleteLessonFromModal()" style="display:none">🗑 Видалити</button>
       <button class="btn btn-d" id="del-series-btn" onclick="deleteLessonSeriesFromModal()" style="display:none;background:var(--danger);opacity:.8">🗑 Видалити серію</button>
