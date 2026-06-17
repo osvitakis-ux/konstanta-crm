@@ -271,7 +271,15 @@ function renderCommsPage(){
 function renderMissedLessons(){
   var tbody=document.getElementById('missed-tbody');
   if(!tbody)return;
-  var fStud=(document.getElementById('missed-f-student')||{value:''}).value;
+
+  // Populate student filter
+  var fStudSel=document.getElementById('missed-f-student');
+  if(fStudSel && fStudSel.options.length<=1){
+    fStudSel.innerHTML='<option value="">Всі учні</option>'
+      +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
+  }
+  var fStud=(fStudSel||{value:''}).value;
   var _selfId=R()==='tutor'?(myTutor()||{}).id:null;
   var missed=(S.lessons||[]).filter(function(l){
     return (l.status==='missed'||l.status==='makeup')&&(!_selfId||(l.tutorId||l.tutor_id)===_selfId);
@@ -287,19 +295,23 @@ function renderMissedLessons(){
     var stl=l.status==='missed'
       ?'<span style="color:#ef4444;font-weight:600">Пропущено</span>'
       :'<span style="color:#f59e0b;font-weight:600">Відпрацювання</span>';
-    // missed_date: for missed lessons use the lesson date itself as fallback
-    var missedDateStr = l.status==='missed'||l.status==='makeup'
-      ? (l.missed_date ? fd(l.missed_date) : fd(l.date))
-      : '';
-    // makeup_date: only for makeup status
-    var makeupDateStr = l.makeup_date ? fd(l.makeup_date) : '';
+    // For missed: date of missed lesson = l.date (the lesson itself was missed)
+    // For makeup: date missed = l.missed_date or l.date, date of makeup = l.date
+    var missedDateStr, makeupDateStr;
+    if(l.status==='missed'){
+      missedDateStr = fd(l.missed_date || l.date);
+      makeupDateStr = l.makeup_date ? fd(l.makeup_date) : '—';
+    } else { // makeup
+      missedDateStr = fd(l.missed_date || l.date);
+      makeupDateStr = fd(l.makeup_date || l.date);
+    }
     return '<tr><td>'+fd(l.date)+'</td>'
       +'<td>'+(s?s.fn+' '+s.ln:'—')+'</td>'
       +'<td>'+(t?t.fn+' '+t.ln:'—')+'</td>'
       +'<td>'+(l.subject||'—')+'</td>'
       +'<td>'+stl+'</td>'
-      +'<td style="font-size:11px">'+(missedDateStr||'—')+'</td>'
-      +'<td style="font-size:11px">'+(makeupDateStr||'—')+'</td></tr>';
+      +'<td style="font-size:11px">'+missedDateStr+'</td>'
+      +'<td style="font-size:11px">'+makeupDateStr+'</td></tr>';
   }).join('');
 }
 
