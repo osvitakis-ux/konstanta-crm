@@ -209,14 +209,8 @@ window.onerror = function(msg, src, line, col, err) {
 
   if (document.body) {
       document.body.appendChild(div);
-  } else {
-      document.addEventListener('DOMContentLoaded', function () {
-          document.body.appendChild(div);
-      });
-  }
+  } 
 
-  return false;
-};
 
 // ═══════════════════════════════════
 // ДОДАТКОВІ ФУНКЦІЇ
