@@ -191,15 +191,32 @@ window.supabase = window.SupabaseMini;
 
 window.__startTime = Date.now();
 window.onerror = function(msg, src, line, col, err) {
-  // Skip CORS errors from external scripts
+
   if(msg === 'Script error.' || msg === 'Script error') {
     console.warn('External script error (possibly CDN) - check network');
     return false;
   }
+
   var div = document.createElement('div');
-  div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f8d7da;color:#721c24;padding:16px;font-family:monospace;font-size:13px;z-index:99999;border-bottom:2px solid #f5c6cb';
-  div.innerHTML = '<strong>JS Error at line ' + line + ':</strong><br>' + msg + '<br><small>' + (err ? err.stack : '') + '</small>';
-  document.body ? document.body.appendChild(div) : 
+
+  div.style.cssText =
+    'position:fixed;top:0;left:0;right:0;background:#f8d7da;color:#721c24;padding:16px;font-family:monospace;font-size:13px;z-index:99999;border-bottom:2px solid #f5c6cb';
+
+  div.innerHTML =
+    '<strong>JS Error at line ' + line +
+    ':</strong><br>' + msg +
+    '<br><small>' + (err ? err.stack : '') + '</small>';
+
+  if (document.body) {
+      document.body.appendChild(div);
+  } else {
+      document.addEventListener('DOMContentLoaded', function () {
+          document.body.appendChild(div);
+      });
+  }
+
+  return false;
+};
 
 // ═══════════════════════════════════
 // ДОДАТКОВІ ФУНКЦІЇ
