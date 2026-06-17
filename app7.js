@@ -4449,6 +4449,72 @@ window.sendInvoiceEmail = sendInvoiceEmail;
 window.openInvoicePanel = openInvoicePanel;
 window.updateInvPhone = updateInvPhone;
 // Boot
+function calcPrice(subjectName, tutorId, grade, dur){
+  // Match rules by specificity: most specific wins
+  const rules = S.pricingRules || [];
+  if(!rules.length){
+    // Fallback: subject base price
+    const subj = (S.subjects||[]).find(s=>s.name===subjectName);
+    return subj && subj.price ? parseFloat(subj.price) : 0;
+  }
+  // Score each rule: +3 subject, +2 tutor, +1 grade, +1 dur
+  let best = null, bestScore = -1;
+  rules.forEach(function(r){
+    if(!r.price) return;
+    var score = 0, match = true;
+    if(r.subjectMatch){
+      if(subjectName && subjectName.toLowerCase().includes(r.subjectMatch.toLowerCase())) score+=3;
+      else { match=false; }
+    }
+    if(r.tutorId){
+      if(r.tutorId === tutorId) score+=2;
+      else { match=false; }
+    }
+    if(r.gradeMatch){
+      var g = String(grade||'');
+      if(g && g.toLowerCase().includes(r.gradeMatch.toLowerCase())) score+=1;
+      else { match=false; }
+    }
+    if(r.durMin){
+      if(parseInt(dur||60) >= parseInt(r.durMin)) score+=1;
+      else { match=false; }
+    }
+    if(match && score >= bestScore){
+      bestScore = score; best = r;
+    }
+  });
+  return best ? parseFloat(best.price) : 0;
+}
+
+
+function renderSettings(){
+  var gcWrap = document.getElementById('god-constructor-wrap');
+  if(gcWrap) gcWrap.style.display = (R()==='god') ? 'block' : 'none';
+  document.getElementById('set-name').value=S.settings.name||'';
+  document.getElementById('set-phone').value=S.settings.phone||'';
+  document.getElementById('set-email').value=S.settings.email||'';
+  document.getElementById('set-addr').value=S.settings.address||'';
+  document.getElementById('set-subj-list').innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><span class="msv">'+(s.price)+'\u20B4/\u0433\u043E\u0434</span><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj('+(i)+')">\u00D7</button></div></div>')).join('');
+  // God-only sections
+  const isGod=R()==='god';
+  document.getElementById('god-banner-settings').style.display=isGod?'flex':'none';
+  document.getElementById('rights-section').style.display=isGod?'block':'none';
+  document.getElementById('danger-zone').style.display=isGod?'block':'none';
+  if(isGod){
+    // Build rights matrix
+    let rt='<thead><tr>'+RIGHTS_MATRIX[0].map((h,i)=>('<th style="'+(i===1?'color:var(--god)':i===2?'color:var(--dir)':i===3?'color:var(--adm)':i===4?'color:var(--tut)':'')+'">'+(h)+'</th>')).join('')+'</tr></thead><tbody>';
+    for(let i=1;i<RIGHTS_MATRIX.length;i++){
+      rt+='<tr>'+RIGHTS_MATRIX[i].map((c,j)=>('<td style="'+(c.startsWith('\u2705')?'color:var(--tut)':c.startsWith('\u274C')?'color:var(--danger)':'')+'">'+(c)+'</td>')).join('')+'</tr>';
+    }
+    rt+='</tbody>';
+    document.getElementById('rights-table').innerHTML=rt;
+  }
+  renderBranches();
+  renderPricingRules();
+  popSel('pr-tutor',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438');
+}
+
+
 document.addEventListener('DOMContentLoaded', initApp);
 
 // Tutor checkbox visual feedback
