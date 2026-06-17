@@ -2675,6 +2675,16 @@ async function clearData(what){
 // APP START
 // =
 async function startApp(){
+  // Inject critical CSS to ensure page visibility works
+  (function(){
+    var s = document.getElementById('__page_css__');
+    if(!s){
+      s = document.createElement('style');
+      s.id = '__page_css__';
+      s.textContent = '.page{display:none!important}.page.active{display:block!important}';
+      document.head.appendChild(s);
+    }
+  })();
   document.getElementById('ls').style.display='none';
   document.getElementById('as').style.display='block';
 
@@ -4536,6 +4546,14 @@ window.saveBranchModal=saveBranchModal;
 window.deleteLessonFromModal=deleteLessonFromModal;
 window.deleteLessonSeriesFromModal=deleteLessonSeriesFromModal;
 window.splitLessonTo30=splitLessonTo30;
+
+// Inject page CSS immediately
+(function(){
+  var s=document.createElement('style');
+  s.id='__page_css__';
+  s.textContent='.page{display:none!important}.page.active{display:block!important}';
+  document.head.appendChild(s);
+})();
 
 document.addEventListener('DOMContentLoaded', initApp);
 
