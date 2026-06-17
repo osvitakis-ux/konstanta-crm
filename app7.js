@@ -2978,7 +2978,7 @@ async function startApp(){
   if(!document.getElementById('__pcss__')){
     var _st=document.createElement('style');
     _st.id='__pcss__';
-    _st.textContent='.page{display:none!important}.page.active{display:flex!important;flex-direction:column!important;min-height:100%!important;width:100%!important}#content{display:flex!important;flex-direction:column!important;}';
+    _st.textContent='.page{display:none!important}.page.active{display:block!important;padding-bottom:40px}';
     document.head.appendChild(_st);
   }
   document.getElementById('ls').style.display='none';
