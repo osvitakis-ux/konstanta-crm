@@ -3795,12 +3795,10 @@ function renderSchWeek(){
   const dy=now.getDay()===0?6:now.getDay()-1;
   sow.setDate(now.getDate()-dy+S.weekOffset*7); sow.setHours(0,0,0,0);
   const days=Array.from({length:7},(_,i)=>{const d=new Date(sow);d.setDate(sow.getDate()+i);return d;});
-  const dnames=['\u041F\u043D','\u0412\u0442','\u0421\u0440','\u0427\u0442','\u041F\u0442','\u0421\u0431','\u041D\u0434'];
-  document.getElementById('wklbl').textContent=((days[0].toLocaleDateString('uk-UA',{day:'numeric',month:'short'}))+' \u2014 '+(days[6].toLocaleDateString('uk-UA',{day:'numeric',month:'short'})));
-  const hrs=Array.from({length:13},(_,i)=>i+8);
-  const ecls=['ec0','ec1','ec2','ec3','ec4'];
-  let html='<div class="schh" style="background:var(--s1)">\u0427\u0430\u0441</div>';
-  days.forEach((d,i)=>{const today=d.toDateString()===now.toDateString();html+=('<div class="schh" style="'+(today?'color:var(--adm);border-bottom:2px solid var(--adm)':'')+'">'+(dnames[i])+'<br><span style="font-size:9px;font-weight:400;color:var(--t3);font-family:JetBrains Mono,monospace">'+(d.getDate())+'.'+(String(d.getMonth()+1).padStart(2,'0'))+'</span></div>');});
+  const dnames=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+  document.getElementById('wklbl').textContent=days[0].toLocaleDateString('uk-UA',{day:'numeric',month:'short'})+' — '+days[6].toLocaleDateString('uk-UA',{day:'numeric',month:'short'});
+
+  const ROW_H = 48; // px per hour
   const _schStat=(document.getElementById('sch-status-filter')||{value:''}).value;
   const ml=myLessons().filter(function(l){
     if(l.status==='cancelled') return false;
@@ -3811,28 +3809,66 @@ function renderSchWeek(){
     }
     return true;
   });
-  hrs.forEach(h=>{
-    html+=('<div class="scht">'+(String(h).padStart(2,'0'))+':00</div>');
-    days.forEach(d=>{
-      const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      const lsns=ml.filter(l=>l.date===ds&&parseInt((l.time||'0:0').split(':')[0])===h&&l.status!=='cancelled');
-      html+=('<div class="schc" onclick="openLessM(null,\''+(ds)+'\',\''+(String(h).padStart(2,'0'))+':00\')">');
-      lsns.forEach(function(l){
-        var ecl=l.status==='missed'?'ec-miss'
-          :l.status==='makeup'?'ec-make'
-          :(l.status==='completed'||l.status==='done')?'ec-done'
-          :'ec-plan';
-        html+=('<div class="sche '+ecl+'" onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'
-          +'<div style="font-weight:700;font-size:11px">'+(l.recurId?'🔁 ':'')+l.subject+'</div>'
-          +'<div style="opacity:.75;font-size:10px">'+sn(l.studentId).split(' ')[0]+'</div>'
-          +'</div>');
-      });
-      html+='</div>';  // close schc
-    });
+
+  const START_H = 8, END_H = 21;
+  const totalHrs = END_H - START_H;
+
+  // Build header
+  let html = '<div class="schh" style="background:var(--s1)">Час</div>';
+  days.forEach(function(d,i){
+    const today=d.toDateString()===now.toDateString();
+    html+='<div class="schh" style="'+(today?'color:var(--adm);border-bottom:2px solid var(--adm)':'')+'">'
+      +dnames[i]+'<br><span style="font-size:9px;font-weight:400;color:var(--t3);font-family:JetBrains Mono,monospace">'
+      +d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'</span></div>';
   });
+
+  // Time column + day columns using position:relative inside fixed-height container
+  // Time slots column
+  html += '<div style="position:relative;height:'+(totalHrs*ROW_H)+'px;background:var(--s2);border-right:1px solid var(--b1)">';
+  for(var h=START_H;h<END_H;h++){
+    html+='<div style="position:absolute;top:'+(( h-START_H)*ROW_H)+'px;height:'+ROW_H+'px;width:100%;display:flex;align-items:flex-start;padding-top:3px;justify-content:center;font-size:10px;color:var(--t3);font-family:JetBrains Mono,monospace;box-sizing:border-box;border-top:1px solid var(--b1)">'
+      +String(h).padStart(2,'0')+':00</div>';
+  }
+  html += '</div>';
+
+  // Day columns
+  days.forEach(function(d){
+    const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const dayLessons=ml.filter(function(l){return l.date===ds;});
+    html+='<div style="position:relative;height:'+(totalHrs*ROW_H)+'px;border-right:1px solid var(--b1)">';
+    // Hour grid lines
+    for(var h=START_H;h<END_H;h++){
+      var slotOnclick='openLessM(null,\''+ds+'\',\''+String(h).padStart(2,'0')+':00\')';
+      html+='<div onclick="'+slotOnclick+'" style="position:absolute;top:'+((h-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer"></div>';
+    }
+    // Lessons
+    dayLessons.forEach(function(l){
+      const parts=(l.time||'08:00').split(':');
+      const lh=parseInt(parts[0])||8;
+      const lm=parseInt(parts[1])||0;
+      const dur=parseFloat(l.dur)||60;
+      const topPx=(lh-START_H)*ROW_H + (lm/60)*ROW_H;
+      const heightPx=Math.max((dur/60)*ROW_H, 18);
+      if(lh<START_H||lh>=END_H) return;
+      var ecl=l.status==='missed'?'ec-miss'
+        :l.status==='makeup'?'ec-make'
+        :(l.status==='completed'||l.status==='done')?'ec-done'
+        :'ec-plan';
+      var canDel=can('lessons');
+      html+='<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;left:2px;right:2px;height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
+        +' onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'
+        +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'🔁 ':'')+l.subject+'</div>'
+        +(heightPx>28?'<div style="opacity:.75;font-size:9px">'+sn(l.studentId||l.student_id).split(' ')[0]+'</div>':'')
+        +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' · '+(dur>=60?Math.floor(dur/60)+'г'+(dur%60?dur%60+'хв':''):''):'· '+dur+'хв')+'</div>':'')
+        +(canDel?'<span onclick="event.stopPropagation();delLesson(\''+l.id+'\')" style="position:absolute;top:2px;right:3px;font-size:10px;opacity:.6;cursor:pointer;line-height:1" title="Видалити">✕</span>':'')
+        +'</div>';
+    });
+    html+='</div>';
+  });
+
   const g=document.getElementById('schg');
   g.style.gridTemplateColumns='52px repeat(7,1fr)';
-  g.style.gridTemplateRows=('auto repeat('+(hrs.length)+',46px)');
+  g.style.gridTemplateRows='auto '+(totalHrs*ROW_H)+'px';
   g.innerHTML=html;
 }
 
