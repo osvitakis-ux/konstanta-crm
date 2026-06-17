@@ -2945,7 +2945,10 @@ function nav(page){
   // Allow custom pages (added by God constructor) and built-in allowed pages
   const isCustomPage=page.startsWith('custom_');
   if(!isCustomPage&&!userNav().includes(page)){mkToast('\u041D\u0435\u043C\u0430\u0454 \u0434\u043E\u0441\u0442\u0443\u043F\u0443 \u0434\u043E \u0446\u044C\u043E\u0433\u043E \u0440\u043E\u0437\u0434\u0456\u043B\u0443','error');return;}
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>{
+    p.classList.remove('active');
+    p.style.display='';  // clear any inline display override
+  });
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   const pel=document.getElementById('pg-'+page);if(pel)pel.classList.add('active');
   const nel=document.getElementById('ni-'+page);
@@ -2969,9 +2972,7 @@ function nav(page){
   if(page==='users')renderUsers();
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
-  var _crmEl=document.getElementById('pg-crm');
-  if(page==='crm'){if(_crmEl)_crmEl.style.display='flex';renderCrm();}
-  else{if(_crmEl)_crmEl.style.display='none';}
+  if(page==='crm') renderCrm();
   if(page==='analytics')renderAnalytics();
   if(isCustomPage)renderCustomPage(page);
   if(window.innerWidth<=768)closeSidebar();
