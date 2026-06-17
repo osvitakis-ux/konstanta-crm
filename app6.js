@@ -2067,7 +2067,7 @@ async function loadAll(){
       return q;
     })
   );
-  tables.forEach(function(t, i){ S[t.key] = results[i].data || []; });
+  tables.forEach(function(t, i){ if(!results[i].error && results[i].data) S[t.key] = results[i].data; });
 
   // Settings
   var _set = await _sb.from('settings').select('*').eq('id','main').single(); var set = _set.data;
@@ -2688,7 +2688,7 @@ async function startApp(){
     if(!s){
       s = document.createElement('style');
       s.id = '__page_css__';
-      s.textContent = '.page{display:none!important}.page.active{display:block!important;min-height:100%;width:100%}';
+      s.textContent = '.page{display:none!important}.page.active{display:block!important;width:100%}.content{display:block!important;overflow-y:auto!important}';
       document.head.appendChild(s);
     }
   })();
