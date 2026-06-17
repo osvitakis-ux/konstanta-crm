@@ -311,6 +311,194 @@ window.renderMissedLessons = renderMissedLessons;
 window.deleteLessonFromModal = deleteLessonFromModal;
 window.deleteLessonSeriesFromModal = deleteLessonSeriesFromModal;
 
+
+
+// ═══════════════════════════════════
+// ДОДАТКОВІ ФУНКЦІЇ — рахунки, viber, розбивка
+// ═══════════════════════════════════
+
+function updateInvPhone(){
+  var sid=(document.getElementById('inv-student')||{value:''}).value;
+  var wrap=document.getElementById('inv-phone-wrap');
+  if(!sid||!wrap){if(wrap)wrap.style.display='none';return;}
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  wrap.style.display=(s&&(s.phone||s.parentPhone))?'block':'none';
+  var ph=document.getElementById('inv-phone');
+  if(ph&&s) ph.value=s.phone||s.parentPhone||'';
+}
+
+function openViberContact(){
+  var sid=(document.getElementById('inv-student')||{value:''}).value;
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  var phone=(s&&(s.phone||s.parentPhone)||'').replace(/\D/g,'');
+  if(phone) window.open('viber://chat?number='+phone);
+  else mkToast('Немає телефону','error');
+}
+
+function sendViberFromPanel(){
+  var sid=(document.getElementById('inv-student')||{value:''}).value;
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  if(!s){mkToast('Оберіть учня','error');return;}
+  var phone=((s.phone||s.parentPhone)||'').replace(/\D/g,'');
+  if(phone) window.open('viber://chat?number='+phone);
+  else mkToast('Немає телефону','error');
+}
+
+function openBranchM(id){
+  var b=id?(S.branches||[]).find(function(x){return x.id===id;}):null;
+  ['name','addr','phone','email'].forEach(function(f){
+    var el=document.getElementById('br-'+f);
+    if(el) el.value=b?(b[f]||b[f.replace('addr','address')]||''):'';
+  });
+  S.editId=id||null;
+  openM('mo-branch');
+}
+
+async function saveBranchModal(){
+  var name=(document.getElementById('br-name')||{value:''}).value.trim();
+  if(!name){mkToast('Введіть назву','error');return;}
+  var obj={
+    name:name,
+    address:(document.getElementById('br-addr')||{value:''}).value,
+    phone:(document.getElementById('br-phone')||{value:''}).value,
+    email:(document.getElementById('br-email')||{value:''}).value
+  };
+  try{
+    if(S.editId) await dbUpdate('branches',S.editId,obj);
+    else{obj.id=uid();await dbInsert('branches',obj);}
+    mkToast('Збережено');
+    closeM('mo-branch');
+  }catch(e){mkToast('Помилка: '+e.message,'error');}
+}
+
+async function splitLessonTo30(){
+  var id=S.editId;
+  if(!id){mkToast('Не знайдено урок','error');return;}
+  var orig=(S.lessons||[]).find(function(l){return l.id===id;});
+  if(!orig){mkToast('Урок не знайдено','error');return;}
+  var curDur=parseInt((document.getElementById('l-dur')||{value:'60'}).value)||parseInt(orig.dur)||60;
+  var nParts=Math.floor(curDur/30);
+  if(nParts<2){mkToast('Тривалість мінімум 60 хв','error');return;}
+  if(!confirm('Розбити ('+curDur+' хв) на '+nParts+' × 30 хв?'))return;
+  var lt=orig.time||'10:00';
+  var lh0=parseInt(lt.split(':')[0]);
+  var lm0=parseInt(lt.split(':')[1]||'0');
+  var base={
+    student_id:orig.studentId||orig.student_id,
+    tutor_id:orig.tutorId||orig.tutor_id,
+    subject:orig.subject||'',date:orig.date,
+    status:orig.status||'missed',dur:30,
+    price:Math.round((orig.price||0)/nParts),
+    branch_id:orig.branchId||orig.branch_id||null,
+    split_group_id:id,split_index:0
+  };
+  try{
+    await dbUpdate('lessons',id,{dur:30,price:base.price,split_group_id:id,split_index:0});
+    for(var p=1;p<nParts;p++){
+      var totalMins=lm0+30*p;
+      var newH=lh0+Math.floor(totalMins/60);
+      var newM=totalMins%60;
+      var newTime=String(newH).padStart(2,'0')+':'+String(newM).padStart(2,'0');
+      await dbInsert('lessons',Object.assign({},base,{id:uid(),time:newTime,split_index:p}));
+    }
+    mkToast('Розбито на '+nParts+' × 30 хв');
+    closeM('mo-lesson');
+  }catch(e){mkToast('Помилка: '+e.message,'error');}
+}
+
+function calcTutorRating(tutorId){
+  var now=new Date(), fourWeeksAgo=new Date(now);
+  fourWeeksAgo.setDate(now.getDate()-28);
+  var from=localDateStr(fourWeeksAgo), today=localDateStr(now);
+  var lessons=(S.lessons||[]).filter(function(l){
+    return (l.tutorId||l.tutor_id)===tutorId&&l.date>=from&&l.date<=today;
+  });
+  var done=lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
+  var missed=lessons.filter(function(l){return l.status==='missed';}).length;
+  var total=done+missed;
+  var pct=total>0?Math.round(done/total*100):null;
+  if(pct===null) return 5;
+  if(pct>=90&&missed===0) return 5;
+  if(pct>=75) return 4;
+  if(pct>=60) return 3;
+  if(pct>=40) return 2;
+  return 1;
+}
+
+async function updateAllTutorRatings(){
+  if(!_sb||!CU) return;
+  if(R()!=='god'&&R()!=='director'&&R()!=='admin') return;
+  for(var i=0;i<(S.tutors||[]).length;i++){
+    var t=S.tutors[i];
+    var nr=calcTutorRating(t.id);
+    if(nr!==t.rating){
+      try{await _sb.from('tutors').update({rating:nr}).eq('id',t.id);t.rating=nr;}catch(e){}
+    }
+  }
+}
+
+async function logInvoice(channel,recipient,studentId,from,to,lessonsCount,total){
+  if(!CU||!_sb) return;
+  try{
+    await _sb.from('invoice_log').insert({
+      sent_by:CU.id,student_id:studentId||null,
+      period_from:from||null,period_to:to||null,
+      lessons_count:lessonsCount||0,total_amount:total||0,
+      channel:channel,recipient:recipient||'',branch_id:myBranchId()||null
+    });
+  }catch(e){}
+}
+
+async function renderInvoiceLog(){
+  var tbody=document.getElementById('inv-log-tbody');
+  if(!tbody)return;
+  try{
+    var res=await _sb.from('invoice_log').select('*').order('sent_at',{ascending:false}).limit(200);
+    if(res.error)throw res.error;
+    var rows=res.data||[];
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">Рахунків немає</td></tr>';return;}
+    tbody.innerHTML=rows.map(function(r){
+      var student=(S.students||[]).find(function(s){return s.id===r.student_id;});
+      var sender=(S.users||[]).find(function(u){return u.id===r.sent_by;});
+      var sentAt=r.sent_at?new Date(r.sent_at).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+      var period=(r.period_from?fd(r.period_from):'')+(r.period_to?' – '+fd(r.period_to):'');
+      return '<tr>'
+        +'<td style="font-size:11px;color:var(--t2)">'+sentAt+'</td>'
+        +'<td><b>'+(student?student.fn+' '+student.ln:'—')+'</b></td>'
+        +'<td style="font-size:11px">'+period+'</td>'
+        +'<td style="font-size:11px">'+(r.lessons_count||0)+' / '+(r.total_amount||0)+' грн</td>'
+        +'<td><span style="font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(41,171,226,.15);color:var(--adm)">'+(r.channel||'')+'</span></td>'
+        +'<td style="font-size:11px">'+(r.recipient||'—')+'</td>'
+        +'<td style="font-size:11px;color:var(--t2)">'+(sender?sender.fn+' '+sender.ln:'—')+'</td>'
+        +'</tr>';
+    }).join('');
+  }catch(e){
+    tbody.innerHTML='<tr><td colspan="7" style="color:var(--danger)">Помилка: '+e.message+'</td></tr>';
+  }
+}
+
+function renderInvoicePage(){
+  var sel=document.getElementById('inv-student');
+  if(sel && myStudents().length){
+    if(sel.options.length<=1){
+      sel.innerHTML='<option value="">— оберіть учня —</option>'
+        +myStudents().map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
+    }
+  }
+}
+
+window.updateInvPhone = updateInvPhone;
+window.openViberContact = openViberContact;
+window.sendViberFromPanel = sendViberFromPanel;
+window.openBranchM = openBranchM;
+window.saveBranchModal = saveBranchModal;
+window.splitLessonTo30 = splitLessonTo30;
+window.calcTutorRating = calcTutorRating;
+window.updateAllTutorRatings = updateAllTutorRatings;
+window.logInvoice = logInvoice;
+window.renderInvoiceLog = renderInvoiceLog;
+window.renderInvoicePage = renderInvoicePage;
+
 document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(div); });
   return false;
 };
@@ -3076,7 +3264,11 @@ function nav(page){
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
   if(page==='comms') renderCommsPage();
+  if(page==='invoice') renderInvoicePage();
+  if(page==='invoice-log') renderInvoiceLog();
   if(page==='missed') renderMissedLessons();
+  if(page==='invoice') renderInvoicePage();
+  if(page==='invoice-log') renderInvoiceLog();
   var _crmEl=document.getElementById('pg-crm');
   if(page==='crm'){if(_crmEl)_crmEl.style.display='flex';renderCrm();}
   else{if(_crmEl)_crmEl.style.display='none';}
