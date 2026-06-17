@@ -199,7 +199,119 @@ window.onerror = function(msg, src, line, col, err) {
   var div = document.createElement('div');
   div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f8d7da;color:#721c24;padding:16px;font-family:monospace;font-size:13px;z-index:99999;border-bottom:2px solid #f5c6cb';
   div.innerHTML = '<strong>JS Error at line ' + line + ':</strong><br>' + msg + '<br><small>' + (err ? err.stack : '') + '</small>';
-  document.body ? document.body.appendChild(div) : document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(div); });
+  document.body ? document.body.appendChild(div) : 
+
+// ═══════════════════════════════════
+// ДОДАТКОВІ ФУНКЦІЇ
+// ═══════════════════════════════════
+
+function localDateStr(d){
+  if(typeof d === 'string') return d;
+  var y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+dd;
+}
+
+function onLessStatChange(){
+  var stat=(document.getElementById('l-stat')||{value:''}).value;
+  var dur=parseInt((document.getElementById('l-dur')||{value:'60'}).value)||60;
+  var mkWrap=document.getElementById('l-makeup-wrap');
+  var msWrap=document.getElementById('l-miss-wrap');
+  var spWrap=document.getElementById('l-split-wrap');
+  if(mkWrap) mkWrap.style.display=stat==='makeup'?'block':'none';
+  if(msWrap) msWrap.style.display=(stat==='missed'||stat==='makeup')?'block':'none';
+  if(spWrap) spWrap.style.display=((stat==='missed'||stat==='makeup')&&dur>=60)?'block':'none';
+}
+
+function renderCommsPage(){
+  var tbody=document.getElementById('comms-tbody');
+  if(!tbody)return;
+  var _selfId=null;
+  if(R()==='tutor'){
+    var _myT=myTutor();
+    if(_myT) _selfId=_myT.id;
+  }
+  var fStud=(document.getElementById('comm-f-student')||{value:''}).value;
+  var fTutor=(document.getElementById('comm-f-tutor')||{value:''}).value;
+  var fType=(document.getElementById('comm-f-type')||{value:''}).value;
+  var comms=[].concat(S.comms||[]).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  if(_selfId) comms=comms.filter(function(c){return (c.tutorId||c.tutor_id)===_selfId;});
+  if(fStud) comms=comms.filter(function(c){return (c.studentId||c.student_id)===fStud;});
+  if(fTutor) comms=comms.filter(function(c){return (c.tutorId||c.tutor_id)===fTutor;});
+  if(fType) comms=comms.filter(function(c){return c.type===fType;});
+  var ico={call:'📞',message:'💬',meeting:'🤝',email:'📧',other:'📋',msg:'💬',meet:'🤝'};
+  if(!comms.length){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">Комунікацій немає</td></tr>';
+    return;
+  }
+  tbody.innerHTML=comms.map(function(c){
+    var tutor=(S.tutors||[]).find(function(t){return t.id===(c.tutorId||c.tutor_id);});
+    var student=(S.students||[]).find(function(s){return s.id===(c.studentId||c.student_id);});
+    return '<tr><td style="font-size:11px;color:var(--t2)">'+fd(c.date)+'</td>'
+      +'<td>'+(ico[c.type]||'📋')+' '+(c.type||'—')+'</td>'
+      +'<td>'+(student?student.fn+' '+student.ln:'—')+'</td>'
+      +'<td>'+(tutor?tutor.fn+' '+tutor.ln:'—')+'</td>'
+      +'<td>'+(c.note||'—')+'</td></tr>';
+  }).join('');
+}
+
+function renderMissedLessons(){
+  var tbody=document.getElementById('missed-tbody');
+  if(!tbody)return;
+  var fStud=(document.getElementById('missed-f-student')||{value:''}).value;
+  var _selfId=R()==='tutor'?(myTutor()||{}).id:null;
+  var missed=(S.lessons||[]).filter(function(l){
+    return (l.status==='missed'||l.status==='makeup')&&(!_selfId||(l.tutorId||l.tutor_id)===_selfId);
+  }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  if(fStud) missed=missed.filter(function(l){return (l.studentId||l.student_id)===fStud;});
+  if(!missed.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">Пропущених немає</td></tr>';
+    return;
+  }
+  tbody.innerHTML=missed.map(function(l){
+    var s=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+    var t=(S.tutors||[]).find(function(x){return x.id===(l.tutorId||l.tutor_id);});
+    var stl=l.status==='missed'
+      ?'<span style="color:#ef4444;font-weight:600">Пропущено</span>'
+      :'<span style="color:#f59e0b;font-weight:600">Відпрацювання</span>';
+    return '<tr><td>'+fd(l.date)+'</td>'
+      +'<td>'+(s?s.fn+' '+s.ln:'—')+'</td>'
+      +'<td>'+(t?t.fn+' '+t.ln:'—')+'</td>'
+      +'<td>'+(l.subject||'—')+'</td>'
+      +'<td>'+stl+'</td>'
+      +'<td style="font-size:11px">'+(l.missed_date?fd(l.missed_date):'—')+'</td>'
+      +'<td style="font-size:11px">'+(l.makeup_date?fd(l.makeup_date):'—')+'</td></tr>';
+  }).join('');
+}
+
+function deleteLessonFromModal(){
+  if(!S.editId)return;
+  if(!confirm('Видалити цей урок?'))return;
+  dbDelete('lessons',S.editId);
+  closeM('mo-lesson');
+}
+
+async function deleteLessonSeriesFromModal(){
+  if(!S.editId)return;
+  var l=(S.lessons||[]).find(function(x){return x.id===S.editId;});
+  if(!l||!l.recurId){mkToast('Немає серії','error');return;}
+  var series=S.lessons.filter(function(x){return x.recurId===l.recurId;});
+  if(!confirm('Видалити всю серію? ('+series.length+' уроків)'))return;
+  try{
+    for(var i=0;i<series.length;i++) await _sb.from('lessons').delete().eq('id',series[i].id);
+    S.lessons=S.lessons.filter(function(x){return x.recurId!==l.recurId;});
+    mkToast('Серію видалено'); closeM('mo-lesson'); renderSch();
+  }catch(e){mkToast('Помилка: '+e.message,'error');}
+}
+
+function scheduleDailyRatingUpdate(){}
+
+window.onLessStatChange = onLessStatChange;
+window.renderCommsPage = renderCommsPage;
+window.renderMissedLessons = renderMissedLessons;
+window.deleteLessonFromModal = deleteLessonFromModal;
+window.deleteLessonSeriesFromModal = deleteLessonSeriesFromModal;
+
+document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(div); });
   return false;
 };
 
@@ -260,13 +372,13 @@ var NAV_CFG = [
   {id:'reports',    ico:'\u25E7',  lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'analytics',  ico:'\u25A4',  lbl:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430',   sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-
+  {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'settings',   ico:'\u25C9',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-  {id:'comms',       ico:'\u25CE',  lbl:'\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0457', sec:'\u041d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
-  {id:'missed',      ico:'\u25C9',  lbl:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0456',                sec:'\u041d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
-  {id:'invoice',     ico:'\u25A6',  lbl:'\u0420\u0430\u0445\u0443\u043d\u043e\u043a',                             sec:'\u0424\u0456\u043d\u0430\u043d\u0441\u0438'},
-  {id:'invoice-log', ico:'\u25A4',  lbl:'\u041b\u043e\u0433 \u0440\u0430\u0445\u0443\u043d\u043a\u0456\u0432', sec:'\u0424\u0456\u043d\u0430\u043d\u0441\u0438'},
   {id:'crm', ico:'▤', lbl:'CRM', sec:'Менеджмент'},
+    {id:'comms',       ico:'\u25CE', lbl:'\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0457', sec:'\u041d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
+  {id:'missed',      ico:'\u25C9', lbl:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0456',   sec:'\u041d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
+  {id:'invoice',     ico:'\u25A6', lbl:'\u0420\u0430\u0445\u0443\u043d\u043e\u043a',                  sec:'\u0424\u0456\u043d\u0430\u043d\u0441\u0438'},
+  {id:'invoice-log', ico:'\u25A4', lbl:'\u041b\u043e\u0433 \u0440\u0430\u0445\u0443\u043d\u043a\u0456\u0432', sec:'\u0424\u0456\u043d\u0430\u043d\u0441\u0438'},
   {id:'profile',    ico:'\u25A3',  lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',  sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
 ];
 
@@ -389,10 +501,14 @@ function branchName(id){
 }
 
 function filterByBranch(arr){
-  return arr||[];
-}
-
-function myBranchId(){
+  if(!arr) return [];
+  if(R()==='tutor') return arr;
+  const bid=currentBranch();
+  if(!bid&&isSuperAdmin()) return arr;
+  const activeBid=bid||myBranchId();
+  if(!activeBid) return arr;
+  return arr.filter(function(x){return !x.branchId||x.branchId===activeBid;});
+}function myBranchId(){
   // For branch-level users, return their assigned branch
   if(isSuperAdmin()) return currentBranch();
   return CU?.branchId || (S.branches[0]?.id);
@@ -466,73 +582,37 @@ function closeSidebar(){
 }
 
 function myLessons(){
-  const all=filterByBranch(S.lessons);
-  if(P().seeAll)return all;
-  const mt=S.tutors.find(function(t){
-    return t.accId===CU?.id || t.acc_uid===CU?.id || t.userId===CU?.id;
+  var all = filterByBranch(S.lessons || []);
+  if(P().seeAll) return all;
+  var cuId = CU ? CU.id : null;
+  var mt = S.tutors.find(function(t){
+    return t.accId === cuId || t.acc_uid === cuId;
   });
   if(!mt) return [];
   return all.filter(function(l){
-    return l.tutorId===mt.id || l.tutor_id===mt.id;
+    return l.tutorId === mt.id || l.tutor_id === mt.id;
   });
 }
-
 function myStudents(){
-  var all=filterByBranch(S.students||[]);
+  var all = filterByBranch(S.students || []);
   try{ if(P().seeAll) return all; }catch(e){ return all; }
   var cuId = CU ? CU.id : null;
-  var mt=S.tutors.find(function(t){return t.accId===cuId||t.acc_uid===cuId;});
+  var mt = S.tutors.find(function(t){
+    return t.accId === cuId || t.acc_uid === cuId;
+  });
   if(!mt) return all;
   return all.filter(function(s){
-    if(s.tutorId===mt.id || s.tutor_id===mt.id) return true;
-    if(Array.isArray(s.tutorIds) && s.tutorIds.indexOf(mt.id)>=0) return true;
+    if(s.tutorId === mt.id || s.tutor_id === mt.id) return true;
+    if(Array.isArray(s.tutorIds) && s.tutorIds.indexOf(mt.id) >= 0) return true;
     return false;
   });
 }
-
 function myTutor(){
+  var cuId = CU ? CU.id : null;
   return S.tutors.find(function(t){
-    return t.accId===CU?.id || t.acc_uid===CU?.id;
+    return t.accId === cuId || t.acc_uid === cuId;
   }) || null;
 }
-
-function calcPrice(subjectName, tutorId, grade, dur){
-  // Match rules by specificity: most specific wins
-  const rules = S.pricingRules || [];
-  if(!rules.length){
-    // Fallback: subject base price
-    const subj = (S.subjects||[]).find(s=>s.name===subjectName);
-    return subj && subj.price ? parseFloat(subj.price) : 0;
-  }
-  // Score each rule: +3 subject, +2 tutor, +1 grade, +1 dur
-  let best = null, bestScore = -1;
-  rules.forEach(function(r){
-    if(!r.price) return;
-    var score = 0, match = true;
-    if(r.subjectMatch){
-      if(subjectName && subjectName.toLowerCase().includes(r.subjectMatch.toLowerCase())) score+=3;
-      else { match=false; }
-    }
-    if(r.tutorId){
-      if(r.tutorId === tutorId) score+=2;
-      else { match=false; }
-    }
-    if(r.gradeMatch){
-      var g = String(grade||'');
-      if(g && g.toLowerCase().includes(r.gradeMatch.toLowerCase())) score+=1;
-      else { match=false; }
-    }
-    if(r.durMin){
-      if(parseInt(dur||60) >= parseInt(r.durMin)) score+=1;
-      else { match=false; }
-    }
-    if(match && score >= bestScore){
-      bestScore = score; best = r;
-    }
-  });
-  return best ? parseFloat(best.price) : 0;
-}
-
 function autoFillPrice(){
   const subj   = document.getElementById('l-subj')?.value || '';
   const tutorId= document.getElementById('l-tutor')?.value || '';
@@ -599,7 +679,7 @@ function renderDashStats(){
     +'<div class="sc green">'
     +'<div class="slbl">\u0417\u0430\u043D\u044F\u0442\u044C \u0446\u044C\u043E\u0433\u043E \u043C\u0456\u0441\u044F\u0446\u044F</div>'
     +'<div class="sval">'+monthL.length+'</div>'
-    +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+monthL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length+'</div>'
+    +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+monthL.filter(function(l){return l.status==='done'||l.status==='completed';}).length+'</div>'
     +'<span class="sico">\u25C9</span></div>';
   if(P().seeIncome && R()!=='tutor'){
     var inc=S.payments.filter(function(p){
@@ -631,16 +711,11 @@ function renderDashKpi(){
   var tlbl=document.getElementById('dash-tutor-week-lbl');
   if(tlbl)tlbl.textContent=wr.label;
 
-  var allL=(R()==='tutor')?myLessons():S.lessons;
-  var _selfTutorRec=(R()==='tutor')?(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);}):null;
+  var allL=S.lessons;
   var weekL=allL.filter(function(l){return inWeek(l.date,wr);});
-  var weekComms=(S.comms||[]).filter(function(c){
-    if(!inWeek(c.date,wr))return false;
-    if(_selfTutorRec)return (c.tutorId||c.tutor_id)===_selfTutorRec.id;
-    return true;
-  });
+  var weekComms=(S.comms||[]).filter(function(c){return inWeek(c.date,wr);});
 
-  var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
+  var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
   var missed  = weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
   var makeup  = weekL.filter(function(l){return l.status==='makeup';}).length;
   var cancelled=weekL.filter(function(l){return l.status==='cancelled';}).length;
@@ -651,7 +726,7 @@ function renderDashKpi(){
 
   var wrPrev=getWeekRange(offset-1);
   var prevL  =allL.filter(function(l){return inWeek(l.date,wrPrev);});
-  var prevDone=prevL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
+  var prevDone=prevL.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
   var prevMissed=prevL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
   var prevComms=(S.comms||[]).filter(function(c){return inWeek(c.date,wrPrev);}).length;
   var prevPct =prevL.length>0?Math.round(prevDone/prevL.length*100):0;
@@ -697,7 +772,7 @@ function renderDashKpi(){
   }
 
   var maxDone=Math.max.apply(null,tutors.map(function(t){
-    return weekL.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).length;
+    return weekL.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed');}).length;
   }).concat([1]));
 
   // Summary footer row
@@ -705,7 +780,7 @@ function renderDashKpi(){
   var rowsArr=[];
   tutors.forEach(function(t){
     var tl=weekL.filter(function(l){return l.tutorId===t.id;});
-    var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
+    var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
     var tMissed =tl.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var tComms  =weekComms.filter(function(c){return c.tutorId===t.id;}).length;
@@ -720,7 +795,7 @@ function renderDashKpi(){
 
     // Trend vs prev week
     var prevTl=prevL.filter(function(l){return l.tutorId===t.id;});
-    var prevTDone=prevTl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
+    var prevTDone=prevTl.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
     var trendTxt='', trendCls='same';
     var dd=tDone-prevTDone;
     if(dd>0){trendTxt='\u2191+'+dd;trendCls='up';}
@@ -793,7 +868,7 @@ function renderDashTrends(){
     var weekComms = (S.comms||[]).filter(function(c){return inWeek(c.date,wr);});
     weeks.push({
       wr:wr,
-      done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length,
+      done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length,
       missed: weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length,
       planned:weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length,
       comms:  weekComms.length,
@@ -835,7 +910,7 @@ function renderDashTrends(){
         if(containerId==='dash-trend-comms'){
           return (S.comms||[]).filter(function(c){return inWeek(c.date,w.wr)&&(c.tutor_id===t.id||c.tutorId===t.id);}).length;
         }
-        return S.lessons.filter(function(l){return inWeek(l.date,w.wr)&&(l.tutor_id===t.id||l.tutorId===t.id)&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).length;
+        return S.lessons.filter(function(l){return inWeek(l.date,w.wr)&&(l.tutor_id===t.id||l.tutorId===t.id)&&(l.status==='done'||l.status==='completed');}).length;
       });
       var tMax = Math.max.apply(null, vals.concat([1]));
       var total = vals[vals.length-1];
@@ -1004,37 +1079,54 @@ function renderStudents(){
   document.getElementById('st-table').innerHTML=html;
 }
 function renderLessons(){
-  var sf=document.getElementById('lf-subj'), stf=document.getElementById('lf-stat');
-  var cv=sf&&sf.value||'', sv=stf&&stf.value||'';
-  if(sf){
-    var c=sf.value;
-    sf.innerHTML='<option value="">\u0412\u0441\u0456 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u0438</option>'
-      +S.subjects.map(function(s){return '<option value="'+s.name+'">'+s.name+'</option>';}).join('');
-    sf.value=c;
+  var stf = document.getElementById('lf-stat');
+  var sdf = document.getElementById('lf-student');
+  var sv  = stf ? stf.value : '';
+  var sdv = sdf ? sdf.value : '';
+
+  if(sdf){
+    var cur = sdf.value;
+    sdf.innerHTML = '<option value="">Всі учні</option>'
+      + myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(s){return '<option value="'+s.id+'"'+(s.id===cur?' selected':'')+'>'+s.fn+' '+s.ln+'</option>';}).join('');
   }
-  var data=[].concat(myLessons()).sort(function(a,b){return new Date(b.date+'T'+b.time)-new Date(a.date+'T'+a.time);});
-  if(cv) data=data.filter(function(l){return l.subject===cv;});
-  if(sv) data=data.filter(function(l){return l.status===sv;});
-  var ce=can('lessons');
-  var ri=function(l){return l.recurId?'<span title="\u041F\u043E\u0432\u0442\u043E\u0440\u044E\u0432\u0430\u043D\u0435" style="color:var(--adm);font-size:10px">\uD83D\uDD01</span>':'';};
-  var html=data.length?data.map(function(l){
+
+  var data = [].concat(myLessons()).sort(function(a,b){
+    return new Date(b.date+'T'+(b.time||'00:00'))-new Date(a.date+'T'+(a.time||'00:00'));
+  });
+  if(sdv) data = data.filter(function(l){return (l.studentId||l.student_id)===sdv;});
+  if(sv)  data = data.filter(function(l){
+    if(sv==='done') return l.status==='done'||l.status==='completed';
+    return l.status===sv;
+  });
+
+  var hasMissed = sv==='missed'||sv==='makeup'||(!sv&&data.some(function(l){return l.status==='missed'||l.status==='makeup';}));
+  var mc=document.getElementById('lt-miss-col'); if(mc) mc.style.display=hasMissed?'':'none';
+  var mkc=document.getElementById('lt-makeup-col'); if(mkc) mkc.style.display=hasMissed?'':'none';
+
+  var ce = can('lessons');
+  var ri = function(l){return l.recurId?'<span style="color:var(--adm);font-size:10px">🔁</span>':'';};
+  var html = data.length ? data.map(function(l){
+    var mc2=hasMissed?('<td style="font-size:11px;color:var(--danger)">'+(l.missed_date?fd(l.missed_date):'—')+'</td>'):'';
+    var mk2=hasMissed?('<td style="font-size:11px;color:#f59e0b">'+(l.makeup_date?fd(l.makeup_date):'—')+'</td>'):'';
     var btns=ce
-      ?('<button class="btn btn-g btn-sm" onclick="openLessM(this.dataset.id)" data-id="'+l.id+'">\u270F\uFE0F</button>'
-        +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delLesson(this.dataset.id)" data-id="'+l.id+'">\uD83D\uDDD1</button>')
-      :'<span style="font-size:10px;color:var(--t3)">\u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434</span>';
+      ?('<button class="btn btn-g btn-sm" onclick="openLessM(this.dataset.id)" data-id="'+l.id+'">✏️</button>'
+        +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);color:var(--danger)" onclick="delLesson(this.dataset.id)" data-id="'+l.id+'">🗑</button>')
+      :'';
     return '<tr>'
-      +'<td>'+sn(l.studentId)+'</td>'
-      +'<td>'+l.subject+' '+ri(l)+'</td>'
-      +'<td>'+(l.tutorId?tn(l.tutorId):'\u2014')+'</td>'
+      +'<td>'+sn(l.studentId||l.student_id)+'</td>'
+      +'<td>'+(l.subject||'—')+' '+ri(l)+'</td>'
+      +'<td style="font-size:12px">'+(l.tutorId||l.tutor_id?tn(l.tutorId||l.tutor_id):'—')+'</td>'
       +'<td style="font-family:JetBrains Mono,monospace;font-size:11px">'+fd(l.date)+' '+(l.time||'')+'</td>'
-      +'<td>'+(l.dur||60)+' \u0445\u0432</td>'
-      +'<td style="font-size:12px;color:var(--t2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(l.notes||'\u2014')+'</td>'
+      +'<td>'+(l.dur||60)+' хв</td>'+mc2+mk2
+      +'<td style="font-size:11px;color:var(--t2)">'+(l.notes||'—')+'</td>'
       +'<td>'+bst(l.status)+'</td>'
-      +'<td><div style="display:flex;gap:3px">'+btns+'</div></td>'
-      +'</tr>';
-  }).join(''):'<tr><td colspan="8"><div class="empty"><div class="ei">\uD83D\uDCDA</div>\u0417\u0430\u043D\u044F\u0442\u044C \u043D\u0435\u043C\u0430\u0454</div></td></tr>';
-  document.getElementById('lt-table').innerHTML=html;
+      +'<td><div style="display:flex;gap:3px">'+btns+'</div></td></tr>';
+  }).join('')
+  : '<tr><td colspan="10"><div class="empty"><div class="ei">📚</div>Занять немає</div></td></tr>';
+  document.getElementById('lt-table').innerHTML = html;
 }
+
 function renderPayments(){
   // Show invoice toolbar only for god/director
   var invToolbar = document.getElementById('inv-toolbar');
@@ -1607,7 +1699,7 @@ function gcSaveLabels(){mkToast('\u0422\u0435\u043A\u0441\u0442\u0438 \u0437\u04
 
 function gSearch(q){
   if(S.currentPage!=='students') nav('students');
-  renderStudents();
+  else renderStudents();
 }
 
 // = Supabase integration =
@@ -1684,12 +1776,12 @@ function renderAnalytics(){
   }
 
   function calcStats(lessonsArr, commsArr, studentsArr){
-    var done     = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
+    var done     = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
     var missed   = lessonsArr.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
     var cancelled= lessonsArr.filter(function(l){return l.status==='cancelled';}).length;
     var planned  = lessonsArr.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var total    = lessonsArr.length;
-    var income   = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';})
+    var income   = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed';})
                     .reduce(function(s,l){return s+(parseFloat(l.price)||0);},0);
     return { done, missed, cancelled, planned, total, income,
       students: studentsArr.length,
@@ -1739,7 +1831,7 @@ function renderAnalytics(){
   if(!visibleTutors.length) visibleTutors = tutors;
 
   var maxDone = Math.max.apply(null, visibleTutors.map(function(t){
-    return lessons.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).length;
+    return lessons.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed');}).length;
   }).concat([1]));
 
   visibleTutors.forEach(function(t){
@@ -1827,7 +1919,7 @@ async function exportBackup(){
   if(btn){ btn.disabled=true; btn.textContent='Завантаження...'; }
   try{
     // Load all data fresh from Supabase
-    var tables = ['tutors','students','lessons','payments','subjects','comms','pricing_rules','settings'];
+    var tables = ['branches','tutors','students','lessons','payments','subjects','comms','pricing_rules','settings'];
     var backup = { version:1, created: new Date().toISOString(), data:{} };
     for(var i=0;i<tables.length;i++){
       var res = await _sb.from(tables[i]).select('*');
@@ -1884,7 +1976,7 @@ async function importBackup(input){
 
     var stats = {};
     // Restore tables in correct order (deps first)
-    var order = ['subjects','pricing_rules','tutors','students','lessons','payments','comms','settings'];
+    var order = ['branches','subjects','pricing_rules','tutors','students','lessons','payments','comms','settings'];
     for(var i=0;i<order.length;i++){
       var table = order[i];
       var rows  = backup.data[table];
@@ -2051,7 +2143,7 @@ function setSynced(){
 async function loadAll(){
   setSaving();
   const tables = [
-    { table:'branches', key:'branches' },
+    { table:'branches',      key:'branches' },
     { table:'tutors',        key:'tutors' },
     { table:'students',      key:'students' },
     { table:'lessons',       key:'lessons',  order:'date' },
@@ -2067,7 +2159,7 @@ async function loadAll(){
       return q;
     })
   );
-  tables.forEach(function(t, i){ if(!results[i].error && results[i].data) S[t.key] = results[i].data; });
+  tables.forEach(function(t, i){ if(results[i] && !results[i].error && Array.isArray(results[i].data)) S[t.key] = results[i].data; });
 
   // Settings
   var _set = await _sb.from('settings').select('*').eq('id','main').single(); var set = _set.data;
@@ -2179,7 +2271,8 @@ async function loadTableFresh(table){
   var tableMap = {
     students:'students', tutors:'tutors', lessons:'lessons',
     payments:'payments', subjects:'subjects', comms:'comms',
-    pricing_rules:'pricingRules', branches:'branches'};
+    pricing_rules:'pricingRules', branches:'branches'
+  };
   var key = tableMap[table];
   if(!key) return;
   var norm = {students:normalizeStudent,lessons:normalizeLesson,
@@ -2462,7 +2555,7 @@ async function addBranch(){
   var addr=(document.getElementById('new-branch-addr')?.value||'').trim();
   if(!nm){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443 \u0444\u0456\u043B\u0456\u0457','error'); return; }
   try{
-    await dbInsert({id:'b'+uid(),name:nm,address:addr,phone:''});
+    await dbInsert('branches',{id:'b'+uid(),name:nm,address:addr,phone:''});
     document.getElementById('new-branch-name').value='';
     document.getElementById('new-branch-addr').value='';
     mkToast('\u0424\u0456\u043B\u0456\u044E \u0434\u043E\u0434\u0430\u043D\u043E');
@@ -2471,7 +2564,7 @@ async function addBranch(){
 
 async function delBranch(id){
   if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0444\u0456\u043B\u0456\u044E?')) return;
-  try{ await dbDelete(id); if(S.currentBranchId===id)S.currentBranchId=null; mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+  try{ await dbDelete('branches',id); if(S.currentBranchId===id)S.currentBranchId=null; mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
 }
 
 async function editBranch(id){
@@ -2479,7 +2572,7 @@ async function editBranch(id){
   if(!b) return;
   var nm=prompt('\u041D\u0430\u0437\u0432\u0430 \u0444\u0456\u043B\u0456\u0457:',b.name); if(!nm) return;
   var addr=prompt('\u0410\u0434\u0440\u0435\u0441\u0430:',b.address||'');
-  try{ await dbUpdate(id,{name:nm,address:addr}); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }catch(e){}
+  try{ await dbUpdate('branches',id,{name:nm,address:addr}); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }catch(e){}
 }
 
 // Pricing rules
@@ -2682,16 +2775,13 @@ async function clearData(what){
 // APP START
 // =
 async function startApp(){
-  // Inject critical CSS to ensure page visibility works
-  (function(){
-    var s = document.getElementById('__page_css__');
-    if(!s){
-      s = document.createElement('style');
-      s.id = '__page_css__';
-      s.textContent = '.page{display:none!important}.page.active{display:block!important;width:100%}.content{display:block!important;overflow-y:auto!important}';
-      document.head.appendChild(s);
-    }
-  })();
+  // Inject page visibility CSS
+  if(!document.getElementById('__pcss__')){
+    var _st=document.createElement('style');
+    _st.id='__pcss__';
+    _st.textContent='.page{display:none!important}.page.active{display:block!important}';
+    document.head.appendChild(_st);
+  }
   document.getElementById('ls').style.display='none';
   document.getElementById('as').style.display='block';
 
@@ -2710,6 +2800,8 @@ async function startApp(){
       else if(pg==='users')     renderUsers();
       else if(pg==='settings')  renderSettings();
       else if(pg==='profile')   renderProfile();
+      else if(pg==='comms')     renderCommsPage();
+      else if(pg==='missed')    renderMissedLessons();
       else if(pg==='crm')       renderCrm();
     }catch(e){ console.warn('reRender:', e); }
   }
@@ -2856,68 +2948,65 @@ function openTutM(id=null){
 }
 
 
-function openLessM(id,date,time){
-  if(!can('lessons')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
-  S.editId=id||null;
+function openLessM(id, date, time){
+  if(!can('lessons')){mkToast('Немає прав','error');return;}
+  S.editId = id||null;
 
-  // Always clear ALL fields first
+  // Clear ALL fields first
   ['l-std','l-subj','l-tutor','l-price','l-notes',
    'l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
     var el=document.getElementById(f); if(el) el.value='';
   });
-  document.getElementById('l-dur').value=60;
-  document.getElementById('l-stat').value='planned';
-  document.getElementById('l-recur').value='none';
-  document.getElementById('l-recur-end').value='';
-  document.getElementById('l-recur-count').value='';
-  document.getElementById('l-recur-interval').value='7';
-  var mw=document.getElementById('l-miss-wrap'); if(mw) mw.style.display='none';
-  var mkw=document.getElementById('l-makeup-wrap'); if(mkw) mkw.style.display='none';
-  var spw=document.getElementById('l-split-wrap'); if(spw) spw.style.display='none';
-  var rp=document.getElementById('recur-preview'); if(rp) rp.style.display='none';
+  document.getElementById('l-dur').value = 60;
+  document.getElementById('l-stat').value = 'planned';
+  var re2=document.getElementById('l-recur'); if(re2) re2.value='none';
+  var re3=document.getElementById('l-recur-end'); if(re3) re3.value='';
+  var re4=document.getElementById('l-recur-count'); if(re4) re4.value='';
+  var re5=document.getElementById('l-recur-interval'); if(re5) re5.value='7';
+  ['l-miss-wrap','l-makeup-wrap','l-split-wrap','recur-preview'].forEach(function(id2){
+    var el=document.getElementById(id2); if(el) el.style.display='none';
+  });
 
-  // Populate dropdowns AFTER clearing
-  document.getElementById('ml-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F':'\u041D\u043E\u0432\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F';
-  popSel('l-std',myStudents(),'id',function(s){return s.fn+' '+s.ln;},'\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F');
-  var dl_l=document.getElementById('subj-list-l');
-  if(dl_l) dl_l.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
-  popSel('l-tutor',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447');
-  toggleRecurOpts&&toggleRecurOpts();
+  // Populate dropdowns after clearing
+  document.getElementById('ml-title').textContent = id ? 'Редагувати заняття' : 'Нове заняття';
+  popSel('l-std', myStudents(), 'id', function(s){return s.fn+' '+s.ln;}, 'Оберіть учня');
+  var dl_l = document.getElementById('subj-list-l');
+  if(dl_l) dl_l.innerHTML = (S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
+  popSel('l-tutor', S.tutors, 'id', function(t){return t.fn+' '+t.ln;}, 'Викладач');
+  if(typeof toggleRecurOpts === 'function') toggleRecurOpts();
 
   if(id){
-    var l=(S.lessons||[]).find(function(x){return x.id===id;});
+    var l = (S.lessons||[]).find(function(x){return x.id===id;});
     if(l){
-      document.getElementById('l-std').value=l.studentId||l.student_id||'';
-      document.getElementById('l-subj').value=l.subject||'';
-      document.getElementById('l-tutor').value=l.tutorId||l.tutor_id||'';
-      document.getElementById('l-date').value=l.date||'';
-      document.getElementById('l-time').value=l.time||'10:00';
-      document.getElementById('l-dur').value=l.dur||60;
-      document.getElementById('l-stat').value=l.status||'planned';
-      document.getElementById('l-price').value=l.price||'';
-      document.getElementById('l-notes').value=l.notes||'';
-      onLessStatChange&&onLessStatChange();
+      document.getElementById('l-std').value = l.studentId||l.student_id||'';
+      document.getElementById('l-subj').value = l.subject||'';
+      document.getElementById('l-tutor').value = l.tutorId||l.tutor_id||'';
+      document.getElementById('l-date').value = l.date||'';
+      document.getElementById('l-time').value = l.time||'10:00';
+      document.getElementById('l-dur').value = l.dur||60;
+      document.getElementById('l-stat').value = l.status||'planned';
+      document.getElementById('l-price').value = l.price||'';
+      document.getElementById('l-notes').value = l.notes||'';
+      if(typeof onLessStatChange==='function') onLessStatChange();
       if(l.recurId){
-        var siblings=(S.lessons||[]).filter(function(x){return x.recurId===l.recurId;});
-        var box=document.getElementById('recur-preview');
-        if(box){box.style.display='block';box.innerHTML='<span style="color:var(--adm)">\uD83D\uDD01 \u041F\u043E\u0432\u0442\u043E\u0440\u044E\u0432\u0430\u043D\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F</span> \u2014 \u0441\u0435\u0440\u0456\u044F \u0437 <b>'+siblings.length+'</b> \u0437\u0430\u043D\u044F\u0442\u044C.';}
+        var siblings = (S.lessons||[]).filter(function(x){return x.recurId===l.recurId;});
+        var box = document.getElementById('recur-preview');
+        if(box){box.style.display='block';box.innerHTML='<span style="color:var(--adm)">🔁 Повторюване</span> — серія з <b>'+siblings.length+'</b> занять.';}
       }
     }
   } else {
-    document.getElementById('l-date').value=date||localDateStr(new Date());
-    document.getElementById('l-time').value=time||'10:00';
-    var mt=myTutor();
-    if(mt) document.getElementById('l-tutor').value=mt.id;
+    document.getElementById('l-date').value = date||localDateStr(new Date());
+    document.getElementById('l-time').value = time||'10:00';
+    var mt = myTutor();
+    if(mt) document.getElementById('l-tutor').value = mt.id;
   }
 
-  renderCustomFields&&renderCustomFields('lesson','mo-lesson-cf');
-  var db=document.getElementById('del-lesson-btn');
-  if(db) db.style.display=id?'inline-flex':'none';
+  if(typeof renderCustomFields==='function') renderCustomFields('lesson','mo-lesson-cf');
+  var db=document.getElementById('del-lesson-btn'); if(db) db.style.display=id?'inline-flex':'none';
   var sb=document.getElementById('del-series-btn');
   if(sb){var lr=id?(S.lessons||[]).find(function(l){return l.id===id;}):null;sb.style.display=(lr&&lr.recurId)?'inline-flex':'none';}
   openM('mo-lesson');
 }
-
 
 
 function openPayM(id=null){
@@ -2962,10 +3051,7 @@ function nav(page){
   // Allow custom pages (added by God constructor) and built-in allowed pages
   const isCustomPage=page.startsWith('custom_');
   if(!isCustomPage&&!userNav().includes(page)){mkToast('\u041D\u0435\u043C\u0430\u0454 \u0434\u043E\u0441\u0442\u0443\u043F\u0443 \u0434\u043E \u0446\u044C\u043E\u0433\u043E \u0440\u043E\u0437\u0434\u0456\u043B\u0443','error');return;}
-  document.querySelectorAll('.page').forEach(p=>{
-    p.classList.remove('active');
-    p.style.display='';  // clear any inline display override
-  });
+  document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display=''});
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   const pel=document.getElementById('pg-'+page);if(pel)pel.classList.add('active');
   const nel=document.getElementById('ni-'+page);
@@ -2985,10 +3071,15 @@ function nav(page){
   if(page==='lessons')renderLessons();
   if(page==='payments')renderPayments();
   if(page==='reports')renderReports();
+  if(page==='branches'){renderBranches();renderBranchStats();}
   if(page==='users')renderUsers();
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
-  if(page==='crm') renderCrm();
+  if(page==='comms') renderCommsPage();
+  if(page==='missed') renderMissedLessons();
+  var _crmEl=document.getElementById('pg-crm');
+  if(page==='crm'){if(_crmEl)_crmEl.style.display='flex';renderCrm();}
+  else{if(_crmEl)_crmEl.style.display='none';}
   if(page==='analytics')renderAnalytics();
   if(isCustomPage)renderCustomPage(page);
   if(window.innerWidth<=768)closeSidebar();
@@ -3108,16 +3199,7 @@ function buildSidebar(){
     if(!isBuiltin&&!isCustom)return;
     if(isCustom&&!roleAllowed)return;
     if(n.sec!==lastSec){html+=('<div class="nsec">'+(n.sec)+'</div>');lastSec=n.sec;}
-    html+=('<div class="ni" id="ni-'+(n.id)+'" onclick="nav(\''+(n.id)+'\')"><span class="nico">'+(n.ico)+'</span>'+(n.lbl)+(n.badge?(function(){
-        var _cnt=0;
-        if(R()==='tutor'){
-          var _mt=(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);});
-          _cnt=_mt?(S.students||[]).filter(function(s){return (s.tutorId===_mt.id||s.tutor_id===_mt.id)&&s.status==='active';}).length:0;
-        } else {
-          _cnt=(S.students||[]).filter(function(s){return s.status==='active';}).length;
-        }
-        return _cnt?'<span class="nbadge" id="nb-s">'+_cnt+'</span>':'<span id="nb-s"></span>';
-      })():'')+'</div>');
+    html+=('<div class="ni" id="ni-'+(n.id)+'" onclick="nav(\''+(n.id)+'\')"><span class="nico">'+(n.ico)+'</span>'+(n.lbl)+(n.badge?`<span class="nbadge" id="nb-s">0</span>`:'')+'</div>');
   });
   document.getElementById('sbnav').innerHTML=html;
 }
@@ -3285,14 +3367,6 @@ function buildUASummary(u){
 
 
 
-
-function localDateStr(d){
-  var year=d.getFullYear();
-  var month=String(d.getMonth()+1).padStart(2,'0');
-  var day=String(d.getDate()).padStart(2,'0');
-  return year+'-'+month+'-'+day;
-}
-
 function genRecurDates(startDate,recurType,endDate,count,interval){
   const dates=[];
   const start=new Date(startDate+'T12:00:00');
@@ -3300,8 +3374,10 @@ function genRecurDates(startDate,recurType,endDate,count,interval){
   const maxCount=count?Math.min(parseInt(count),200):104;
   let cur=new Date(start);
   for(let i=0;i<maxCount;i++){
-    if(end&&cur>end)break;
-    dates.push(localDateStr(cur));
+    if(i>0){
+      if(end&&cur>end)break;
+      dates.push(localDateStr(cur));
+    }
     const next=new Date(cur);
     if(recurType==='daily'){next.setDate(next.getDate()+1);}
     else if(recurType==='weekly'){next.setDate(next.getDate()+7);}
@@ -3496,119 +3572,51 @@ function renderSchDay(){
 
 
 function renderSchWeek(){
-  var _schTf = document.getElementById('sch-tutor-filter');
-  var _schStat = (document.getElementById('sch-status-filter')||{value:''}).value;
-  var _schTid = _schTf ? _schTf.value : '';
-
-  var now=new Date(), sow=new Date(now);
-  var dy=now.getDay()===0?6:now.getDay()-1;
+  const now=new Date(), sow=new Date(now);
+  const dy=now.getDay()===0?6:now.getDay()-1;
   sow.setDate(now.getDate()-dy+S.weekOffset*7); sow.setHours(0,0,0,0);
-  var days=Array.from({length:7},function(_,i){var d=new Date(sow);d.setDate(sow.getDate()+i);return d;});
-  var dnames=['\u041f\u043d','\u0412\u0442','\u0421\u0440','\u0427\u0442','\u041f\u0442','\u0421\u0431','\u041d\u0434'];
+  const days=Array.from({length:7},(_,i)=>{const d=new Date(sow);d.setDate(sow.getDate()+i);return d;});
+  const dnames=['\u041F\u043D','\u0412\u0442','\u0421\u0440','\u0427\u0442','\u041F\u0442','\u0421\u0431','\u041D\u0434'];
   document.getElementById('wklbl').textContent=((days[0].toLocaleDateString('uk-UA',{day:'numeric',month:'short'}))+' \u2014 '+(days[6].toLocaleDateString('uk-UA',{day:'numeric',month:'short'})));
-
-  // Populate tutor filter
-  if(_schTf && _schTf.options.length<=1){
-    _schTf.innerHTML='<option value="">\u0423\u0441\u0456 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438</option>'
-      +(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
-  }
-  if(_schTf) _schTf.style.display = (can('tutors')&&R()!=='tutor')?'inline-block':'none';
-  var _sf=document.getElementById('sch-status-filter');
-  if(_sf) _sf.style.display='inline-block';
-
-  // Filter lessons
-  var ml = myLessons().filter(function(l){
-    if(_schTid && (l.tutorId||l.tutor_id)!==_schTid) return false;
+  const hrs=Array.from({length:13},(_,i)=>i+8);
+  const ecls=['ec0','ec1','ec2','ec3','ec4'];
+  let html='<div class="schh" style="background:var(--s1)">\u0427\u0430\u0441</div>';
+  days.forEach((d,i)=>{const today=d.toDateString()===now.toDateString();html+=('<div class="schh" style="'+(today?'color:var(--adm);border-bottom:2px solid var(--adm)':'')+'">'+(dnames[i])+'<br><span style="font-size:9px;font-weight:400;color:var(--t3);font-family:JetBrains Mono,monospace">'+(d.getDate())+'.'+(String(d.getMonth()+1).padStart(2,'0'))+'</span></div>');});
+  const _schStat=(document.getElementById('sch-status-filter')||{value:''}).value;
+  const ml=myLessons().filter(function(l){
     if(l.status==='cancelled') return false;
     if(_schStat){
       if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
+      if(_schStat==='completed') return l.status==='done'||l.status==='completed';
       return l.status===_schStat;
     }
     return true;
   });
-
-  // 30-min granularity: 8:00 - 21:00 = 26 half-slots
-  var SLOT_H = 23;
-  var slots = [];
-  for(var h=8; h<21; h++){
-    slots.push({h:h, m:0});
-    slots.push({h:h, m:30});
-  }
-
-  // Header row
-  var html='<div class="schh" style="background:var(--s1)">\u0427\u0430\u0441</div>';
-  days.forEach(function(d,i){
-    var today=d.toDateString()===now.toDateString();
-    html+=('<div class="schh" style="'+(today?'color:var(--adm);border-bottom:2px solid var(--adm)':'')+'">'+dnames[i]+'<br><span style="font-size:9px;font-weight:400;color:var(--t3);font-family:JetBrains Mono,monospace">'+d.getDate()+'.'+(String(d.getMonth()+1).padStart(2,'0'))+'</span></div>');
-  });
-
-  // Slot rows
-  slots.forEach(function(slot){
-    var h=slot.h, m=slot.m;
-    var slotLabel = m===0 ? (String(h).padStart(2,'0')+':00') : '';
-    html+=('<div class="scht" style="font-size:9px;align-items:'+(m===0?'flex-start':'center')+';border-top:'+(m===0?'1px solid var(--b1)':'1px dashed rgba(0,0,0,.06)+')+'">'+(slotLabel)+'</div>');
-
-    days.forEach(function(d){
-      var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      var timeStr=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
-      var lsns=ml.filter(function(l){
-        var lt=l.time||'';
-        var lh=parseInt(lt.split(':')[0]||'0');
-        var lm=parseInt(lt.split(':')[1]||'0');
-        return l.date===ds && lh===h && lm===m;
-      });
-      html+=('<div class="schc" style="border-top:'+(m===0?'':'none')+'" onclick="openLessM(null,\''+ds+'\',\''+timeStr+'\')">');
+  hrs.forEach(h=>{
+    html+=('<div class="scht">'+(String(h).padStart(2,'0'))+':00</div>');
+    days.forEach(d=>{
+      const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      const lsns=ml.filter(l=>l.date===ds&&parseInt((l.time||'0:0').split(':')[0])===h&&l.status!=='cancelled');
+      html+=('<div class="schc" onclick="openLessM(null,\''+(ds)+'\',\''+(String(h).padStart(2,'0'))+':00\')">');
       lsns.forEach(function(l){
-        var ecl = (l.status==='completed'||l.status==='done') ? 'ec-done'
-                : l.status==='missed' ? 'ec-miss'
-                : l.status==='makeup' ? 'ec-make'
-                : 'ec-plan';
-        var durMin  = parseInt(l.dur)||60;
-        var nSlots  = Math.max(1, Math.round(durMin/30));
-        var heightPx = nSlots * SLOT_H - 3;
-        var durLabel = durMin!==60 ? ' <span style="font-size:9px;opacity:.7">'+(durMin>=60?(durMin/60)+'\u0433\u043e\u0434':(durMin+'\u0445\u0432'))+'</span>' : '';
-        html+=('<div class="sche '+ecl+'" style="min-height:'+heightPx+'px" onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'
-          +'<div style="font-weight:700;font-size:11px">'+(l.recurId?'\uD83D\uDD01 ':'')+'<span>'+l.subject+'</span>'+durLabel+'</div>'
+        var ecl=l.status==='missed'?'ec-miss'
+          :l.status==='makeup'?'ec-make'
+          :(l.status==='completed'||l.status==='done')?'ec-done'
+          :'ec-plan';
+        html+=('<div class="sche '+ecl+'" onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'
+          +'<div style="font-weight:700;font-size:11px">'+(l.recurId?'🔁 ':'')+l.subject+'</div>'
           +'<div style="opacity:.75;font-size:10px">'+sn(l.studentId).split(' ')[0]+'</div>'
           +'</div>');
       });
-      html+='</div>';
+      html+='</div>';  // close schc
     });
   });
-
-  var g=document.getElementById('schg');
+  const g=document.getElementById('schg');
   g.style.gridTemplateColumns='52px repeat(7,1fr)';
-  g.style.gridTemplateRows='auto repeat('+slots.length+','+SLOT_H+'px)';
+  g.style.gridTemplateRows=('auto repeat('+(hrs.length)+',46px)');
   g.innerHTML=html;
 }
 
-
-function renderSettings(){
-  var gcWrap = document.getElementById('god-constructor-wrap');
-  if(gcWrap) gcWrap.style.display = (R()==='god') ? 'block' : 'none';
-  document.getElementById('set-name').value=S.settings.name||'';
-  document.getElementById('set-phone').value=S.settings.phone||'';
-  document.getElementById('set-email').value=S.settings.email||'';
-  document.getElementById('set-addr').value=S.settings.address||'';
-  document.getElementById('set-subj-list').innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><span class="msv">'+(s.price)+'\u20B4/\u0433\u043E\u0434</span><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj('+(i)+')">\u00D7</button></div></div>')).join('');
-  // God-only sections
-  const isGod=R()==='god';
-  document.getElementById('god-banner-settings').style.display=isGod?'flex':'none';
-  document.getElementById('rights-section').style.display=isGod?'block':'none';
-  document.getElementById('danger-zone').style.display=isGod?'block':'none';
-  if(isGod){
-    // Build rights matrix
-    let rt='<thead><tr>'+RIGHTS_MATRIX[0].map((h,i)=>('<th style="'+(i===1?'color:var(--god)':i===2?'color:var(--dir)':i===3?'color:var(--adm)':i===4?'color:var(--tut)':'')+'">'+(h)+'</th>')).join('')+'</tr></thead><tbody>';
-    for(let i=1;i<RIGHTS_MATRIX.length;i++){
-      rt+='<tr>'+RIGHTS_MATRIX[i].map((c,j)=>('<td style="'+(c.startsWith('\u2705')?'color:var(--tut)':c.startsWith('\u274C')?'color:var(--danger)':'')+'">'+(c)+'</td>')).join('')+'</tr>';
-    }
-    rt+='</tbody>';
-    document.getElementById('rights-table').innerHTML=rt;
-  }
-  renderBranches();
-  renderPricingRules();
-  popSel('pr-tutor',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438');
-}
 
 
 
@@ -3650,7 +3658,6 @@ function renderTutors(){
   document.getElementById('tt-table').innerHTML=rows||
     '<tr><td colspan="6"><div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>Репетиторів немає</div></td></tr>';
 }
-
 
 
 function updateBranchSelector(){
@@ -4221,346 +4228,6 @@ window.sendInvoiceEmail = sendInvoiceEmail;
 window.openInvoicePanel = openInvoicePanel;
 window.updateInvPhone = updateInvPhone;
 // Boot
-
-// ═══════════════════════════════════════════
-// FUNCTIONS ADDED IN LATER SESSIONS
-// ═══════════════════════════════════════════
-
-function localDateStr(d){
-  if(typeof d === 'string') return d;
-  var y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
-  return y+'-'+m+'-'+dd;
-}
-
-function studentSearch(input, hiddenId, callbackFn) {
-  var val=input.value, dl=document.getElementById(hiddenId+'-list');
-  var hidden=document.getElementById(hiddenId);
-  var q=val.toLowerCase();
-  var src=hiddenId==='p-std'?(S.students||[]):myStudents();
-  var matches=src.filter(function(s){
-    return (s.fn+' '+s.ln).toLowerCase().includes(q)||s.ln.toLowerCase().startsWith(q);
-  }).slice(0,30);
-  if(dl) dl.innerHTML=matches.map(function(s){
-    return '<option value="'+s.fn+' '+s.ln+'" data-id="'+s.id+'">';
-  }).join('');
-  var exact=src.find(function(s){return s.fn+' '+s.ln===val;});
-  if(exact&&hidden) hidden.value=exact.id;
-  else if(matches.length===1&&hidden) hidden.value=matches[0].id;
-  else if(hidden&&!val) hidden.value='';
-  if(callbackFn&&window[callbackFn]) window[callbackFn]();
-}
-
-function populateStudentSearch(fieldId,src){
-  src=src||myStudents();
-  var dl=document.getElementById(fieldId+'-list');
-  if(dl) dl.innerHTML=(src||[]).map(function(s){
-    return '<option value="'+s.fn+' '+s.ln+'" data-id="'+s.id+'">';
-  }).join('');
-}
-
-function setStudentSearch(fieldId,studentId){
-  var hidden=document.getElementById(fieldId);
-  var input=document.getElementById(fieldId+'-search');
-  if(hidden) hidden.value=studentId||'';
-  if(input&&studentId){
-    var s=(S.students||[]).find(function(x){return x.id===studentId;});
-    if(s) input.value=s.fn+' '+s.ln; else input.value='';
-  } else if(input) input.value='';
-}
-
-function onLessStatChange(){
-  var stat=(document.getElementById('l-stat')||{value:''}).value;
-  var dur=parseInt((document.getElementById('l-dur')||{value:'60'}).value)||60;
-  var mkWrap=document.getElementById('l-makeup-wrap');
-  var msWrap=document.getElementById('l-miss-wrap');
-  var spWrap=document.getElementById('l-split-wrap');
-  if(mkWrap) mkWrap.style.display=stat==='makeup'?'block':'none';
-  if(msWrap) msWrap.style.display=(stat==='missed'||stat==='makeup')?'block':'none';
-  if(spWrap) spWrap.style.display=((stat==='missed'||stat==='makeup')&&dur>=60)?'block':'none';
-}
-
-function renderCommsPage(){
-  var tbody=document.getElementById('comms-tbody');
-  if(!tbody)return;
-  var _selfId=null;
-  if(typeof R==='function'&&R()==='tutor'){
-    var _myT=(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);});
-    if(_myT)_selfId=_myT.id;
-  }
-  var fStud=(document.getElementById('comm-f-student')||{value:''}).value;
-  var fTutor=(document.getElementById('comm-f-tutor')||{value:''}).value;
-  var fType=(document.getElementById('comm-f-type')||{value:''}).value;
-  var comms=[].concat(S.comms||[]).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
-  if(_selfId) comms=comms.filter(function(c){return (c.tutorId||c.tutor_id)===_selfId;});
-  if(fStud) comms=comms.filter(function(c){return (c.studentId||c.student_id)===fStud;});
-  if(fTutor) comms=comms.filter(function(c){return (c.tutorId||c.tutor_id)===fTutor;});
-  if(fType) comms=comms.filter(function(c){return c.type===fType;});
-  var ico={call:'\u260E',message:'\uD83D\uDCAC',meeting:'\uD83E\uDD1D',email:'\u2709',other:'\uD83D\uDCCB'};
-  if(!comms.length){
-    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0439 \u043d\u0435\u043c\u0430\u0454</td></tr>';
-    return;
-  }
-  tbody.innerHTML=comms.map(function(c){
-    var tutor=(S.tutors||[]).find(function(t){return t.id===(c.tutorId||c.tutor_id);});
-    var student=(S.students||[]).find(function(s){return s.id===(c.studentId||c.student_id);});
-    return '<tr><td style="font-size:11px;color:var(--t2)">'+fd(c.date)+'</td>'
-      +'<td>'+(ico[c.type]||'\uD83D\uDCCB')+' '+(c.type||'\u2014')+'</td>'
-      +'<td>'+(student?student.fn+' '+student.ln:'\u2014')+'</td>'
-      +'<td>'+(tutor?tutor.fn+' '+tutor.ln:'\u2014')+'</td>'
-      +'<td>'+(c.note||'\u2014')+'</td></tr>';
-  }).join('');
-}
-
-function renderMissedLessons(){
-  var tbody=document.getElementById('missed-tbody');
-  if(!tbody)return;
-  var fStud=(document.getElementById('missed-f-student')||{value:''}).value;
-  var _selfId=null;
-  if(typeof R==='function'&&R()==='tutor'){
-    var _myT=(S.tutors||[]).find(function(t){return CU&&(t.accId===CU.id||t.acc_uid===CU.id);});
-    if(_myT)_selfId=_myT.id;
-  }
-  var missed=(S.lessons||[]).filter(function(l){
-    return (l.status==='missed'||l.status==='makeup')&&(!_selfId||(l.tutorId||l.tutor_id)===_selfId);
-  }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
-  if(fStud) missed=missed.filter(function(l){return (l.studentId||l.student_id)===fStud;});
-  if(!missed.length){
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0438\u0445 \u043d\u0435\u043c\u0430\u0454</td></tr>';
-    return;
-  }
-  tbody.innerHTML=missed.map(function(l){
-    var s=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
-    var t=(S.tutors||[]).find(function(x){return x.id===(l.tutorId||l.tutor_id);});
-    var stl=l.status==='missed'
-      ?'<span style="color:#ef4444;font-weight:600">\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e</span>'
-      :'<span style="color:#f59e0b;font-weight:600">\u0412\u0456\u0434\u043f\u0440\u0430\u0446\u044c\u043e\u0432\u0430\u043d\u043e</span>';
-    return '<tr><td>'+fd(l.date)+'</td>'
-      +'<td>'+(s?s.fn+' '+s.ln:'\u2014')+'</td>'
-      +'<td>'+(t?t.fn+' '+t.ln:'\u2014')+'</td>'
-      +'<td>'+(l.subject||'\u2014')+'</td>'
-      +'<td>'+stl+'</td>'
-      +'<td style="font-size:11px">'+(l.missed_date?fd(l.missed_date):'\u2014')+'</td>'
-      +'<td style="font-size:11px">'+(l.makeup_date?fd(l.makeup_date):'\u2014')+'</td></tr>';
-  }).join('');
-}
-
-async function logInvoice(channel,recipient,studentId,from,to,lessonsCount,total){
-  if(!CU||!_sb)return;
-  try{await _sb.from('invoice_log').insert({sent_by:CU.id,student_id:studentId||null,period_from:from||null,period_to:to||null,lessons_count:lessonsCount||0,total_amount:total||0,channel:channel,recipient:recipient||'',branch_id:currentBranch()||null});}catch(e){}
-}
-
-async function renderInvoiceLog(){
-  var tbody=document.getElementById('inv-log-tbody');
-  if(!tbody)return;
-  try{
-    var res=await _sb.from('invoice_log').select('*,profiles!sent_by(fn,ln),students!student_id(fn,ln)').order('sent_at',{ascending:false}).limit(200);
-    if(res.error)throw res.error;
-    var rows=res.data||[];
-    if(!rows.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">\u0420\u0430\u0445\u0443\u043d\u043a\u0456\u0432 \u043d\u0435\u043c\u0430\u0454</td></tr>';return;}
-    tbody.innerHTML=rows.map(function(r){
-      var sender=r.profiles?(r.profiles.fn+' '+r.profiles.ln):'\u2014';
-      var student=r.students?(r.students.fn+' '+r.students.ln):'\u2014';
-      var sentAt=r.sent_at?new Date(r.sent_at).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'\u2014';
-      var period=(r.period_from?fd(r.period_from):'')+(r.period_to?' \u2013 '+fd(r.period_to):'');
-      return '<tr><td style="font-size:11px;color:var(--t2)">'+sentAt+'</td><td><b>'+student+'</b></td><td style="font-size:11px">'+period+'</td><td style="font-size:11px">'+r.lessons_count+' / '+(r.total_amount||0)+'\u0433\u0440\u043d</td><td><span style="font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(41,171,226,.15);color:var(--adm)">'+(r.channel||'')+'</span></td><td style="font-size:11px">'+r.recipient+'</td><td style="font-size:11px;color:var(--t2)">'+sender+'</td></tr>';
-    }).join('');
-  }catch(e){
-    tbody.innerHTML='<tr><td colspan="7" style="color:var(--danger)">\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message+'</td></tr>';
-  }
-}
-
-function updateInvPhone(){
-  var sid=(document.getElementById('inv-student')||{value:''}).value;
-  var wrap=document.getElementById('inv-phone-wrap');
-  if(!sid||!wrap){if(wrap)wrap.style.display='none';return;}
-  var s=(S.students||[]).find(function(x){return x.id===sid;});
-  wrap.style.display=s&&s.phone?'block':'none';
-  var ph=document.getElementById('inv-phone');
-  if(ph&&s) ph.value=s.phone||'';
-}
-
-function openViberContact(){
-  var sid=(document.getElementById('inv-student')||{value:''}).value;
-  var s=(S.students||[]).find(function(x){return x.id===sid;});
-  var phone=s&&s.phone?s.phone.replace(/\D/g,''):'';
-  if(phone) window.open('viber://chat?number='+phone);
-  else mkToast('\u041d\u0435\u043c\u0430\u0454 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0443','error');
-}
-
-function sendViberFromPanel(){
-  var sid=(document.getElementById('inv-student')||{value:''}).value;
-  var s=(S.students||[]).find(function(x){return x.id===sid;});
-  if(!s){mkToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f','error');return;}
-  var phone=s.phone?s.phone.replace(/\D/g,''):'';
-  if(phone) window.open('viber://chat?number='+phone);
-}
-
-function openBranchM(id){
-  var b=id?(S.branches||[]).find(function(x){return x.id===id;}):null;
-  var fields=['name','address','phone','email'];
-  fields.forEach(function(f){var el=document.getElementById('br-'+f);if(el)el.value=b?(b[f]||b[f.replace('-','_')]||''):'';});
-  S.editId=id||null;
-  openM('mo-branch');
-}
-
-async function saveBranchModal(){
-  var name=(document.getElementById('br-name')||{value:''}).value.trim();
-  if(!name){mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043d\u0430\u0437\u0432\u0443','error');return;}
-  var obj={name:name,address:(document.getElementById('br-addr')||{value:''}).value,phone:(document.getElementById('br-phone')||{value:''}).value,email:(document.getElementById('br-email')||{value:''}).value};
-  try{
-    if(S.editId) await dbUpdate(S.editId,obj);
-    else{obj.id='br'+Date.now();await dbInsert(obj);}
-    mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e');closeM('mo-branch');
-  }catch(e){mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');}
-}
-
-function deleteLessonFromModal(){
-  if(!S.editId)return;
-  if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0446\u0435\u0439 \u0443\u0440\u043e\u043a?'))return;
-  dbDelete('lessons',S.editId);
-  closeM('mo-lesson');
-}
-
-async function deleteLessonSeriesFromModal(){
-  if(!S.editId)return;
-  var l=(S.lessons||[]).find(function(x){return x.id===S.editId;});
-  if(!l||!l.recurId){mkToast('\u041d\u0435\u043c\u0430\u0454 \u0441\u0435\u0440\u0456\u0457','error');return;}
-  var series=S.lessons.filter(function(x){return x.recurId===l.recurId;});
-  if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0432\u0441\u044e \u0441\u0435\u0440\u0456\u044e? ('+series.length+' \u0443\u0440\u043e\u043a\u0456\u0432)'))return;
-  try{
-    for(var i=0;i<series.length;i++) await _sb.from('lessons').delete().eq('id',series[i].id);
-    S.lessons=S.lessons.filter(function(x){return x.recurId!==l.recurId;});
-    mkToast('\u0421\u0435\u0440\u0456\u044e \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043e');
-    closeM('mo-lesson');renderSch();
-  }catch(e){mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');}
-}
-
-function schNav(d){chWk(d);}
-function renderNav(){buildSidebar();}
-function renderInvoicePage(){populateStudentSearch&&populateStudentSearch('inv2-student',myStudents());}
-
-function calcTutorRating(tutorId){
-  var now=new Date(),fourWeeksAgo=new Date(now);
-  fourWeeksAgo.setDate(now.getDate()-28);
-  var from=localDateStr(fourWeeksAgo),today=localDateStr(now);
-  var lessons=(S.lessons||[]).filter(function(l){return (l.tutorId||l.tutor_id)===tutorId&&l.date>=from&&l.date<=today;});
-  var done=lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
-  var missed=lessons.filter(function(l){return l.status==='missed';}).length;
-  var total=done+missed;
-  var pct=total>0?Math.round(done/total*100):null;
-  if(pct===null)return 5;
-  if(pct>=90&&missed===0)return 5;
-  if(pct>=75)return 4;
-  if(pct>=60)return 3;
-  if(pct>=40)return 2;
-  return 1;
-}
-
-async function updateAllTutorRatings(){
-  if(!_sb||!CU)return;
-  if(R()!=='god'&&R()!=='director'&&R()!=='admin')return;
-  for(var i=0;i<(S.tutors||[]).length;i++){
-    var t=S.tutors[i];var nr=calcTutorRating(t.id);
-    if(nr!==t.rating){try{await _sb.from('tutors').update({rating:nr}).eq('id',t.id);t.rating=nr;}catch(e){}}
-  }
-}
-
-function scheduleDailyRatingUpdate(){
-  var now=new Date(),next9=new Date(now);
-  next9.setHours(9,0,0,0);if(next9<=now)next9.setDate(next9.getDate()+1);
-  setTimeout(function(){updateAllTutorRatings();setInterval(updateAllTutorRatings,86400000);},next9-now);
-}
-
-async function splitLessonTo30(){
-  var id=S.editId;
-  if(!id){mkToast('\u041d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u0443\u0440\u043e\u043a','error');return;}
-  var orig=(S.lessons||[]).find(function(l){return l.id===id;});
-  if(!orig){mkToast('\u0423\u0440\u043e\u043a \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e','error');return;}
-  var curDur=parseInt((document.getElementById('l-dur')||{value:'60'}).value)||parseInt(orig.dur)||60;
-  var nParts=Math.floor(curDur/30);
-  if(nParts<2){mkToast('\u0422\u0440\u0438\u0432\u0430\u043b\u0456\u0441\u0442\u044c \u043c\u0456\u043d\u0456\u043c\u0443\u043c 60 \u0445\u0432','error');return;}
-  if(!confirm('\u0420\u043e\u0437\u0431\u0438\u0442\u0438 ('+curDur+' \u0445\u0432) \u043d\u0430 '+nParts+' \xd7 30 \u0445\u0432?'))return;
-  var lt=orig.time||'10:00',lh0=parseInt(lt.split(':')[0]),lm0=parseInt(lt.split(':')[1]||'0');
-  var base={student_id:orig.studentId||orig.student_id,tutor_id:orig.tutorId||orig.tutor_id,subject:orig.subject||'',date:orig.date,status:orig.status||'missed',dur:30,price:Math.round((orig.price||0)/nParts),branch_id:orig.branchId||orig.branch_id||null,split_group_id:id,split_index:0};
-  try{
-    await dbUpdate('lessons',id,{dur:30,price:base.price,split_group_id:id,split_index:0});
-    for(var p=1;p<nParts;p++){
-      var totalMins=lm0+30*p,newH=lh0+Math.floor(totalMins/60),newM=totalMins%60;
-      var newTime=String(newH).padStart(2,'0')+':'+String(newM).padStart(2,'0');
-      await dbInsert('lessons',Object.assign({},base,{time:newTime,id:uid(),split_index:p}));
-    }
-    mkToast('\u0420\u043e\u0437\u0431\u0438\u0442\u043e \u043d\u0430 '+nParts+' \xd7 30 \u0445\u0432');
-    closeM('mo-lesson');
-  }catch(e){mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');}
-}
-
-function renderLessons(){
-  var stf=document.getElementById('lf-stat');
-  var sdf=document.getElementById('lf-student');
-  var sv=stf?stf.value:'';
-  var sdv=sdf?sdf.value:'';
-  if(sdf){
-    var cur=sdf.value;
-    sdf.innerHTML='<option value="">\u0412\u0441\u0456 \u0443\u0447\u043d\u0456</option>'
-      +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');}).map(function(s){
-        return '<option value="'+s.id+'"'+(s.id===cur?' selected':'')+'>'+s.fn+' '+s.ln+'</option>';
-      }).join('');
-  }
-  var data=[].concat(myLessons()).sort(function(a,b){return new Date(b.date+'T'+(b.time||'00:00'))-new Date(a.date+'T'+(a.time||'00:00'));});
-  if(sdv) data=data.filter(function(l){return (l.studentId||l.student_id)===sdv;});
-  if(sv) data=data.filter(function(l){if(sv==='done')return l.status==='done'||l.status==='completed';return l.status===sv;});
-  var hasMissed=sv==='missed'||sv==='makeup'||(!sv&&data.some(function(l){return l.status==='missed'||l.status==='makeup';}));
-  var mc=document.getElementById('lt-miss-col'),mkc=document.getElementById('lt-makeup-col');
-  if(mc) mc.style.display=hasMissed?'':'none';
-  if(mkc) mkc.style.display=hasMissed?'':'none';
-  var ce=can('lessons');
-  var ri=function(l){return l.recurId?'<span style="color:var(--adm);font-size:10px">\uD83D\uDD01</span>':'';};
-  var html=data.length?data.map(function(l){
-    var mc2=hasMissed?('<td style="font-size:11px;color:var(--danger)">'+(l.missed_date?fd(l.missed_date):'\u2014')+'</td>'):'';
-    var mk2=hasMissed?('<td style="font-size:11px;color:#f59e0b">'+(l.makeup_date?fd(l.makeup_date):'\u2014')+'</td>'):'';
-    var btns=ce?('<button class="btn btn-g btn-sm" onclick="openLessM(this.dataset.id)" data-id="'+l.id+'">\u270F\uFE0F</button>'
-      +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delLesson(this.dataset.id)" data-id="'+l.id+'">\uD83D\uDDD1</button>'):'';
-    return '<tr><td>'+sn(l.studentId||l.student_id)+'</td><td>'+(l.subject||'\u2014')+' '+ri(l)+'</td>'
-      +'<td style="font-size:12px">'+(l.tutorId||l.tutor_id?tn(l.tutorId||l.tutor_id):'\u2014')+'</td>'
-      +'<td style="font-family:JetBrains Mono,monospace;font-size:11px">'+fd(l.date)+' '+(l.time||'')+'</td>'
-      +'<td>'+(l.dur||60)+' \u0445\u0432</td>'+mc2+mk2
-      +'<td style="font-size:11px;color:var(--t2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(l.notes||'\u2014')+'</td>'
-      +'<td>'+bst(l.status)+'</td><td><div style="display:flex;gap:3px">'+btns+'</div></td></tr>';
-  }).join('')
-  :'<tr><td colspan="10"><div class="empty"><div class="ei">\uD83D\uDCDA</div>\u0417\u0430\u043d\u044f\u0442\u044c \u043d\u0435\u043c\u0430\u0454</div></td></tr>';
-  document.getElementById('lt-table').innerHTML=html;
-}
-
-function renderSettings(){
-  var gcWrap=document.getElementById('god-constructor-wrap');
-  if(gcWrap) gcWrap.style.display=(R()==='god')?'block':'none';
-}
-
-window.studentSearch=studentSearch;
-window.populateStudentSearch=populateStudentSearch;
-window.setStudentSearch=setStudentSearch;
-window.renderCommsPage=renderCommsPage;
-window.renderMissedLessons=renderMissedLessons;
-window.logInvoice=logInvoice;
-window.renderInvoiceLog=renderInvoiceLog;
-window.onLessStatChange=onLessStatChange;
-window.updateInvPhone=updateInvPhone;
-window.openViberContact=openViberContact;
-window.sendViberFromPanel=sendViberFromPanel;
-window.openBranchM=openBranchM;
-window.saveBranchModal=saveBranchModal;
-window.deleteLessonFromModal=deleteLessonFromModal;
-window.deleteLessonSeriesFromModal=deleteLessonSeriesFromModal;
-window.splitLessonTo30=splitLessonTo30;
-
-// Inject page CSS immediately
-(function(){
-  var s=document.createElement('style');
-  s.id='__page_css__';
-  s.textContent='.page{display:none!important}.page.active{display:block!important;min-height:100%;width:100%}';
-  document.head.appendChild(s);
-})();
-
 document.addEventListener('DOMContentLoaded', initApp);
 
 // Tutor checkbox visual feedback
