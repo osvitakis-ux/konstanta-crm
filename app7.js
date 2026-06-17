@@ -780,14 +780,17 @@ function myLessons(){
 function myStudents(){
   var all = filterByBranch(S.students || []);
   try{ if(P().seeAll) return all; }catch(e){ return all; }
+  if(R() !== 'tutor') return all;
   var cuId = CU ? CU.id : null;
   var mt = S.tutors.find(function(t){
-    return t.accId === cuId || t.acc_uid === cuId;
+    return t.accId === cuId || t.acc_uid === cuId || t.id === cuId;
   });
-  if(!mt) return all;
+  if(!mt) return all; // fallback: show all if tutor record not found
   return all.filter(function(s){
     if(s.tutorId === mt.id || s.tutor_id === mt.id) return true;
     if(Array.isArray(s.tutorIds) && s.tutorIds.indexOf(mt.id) >= 0) return true;
+    // also check raw tutor_ids string
+    if(typeof s.tutor_ids === 'string' && s.tutor_ids.split(',').indexOf(mt.id) >= 0) return true;
     return false;
   });
 }
@@ -3724,7 +3727,9 @@ function renderSchDay(){
 
   // Determine tutors to show
   const filterTutor = tf ? tf.value : '';
-  let tutors = P().seeAll ? (S.tutors||[]) : (S.tutors||[]).filter(t=>t.accId===CU?.id);
+  let tutors = P().seeAll ? (S.tutors||[]) : (S.tutors||[]).filter(function(t){
+    return t.accId===CU?.id || t.acc_uid===CU?.id;
+  });
   if(filterTutor) tutors = tutors.filter(t=>t.id===filterTutor);
 
   const hrs  = Array.from({length:13},(_,i)=>i+8);
