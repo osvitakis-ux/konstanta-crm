@@ -394,8 +394,12 @@ function filterByBranch(arr){
   if(!bid && isSuperAdmin()) return arr;
   // If no branch set and not super admin, use user's branch
   const activeBid = bid || myBranchId();
+  // If no active branch determined, return all
   if(!activeBid) return arr;
-  return (arr||[]).filter(x=>!x.branchId||x.branchId===activeBid);
+  // Include items with no branch OR matching branch
+  return (arr||[]).filter(function(x){
+    return !x.branchId || x.branchId===activeBid || !x.branch_id;
+  });
 }
 
 function myBranchId(){
@@ -491,7 +495,11 @@ function myStudents(){
   return mt ? all.filter(function(s){return s.tutorId===mt.id||s.tutor_id===mt.id;}) : all;
 }
 
-function myTutor(){return S.tutors.find(t=>t.accId===CU?.id)||null;}
+function myTutor(){
+  return S.tutors.find(function(t){
+    return t.accId===CU?.id || t.acc_uid===CU?.id;
+  }) || null;
+}
 
 function calcPrice(subjectName, tutorId, grade, dur){
   // Match rules by specificity: most specific wins
