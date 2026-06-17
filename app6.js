@@ -390,6 +390,8 @@ function branchName(id){
 
 function filterByBranch(arr){
   const bid=currentBranch();
+  // Tutors see all their own data (filtered by tutor id elsewhere)
+  if(R()==='tutor') return arr||[];
   // Super admins with no specific branch selected see all
   if(!bid && isSuperAdmin()) return arr;
   // If no branch set and not super admin, use user's branch
@@ -398,7 +400,7 @@ function filterByBranch(arr){
   if(!activeBid) return arr;
   // Include items with no branch OR matching branch
   return (arr||[]).filter(function(x){
-    return !x.branchId || x.branchId===activeBid || !x.branch_id;
+    return !x.branchId || x.branchId===activeBid;
   });
 }
 
