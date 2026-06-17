@@ -474,8 +474,13 @@ function closeSidebar(){
 function myLessons(){
   const all=filterByBranch(S.lessons);
   if(P().seeAll)return all;
-  const mt=S.tutors.find(t=>t.accId===CU?.id);
-  return mt?all.filter(l=>l.tutorId===mt.id):[];
+  const mt=S.tutors.find(function(t){
+    return t.accId===CU?.id || t.acc_uid===CU?.id || t.userId===CU?.id;
+  });
+  if(!mt) return [];
+  return all.filter(function(l){
+    return l.tutorId===mt.id || l.tutor_id===mt.id;
+  });
 }
 
 function myStudents(){
