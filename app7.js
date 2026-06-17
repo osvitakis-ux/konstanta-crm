@@ -512,14 +512,14 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -533,14 +533,14 @@ var ROLES = {
   network_admin: {
     label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#5b60d4,#29abe2)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
   tutor: {
     label:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440', icon:'\uD83D\uDCDA', color:'var(--tut)',
     avatarBg:'linear-gradient(135deg,#22b573,#7ac943)',
-    nav:['dashboard','students','schedule','lessons','comms','missed','profile'],
+    nav:['dashboard','students','schedule','lessons','comms','profile'],
     can:{students:true,tutors:false,lessons:true,payments:false,users:false,settings:false,danger:false,deleteAny:false},
     seeIncome:false, seeAll:false, canEditUsers:false, showGodBanner:false
   },
@@ -560,7 +560,6 @@ var NAV_CFG = [
   {id:'settings',   ico:'\u25C9',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'crm', ico:'▤', lbl:'CRM', sec:'Менеджмент'},
     {id:'comms',       ico:'\u25CE', lbl:'\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0457', sec:'\u041d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
-  {id:'missed',      ico:'\u25C9', lbl:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0456',   sec:'\u041d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
   {id:'invoice',     ico:'\u25A6', lbl:'\u0420\u0430\u0445\u0443\u043d\u043e\u043a',                  sec:'\u0424\u0456\u043d\u0430\u043d\u0441\u0438'},
   {id:'invoice-log', ico:'\u25A4', lbl:'\u041b\u043e\u0433 \u0440\u0430\u0445\u0443\u043d\u043a\u0456\u0432', sec:'\u0424\u0456\u043d\u0430\u043d\u0441\u0438'},
   {id:'profile',    ico:'\u25A3',  lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',  sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
@@ -3264,6 +3263,7 @@ function nav(page){
   if(addMap[page]&&can(page==='users'?'users':page==='students'?'students':page==='tutors'?'tutors':page==='payments'?'payments':'lessons')){ab.textContent='+ '+addMap[page];ab.style.display='flex';}
   else ab.style.display='none';
   if(page==='dashboard')renderDash();
+    loadAll().then(function(){try{renderDash();}catch(e){}}).catch(function(){});
   if(page==='students')renderStudents();
   if(page==='tutors')renderTutors();
   if(page==='schedule')renderSch();
