@@ -216,14 +216,14 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','branches','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','branches','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -237,7 +237,7 @@ var ROLES = {
   network_admin: {
     label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#5b60d4,#29abe2)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','branches','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','missed','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -260,7 +260,7 @@ var NAV_CFG = [
   {id:'reports',    ico:'\u25E7',  lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'analytics',  ico:'\u25A4',  lbl:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430',   sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-  {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
+
   {id:'settings',   ico:'\u25C9',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'comms',       ico:'\u25CE',  lbl:'\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0457', sec:'\u041d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
   {id:'missed',      ico:'\u25C9',  lbl:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0456',                sec:'\u041d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
@@ -389,19 +389,7 @@ function branchName(id){
 }
 
 function filterByBranch(arr){
-  const bid=currentBranch();
-  // Tutors see all their own data (filtered by tutor id elsewhere)
-  if(R()==='tutor') return arr||[];
-  // Super admins with no specific branch selected see all
-  if(!bid && isSuperAdmin()) return arr;
-  // If no branch set and not super admin, use user's branch
-  const activeBid = bid || myBranchId();
-  // If no active branch determined, return all
-  if(!activeBid) return arr;
-  // Include items with no branch OR matching branch
-  return (arr||[]).filter(function(x){
-    return !x.branchId || x.branchId===activeBid;
-  });
+  return arr||[];
 }
 
 function myBranchId(){
@@ -1834,7 +1822,7 @@ async function exportBackup(){
   if(btn){ btn.disabled=true; btn.textContent='Завантаження...'; }
   try{
     // Load all data fresh from Supabase
-    var tables = ['branches','tutors','students','lessons','payments','subjects','comms','pricing_rules','settings'];
+    var tables = ['tutors','students','lessons','payments','subjects','comms','pricing_rules','settings'];
     var backup = { version:1, created: new Date().toISOString(), data:{} };
     for(var i=0;i<tables.length;i++){
       var res = await _sb.from(tables[i]).select('*');
@@ -1891,7 +1879,7 @@ async function importBackup(input){
 
     var stats = {};
     // Restore tables in correct order (deps first)
-    var order = ['branches','subjects','pricing_rules','tutors','students','lessons','payments','comms','settings'];
+    var order = ['subjects','pricing_rules','tutors','students','lessons','payments','comms','settings'];
     for(var i=0;i<order.length;i++){
       var table = order[i];
       var rows  = backup.data[table];
@@ -2058,7 +2046,7 @@ function setSynced(){
 async function loadAll(){
   setSaving();
   const tables = [
-    { table:'branches',      key:'branches' },
+    { table:'branches', key:'branches' },
     { table:'tutors',        key:'tutors' },
     { table:'students',      key:'students' },
     { table:'lessons',       key:'lessons',  order:'date' },
@@ -2186,8 +2174,7 @@ async function loadTableFresh(table){
   var tableMap = {
     students:'students', tutors:'tutors', lessons:'lessons',
     payments:'payments', subjects:'subjects', comms:'comms',
-    pricing_rules:'pricingRules', branches:'branches'
-  };
+    pricing_rules:'pricingRules', branches:'branches'};
   var key = tableMap[table];
   if(!key) return;
   var norm = {students:normalizeStudent,lessons:normalizeLesson,
@@ -2470,7 +2457,7 @@ async function addBranch(){
   var addr=(document.getElementById('new-branch-addr')?.value||'').trim();
   if(!nm){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443 \u0444\u0456\u043B\u0456\u0457','error'); return; }
   try{
-    await dbInsert('branches',{id:'b'+uid(),name:nm,address:addr,phone:''});
+    await dbInsert({id:'b'+uid(),name:nm,address:addr,phone:''});
     document.getElementById('new-branch-name').value='';
     document.getElementById('new-branch-addr').value='';
     mkToast('\u0424\u0456\u043B\u0456\u044E \u0434\u043E\u0434\u0430\u043D\u043E');
@@ -2479,7 +2466,7 @@ async function addBranch(){
 
 async function delBranch(id){
   if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0444\u0456\u043B\u0456\u044E?')) return;
-  try{ await dbDelete('branches',id); if(S.currentBranchId===id)S.currentBranchId=null; mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+  try{ await dbDelete(id); if(S.currentBranchId===id)S.currentBranchId=null; mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
 }
 
 async function editBranch(id){
@@ -2487,7 +2474,7 @@ async function editBranch(id){
   if(!b) return;
   var nm=prompt('\u041D\u0430\u0437\u0432\u0430 \u0444\u0456\u043B\u0456\u0457:',b.name); if(!nm) return;
   var addr=prompt('\u0410\u0434\u0440\u0435\u0441\u0430:',b.address||'');
-  try{ await dbUpdate('branches',id,{name:nm,address:addr}); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }catch(e){}
+  try{ await dbUpdate(id,{name:nm,address:addr}); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }catch(e){}
 }
 
 // Pricing rules
@@ -2993,7 +2980,6 @@ function nav(page){
   if(page==='lessons')renderLessons();
   if(page==='payments')renderPayments();
   if(page==='reports')renderReports();
-  if(page==='branches'){renderBranches();renderBranchStats();}
   if(page==='users')renderUsers();
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
@@ -4417,8 +4403,8 @@ async function saveBranchModal(){
   if(!name){mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043d\u0430\u0437\u0432\u0443','error');return;}
   var obj={name:name,address:(document.getElementById('br-addr')||{value:''}).value,phone:(document.getElementById('br-phone')||{value:''}).value,email:(document.getElementById('br-email')||{value:''}).value};
   try{
-    if(S.editId) await dbUpdate('branches',S.editId,obj);
-    else{obj.id='br'+Date.now();await dbInsert('branches',obj);}
+    if(S.editId) await dbUpdate(S.editId,obj);
+    else{obj.id='br'+Date.now();await dbInsert(obj);}
     mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e');closeM('mo-branch');
   }catch(e){mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');}
 }
