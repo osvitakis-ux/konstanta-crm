@@ -3592,11 +3592,9 @@ function genRecurDates(startDate,recurType,endDate,count,interval){
   const end=endDate?new Date(endDate+'T23:59:59'):null;
   const maxCount=count?Math.min(parseInt(count),200):104;
   let cur=new Date(start);
-  for(let i=0;i<maxCount;i++){
-    if(i>0){
-      if(end&&cur>end)break;
-      dates.push(localDateStr(cur));
-    }
+  while(dates.length<maxCount){
+    if(end&&cur>end)break;
+    dates.push(localDateStr(cur));
     const next=new Date(cur);
     if(recurType==='daily'){next.setDate(next.getDate()+1);}
     else if(recurType==='weekly'){next.setDate(next.getDate()+7);}
@@ -3609,9 +3607,9 @@ function genRecurDates(startDate,recurType,endDate,count,interval){
       next.setDate(next.getDate()+weekNum*7);
     }
     else if(recurType==='custom'){next.setDate(next.getDate()+Math.max(1,parseInt(interval)||7));}
+    else break;
     if(end&&next>end)break;
     cur=next;
-    if(dates.length>=maxCount-1)break;
   }
   return dates;
 }
