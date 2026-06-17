@@ -2688,7 +2688,7 @@ async function startApp(){
     if(!s){
       s = document.createElement('style');
       s.id = '__page_css__';
-      s.textContent = '.page{display:none!important}.page.active{display:block!important}';
+      s.textContent = '.page{display:none!important}.page.active{display:block!important;min-height:100%;width:100%}';
       document.head.appendChild(s);
     }
   })();
@@ -4557,7 +4557,7 @@ window.splitLessonTo30=splitLessonTo30;
 (function(){
   var s=document.createElement('style');
   s.id='__page_css__';
-  s.textContent='.page{display:none!important}.page.active{display:block!important}';
+  s.textContent='.page{display:none!important}.page.active{display:block!important;min-height:100%;width:100%}';
   document.head.appendChild(s);
 })();
 
