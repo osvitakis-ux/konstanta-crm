@@ -482,7 +482,12 @@ function myStudents(){
   try{ if(P().seeAll) return all; }catch(e){ return all; }
   var cuId = CU ? CU.id : null;
   var mt=S.tutors.find(function(t){return t.accId===cuId||t.acc_uid===cuId;});
-  return mt ? all.filter(function(s){return s.tutorId===mt.id||s.tutor_id===mt.id;}) : all;
+  if(!mt) return all;
+  return all.filter(function(s){
+    if(s.tutorId===mt.id || s.tutor_id===mt.id) return true;
+    if(Array.isArray(s.tutorIds) && s.tutorIds.indexOf(mt.id)>=0) return true;
+    return false;
+  });
 }
 
 function myTutor(){
