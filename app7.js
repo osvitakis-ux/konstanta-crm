@@ -2630,16 +2630,21 @@ async function saveLesson(){
   var date=dateEl?dateEl.value:'';
   if(!studentId||!date){ mkToast("\u0423\u0447\u0435\u043D\u044C \u0442\u0430 \u0434\u0430\u0442\u0430 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
   var recurType = document.getElementById('l-recur')?.value||'none';
+  var _stat = document.getElementById('l-stat')?.value||'planned';
   var obj={
     student_id: studentId,
     tutor_id:   document.getElementById('l-tutor')?.value||null,
     subject:    document.getElementById('l-subj')?.value||'',
-    date, time: document.getElementById('l-time')?.value||'',
-    dur:    parseInt(document.getElementById('l-dur')?.value)||60,
-    price:  parseFloat(document.getElementById('l-price')?.value)||0,
-    status: document.getElementById('l-stat')?.value||'planned',
-    notes:  document.getElementById('l-notes')?.value||'',
-    branch_id: myBranchId()||null,
+    date:       date,
+    time:       document.getElementById('l-time')?.value||'',
+    dur:        parseInt(document.getElementById('l-dur')?.value)||60,
+    price:      parseFloat(document.getElementById('l-price')?.value)||0,
+    status:     _stat,
+    notes:      document.getElementById('l-notes')?.value||'',
+    branch_id:  myBranchId()||null,
+    missed_date: (_stat==='missed'||_stat==='makeup') ? (document.getElementById('l-miss-date')?.value||null) : null,
+    makeup_date: _stat==='makeup' ? (document.getElementById('l-makeup-date')?.value||null) : null,
+    hw:          document.getElementById('l-hw')?.value||null,
   };
   window._saving = true;
   try{
