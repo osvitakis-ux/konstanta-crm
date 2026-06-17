@@ -898,9 +898,12 @@ function renderDashKpi(){
   var tlbl=document.getElementById('dash-tutor-week-lbl');
   if(tlbl)tlbl.textContent=wr.label;
 
-  var allL=S.lessons;
+  var allL=myLessons();
   var weekL=allL.filter(function(l){return inWeek(l.date,wr);});
-  var weekComms=(S.comms||[]).filter(function(c){return inWeek(c.date,wr);});
+  var _myT=myTutor();
+  var weekComms=(S.comms||[]).filter(function(c){
+    return inWeek(c.date,wr)&&(R()!=='tutor'||!_myT||(c.tutorId||c.tutor_id)===_myT.id);
+  });
 
   var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length;
   var missed  = weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
@@ -1051,8 +1054,11 @@ function renderDashTrends(){
   var weeks = [];
   for(var i=3;i>=0;i--){
     var wr = getWeekRange(offset-i);
-    var weekL = S.lessons.filter(function(l){return inWeek(l.date,wr);});
-    var weekComms = (S.comms||[]).filter(function(c){return inWeek(c.date,wr);});
+    var _mt2=myTutor();
+    var weekL = myLessons().filter(function(l){return inWeek(l.date,wr);});
+    var weekComms = (S.comms||[]).filter(function(c){
+      return inWeek(c.date,wr)&&(R()!=='tutor'||!_mt2||(c.tutorId||c.tutor_id)===_mt2.id);
+    });
     weeks.push({
       wr:wr,
       done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed';}).length,
@@ -1216,7 +1222,10 @@ function renderCommLog(){
   var el  = document.getElementById('dash-comm-log');
   var el2 = document.getElementById('dash-comm-log2');
   if(!el && !el2) return;
-  var comms=[].concat(S.comms||[]).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,20);
+  var _myTc=myTutor();
+  var comms=[].concat(S.comms||[])
+    .filter(function(c){return R()!=='tutor'||!_myTc||(c.tutorId||c.tutor_id)===_myTc.id;})
+    .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,20);
   var typeIco={call:'📞',message:'💬',meeting:'🤝',email:'📧',other:'📋',msg:'💬',meet:'🤝'};
   var html;
   if(!comms.length){
