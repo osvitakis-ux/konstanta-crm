@@ -3224,6 +3224,13 @@ function openLessM(id, date, time){
       document.getElementById('l-stat').value = l.status||'planned';
       document.getElementById('l-price').value = l.price||'';
       document.getElementById('l-notes').value = l.notes||'';
+      // Load missed/makeup dates and hw
+      var missEl=document.getElementById('l-miss-date');
+      if(missEl) missEl.value=l.missed_date||'';
+      var makeupEl=document.getElementById('l-makeup-date');
+      if(makeupEl) makeupEl.value=l.makeup_date||'';
+      var hwEl=document.getElementById('l-hw');
+      if(hwEl) hwEl.value=l.hw||'';
       if(typeof onLessStatChange==='function') onLessStatChange();
       if(l.recurId){
         var siblings = (S.lessons||[]).filter(function(x){return x.recurId===l.recurId;});
