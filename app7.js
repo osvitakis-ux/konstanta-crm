@@ -287,13 +287,19 @@ function renderMissedLessons(){
     var stl=l.status==='missed'
       ?'<span style="color:#ef4444;font-weight:600">Пропущено</span>'
       :'<span style="color:#f59e0b;font-weight:600">Відпрацювання</span>';
+    // missed_date: for missed lessons use the lesson date itself as fallback
+    var missedDateStr = l.status==='missed'||l.status==='makeup'
+      ? (l.missed_date ? fd(l.missed_date) : fd(l.date))
+      : '';
+    // makeup_date: only for makeup status
+    var makeupDateStr = l.makeup_date ? fd(l.makeup_date) : '';
     return '<tr><td>'+fd(l.date)+'</td>'
       +'<td>'+(s?s.fn+' '+s.ln:'—')+'</td>'
       +'<td>'+(t?t.fn+' '+t.ln:'—')+'</td>'
       +'<td>'+(l.subject||'—')+'</td>'
       +'<td>'+stl+'</td>'
-      +'<td style="font-size:11px">'+(l.missed_date?fd(l.missed_date):'—')+'</td>'
-      +'<td style="font-size:11px">'+(l.makeup_date?fd(l.makeup_date):'—')+'</td></tr>';
+      +'<td style="font-size:11px">'+(missedDateStr||'—')+'</td>'
+      +'<td style="font-size:11px">'+(makeupDateStr||'—')+'</td></tr>';
   }).join('');
 }
 
