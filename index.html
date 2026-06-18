@@ -1176,12 +1176,13 @@ body.role-tutor .comm-add-btn { display: none !important; }
       </div>
       <div id="recur-preview" style="display:none;grid-column:1/-1;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--t2)"></div>
       <!-- END RECURRING -->
-      <div class="fgr full"><label>Нотатки / ДЗ</label><textarea id="l-notes"></textarea></div>
+      <div class="fgr"><label>Нотатки</label><textarea id="l-notes" rows="2" style="min-height:60px"></textarea></div>
+      <div class="fgr"><label>Домашнє завдання</label><textarea id="l-hw" rows="2" style="min-height:60px"></textarea></div>
     </div></div>
     <div class="mdlf">
       <div id="mo-lesson-cf" class="fg" style="padding:0 24px 0;margin:0 0 4px 0"></div>
       <button class="btn btn-g" onclick="closeM('mo-lesson')">Скасувати</button>
-      <button class="btn btn-d" id="del-lesson-btn" onclick="deleteLessonFromModal()" style="display:none">🗑 Видалити</button>
+      <button class="btn btn-d" id="del-lesson-btn" onclick="deleteLessonSeriesFromModal()" style="display:none">🗑 Видалити серію</button>
       <button class="btn btn-d" id="del-series-btn" onclick="deleteLessonSeriesFromModal()" style="display:none;background:var(--danger);opacity:.8">🗑 Видалити серію</button>
       <button class="btn btn-g" id="recur-preview-btn" style="display:none" onclick="previewRecur()">👁 Переглянути</button>
       <button class="btn btn-p" onclick="saveLesson()">💾 Зберегти</button>
