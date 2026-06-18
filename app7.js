@@ -3373,8 +3373,9 @@ function nav(page){
   const ab=document.getElementById('addbtn');
   if(addMap[page]&&can(page==='users'?'users':page==='students'?'students':page==='tutors'?'tutors':page==='payments'?'payments':'lessons')){ab.textContent='+ '+addMap[page];ab.style.display='flex';}
   else ab.style.display='none';
-  if(page==='dashboard')renderDash();
-    loadAll().then(function(){try{renderDash();}catch(e){}}).catch(function(){});
+  if(page==='dashboard'){
+    renderDash(); // render with existing data immediately
+  }
   if(page==='students')renderStudents();
   if(page==='tutors')renderTutors();
   if(page==='schedule')renderSch();
