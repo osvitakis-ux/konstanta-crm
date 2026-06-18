@@ -226,7 +226,7 @@ function renderCommsPage(){
 
   // Populate student filter
   var fStudSel=document.getElementById('comm-f-student');
-  if(fStudSel && fStudSel.options.length<=1){
+  if(fStudSel){
     var cur=fStudSel.value;
     fStudSel.innerHTML='<option value="">Всі учні</option>'
       +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
@@ -3268,25 +3268,38 @@ function openPayM(id=null){
 
 
 function openCommM(tutorId){
-  if(!can('lessons')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
   var mo=document.getElementById('mo-comm');
   if(!mo)return;
+  // Tutor select - hide for tutor role (pre-select own)
   var tSel=document.getElementById('cm-tutor');
-  if(tSel){
-    tSel.innerHTML='<option value="">\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430</option>'
-      +S.tutors.map(function(t){
-        return '<option value="'+t.id+'"'+(t.id===tutorId?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';
-      }).join('');
+  var tWrap=tSel?tSel.closest('.fgr'):null;
+  var mt=myTutor();
+  if(R()==='tutor'){
+    if(tWrap) tWrap.style.display='none';
+    if(tSel&&mt) tSel.innerHTML='<option value="'+mt.id+'">'+mt.fn+' '+mt.ln+'</option>';
+  } else {
+    if(tWrap) tWrap.style.display='';
+    if(tSel){
+      var selId=tutorId||(mt?mt.id:'');
+      tSel.innerHTML='<option value="">Оберіть репетитора</option>'
+        +(S.tutors||[]).map(function(t){
+          return '<option value="'+t.id+'"'+(t.id===selId?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';
+        }).join('');
+    }
   }
+  // Student select - use myStudents()
   var sSel=document.getElementById('cm-student');
   if(sSel){
-    sSel.innerHTML='<option value="">\u0423\u0447\u0435\u043D\u044C (\u043D\u0435\u043E\u0431\u043E\u0432\'\u044F\u0437\u043A\u043E\u0432\u043E)</option>'
-      +S.students.map(function(s){
-        return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';
-      }).join('');
+    sSel.innerHTML='<option value="">Учень (необов\'язково)</option>'
+      +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
   }
+  // Note field
+  var noteEl=document.getElementById('cm-note');
+  if(noteEl) noteEl.value='';
+  // Date = today
   var dateEl=document.getElementById('cm-date');
-  if(dateEl)dateEl.value=new Date().toISOString().slice(0,10);
+  if(dateEl) dateEl.value=localDateStr(new Date());
   openM('mo-comm');
 }
 
