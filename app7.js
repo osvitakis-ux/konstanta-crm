@@ -438,23 +438,72 @@ async function splitLessonTo30(){
   }catch(e){mkToast('Помилка: '+e.message,'error');}
 }
 
+/*
+ * ПРАВИЛА РОЗРАХУНКУ РЕЙТИНГУ РЕПЕТИТОРА (4 тижні)
+ * ─────────────────────────────────────────────────
+ * Базується на останніх 28 днях.
+ *
+ * ФОРМУЛА:
+ *   Проведено  = done + completed + makeup (відпрацьовані = зараховуються)
+ *   Пропущено  = missed (лише без відпрацювання)
+ *   Відсоток   = Проведено / (Проведено + Пропущено) × 100
+ *
+ * ШКАЛА:
+ *   ⭐⭐⭐⭐⭐ (5) — 90%+ і жодного непокритого пропуску
+ *   ⭐⭐⭐⭐  (4) — 80–89% або є 1 пропуск але відпрацьований
+ *   ⭐⭐⭐   (3) — 65–79%
+ *   ⭐⭐    (2) — 40–64%
+ *   ⭐     (1) — менше 40%
+ *   Немає занять за 4 тижні → 5 (нейтральний)
+ *
+ * БОНУС: якщо всі пропущені мають makeup — штраф зменшується на 1 зірку
+ */
 function calcTutorRating(tutorId){
   var now=new Date(), fourWeeksAgo=new Date(now);
   fourWeeksAgo.setDate(now.getDate()-28);
   var from=localDateStr(fourWeeksAgo), today=localDateStr(now);
+
   var lessons=(S.lessons||[]).filter(function(l){
-    return (l.tutorId||l.tutor_id)===tutorId&&l.date>=from&&l.date<=today;
+    return (l.tutorId||l.tutor_id)===tutorId && l.date>=from && l.date<=today;
   });
-  var done=lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup'||l.status==='makeup';}).length;
-  var missed=lessons.filter(function(l){return l.status==='missed';}).length;
-  var total=done+missed;
-  var pct=total>0?Math.round(done/total*100):null;
-  if(pct===null) return 5;
-  if(pct>=90&&missed===0) return 5;
-  if(pct>=75) return 4;
-  if(pct>=60) return 3;
-  if(pct>=40) return 2;
-  return 1;
+
+  if(!lessons.length) return 5; // немає занять — нейтральний рейтинг
+
+  // Проведені: done, completed, makeup (відпрацювання теж рахується)
+  var done   = lessons.filter(function(l){
+    return l.status==='done'||l.status==='completed'||l.status==='makeup';
+  }).length;
+
+  // Пропущені без відпрацювання
+  var missed = lessons.filter(function(l){ return l.status==='missed'; });
+  var missedCount = missed.length;
+
+  // Пропущені, які мають дату відпрацювання (makeup_date) — частково закриті
+  var coveredMissed = missed.filter(function(l){ return l.makeup_date; }).length;
+  var uncoveredMissed = missedCount - coveredMissed;
+
+  var total = done + missedCount;
+  var pct = Math.round(done / total * 100);
+
+  // Базовий рейтинг по відсотку
+  var rating;
+  if(pct >= 90)      rating = 5;
+  else if(pct >= 80) rating = 4;
+  else if(pct >= 65) rating = 3;
+  else if(pct >= 40) rating = 2;
+  else               rating = 1;
+
+  // Штраф: непокриті пропуски знижують рейтинг
+  if(uncoveredMissed >= 3)      rating = Math.max(1, rating - 2);
+  else if(uncoveredMissed >= 1) rating = Math.max(1, rating - 1);
+
+  // Бонус: якщо всі пропуски відпрацьовані — рейтинг не штрафується
+  if(missedCount > 0 && uncoveredMissed === 0) rating = Math.min(5, rating + 1);
+
+  // Максимум 5 зірок тільки якщо взагалі немає непокритих пропусків
+  if(uncoveredMissed > 0 && rating === 5) rating = 4;
+
+  return rating;
 }
 
 async function updateAllTutorRatings(){
