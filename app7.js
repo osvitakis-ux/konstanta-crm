@@ -991,7 +991,7 @@ function renderDashKpi(){
   });
 
   var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
-  var missed  = weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
+  var missed  = uncoveredMissedFilter(weekL).length;
   var makeup  = weekL.filter(function(l){return l.status==='makeup';}).length;
   var cancelled=weekL.filter(function(l){return l.status==='cancelled';}).length;
   var planned = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
@@ -1002,7 +1002,7 @@ function renderDashKpi(){
   var wrPrev=getWeekRange(offset-1);
   var prevL  =allL.filter(function(l){return inWeek(l.date,wrPrev);});
   var prevDone=prevL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
-  var prevMissed=prevL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
+  var prevMissed=uncoveredMissedFilter(prevL).length;
   var prevComms=(S.comms||[]).filter(function(c){return inWeek(c.date,wrPrev);}).length;
   var prevPct =prevL.length>0?Math.round(prevDone/prevL.length*100):0;
 
@@ -1056,7 +1056,7 @@ function renderDashKpi(){
   tutors.forEach(function(t){
     var tl=weekL.filter(function(l){return l.tutorId===t.id;});
     var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
-    var tMissed =tl.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
+    var tMissed =uncoveredMissedFilter(tl).length;
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var tComms  =weekComms.filter(function(c){return c.tutorId===t.id;}).length;
     var tStudents=S.students.filter(function(s){return s.tutorId===t.id&&s.status==='active';}).length;
@@ -1147,7 +1147,7 @@ function renderDashTrends(){
     weeks.push({
       wr:wr,
       done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length,
-      missed: weekL.filter(function(l){return l.status==='missed'||l.status==='absent';}).length,
+      missed: uncoveredMissedFilter(weekL).length,
       planned:weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length,
       comms:  weekComms.length,
     });
@@ -2058,7 +2058,7 @@ function renderAnalytics(){
 
   function calcStats(lessonsArr, commsArr, studentsArr){
     var done     = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
-    var missed   = lessonsArr.filter(function(l){return l.status==='missed'||l.status==='absent';}).length;
+    var missed   = lessonsAruncoveredMissedFilter(r).length;
     var cancelled= lessonsArr.filter(function(l){return l.status==='cancelled';}).length;
     var planned  = lessonsArr.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var total    = lessonsArr.length;
@@ -4657,3 +4657,26 @@ document.addEventListener('change', function(e){
     }
   }
 });
+
+
+// Перевіряє чи пропущений урок є відпрацьованим
+// (є makeup_date АБО є урок зі статусом makeup для того ж учня в тих самих даних)
+function isCoveredMissed(l, allLessons){
+  if(l.makeup_date) return true;
+  var sid = l.studentId||l.student_id;
+  var tid = l.tutorId||l.tutor_id;
+  // Search in passed lessons AND in ALL S.lessons (for cross-week makeup)
+  var searchIn = (S.lessons||[]).concat(allLessons||[]);
+  return searchIn.some(function(x){
+    return x.status==='makeup'
+      && (x.studentId||x.student_id)===sid
+      && (x.tutorId||x.tutor_id)===tid;
+  });
+}
+
+// Фільтр для дашборду: пропущені без відпрацювання
+function uncoveredMissedFilter(lessons){
+  return lessons.filter(function(l){
+    return (l.status==='missed'||l.status==='absent') && !isCoveredMissed(l, lessons);
+  });
+}
