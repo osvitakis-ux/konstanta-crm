@@ -575,7 +575,7 @@ var ROLES = {
     label:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440', icon:'\uD83D\uDCDA', color:'var(--tut)',
     avatarBg:'linear-gradient(135deg,#22b573,#7ac943)',
     nav:['dashboard','students','schedule','lessons','comms','profile'],
-    can:{students:true,tutors:false,lessons:true,payments:false,users:false,settings:false,danger:false,deleteAny:false},
+    can:{students:true,tutors:false,lessons:true,comms:true,payments:false,users:false,settings:false,danger:false,deleteAny:false},
     seeIncome:false, seeAll:false, canEditUsers:false, showGodBanner:false
   },
   };
@@ -2745,7 +2745,9 @@ async function saveComm(){
       date, type:document.getElementById('cm-type')?.value||'call',
       note:document.getElementById('cm-note')?.value||'',
       branch_id:myBranchId()||null });
-    closeM('mo-comm'); mkToast('Записано'); window._saving=false; refreshPage('comms');
+    closeM('mo-comm'); mkToast('Записано'); window._saving=false;
+    // Add to local S.comms immediately
+    if(S.currentPage==='comms') renderCommsPage();
   }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
 }
 
@@ -3268,8 +3270,9 @@ function openPayM(id=null){
 
 
 function openCommM(tutorId){
+  // Allow all logged-in users to add comms
   var mo=document.getElementById('mo-comm');
-  if(!mo)return;
+  if(!mo){ console.error('mo-comm not found'); return; }
   // Tutor select - hide for tutor role (pre-select own)
   var tSel=document.getElementById('cm-tutor');
   var tWrap=tSel?tSel.closest('.fgr'):null;
