@@ -999,7 +999,7 @@ function renderDashKpi(){
     return inWeek(c.date,wr)&&(R()!=='tutor'||!_myT||(c.tutorId||c.tutor_id)===_myT.id);
   });
 
-  var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
+  var done    = Math.round(weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
   // Missed HOURS (uncovered missed, last 3 months)
   var threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
   var from3m = localDateStr(threeMonthsAgo);
@@ -1011,7 +1011,7 @@ function renderDashKpi(){
   var cancelled=weekL.filter(function(l){return l.status==='cancelled';}).length;
   var planned = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
   var totalComms=weekComms.length;
-  var total   = weekL.length;
+  var total   = Math.round(weekL.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
   var pct     = total>0?Math.round(done/total*100):0;
 
   var wrPrev=getWeekRange(offset-1);
@@ -1070,7 +1070,7 @@ function renderDashKpi(){
   var rowsArr=[];
   tutors.forEach(function(t){
     var tl=weekL.filter(function(l){return l.tutorId===t.id;});
-    var tDone   =tl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
+    var tDone   =Math.round(tl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
     var tMissed =uncoveredMissedFilter(tl).length;
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var tComms  =weekComms.filter(function(c){return c.tutorId===t.id;}).length;
