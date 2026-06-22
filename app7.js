@@ -1161,7 +1161,7 @@ function renderDashTrends(){
     });
     weeks.push({
       wr:wr,
-      done:   weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length,
+      done: Math.round(weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10,
       missed: uncoveredMissedFilter(weekL).length,
       planned:weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length,
       comms:  weekComms.length,
@@ -1279,7 +1279,7 @@ function renderDashBottom(){
   }
 
   // Subjects chart
-  var sc={};ml.forEach(function(l){sc[l.subject]=(sc[l.subject]||0)+1;});
+  var sc={};ml.forEach(function(l){sc[l.subject]=(sc[l.subject]||0)+(parseFloat(l.dur)||60)/60;});
   var colors=['var(--adm)','var(--tut)','var(--dir)','var(--god2)','#a78bfa','#0ea5e9'];
   var maxS=Math.max.apply(null,Object.values(sc).concat([1]));
   document.getElementById('dash-subj').innerHTML=Object.entries(sc)
