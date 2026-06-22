@@ -1000,7 +1000,13 @@ function renderDashKpi(){
   });
 
   var done    = weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
-  var missed  = uncoveredMissedFilter(weekL).length;
+  // Missed HOURS (uncovered missed, last 3 months)
+  var threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
+  var from3m = localDateStr(threeMonthsAgo);
+  var allMyLessons = myLessons();
+  var missed3m = uncoveredMissedFilter(allMyLessons.filter(function(l){ return l.date>=from3m; }));
+  var missed = missed3m.reduce(function(sum,l){ return sum+(parseFloat(l.dur)||60)/60; }, 0);
+  missed = Math.round(missed*10)/10; // round to 1 decimal
   var makeup  = weekL.filter(function(l){return l.status==='makeup';}).length;
   var cancelled=weekL.filter(function(l){return l.status==='cancelled';}).length;
   var planned = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
