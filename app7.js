@@ -3104,12 +3104,13 @@ async function startApp(){
   var lastPage = '';
   try{ lastPage = localStorage.getItem('sb_page')||''; }catch(e){}
   var allowedPages = userNav();
-  var startPage = (lastPage && allowedPages.indexOf(lastPage) >= 0) ? lastPage : 'dashboard';
-  try{ nav(startPage); }catch(e){ nav('dashboard'); }
+  // Always open dashboard with fresh data
+  try{ nav('dashboard'); }catch(e){}
 
   // Second silent load to catch any data that arrived after first load
   loadAll().then(function(){
     buildSidebar(); updateSBUser();
+    try{renderDash();}catch(e){}
     reRender();
   }).catch(function(){});
 
