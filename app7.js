@@ -956,8 +956,8 @@ function renderDashStats(){
     +'<div class="ssub">\u0417\u0430\u0433\u0430\u043B\u043E\u043C: '+ms.length+'</div><span class="sico">\u25CE</span></div>'
     +'<div class="sc green">'
     +'<div class="slbl">\u0417\u0430\u043D\u044F\u0442\u044C \u0446\u044C\u043E\u0433\u043E \u043C\u0456\u0441\u044F\u0446\u044F</div>'
-    +'<div class="sval">'+monthL.length+'</div>'
-    +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+monthL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length+'</div>'
+    +'<div class="sval">'+Math.round(monthL.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
+    +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+Math.round(monthL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
     +'<span class="sico">\u25C9</span></div>';
   if(P().seeIncome && R()!=='tutor'){
     var inc=S.payments.filter(function(p){
