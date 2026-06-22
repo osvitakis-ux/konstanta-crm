@@ -3781,15 +3781,120 @@ function renderPricingRules(){
 
 function renderProfile(){
   const mt=myTutor();
-  var _pi=document.getElementById('pr-info');if(_pi)_pi.innerHTML=mt?('\n    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+(mkAv(mt.fn,mt.ln,48))+'<div><div style="font-size:17px;font-weight:700;font-family:Syne,sans-serif">'+(mt.fn)+' '+(mt.ln)+'</div><div style="font-size:12px;color:var(--t2);margin-top:2px">'+(mt.subj||'\u2014')+'</div></div></div>\n    <div class="ms"><span class="msl">\u0422\u0435\u043B\u0435\u0444\u043E\u043D</span><span class="msv" style="font-family:inherit">'+(mt.phone||'\u2014')+'</span></div>\n    <div class="ms"><span class="msl">Email</span><span class="msv" style="font-family:inherit">'+(mt.email||'\u2014')+'</span></div>\n    \n    <div class="ms"><span class="msl">\u0420\u0435\u0439\u0442\u0438\u043D\u0433</span><span class="msv">'+('\u2B50'.repeat(mt.rating||5))+'</span></div>\n    <div class="ms"><span class="msl">\u0417\u0430\u043D\u044F\u0442\u044C \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E</span><span class="msv">'+(myLessons().filter(l=>l.status==='done').length)+'</span></div>\n    '+(mt.bio?`<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)">${mt.bio}</div>`:'')+'\n  '):'<div class="empty"><div class="ei">\uD83D\uDD17</div>\u0412\u0430\u0448 \u0430\u043A\u0430\u0443\u043D\u0442 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u0438\u0439 \u0434\u043E \u043F\u0440\u043E\u0444\u0456\u043B\u044E \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430</div>';
-  const ms=myStudents();
-  var _ps=document.getElementById('pr-students');if(_ps)_ps.innerHTML=ms.length?ms.map(s=>('<tr><td>'+(s.fn)+' '+(s.ln)+'</td><td>'+(s.subject||'\u2014')+'</td><td>'+(bst(s.status))+'</td></tr>')).join(''):'<tr><td colspan="3"><div class="empty" style="padding:14px">\u041D\u0435\u043C\u0430\u0454 \u0443\u0447\u043D\u0456\u0432</div></td></tr>';
-
-  // Lessons section removed from profile
+  var _pi=document.getElementById('pr-info');if(_pi)_pi.innerHTML=mt?('\n    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+(mkAv(mt.fn,mt.ln,48))+'<div><div style="font-size:17px;font-weight:700;font-family:Syne,sans-serif">'+(mt.fn)+' '+(mt.ln)+'</div><div style="font-size:12px;color:var(--t2);margin-top:2px">'+(mt.subj||'\u2014')+'</div></div></div>\n    <div class="ms"><span class="msl">\u0422\u0435\u043B\u0435\u0444\u043E\u043D</span><span class="msv" style="font-family:inherit">'+(mt.phone||'\u2014')+'</span></div>\n    <div class="ms"><span class="msl">Email</span><span class="msv" style="font-family:inherit">'+(mt.email||'\u2014')+'</span></div>\n    \n    \n    <div class="ms"><span class="msl">\u0417\u0430\u043D\u044F\u0442\u044C \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E</span><span class="msv">'+(myLessons().filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length)+'</span></div>\n    '+(mt.bio?`<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)">${mt.bio}</div>`:'')+'\n  '):'<div class="empty"><div class="ei">\uD83D\uDD17</div>\u0412\u0430\u0448 \u0430\u043A\u0430\u0443\u043D\u0442 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u0438\u0439 \u0434\u043E \u043F\u0440\u043E\u0444\u0456\u043B\u044E \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430</div>';
 
 
 
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function renderReports(){
   const months=['\u0421\u0456\u0447','\u041B\u044E\u0442','\u0411\u0435\u0440','\u041A\u0432\u0456','\u0422\u0440\u0430','\u0427\u0435\u0440','\u041B\u0438\u043F','\u0421\u0435\u0440','\u0412\u0435\u0440','\u0416\u043E\u0432','\u041B\u0438\u0441','\u0413\u0440\u0443'];
@@ -4710,4 +4815,18 @@ function uncoveredMissedFilter(lessons){
   return (lessons||[]).filter(function(l){
     return (l.status==='missed'||l.status==='absent') && !isCoveredMissed(l);
   });
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
+
+// Tutor checkbox visual feedback
+document.addEventListener('change', function(e){
+  if(e.target && e.target.classList.contains('st-tutor-cb')){
+    var lbl = e.target.closest('label');
+    if(lbl){
+      lbl.style.background = e.target.checked ? 'rgba(41,171,226,.15)' : 'var(--s1)';
+      lbl.style.borderColor = e.target.checked ? 'var(--adm)' : 'var(--b1)';
+    }
+  }
+});
 }
