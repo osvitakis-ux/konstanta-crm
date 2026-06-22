@@ -3782,118 +3782,7 @@ function renderPricingRules(){
 function renderProfile(){
   const mt=myTutor();
   var _pi=document.getElementById('pr-info');if(_pi)_pi.innerHTML=mt?('\n    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+(mkAv(mt.fn,mt.ln,48))+'<div><div style="font-size:17px;font-weight:700;font-family:Syne,sans-serif">'+(mt.fn)+' '+(mt.ln)+'</div><div style="font-size:12px;color:var(--t2);margin-top:2px">'+(mt.subj||'\u2014')+'</div></div></div>\n    <div class="ms"><span class="msl">\u0422\u0435\u043B\u0435\u0444\u043E\u043D</span><span class="msv" style="font-family:inherit">'+(mt.phone||'\u2014')+'</span></div>\n    <div class="ms"><span class="msl">Email</span><span class="msv" style="font-family:inherit">'+(mt.email||'\u2014')+'</span></div>\n    \n    \n    <div class="ms"><span class="msl">\u0417\u0430\u043D\u044F\u0442\u044C \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E</span><span class="msv">'+(myLessons().filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length)+'</span></div>\n    '+(mt.bio?`<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)">${mt.bio}</div>`:'')+'\n  '):'<div class="empty"><div class="ei">\uD83D\uDD17</div>\u0412\u0430\u0448 \u0430\u043A\u0430\u0443\u043D\u0442 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u0438\u0439 \u0434\u043E \u043F\u0440\u043E\u0444\u0456\u043B\u044E \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430</div>';
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+}
 
 
 function renderReports(){
@@ -3910,8 +3799,8 @@ function renderReports(){
   const maxT=Math.max(...Object.values(tl),1);
   document.getElementById('rc-tload').innerHTML=Object.entries(tl).map(([id,c])=>('<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">'+(tn(id))+'</span><span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+(c)+' \u0437\u0430\u043D\u044F\u0442\u044C</span></div><div class="pb"><div class="pf" style="width:'+(c/maxT*100)+'%"></div></div></div>')).join('')||'<div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>\u041D\u0435\u043C\u0430\u0454 \u0434\u0430\u043D\u0438\u0445</div>';
   const totalInc=S.payments.filter(p=>p.status==='paid').reduce((a,p)=>a+p.amount,0);
-  document.getElementById('rc-gen').innerHTML=('\n    <div class="ms"><span class="msl">\u0412\u0441\u044C\u043E\u0433\u043E \u0443\u0447\u043D\u0456\u0432</span><span class="msv">'+(S.students.length)+'</span></div>\n    <div class="ms"><span class="msl">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432</span><span class="msv">'+(S.students.filter(s=>s.status==='active').length)+'</span></div>\n    <div class="ms"><span class="msl">\u0412\u0441\u044C\u043E\u0433\u043E \u0437\u0430\u043D\u044F\u0442\u044C</span><span class="msv">'+(S.lessons.length)+'</span></div>\n    <div class="ms"><span class="msl">\u0417\u0430\u0433\u0430\u043B\u044C\u043D\u0438\u0439 \u0434\u043E\u0445\u0456\u0434</span><span class="msv" style="color:var(--tut)">'+(totalInc.toLocaleString('uk-UA'))+'\u20B4</span></div>\n    <div class="ms"><span class="msl">\u0421\u0435\u0440\u0435\u0434\u043D\u044F \u0432\u0430\u0440\u0442\u0456\u0441\u0442\u044C</span><span class="msv">'+(S.lessons.length?(totalInc/S.lessons.length).toFixed(0)+'\u20B4':'\u2014')+'</span></div>\n    <div class="ms"><span class="msl">\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0456\u0432</span><span class="msv">'+(S.tutors.length)+'</span></div>');
-}
+  document.getElementById('rc-gen').innerHTML=('\n    <div class="ms"><span class="msl">\u0412\u0441\u044C\u043E\u0433\u043E \u0443\u0447\u043D\u0456\u0432</span><span class="msv">'+(S.students.length)+'</span></div>\n    <div class="ms"><span class="msl">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432</span><span class="msv">'+(S.students.filter(s=>s.status==='active').length)+'</span></div>\n    <div class="ms"><span class="msl">\u0412\u0441\u044C\u043E\u0433\u043E \u0437\u0430\u043D\u044F\u0442\u044C</span><span class="msv">'+(S.lessons.length)+'</span></div>\n    <div class="ms"><span class="msl">\u0417\u0430\u0433\u0430\u043B\u044C\u043D\u0438\u0439 \u0434\u043E\u0445\u0456\u0434</span><span class="msv" style="color:var(--tut)">'+(totalInc.toLocaleString('uk-UA'))+'\u20B4</span></div>\n    <div class="ms"><span class="msl">\u0421\u0435\u0440\u0435\u0434\u043D\u044F \u0432\u0430\u0440\u0442\u0456\u0441\u0442\u044C</span><span class="msv">'+(S.lessons.length?(totalInc/S.lessons.length).toFixed(0)+'\u20B4':'\u2014')+'</span></div>\n    <div class="ms"><span class="msl">\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0456\u0432</span><span class="msv">'+(S.tutors.length)+'</span></div>');}
+
 
 
 
@@ -4829,4 +4718,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-}
