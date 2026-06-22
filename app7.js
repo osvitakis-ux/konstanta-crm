@@ -274,47 +274,56 @@ function renderMissedLessons(){
 
   // Populate student filter
   var fStudSel=document.getElementById('missed-f-student');
-  if(fStudSel && fStudSel.options.length<=1){
+  if(fStudSel){
+    var curVal=fStudSel.value;
     fStudSel.innerHTML='<option value="">Всі учні</option>'
       +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
-        .map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
+        .map(function(s){return '<option value="'+s.id+'"'+(s.id===curVal?' selected':'')+'>'+s.fn+' '+s.ln+'</option>';}).join('');
   }
   var fStud=(fStudSel||{value:''}).value;
-  var _selfId=R()==='tutor'?(myTutor()||{}).id:null;
-  var missed=(S.lessons||[]).filter(function(l){
-    return (l.status==='missed'||l.status==='makeup')&&(!_selfId||(l.tutorId||l.tutor_id)===_selfId);
-  }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
-  if(fStud) missed=missed.filter(function(l){return (l.studentId||l.student_id)===fStud;});
-  if(!missed.length){
+  var _myTc=R()==='tutor'?myTutor():null;
+
+  // ALL missed lessons - full period, no date restriction
+  var allMissed=(S.lessons||[]).filter(function(l){
+    return l.status==='missed';
+  });
+  if(_myTc) allMissed=allMissed.filter(function(l){return (l.tutorId||l.tutor_id)===_myTc.id;});
+  if(fStud) allMissed=allMissed.filter(function(l){return (l.studentId||l.student_id)===fStud;});
+  allMissed=allMissed.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+
+  if(!allMissed.length){
     tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">Пропущених немає</td></tr>';
     return;
   }
-  tbody.innerHTML=missed.map(function(l){
+
+  tbody.innerHTML=allMissed.map(function(l){
     var s=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
     var t=(S.tutors||[]).find(function(x){return x.id===(l.tutorId||l.tutor_id);});
-    var stl=l.status==='missed'
-      ?'<span style="color:#ef4444;font-weight:600">Пропущено</span>'
-      :'<span style="color:#f59e0b;font-weight:600">Відпрацювання</span>';
-    // For missed: date of missed lesson = l.date (the lesson itself was missed)
-    // For makeup: date missed = l.missed_date or l.date, date of makeup = l.date
-    var missedDateStr, makeupDateStr;
-    if(l.status==='missed'){
-      missedDateStr = fd(l.missed_date || l.date);
-      makeupDateStr = l.makeup_date ? fd(l.makeup_date) : '—';
-    } else { // makeup
-      missedDateStr = fd(l.missed_date || l.date);
-      makeupDateStr = fd(l.makeup_date || l.date);
-    }
-    return '<tr><td>'+fd(l.date)+'</td>'
-      +'<td>'+(s?s.fn+' '+s.ln:'—')+'</td>'
-      +'<td>'+(t?t.fn+' '+t.ln:'—')+'</td>'
-      +'<td>'+(l.subject||'—')+'</td>'
-      +'<td>'+stl+'</td>'
-      +'<td style="font-size:11px">'+missedDateStr+'</td>'
+    var covered=isCoveredMissed(l);
+
+    // Find paired makeup lesson
+    var makeupL=covered?(S.lessons||[]).find(function(x){
+      return x.status==='makeup'
+        && (x.studentId||x.student_id)===(l.studentId||l.student_id)
+        && (x.tutorId||x.tutor_id)===(l.tutorId||l.tutor_id);
+    }):null;
+
+    var statusBadge=covered
+      ?'<span style="color:#22c55e;font-weight:600">✅ Відпрацьовано</span>'
+      :'<span style="color:#ef4444;font-weight:600">❌ Не відпрацьовано</span>';
+
+    var makeupDateStr=l.makeup_date?fd(l.makeup_date)
+      :(makeupL?fd(makeupL.date):'—');
+
+    return '<tr style="'+(covered?'opacity:.6':'')+'"><td style="font-size:11px">'+fd(l.date)+'</td>'
+      +'<td><b>'+(s?s.fn+' '+s.ln:'—')+'</b></td>'
+      +'<td style="font-size:11px">'+(t?t.fn+' '+t.ln:'—')+'</td>'
+      +'<td style="font-size:11px">'+(l.subject||'—')+'</td>'
+      +'<td>'+statusBadge+'</td>'
+      +'<td style="font-size:11px">'+fd(l.date)+'</td>'
       +'<td style="font-size:11px">'+makeupDateStr+'</td></tr>';
   }).join('');
 }
-
 function deleteLessonFromModal(){
   if(!S.editId)return;
   if(!confirm('Видалити цей урок?'))return;
@@ -3947,7 +3956,9 @@ function renderSchWeek(){
       const topPx=(lh-START_H)*ROW_H + (lm/60)*ROW_H;
       const heightPx=Math.max((dur/60)*ROW_H, 18);
       if(lh<START_H||lh>=END_H) return;
-      var ecl=l.status==='missed'?'ec-miss'
+      var _isCov=l.status==='missed'&&isCoveredMissed(l);
+      var ecl=_isCov?'ec-make'
+        :l.status==='missed'?'ec-miss'
         :l.status==='makeup'?'ec-make'
         :(l.status==='completed'||l.status==='done')?'ec-done'
         :'ec-plan';
@@ -4663,11 +4674,13 @@ document.addEventListener('change', function(e){
 // Перевіряє чи пропущений урок є відпрацьованим
 // (є makeup_date АБО є урок зі статусом makeup для того ж учня в тих самих даних)
 function isCoveredMissed(l, allLessons){
+  // A missed lesson is "covered" if:
+  // 1. It has a makeup_date set, OR
+  // 2. There exists a paired makeup lesson (same student + same tutor)
   if(l.makeup_date) return true;
   var sid = l.studentId||l.student_id;
   var tid = l.tutorId||l.tutor_id;
-  // Search in passed lessons AND in ALL S.lessons (for cross-week makeup)
-  var searchIn = (S.lessons||[]).concat(allLessons||[]);
+  var searchIn = (S.lessons||[]);
   return searchIn.some(function(x){
     return x.status==='makeup'
       && (x.studentId||x.student_id)===sid
@@ -4675,9 +4688,16 @@ function isCoveredMissed(l, allLessons){
   });
 }
 
+// Get all missed lessons that have NO paired makeup (truly uncovered)
+function getUncoveredMissed(lessons){
+  return (lessons||[]).filter(function(l){
+    return (l.status==='missed') && !isCoveredMissed(l);
+  });
+}
+
 // Фільтр для дашборду: пропущені без відпрацювання
 function uncoveredMissedFilter(lessons){
-  return lessons.filter(function(l){
-    return (l.status==='missed'||l.status==='absent') && !isCoveredMissed(l, lessons);
+  return (lessons||[]).filter(function(l){
+    return (l.status==='missed'||l.status==='absent') && !isCoveredMissed(l);
   });
 }
