@@ -4673,18 +4673,22 @@ document.addEventListener('change', function(e){
 
 // Перевіряє чи пропущений урок є відпрацьованим
 // (є makeup_date АБО є урок зі статусом makeup для того ж учня в тих самих даних)
-function isCoveredMissed(l, allLessons){
-  // A missed lesson is "covered" if:
-  // 1. It has a makeup_date set, OR
-  // 2. There exists a paired makeup lesson (same student + same tutor)
+function isCoveredMissed(l){
+  // A missed lesson is "covered" ONLY if:
+  // 1. It explicitly has makeup_date field set, OR
+  // 2. It has a split_group_id linking it to a makeup lesson
+  // Simple presence of ANY makeup lesson for same student is NOT enough
   if(l.makeup_date) return true;
+  // Check if this specific lesson is linked via missed_date on a makeup lesson
   var sid = l.studentId||l.student_id;
   var tid = l.tutorId||l.tutor_id;
-  var searchIn = (S.lessons||[]);
-  return searchIn.some(function(x){
-    return x.status==='makeup'
-      && (x.studentId||x.student_id)===sid
-      && (x.tutorId||x.tutor_id)===tid;
+  var ldate = l.date;
+  return (S.lessons||[]).some(function(x){
+    if(x.status!=='makeup') return false;
+    if((x.studentId||x.student_id)!==sid) return false;
+    if((x.tutorId||x.tutor_id)!==tid) return false;
+    // Must reference this specific missed lesson by date
+    return x.missed_date===ldate || x.split_group_id===l.id;
   });
 }
 
