@@ -3804,7 +3804,7 @@ function renderReports(){
   const maxI=Math.max(...md,1);
   document.getElementById('rc-income').innerHTML=md.map((v,i)=>('<div class="bw"><div class="bar" style="height:'+(v/maxI*100)+'%;background:linear-gradient(180deg,var(--adm),var(--adm2))">'+(v>0?`<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t2);white-space:nowrap;font-family:JetBrains Mono,monospace">${v>=1000?(v/1000).toFixed(0)+'\u043A':v}</div>`:'')+'</div><div class="blbl">'+(months[i])+'</div></div>')).join('');
   const sc={};S.lessons.forEach(l=>{sc[l.subject]=(sc[l.subject]||0)+1;});
-  const totalL=S.lessons.length||1;
+  const totalL=(Math.round(S.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10)||1;
   const cols=['var(--adm)','var(--tut)','var(--dir)','var(--god)','#a78bfa','#0ea5e9'];
   document.getElementById('rc-subj').innerHTML=Object.entries(sc).sort((a,b)=>b[1]-a[1]).map(([s,c],i)=>('<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">'+(s)+'</span><span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+(c)+' ('+(Math.round(c/totalL*100))+'%)</span></div><div class="pb"><div class="pf" style="width:'+(c/totalL*100)+'%;background:'+(cols[i%cols.length])+'"></div></div></div>')).join('')||'<div class="empty"><div class="ei">\uD83D\uDCDA</div>\u041D\u0435\u043C\u0430\u0454 \u0434\u0430\u043D\u0438\u0445</div>';
   const tl={};S.lessons.forEach(l=>{if(l.tutorId)tl[l.tutorId]=(tl[l.tutorId]||0)+1;});
@@ -4003,7 +4003,7 @@ function renderTutors(){
     var cnt=S.students.filter(function(s){
       return s.tutorId===t.id||s.tutor_id===t.id||(s.tutorIds&&s.tutorIds.indexOf(t.id)>=0);
     }).length;
-    var lessonsCount=myLessons().filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;}).length;
+    var lessonsCount=Math.round(myLessons().filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
     var branchBadge=isSuperAdmin()&&!currentBranch()
       ?'<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px">'+branchName(t.branchId||t.branch_id)+'</span>':''
     rows+='<tr>'
@@ -4403,7 +4403,8 @@ function calcInvoiceLessons(){
       && l.date >= from && l.date <= to;
   });
 
-  var total = lessons.length * price;
+  var totalHours = Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var total = Math.round(totalHours * price * 10)/10;
   var el = document.getElementById('inv-preview');
   if(!el) return;
 
@@ -4472,7 +4473,8 @@ function sendInvoiceEmail(){
   if(!lessons.length){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u0445 \u0443\u0440\u043e\u043a\u0456\u0432 \u0437\u0430 \u043f\u0435\u0440\u0456\u043e\u0434','error'); return; }
   if(!email){ mkToast('\u0412\u043a\u0430\u0436\u0456\u0442\u044c email \u043e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447\u0430','error'); return; }
 
-  var total   = lessons.length * price;
+  var totalHours2 = Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var total   = Math.round(totalHours2 * price * 10)/10;
   var center  = cfg.name  || '\u041a\u043e\u043d\u0441\u0442\u0430\u043d\u0442\u0430';
   var cPhone  = cfg.phone || '';
   var cEmail  = cfg.email || '';
