@@ -5076,8 +5076,10 @@ async function telTestConn(){
   await new Promise(function(r){setTimeout(r,1500);});
   // In real implementation: call provider API via backend proxy
   var ok = !!(cfg.key && cfg.provider);
-  telUpdateStatus(ok ? 'ok' : 'error');
-  mkToast(ok ? '✅ З\'єднання успішне (потребує серверного проксі для реального тесту)' : '❌ Помилка з\'єднання', ok?'':'error');
+  telUpdateStatus(ok ? 'configured' : 'error');
+  mkToast(ok
+    ? 'Налаштування збережено. Реальний тест відбудеться при першому дзвінку через Zadarma.'
+    : '❌ Заповніть API Key та провайдера', ok?'':'error');
 }
 
 function telUpdateStatus(state){
