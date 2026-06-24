@@ -275,16 +275,16 @@ function renderCommsPage(){
   var fStudSel=document.getElementById('comm-f-student');
   if(fStudSel){
     var cur=fStudSel.value;
-    fStudSel.innerHTML='<option value="">Всі учні</option>'
-      +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
-        .map(function(s){return '<option value="'+s.id+'"'+(s.id===cur?' selected':'')+'>'+s.fn+' '+s.ln+'</option>';}).join('');
+    popSelSearch('comm-f-student', [{id:'',fn:'\u0412\u0441\u0456 \u0443\u0447\u043D\u0456',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
+    if(cur){ fStudSel.value=cur; if(fStudSel._updateSearch) fStudSel._updateSearch(); }
   }
 
   // Populate tutor filter (admin/director/god only)
   var fTutSel=document.getElementById('comm-f-tutor');
-  if(fTutSel && fTutSel.options.length<=1 && R()!=='tutor'){
-    fTutSel.innerHTML='<option value="">Всі репетитори</option>'
-      +(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+  if(fTutSel && R()!=='tutor'){
+    var curT=fTutSel.value;
+    popSelSearch('comm-f-tutor', [{id:'',fn:'Всі репетитори',ln:''}].concat(S.tutors||[]), 'id', function(t){return t.fn+(t.ln?' '+t.ln:'');}, '');
+    if(curT){ fTutSel.value=curT; if(fTutSel._updateSearch) fTutSel._updateSearch(); }
   }
   var _selfId=null;
   if(R()==='tutor'){
@@ -323,9 +323,8 @@ function renderMissedLessons(){
   var fStudSel=document.getElementById('missed-f-student');
   if(fStudSel){
     var curVal=fStudSel.value;
-    fStudSel.innerHTML='<option value="">Всі учні</option>'
-      +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
-        .map(function(s){return '<option value="'+s.id+'"'+(s.id===curVal?' selected':'')+'>'+s.fn+' '+s.ln+'</option>';}).join('');
+    popSelSearch('missed-f-student', [{id:'',fn:'\u0412\u0441\u0456 \u0443\u0447\u043D\u0456',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
+    if(curVal){ fStudSel.value=curVal; if(fStudSel._updateSearch) fStudSel._updateSearch(); }
   }
   var fStud=(fStudSel||{value:''}).value;
   var _myTc=R()==='tutor'?myTutor():null;
@@ -622,11 +621,9 @@ function renderInvoicePage(){
   var sSel=document.getElementById('inv-student');
   if(sSel){
     var cur=sSel.value;
-    sSel.innerHTML='<option value="">— оберіть учня —</option>'
-      +myStudents().filter(function(s){return s.status==='active'||s.status==='trial';})
-        .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
-        .map(function(s){return '<option value="'+s.id+'"'+(s.id===cur?' selected':'')+'>'+s.fn+' '+s.ln+'</option>';}).join('');
-    if(cur) sSel.value=cur;
+    var invStudents=[{id:'',fn:'\u2014 \u043E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F \u2014',ln:''}].concat(myStudents().filter(function(s){return s.status==='active'||s.status==='trial';}).sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');}));
+    popSelSearch('inv-student', invStudents, 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
+    if(cur){ sSel.value=cur; if(sSel._updateSearch) sSel._updateSearch(); }
   }
 
   var sid=(sSel||{value:''}).value;
@@ -817,6 +814,12 @@ function mkToast(msg,type='success'){
 }
 
 function popSel(id,arr,valKey,lblFn,placeholder='\u2014'){const el=document.getElementById(id);if(!el)return;el.innerHTML=("<option value=\"\">"+(placeholder)+"</option>")+arr.map(x=>("<option value=\""+(x[valKey])+"\">"+(lblFn(x))+"</option>")).join('');}
+function popSelSearch(id,arr,valKey,lblFn,placeholder){
+  popSel(id,arr,valKey,lblFn,placeholder);
+  makeSearchable(id);
+  var el=document.getElementById(id);
+  if(el&&el._updateSearch) el._updateSearch();
+}
 
 function openM(id){
   var el=document.getElementById(id);
@@ -1383,9 +1386,8 @@ function renderLessons(){
 
   if(sdf){
     var cur = sdf.value;
-    sdf.innerHTML = '<option value="">Всі учні</option>'
-      + myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
-        .map(function(s){return '<option value="'+s.id+'"'+(s.id===cur?' selected':'')+'>'+s.fn+' '+s.ln+'</option>';}).join('');
+    popSelSearch('lf-student', [{id:'',fn:'Всі учні',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
+    if(cur){ sdf.value=cur; if(sdf._updateSearch) sdf._updateSearch(); }
   }
 
   var data = [].concat(myLessons()).sort(function(a,b){
@@ -3292,7 +3294,7 @@ function openLessM(id, date, time){
   var dl_l = document.getElementById('subj-list-l');
   if(dl_l) dl_l.innerHTML = (S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
   popSel('l-tutor', S.tutors, 'id', function(t){return t.fn+' '+t.ln;}, 'Викладач');
-  makeSearchable('l-tutor');
+  makeSearchable('l-tutor'); if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
   if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
   if(typeof toggleRecurOpts === 'function') toggleRecurOpts();
 
@@ -3341,6 +3343,7 @@ function openPayM(id=null){
   if(!can('payments')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
   S.editId=id;document.getElementById('mp-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043F\u043B\u0430\u0442\u0456\u0436':'\u041D\u043E\u0432\u0438\u0439 \u043F\u043B\u0430\u0442\u0456\u0436';
   popSel('p-std',S.students,'id',function(s){return s.fn+' '+s.ln;},'\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F');
+  makeSearchable('p-std'); if(document.getElementById('p-std')._updateSearch) document.getElementById('p-std')._updateSearch();
   const months=['\u0421\u0456\u0447\u0435\u043D\u044C','\u041B\u044E\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u041A\u0432\u0456\u0442\u0435\u043D\u044C','\u0422\u0440\u0430\u0432\u0435\u043D\u044C','\u0427\u0435\u0440\u0432\u0435\u043D\u044C','\u041B\u0438\u043F\u0435\u043D\u044C','\u0421\u0435\u0440\u043F\u0435\u043D\u044C','\u0412\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0416\u043E\u0432\u0442\u0435\u043D\u044C','\u041B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043D\u044C'];
   document.getElementById('p-date').value=localDateStr(new Date());
   document.getElementById('p-mon').value=months[new Date().getMonth()];
@@ -3379,6 +3382,9 @@ function openCommM(tutorId){
       +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
         .map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
   }
+  // Apply searchable to tutor+student selects
+  if(R()!=='tutor'){ makeSearchable('cm-tutor'); if(document.getElementById('cm-tutor')._updateSearch) document.getElementById('cm-tutor')._updateSearch(); }
+  makeSearchable('cm-student'); if(document.getElementById('cm-student')._updateSearch) document.getElementById('cm-student')._updateSearch();
   // Note field
   var noteEl=document.getElementById('cm-note');
   if(noteEl) noteEl.value='';
@@ -4812,55 +4818,66 @@ window.uploadTutorPhoto=uploadTutorPhoto;
 // ═══════════════════════════════════
 function makeSearchable(selectId){
   var sel=document.getElementById(selectId);
-  if(!sel||sel.dataset.searchable) return;
+  if(!sel) return;
+
+  // Already initialized — just re-sync options into dropdown
+  if(sel.dataset.searchable==='1'){
+    sel._updateSearch && sel._updateSearch();
+    return;
+  }
   sel.dataset.searchable='1';
   sel.style.display='none';
 
   var wrap=document.createElement('div');
+  wrap.className='srch-wrap';
   wrap.style.cssText='position:relative;display:inline-block;width:100%';
   sel.parentNode.insertBefore(wrap,sel);
   wrap.appendChild(sel);
 
   var inp=document.createElement('input');
   inp.placeholder=sel.options[0]?sel.options[0].text:'Пошук...';
-  inp.style.cssText='width:100%;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);font-size:13px;box-sizing:border-box';
+  inp.style.cssText='width:100%;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);font-size:13px;box-sizing:border-box;color:var(--t1)';
   inp.setAttribute('autocomplete','off');
   wrap.insertBefore(inp,sel);
 
   var drop=document.createElement('div');
-  drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.15)';
+  drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:220px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.18)';
   wrap.appendChild(drop);
 
   function renderDrop(q){
     drop.innerHTML='';
     var opts=Array.from(sel.options);
     var filtered=q?opts.filter(function(o){return o.text.toLowerCase().includes(q.toLowerCase());}):opts;
+    if(!filtered.length){ drop.style.display='none'; return; }
     filtered.forEach(function(o){
       var item=document.createElement('div');
       item.textContent=o.text;
-      item.style.cssText='padding:7px 12px;cursor:pointer;font-size:13px';
+      item.dataset.val=o.value;
+      item.style.cssText='padding:8px 12px;cursor:pointer;font-size:13px;color:var(--t1)';
       item.addEventListener('mouseenter',function(){item.style.background='var(--s2)';});
       item.addEventListener('mouseleave',function(){item.style.background='';});
       item.addEventListener('mousedown',function(e){
         e.preventDefault();
         sel.value=o.value;
-        inp.value=o.text;
+        inp.value=o.value?o.text:'';
         drop.style.display='none';
+        inp.placeholder=sel.options[0]?sel.options[0].text:'Пошук...';
         sel.dispatchEvent(new Event('change'));
       });
       drop.appendChild(item);
     });
-    drop.style.display=filtered.length?'block':'none';
+    drop.style.display='block';
   }
 
-  inp.addEventListener('focus',function(){renderDrop(inp.value);});
-  inp.addEventListener('input',function(){renderDrop(inp.value);sel.value='';});
-  inp.addEventListener('blur',function(){setTimeout(function(){drop.style.display='none';},200);});
+  inp.addEventListener('focus',function(){ inp.select(); renderDrop(''); });
+  inp.addEventListener('input',function(){ sel.value=''; renderDrop(inp.value); });
+  inp.addEventListener('blur',function(){ setTimeout(function(){ drop.style.display='none'; },200); });
 
-  // Sync when select value changes externally
+  // Called after options are refreshed externally
   sel._updateSearch=function(){
-    var opt=Array.from(sel.options).find(function(o){return o.value===sel.value;});
-    inp.value=opt?opt.text:(sel.options[0]?sel.options[0].text:'');
+    var opt=sel.value?Array.from(sel.options).find(function(o){return o.value===sel.value;}):null;
+    inp.value=opt?opt.text:'';
+    inp.placeholder=sel.options[0]?sel.options[0].text:'Пошук...';
   };
   sel._updateSearch();
 }
