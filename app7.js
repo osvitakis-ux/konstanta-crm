@@ -2887,11 +2887,7 @@ async function delBranch(id){
 }
 
 async function editBranch(id){
-  var b=(S.branches||[]).find(function(x){return x.id===id;});
-  if(!b) return;
-  var nm=prompt('\u041D\u0430\u0437\u0432\u0430 \u0444\u0456\u043B\u0456\u0457:',b.name); if(!nm) return;
-  var addr=prompt('\u0410\u0434\u0440\u0435\u0441\u0430:',b.address||'');
-  try{ await dbUpdate('branches',id,{name:nm,address:addr}); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }catch(e){}
+  openBranchM(id);
 }
 
 // Pricing rules
