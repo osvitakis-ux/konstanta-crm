@@ -239,7 +239,11 @@ var NAV_CFG = [
   {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'settings',   ico:'\u25C9',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-  {id:'crm', ico:'▤', lbl:'CRM', sec:'Менеджмент'},
+  {id:'comms',       ico:'◎', lbl:'Комунікації',    sec:'Навчання'},
+  {id:'invoice',     ico:'◈', lbl:'Рахунок',         sec:'Фінанси'},
+  {id:'analytics',   ico:'◤', lbl:'Аналітика',       sec:'Фінанси'},
+  {id:'crm',         ico:'▤', lbl:'CRM',              sec:'Менеджмент'},
+  {id:'profile',     ico:'▣', lbl:'Мій профіль',      sec:'Особисте'},
   {id:'profile',    ico:'\u25A3',  lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',  sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
 ];
 
@@ -3284,9 +3288,13 @@ function openLessM(id, date, time){
   // Populate dropdowns after clearing
   document.getElementById('ml-title').textContent = id ? 'Редагувати заняття' : 'Нове заняття';
   popSel('l-std', myStudents(), 'id', function(s){return s.fn+' '+s.ln;}, 'Оберіть учня');
+  makeSearchable('l-std');
+  if(document.getElementById('l-std')._updateSearch) document.getElementById('l-std')._updateSearch();
   var dl_l = document.getElementById('subj-list-l');
   if(dl_l) dl_l.innerHTML = (S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
   popSel('l-tutor', S.tutors, 'id', function(t){return t.fn+' '+t.ln;}, 'Викладач');
+  makeSearchable('l-tutor');
+  if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
   if(typeof toggleRecurOpts === 'function') toggleRecurOpts();
 
   if(id){
@@ -3791,7 +3799,15 @@ function renderPricingRules(){
 
 function renderProfile(){
   const mt=myTutor();
-  var _pi=document.getElementById('pr-info');if(_pi)_pi.innerHTML=mt?('\n    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+(mkAv(mt.fn,mt.ln,48))+'<div><div style="font-size:17px;font-weight:700;font-family:Syne,sans-serif">'+(mt.fn)+' '+(mt.ln)+'</div><div style="font-size:12px;color:var(--t2);margin-top:2px">'+(mt.subj||'\u2014')+'</div></div></div>\n    <div class="ms"><span class="msl">\u0422\u0435\u043B\u0435\u0444\u043E\u043D</span><span class="msv" style="font-family:inherit">'+(mt.phone||'\u2014')+'</span></div>\n    <div class="ms"><span class="msl">Email</span><span class="msv" style="font-family:inherit">'+(mt.email||'\u2014')+'</span></div>\n    \n    \n    <div class="ms"><span class="msl">\u0417\u0430\u043D\u044F\u0442\u044C \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E</span><span class="msv">'+(myLessons().filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0))+'</span></div>\n    '+(mt.bio?`<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)">${mt.bio}</div>`:'')+'\n  '):'<div class="empty"><div class="ei">\uD83D\uDD17</div>\u0412\u0430\u0448 \u0430\u043A\u0430\u0443\u043D\u0442 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u0438\u0439 \u0434\u043E \u043F\u0440\u043E\u0444\u0456\u043B\u044E \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430</div>';
+  var _pi=document.getElementById('pr-info');
+  // Add photo upload
+  var photoWrap=document.getElementById('pr-photo-wrap');
+  if(photoWrap){
+    var avatarEl=photoWrap.querySelector('.av');
+    if(avatarEl && mt && mt.photo){
+      avatarEl.innerHTML='<img src="'+mt.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+    }
+  }if(_pi)_pi.innerHTML=mt?('\n    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+(mkAv(mt.fn,mt.ln,48))+'<div><div style="font-size:17px;font-weight:700;font-family:Syne,sans-serif">'+(mt.fn)+' '+(mt.ln)+'</div><div style="font-size:12px;color:var(--t2);margin-top:2px">'+(mt.subj||'\u2014')+'</div></div></div>\n    <div class="ms"><span class="msl">\u0422\u0435\u043B\u0435\u0444\u043E\u043D</span><span class="msv" style="font-family:inherit">'+(mt.phone||'\u2014')+'</span></div>\n    <div class="ms"><span class="msl">Email</span><span class="msv" style="font-family:inherit">'+(mt.email||'\u2014')+'</span></div>\n    \n    \n    <div class="ms"><span class="msl">\u0417\u0430\u043D\u044F\u0442\u044C \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E</span><span class="msv">'+(myLessons().filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0))+'</span></div>\n    '+(mt.bio?`<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)">${mt.bio}</div>`:'')+'\n  '):'<div class="empty"><div class="ei">\uD83D\uDD17</div>\u0412\u0430\u0448 \u0430\u043A\u0430\u0443\u043D\u0442 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u0438\u0439 \u0434\u043E \u043F\u0440\u043E\u0444\u0456\u043B\u044E \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430</div>';
 }
 
 
@@ -4706,6 +4722,91 @@ function renderSettings(){
   popSel('pr-tutor',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438');
 }
 
+
+
+async function uploadTutorPhoto(input){
+  var file=input.files[0];
+  if(!file)return;
+  if(file.size>2*1024*1024){mkToast('Файл занадто великий (макс 2MB)','error');return;}
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    var dataUrl=e.target.result;
+    var mt=myTutor();
+    if(!mt){mkToast('Профіль не знайдено','error');return;}
+    try{
+      await dbUpdate('tutors',mt.id,{photo:dataUrl});
+      // Update local
+      var idx=S.tutors.findIndex(function(t){return t.id===mt.id;});
+      if(idx>=0) S.tutors[idx].photo=dataUrl;
+      // Show in avatar
+      var wrap=document.getElementById('pr-photo-wrap');
+      if(wrap){var av=wrap.querySelector('.av');if(av)av.innerHTML='<img src="'+dataUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';}
+      mkToast('Фото збережено ✅');
+    }catch(err){mkToast('Помилка: '+err.message,'error');}
+  };
+  reader.readAsDataURL(file);
+}
+window.uploadTutorPhoto=uploadTutorPhoto;
+
+
+// ═══════════════════════════════════
+// SEARCHABLE SELECT UTILITY
+// ═══════════════════════════════════
+function makeSearchable(selectId){
+  var sel=document.getElementById(selectId);
+  if(!sel||sel.dataset.searchable) return;
+  sel.dataset.searchable='1';
+  sel.style.display='none';
+
+  var wrap=document.createElement('div');
+  wrap.style.cssText='position:relative;display:inline-block;width:100%';
+  sel.parentNode.insertBefore(wrap,sel);
+  wrap.appendChild(sel);
+
+  var inp=document.createElement('input');
+  inp.placeholder=sel.options[0]?sel.options[0].text:'Пошук...';
+  inp.style.cssText='width:100%;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);font-size:13px;box-sizing:border-box';
+  inp.setAttribute('autocomplete','off');
+  wrap.insertBefore(inp,sel);
+
+  var drop=document.createElement('div');
+  drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.15)';
+  wrap.appendChild(drop);
+
+  function renderDrop(q){
+    drop.innerHTML='';
+    var opts=Array.from(sel.options);
+    var filtered=q?opts.filter(function(o){return o.text.toLowerCase().includes(q.toLowerCase());}):opts;
+    filtered.forEach(function(o){
+      var item=document.createElement('div');
+      item.textContent=o.text;
+      item.style.cssText='padding:7px 12px;cursor:pointer;font-size:13px';
+      item.addEventListener('mouseenter',function(){item.style.background='var(--s2)';});
+      item.addEventListener('mouseleave',function(){item.style.background='';});
+      item.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        sel.value=o.value;
+        inp.value=o.text;
+        drop.style.display='none';
+        sel.dispatchEvent(new Event('change'));
+      });
+      drop.appendChild(item);
+    });
+    drop.style.display=filtered.length?'block':'none';
+  }
+
+  inp.addEventListener('focus',function(){renderDrop(inp.value);});
+  inp.addEventListener('input',function(){renderDrop(inp.value);sel.value='';});
+  inp.addEventListener('blur',function(){setTimeout(function(){drop.style.display='none';},200);});
+
+  // Sync when select value changes externally
+  sel._updateSearch=function(){
+    var opt=Array.from(sel.options).find(function(o){return o.value===sel.value;});
+    inp.value=opt?opt.text:(sel.options[0]?sel.options[0].text:'');
+  };
+  sel._updateSearch();
+}
+window.makeSearchable=makeSearchable;
 
 document.addEventListener('DOMContentLoaded', initApp);
 
