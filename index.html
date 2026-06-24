@@ -1325,5 +1325,22 @@ body.role-tutor .comm-add-btn { display: none !important; }
 </div>
 
 <script src="app7.js"></script>
+
+<!-- Branch Modal -->
+<div class="modal" id="mo-branch">
+  <div class="mdl" style="max-width:420px">
+    <div class="mdlh"><span id="mb-title">Філія</span><button class="cls" onclick="closeM('mo-branch')">✕</button></div>
+    <div class="mdlb">
+      <div class="fg"><label>Назва *</label><input id="br-name" placeholder="Назва філії"></div>
+      <div class="fg"><label>Адреса</label><input id="br-addr" placeholder="Адреса"></div>
+      <div class="fg"><label>Телефон</label><input id="br-phone" placeholder="+380..."></div>
+      <div class="fg"><label>Email</label><input id="br-email" placeholder="email@..."></div>
+    </div>
+    <div class="mdlf">
+      <button class="btn btn-p" onclick="saveBranchModal()">💾 Зберегти</button>
+      <button class="btn btn-g" onclick="closeM('mo-branch')">Скасувати</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
