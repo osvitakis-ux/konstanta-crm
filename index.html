@@ -1006,13 +1006,13 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div>
       </div>
       <!-- ── INVOICE ── -->
-      <div class="page" id="pg-invoice"><div class="card"><div class="ch"><span class="ct">💳 Рахунок</span></div><div style="padding:18px" id="invoice-content"><div style="color:var(--t3);text-align:center;padding:40px">Оберіть учня</div></div></div></div>
+      <div class="page" id="pg-invoice"><div class="card"><div class="ch"><span class="ct">💳 Рахунок</span><div style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">Учень:</label><select id="inv-student" onchange="renderInvoicePage()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="">— оберіть учня —</option></select></div></div><div style="padding:16px" id="invoice-content"><div style="color:var(--t3);text-align:center;padding:40px">Оберіть учня</div></div></div></div>
       <!-- ── INVOICE LOG ── -->
       <div class="page" id="pg-invoice-log"><div class="card"><div class="ch"><span class="ct">📋 Лог рахунків</span></div><div style="overflow-x:auto"><table><thead><tr><th>Дата</th><th>Учень</th><th>Період</th><th>Уроки/Сума</th><th>Канал</th><th>Отримувач</th><th>Відправив</th></tr></thead><tbody id="inv-log-tbody"></tbody></table></div></div></div>
       <!-- ── ANALYTICS ── -->
       <div class="page" id="pg-analytics"><div class="card"><div class="ch"><span class="ct">📈 Статистика</span><div style="display:flex;gap:8px"><select id="an-range" onchange="renderAnalytics()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="week">Тиждень</option><option value="30" selected>30 днів</option><option value="90">3 місяці</option><option value="year">Рік</option><option value="all">Весь час</option></select><select id="an-branch" onchange="renderAnalytics()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="">Всі філії</option></select><select id="an-tutor" onchange="renderAnalytics()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="">Всі репетитори</option></select></div></div><div style="padding:18px" id="an-content"></div></div></div>
       <!-- ── CRM ── -->
-      <div class="page" id="pg-crm"><div class="card"><div class="ch"><span class="ct">🔗 CRM</span></div><div style="padding:18px;color:var(--t3);text-align:center">CRM модуль</div></div></div>
+      <div class="page" id="pg-crm"><div id="crm-board"></div></div>
       
       
 
@@ -1339,6 +1339,36 @@ body.role-tutor .comm-add-btn { display: none !important; }
     <div class="mdlf">
       <button class="btn btn-p" onclick="saveBranchModal()">💾 Зберегти</button>
       <button class="btn btn-g" onclick="closeM('mo-branch')">Скасувати</button>
+    </div>
+  </div>
+</div>
+
+<!-- CRM Lead Modal -->
+<div class="mo" id="mo-crm">
+  <div class="mdl" style="max-width:460px">
+    <div class="mdlh"><span id="crm-modal-title">Лід</span><button class="cls" onclick="closeM('mo-crm')">✕</button></div>
+    <div class="mdlb">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fg"><label>Ім'я *</label><input id="crm-fn" placeholder="Ім'я"></div>
+        <div class="fg"><label>Прізвище</label><input id="crm-ln" placeholder="Прізвище"></div>
+      </div>
+      <div class="fg"><label>Телефон</label><input id="crm-phone" placeholder="+380..."></div>
+      <div class="fg"><label>Предмет</label><input id="crm-subj" placeholder="Математика..."></div>
+      <div class="fg"><label>Етап</label>
+        <select id="crm-stage">
+          <option value="new">🆕 Новий</option>
+          <option value="contacted">📞 Контакт</option>
+          <option value="trial">🎯 Пробне</option>
+          <option value="active">✅ Активний</option>
+          <option value="rejected">❌ Відмова</option>
+        </select>
+      </div>
+      <div class="fg"><label>Репетитор</label><select id="crm-tutor"></select></div>
+      <div class="fg"><label>Нотатка</label><textarea id="crm-note" rows="2" style="min-height:60px"></textarea></div>
+    </div>
+    <div class="mdlf">
+      <button class="btn btn-p" onclick="saveLeadModal()">💾 Зберегти</button>
+      <button class="btn btn-g" onclick="closeM('mo-crm')">Скасувати</button>
     </div>
   </div>
 </div>
