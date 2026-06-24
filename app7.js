@@ -4281,9 +4281,7 @@ async function setCrmStage(studentId, stage){
     mkToast('Помилка: '+e.message,'error');
   }
 }
-window.saveLeadModal=saveLeadModal;
-window.moveLead=moveLead;
-window.deleteLead=deleteLead;
+
 
 function openCrmCard(studentId){
   var s=(S.students||[]).find(function(x){return x.id===studentId;});
