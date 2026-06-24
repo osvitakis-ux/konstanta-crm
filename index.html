@@ -1031,7 +1031,16 @@ body.role-tutor .comm-add-btn { display: none !important; }
                   <div class="fgr"><label>Телефон</label><input id="pr-phone" type="text"></div>
                   <div class="fgr"><label>Email</label><input id="pr-email" type="email"></div>
                   <div class="fgr"><label>Предмети</label><input id="pr-subj" placeholder="через кому"></div>
-                  <div class="fgr"><label>Ставка ₴/год</label><input id="pr-rate" type="number"></div>
+                  <div class="fgr full"><label>Фото</label>
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <div id="pr-photo-preview" style="width:56px;height:56px;border-radius:50%;background:var(--s2);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--t3)">📷</div>
+                      <div>
+                        <input type="file" id="pr-photo-input" accept="image/*" style="display:none" onchange="uploadTutorPhoto(this)">
+                        <button class="btn btn-g btn-sm" onclick="document.getElementById('pr-photo-input').click()">Обрати фото</button>
+                        <div style="font-size:11px;color:var(--t3);margin-top:4px">JPG, PNG до 2 МБ</div>
+                      </div>
+                    </div>
+                  </div>
                   <div class="fgr full"><label>Про себе</label><textarea id="pr-bio" rows="3"></textarea></div>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:8px">
@@ -1040,23 +1049,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
                 </div>
               </div>
             </div>
-          <div style="display:flex;flex-direction:column;gap:14px">
-            <div class="card">
-              <div class="ch">
-                <span class="ct">Учні</span>
-                <button class="btn btn-p btn-sm" onclick="openStudM()">+ Додати учня</button>
-              </div>
-              <table><thead><tr><th>Ім'я</th><th>Предмет</th><th>Статус</th><th></th></tr></thead><tbody id="pr-students"></tbody></table>
-            </div>
-            
-            <div class="card">
-              <div class="ch">
-                <span class="ct">💬 Комунікації</span>
-                <button class="btn btn-p btn-sm" onclick="openCommM(myTutor()&&myTutor().id)">+ Додати</button>
-              </div>
-              <div id="pr-comms"></div>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
