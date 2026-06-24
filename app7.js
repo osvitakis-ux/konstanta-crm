@@ -244,7 +244,6 @@ var NAV_CFG = [
   {id:'analytics',   ico:'◤', lbl:'Аналітика',       sec:'Фінанси'},
   {id:'crm',         ico:'▤', lbl:'CRM',              sec:'Менеджмент'},
   {id:'profile',     ico:'▣', lbl:'Мій профіль',      sec:'Особисте'},
-  {id:'profile',    ico:'\u25A3',  lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',  sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
 ];
 
 var DEFAULT_NAV_CFG = NAV_CFG;
@@ -3523,7 +3522,7 @@ async function saveProfileEdit(){
   if(!mt){ mkToast('Профіль репетитора не знайдено','error'); return; }
   var get = function(id){ var el=document.getElementById(id); return el?el.value.trim():''; };
   var obj = { fn:get('pr-fn'), ln:get('pr-ln'), phone:get('pr-phone'),
-    email:get('pr-email'), subj:get('pr-subj'), rate:get('pr-rate')||null, bio:get('pr-bio') };
+    email:get('pr-email'), subj:get('pr-subj'), bio:get('pr-bio') };
   if(!obj.fn){ mkToast("Ім'я обов'язкове",'error'); return; }
   try{
     await dbUpdate('tutors', mt.id, obj);
@@ -3798,19 +3797,42 @@ function renderPricingRules(){
 
 
 function renderProfile(){
-  const mt=myTutor();
-  var _pi=document.getElementById('pr-info');
-  // Add photo upload
-  var photoWrap=document.getElementById('pr-photo-wrap');
-  if(photoWrap){
-    var avatarEl=photoWrap.querySelector('.av');
-    if(avatarEl && mt && mt.photo){
-      avatarEl.innerHTML='<img src="'+mt.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
-    }
-  }if(_pi)_pi.innerHTML=mt?('\n    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+(mkAv(mt.fn,mt.ln,48))+'<div><div style="font-size:17px;font-weight:700;font-family:Syne,sans-serif">'+(mt.fn)+' '+(mt.ln)+'</div><div style="font-size:12px;color:var(--t2);margin-top:2px">'+(mt.subj||'\u2014')+'</div></div></div>\n    <div class="ms"><span class="msl">\u0422\u0435\u043B\u0435\u0444\u043E\u043D</span><span class="msv" style="font-family:inherit">'+(mt.phone||'\u2014')+'</span></div>\n    <div class="ms"><span class="msl">Email</span><span class="msv" style="font-family:inherit">'+(mt.email||'\u2014')+'</span></div>\n    \n    \n    <div class="ms"><span class="msl">\u0417\u0430\u043D\u044F\u0442\u044C \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E</span><span class="msv">'+(myLessons().filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0))+'</span></div>\n    '+(mt.bio?`<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)">${mt.bio}</div>`:'')+'\n  '):'<div class="empty"><div class="ei">\uD83D\uDD17</div>\u0412\u0430\u0448 \u0430\u043A\u0430\u0443\u043D\u0442 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u0438\u0439 \u0434\u043E \u043F\u0440\u043E\u0444\u0456\u043B\u044E \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430</div>';
+  const mt = myTutor();
+  var _pi = document.getElementById('pr-info');
+  if(!_pi) return;
+
+  if(mt){
+    // Photo: show real photo or initials avatar
+    var photoHtml = mt.photo
+      ? '<img src="'+mt.photo+'" style="width:56px;height:56px;object-fit:cover;border-radius:50%">'
+      : '<div style="width:56px;height:56px;border-radius:50%;background:var(--adm2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;font-family:Syne,sans-serif">'+(mt.fn||'?')[0]+(mt.ln||'')[0]+'</div>';
+
+    var doneH = Math.round(myLessons().filter(function(l){
+      return l.status==='done'||l.status==='completed'||l.status==='makeup';
+    }).reduce(function(s,l){ return s+(parseFloat(l.dur)||60)/60; },0)*10)/10;
+
+    _pi.innerHTML =
+      '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+photoHtml
+      +'<div><div style="font-size:17px;font-weight:700;font-family:Syne,sans-serif">'+mt.fn+' '+mt.ln+'</div>'
+      +'<div style="font-size:12px;color:var(--t2);margin-top:2px">'+(mt.subj||'—')+'</div></div></div>'
+      +'<div class="ms"><span class="msl">Телефон</span><span class="msv" style="font-family:inherit">'+(mt.phone||'—')+'</span></div>'
+      +'<div class="ms"><span class="msl">Email</span><span class="msv" style="font-family:inherit">'+(mt.email||'—')+'</span></div>'
+      +'<div class="ms"><span class="msl">Занять проведено</span><span class="msv">'+doneH+'</span></div>'
+      +(mt.bio?'<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)">'+mt.bio+'</div>':'');
+  } else {
+    _pi.innerHTML = '<div class="empty"><div class="ei">🔗</div>Ваш акаунт не прив\'язаний до профілю викладача</div>';
+  }
+
+  // Pre-fill edit form fields
+  if(mt){
+    var setV = function(id,v){ var el=document.getElementById(id); if(el) el.value=v||''; };
+    setV('pr-fn', mt.fn); setV('pr-ln', mt.ln); setV('pr-phone', mt.phone);
+    setV('pr-email', mt.email); setV('pr-subj', mt.subj); setV('pr-bio', mt.bio);
+    // Photo preview
+    var prev = document.getElementById('pr-photo-preview');
+    if(prev && mt.photo) prev.innerHTML = '<img src="'+mt.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+  }
 }
-
-
 function renderReports(){
   const months=['\u0421\u0456\u0447','\u041B\u044E\u0442','\u0411\u0435\u0440','\u041A\u0432\u0456','\u0422\u0440\u0430','\u0427\u0435\u0440','\u041B\u0438\u043F','\u0421\u0435\u0440','\u0412\u0435\u0440','\u0416\u043E\u0432','\u041B\u0438\u0441','\u0413\u0440\u0443'];
   const md=new Array(12).fill(0);
@@ -4773,10 +4795,11 @@ async function uploadTutorPhoto(input){
       // Update local
       var idx=S.tutors.findIndex(function(t){return t.id===mt.id;});
       if(idx>=0) S.tutors[idx].photo=dataUrl;
-      // Show in avatar
-      var wrap=document.getElementById('pr-photo-wrap');
-      if(wrap){var av=wrap.querySelector('.av');if(av)av.innerHTML='<img src="'+dataUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';}
+      // Update photo preview in form
+      var prev=document.getElementById('pr-photo-preview');
+      if(prev) prev.innerHTML='<img src="'+dataUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
       mkToast('Фото збережено ✅');
+      renderProfile();
     }catch(err){mkToast('Помилка: '+err.message,'error');}
   };
   reader.readAsDataURL(file);
