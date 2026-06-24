@@ -3878,45 +3878,80 @@ function renderSchDay(){
   });
   if(filterTutor) tutors = tutors.filter(t=>t.id===filterTutor);
 
-  const hrs  = Array.from({length:13},(_,i)=>i+8);
-  const ecls = ['ec0','ec1','ec2','ec3','ec4'];
-  const ml   = myLessons();
 
-  // Grid: cols = Time + one per tutor
+  const START_H = 8, END_H = 21;
+  const ROW_H = 48;
+  const totalHrs = END_H - START_H;
+
+  const _schStat = (document.getElementById('sch-status-filter')||{value:''}).value;
+  const ml = myLessons().filter(function(l){
+    if(l.status==='cancelled') return false;
+    if(_schStat){
+      if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
+      if(_schStat==='completed') return l.status==='done'||l.status==='completed'||l.status==='makeup';
+      return l.status===_schStat;
+    }
+    return true;
+  });
+
   const cols = tutors.length || 1;
   let html = '<div class="schh" style="background:var(--s1)">\u0427\u0430\u0441</div>';
   if(tutors.length === 0){
     html += '<div class="schh">\u041D\u0435\u043C\u0430\u0454 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432</div>';
   } else {
-    tutors.forEach(t=>{
-      html += ('<div class="schh"><div style="font-weight:700;font-size:12px">'+(t.fn)+'</div><div style="font-size:10px;color:var(--t2)">'+(t.ln)+'</div></div>');
+    tutors.forEach(function(t){
+      html += '<div class="schh"><div style="font-weight:700;font-size:12px">'+t.fn+'</div><div style="font-size:10px;color:var(--t2)">'+t.ln+'</div></div>';
     });
   }
 
-  hrs.forEach(h=>{
-    html += ('<div class="scht">'+(String(h).padStart(2,'0'))+':00</div>');
-    if(tutors.length === 0){
-      html += '<div class="schc"></div>';
-    } else {
-      tutors.forEach(t=>{
-        const lsns = ml.filter(l=>
-          l.date===ds &&
-          l.tutorId===t.id &&
-          parseInt((l.time||'0:0').split(':')[0])===h &&
-          l.status!=='cancelled'
-        );
-        html += ('<div class="schc" onclick="openLessM(null,\''+(ds)+'\',\''+(String(h).padStart(2,'0'))+':00\')">');
-        lsns.forEach((l,i)=>{
-          html += ('<div class="sche '+(ecls[i%ecls.length])+'" onclick="event.stopPropagation();openLessM(\''+(l.id)+'\')">\n            <div style="font-weight:700;font-size:11px">'+(l.subject)+'</div>\n            <div class="sche-tutor">'+(sn(l.studentId).split(' ')[0])+'</div>\n          </div>');
-        });
-        html += '</div>';
+  // Time column
+  html += '<div style="position:relative;height:'+(totalHrs*ROW_H)+'px;background:var(--s2);border-right:1px solid var(--b1)">';
+  for(var h=START_H;h<END_H;h++){
+    html += '<div style="position:absolute;top:'+((h-START_H)*ROW_H)+'px;height:'+ROW_H+'px;width:100%;display:flex;align-items:flex-start;padding-top:3px;justify-content:center;font-size:10px;color:var(--t3);font-family:JetBrains Mono,monospace;box-sizing:border-box;border-top:1px solid var(--b1)">'+String(h).padStart(2,'0')+':00</div>';
+  }
+  html += '</div>';
+
+  if(tutors.length === 0){
+    html += '<div style="position:relative;height:'+(totalHrs*ROW_H)+'px"></div>';
+  } else {
+    tutors.forEach(function(t){
+      const dayLessons = ml.filter(function(l){
+        return l.date===ds && (l.tutorId===t.id || l.tutor_id===t.id);
       });
-    }
-  });
+      html += '<div style="position:relative;height:'+(totalHrs*ROW_H)+'px;border-right:1px solid var(--b1)">';
+      for(var hh=START_H;hh<END_H;hh++){
+        var slotOnclick = 'openLessM(null,\''+ds+'\',\''+String(hh).padStart(2,'0')+':00\')';
+        html += '<div onclick="'+slotOnclick+'" style="position:absolute;top:'+((hh-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer"></div>';
+      }
+      dayLessons.forEach(function(l){
+        const parts = (l.time||'08:00').split(':');
+        const lh = parseInt(parts[0])||8;
+        const lm = parseInt(parts[1])||0;
+        const dur = parseFloat(l.dur)||60;
+        const topPx = (lh-START_H)*ROW_H + (lm/60)*ROW_H;
+        const heightPx = Math.max((dur/60)*ROW_H, 18);
+        if(lh<START_H||lh>=END_H) return;
+        var _isCov = l.status==='missed' && isCoveredMissed(l);
+        var ecl = _isCov ? 'ec-make'
+          : l.status==='missed'  ? 'ec-miss'
+          : l.status==='makeup'  ? 'ec-make'
+          : (l.status==='completed'||l.status==='done') ? 'ec-done'
+          : 'ec-plan';
+        var canDel = can('lessons');
+        html += '<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;left:2px;right:2px;height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
+          +' onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'          +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'\uD83D\uDD01 ':'')+l.subject+'</div>'
+          +(heightPx>28?'<div style="opacity:.75;font-size:9px">'+sn(l.studentId||l.student_id).split(' ')[0]+'</div>':'')
+          +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' \u00B7 '+Math.floor(dur/60)+'\u0433'+(dur%60?dur%60+'\u0445\u0432':''):'\u00B7 '+dur+'\u0445\u0432')+'</div>':'')
+          +(canDel?'<span onclick="event.stopPropagation();delLesson(\''+l.id+'\')" style="position:absolute;top:2px;right:3px;font-size:10px;opacity:.6;cursor:pointer;line-height:1" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438">\u2715</span>':'')
+          +'</div>';
+      });
+      html += '</div>';
+    });
+  }
 
   const g = document.getElementById('schg');
-  g.style.gridTemplateColumns = ('52px repeat('+(cols)+',1fr)');
-  g.style.gridTemplateRows    = ('auto repeat('+(hrs.length)+',46px)');
+  g.style.gridTemplateColumns = '52px repeat('+cols+',1fr)';
+  g.style.gridTemplateRows    = 'auto '+(totalHrs*ROW_H)+'px';
   g.innerHTML = html;
 }
 
