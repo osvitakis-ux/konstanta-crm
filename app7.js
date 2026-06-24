@@ -2073,7 +2073,7 @@ function renderAnalytics(){
 
   function calcStats(lessonsArr, commsArr, studentsArr){
     var done     = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
-    var missed   = lessonsAruncoveredMissedFilter(r).length;
+    var missed   = uncoveredMissedFilter(lessonsArr).length;
     var cancelled= lessonsArr.filter(function(l){return l.status==='cancelled';}).length;
     var planned  = lessonsArr.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     var total    = lessonsArr.length;
