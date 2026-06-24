@@ -652,6 +652,7 @@ function renderInvoicePage(){
     +'</div>');
 
   // Store for send functions
+  }
   window._invText=invText;
   window._invPhone=phone;
 }
@@ -4693,4 +4694,3 @@ document.addEventListener('change', function(e){
     }
   }
 });
-}
