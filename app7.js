@@ -4112,143 +4112,175 @@ function openAddLead(){
   openM('mo-student');
 }
 
+
 function renderCrm(){
-  var pg=document.getElementById('pg-crm');
-  if(!pg)return;
+  var el = document.getElementById('crm-board');
+  if(!el) return;
+  var crmEl = document.getElementById('pg-crm');
+  if(crmEl){
+    var sb = document.querySelector('.sb');
+    crmEl.style.left = (sb && sb.offsetWidth > 0 ? sb.offsetWidth : 224) + 'px';
+  }
 
-  // Populate student filter for new lead
-  var stages=['new','contacted','trial','active','rejected'];
-  var stageLabels={new:'🆕 Новий',contacted:'📞 Контакт',trial:'🎯 Пробне',active:'✅ Активний',rejected:'❌ Відмова'};
-  var stageColors={new:'#6366f1',contacted:'#f59e0b',trial:'#14b8a6',active:'#22c55e',rejected:'#ef4444'};
+  var fStage = (document.getElementById('crm-f-stage')||{value:''}).value||'';
+  var fMonth = (document.getElementById('crm-f-month')||{value:''}).value||'';
+  var fResp  = (document.getElementById('crm-f-resp') ||{value:''}).value||'';
 
-  // Filter
-  var fStage=(document.getElementById('crm-f-stage')||{value:''}).value;
-  var fSearch=(document.getElementById('crm-search')||{value:''}).value.toLowerCase();
+  // Populate responsible select on first render
+  var respSel = document.getElementById('crm-f-resp');
+  if(respSel && respSel.options.length <= 1){
+    (S.users||[]).filter(function(u){ return u.role==='god'||u.role==='director'||u.role==='admin'; })
+      .forEach(function(u){
+        var o = document.createElement('option');
+        o.value = u.id; o.textContent = u.fn+' '+u.ln;
+        respSel.appendChild(o);
+      });
+    respSel.value = fResp;
+  }
 
-  // Get leads from students where crmStage is set OR all students as leads
-  var leads=(S.students||[]).filter(function(s){
-    if(fStage && s.crmStage!==fStage) return false;
-    if(fSearch){
-      var name=(s.fn+' '+s.ln).toLowerCase();
-      if(!name.includes(fSearch)&&!(s.phone||'').includes(fSearch)) return false;
-    }
+  var students = (S.students||[]).filter(function(s){
+    if(fStage && getCrmStage(s) !== fStage) return false;
+    if(fMonth && (s.crmDate||'').slice(0,7) !== fMonth) return false;
+    if(fResp  && s.crmResponsible !== fResp) return false;
     return true;
   });
 
-  // Build board HTML
-  var html='<div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'
-    +'<button class="btn btn-p btn-sm" onclick="openAddLead()">+ Додати лід</button>'
-    +'<input id="crm-search" placeholder="🔍 Пошук..." onchange="renderCrm()" oninput="renderCrm()" style="padding:5px 10px;border:1px solid var(--b1);border-radius:8px;background:var(--s1);font-size:12px;width:180px">'
-    +'<select id="crm-f-stage" onchange="renderCrm()" style="padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s1);font-size:12px">'
-    +'<option value="">Всі етапи</option>'
-    +stages.map(function(s){return '<option value="'+s+'"'+(fStage===s?' selected':'')+'>'+stageLabels[s]+'</option>';}).join('')
-    +'</select>'
-    +'</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;overflow-x:auto;min-height:300px">';
-
-  stages.forEach(function(stage){
-    var col=leads.filter(function(s){return (s.crmStage||'new')===stage;});
-    html+='<div style="background:var(--s2);border-radius:12px;padding:10px;min-height:200px">'
-      +'<div style="font-weight:700;font-size:12px;color:'+stageColors[stage]+';margin-bottom:8px;display:flex;justify-content:space-between">'
-      +'<span>'+stageLabels[stage]+'</span><span style="background:'+stageColors[stage]+'22;color:'+stageColors[stage]+';border-radius:20px;padding:1px 8px;font-size:11px">'+col.length+'</span>'
-      +'</div>'
-      +col.map(function(s){
-        var tutor=(S.tutors||[]).find(function(t){return t.id===(s.tutorId||s.tutor_id);});
-        return '<div style="background:var(--s1);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;border:1px solid var(--b1)" onclick="openEditLead(this.dataset.id)" data-id="'+s.id+'">'+'\n'
-          +'<div style="font-weight:600;font-size:12px">'+s.fn+' '+s.ln+'</div>'
-          +(s.phone?'<div style="font-size:10px;color:var(--t2)">📱 '+s.phone+'</div>':'')
-          +(s.subject?'<div style="font-size:10px;color:var(--t2)">📚 '+s.subject+'</div>':'')
-          +(tutor?'<div style="font-size:10px;color:var(--t2)">👤 '+tutor.fn+' '+tutor.ln+'</div>':'')
-          +(s.crmDate?'<div style="font-size:10px;color:var(--t3)">📅 '+fd(s.crmDate)+'</div>':'')
-          +'<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">'
-          +stages.filter(function(x){return x!==stage;}).map(function(ns){
-            return '<button onclick="event.stopPropagation();moveLead(this.dataset.id,this.dataset.ns)" data-id="'+s.id+'" data-ns="'+ns+'" style="font-size:9px;padding:2px 5px;border:1px solid '+stageColors[ns]+';color:'+stageColors[ns]+';background:none;border-radius:4px;cursor:pointer">&rarr;'+stageLabels[ns].split(' ')[0]+'</button>';
-          }).join('')
-          +'<button onclick="event.stopPropagation();deleteLead(this.dataset.id)" data-id="'+s.id+'" style="font-size:9px;padding:2px 5px;border:1px solid #ef4444;color:#ef4444;background:none;border-radius:4px;cursor:pointer;margin-left:auto">&times;</button>'
-          +'</div>'
-          +'</div>';
-      }).join('')
-      +'</div>';
+  var groups = {};
+  CRM_COLS.forEach(function(c){ groups[c.id] = []; });
+  students.forEach(function(s){
+    var st = getCrmStage(s);
+    if(!groups[st]) st = 'lead';
+    groups[st].push(s);
   });
-  html+='</div>';
-  pg.innerHTML=html;
+
+  var cols = fStage ? CRM_COLS.filter(function(c){ return c.id===fStage; }) : CRM_COLS;
+
+  // Update stats bar
+  var statsEl = document.getElementById('crm-stats');
+  if(statsEl){
+    var total = students.length;
+    var won   = students.filter(function(s){ return getCrmStage(s)==='won'; }).length;
+    var lost  = students.filter(function(s){ return getCrmStage(s)==='lost'; }).length;
+    var conv  = total>0 ? Math.round(won/total*100) : 0;
+    statsEl.innerHTML =
+      '<span>Всього: <b>'+total+'</b></span>'
+      +'<span style="color:var(--tut)">Успішно: <b>'+won+'</b></span>'
+      +'<span style="color:var(--danger)">Не реал.: <b>'+lost+'</b></span>'
+      +'<span style="color:var(--adm)">Конверсія: <b>'+conv+'%</b></span>';
+  }
+
+  el.innerHTML = '';
+
+  cols.forEach(function(col){
+    var cards = groups[col.id]||[];
+
+    var colDiv = document.createElement('div');
+    colDiv.className = 'crm-col';
+    colDiv.addEventListener('dragover',  function(e){ crmDragOver(e); });
+    colDiv.addEventListener('dragleave', function(e){ crmDragLeave(e); });
+    colDiv.addEventListener('drop',      function(e){ crmDrop(e, col.id); });
+
+    var hdr = document.createElement('div');
+    hdr.className = 'crm-col-hdr';
+    hdr.style.borderTop = '3px solid ' + col.color;
+    hdr.innerHTML = '<span style="font-size:14px">'+col.ico+'</span>'
+      + '<span class="crm-col-lbl">'+col.lbl+'</span>'
+      + '<span class="crm-col-cnt">'+cards.length+'</span>';
+    colDiv.appendChild(hdr);
+
+    var body = document.createElement('div');
+    body.className = 'crm-col-body';
+
+    cards.forEach(function(s){
+      var tutor = s.tutorId ? (S.tutors||[]).find(function(t){ return t.id===s.tutorId; }) : null;
+      var resp  = s.crmResponsible ? (S.users||[]).find(function(u){ return u.id===s.crmResponsible; }) : null;
+      var lc    = (S.comms||[]).filter(function(c){ return c.studentId===s.id; })
+                    .sort(function(a,b){ return (b.date||'')>(a.date||'')?1:-1; })[0];
+
+      var card = document.createElement('div');
+      card.className = 'crm-card';
+      card.draggable = true;
+
+      var sid = s.id;
+      card.addEventListener('dragstart', function(e){ crmDragStart(e, sid); });
+      card.addEventListener('dragend',   crmDragEnd);
+
+      var info = document.createElement('div');
+      info.innerHTML =
+        '<div class="crm-card-name">'+s.fn+' '+s.ln+'</div>'
+        +(s.subject ? '<div class="crm-card-subj">'+s.subject+'</div>' : '')
+        +(tutor ? '<div class="crm-card-meta">◈ '+tutor.fn+' '+tutor.ln+'</div>' : '')
+        +(resp  ? '<div class="crm-card-meta" style="color:var(--dir)">★ '+resp.fn+' '+resp.ln+'</div>' : '')
+        +((s.phone||s.parentPhone) ? '<div class="crm-card-meta">☎ '+(s.phone||s.parentPhone)+'</div>' : '')
+        +(s.crmDate ? '<div class="crm-card-comm">▣ '+fd(s.crmDate)+'</div>' : '')
+        +(lc ? '<div class="crm-card-comm">◎ '+fd(lc.date)+'</div>' : '');
+      info.querySelector('.crm-card-name').addEventListener('click', function(){ openStudM(sid); });
+      card.appendChild(info);
+
+      // Action buttons
+      var acts = document.createElement('div');
+      acts.className = 'crm-card-actions';
+
+      var editBtn = document.createElement('button');
+      editBtn.className = 'crm-mv-btn';
+      editBtn.title = 'Редагувати';
+      editBtn.textContent = '✏';
+      editBtn.addEventListener('click', function(e){ e.stopPropagation(); openCrmCard(sid); });
+      acts.appendChild(editBtn);
+
+      CRM_COLS.filter(function(c){ return c.id !== col.id; }).forEach(function(c){
+        var btn = document.createElement('button');
+        btn.className = 'crm-mv-btn';
+        btn.title = '→ ' + c.lbl;
+        btn.textContent = c.ico;
+        (function(cid){ btn.addEventListener('click', function(e){ e.stopPropagation(); setCrmStage(sid, cid); }); })(c.id);
+        acts.appendChild(btn);
+      });
+      card.appendChild(acts);
+      body.appendChild(card);
+    });
+
+    colDiv.appendChild(body);
+    el.appendChild(colDiv);
+  });
+  setTimeout(crmInitScroll, 50);
 }
 
 function openAddLead(){
   S.editId=null;
-  ['crm-fn','crm-ln','crm-phone','crm-subj','crm-note'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
-  });
-  var sel=document.getElementById('crm-stage'); if(sel) sel.value='new';
-  var tsel=document.getElementById('crm-tutor');
-  if(tsel) tsel.innerHTML='<option value="">— без репетитора —</option>'
-    +(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
-  document.getElementById('crm-modal-title').textContent='Новий лід';
-  openM('mo-crm');
+  document.getElementById('ms-title').textContent='Новий лід';
+  var dl_s=document.getElementById('subj-list-s');
+  if(dl_s)dl_s.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
+  var stSel=document.getElementById('s-tutor');
+  if(stSel)stSel.innerHTML=(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+  var stList=document.getElementById('s-tutor-list');
+  if(stList)stList.innerHTML=(S.tutors||[]).map(function(t){
+    return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px">'
+      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'+mkAv(t.fn,t.ln,20)+'<span>'+t.fn+' '+t.ln+'</span></label>';
+  }).join('');
+  ['fn','ln','age','grade','phone','email','notes'].forEach(function(f){var el=document.getElementById('s-'+f);if(el)el.value='';});
+  var pf=document.getElementById('s-parent-fn');if(pf)pf.value='';
+  var pp=document.getElementById('s-parent-phone');if(pp)pp.value='';
+  document.getElementById('s-status').value='trial';
+  document.getElementById('s-src').value='referral';
+  renderCustomFields('student','mo-student-cf');
+  openM('mo-student');
 }
 
-function openEditLead(id){
-  var s=(S.students||[]).find(function(x){return x.id===id;});
-  if(!s)return;
-  S.editId=id;
-  var f={fn:s.fn,ln:s.ln,phone:s.phone||'',subj:s.subject||'',note:s.crmNote||''};
-  Object.keys(f).forEach(function(k){
-    var el=document.getElementById('crm-'+k); if(el) el.value=f[k];
-  });
-  var sel=document.getElementById('crm-stage'); if(sel) sel.value=s.crmStage||'new';
-  var tsel=document.getElementById('crm-tutor');
-  if(tsel){
-    tsel.innerHTML='<option value="">— без репетитора —</option>'
-      +(S.tutors||[]).map(function(t){return '<option value="'+t.id+'"'+(t.id===(s.tutorId||s.tutor_id)?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';}).join('');
+async function setCrmStage(studentId, stage){
+  var i=(S.students||[]).findIndex(function(s){return s.id===studentId;});
+  var prev=i>=0?(S.students[i].crmStage||S.students[i].crm_stage):null;
+  if(i>=0){S.students[i].crmStage=stage;S.students[i].crm_stage=stage;}
+  renderCrm();
+  try{
+    await dbUpdate('students',studentId,{crm_stage:stage});
+    mkToast('Етап оновлено');
+  }catch(e){
+    if(i>=0){S.students[i].crmStage=prev;S.students[i].crm_stage=prev;}
+    renderCrm();
+    mkToast('Помилка: '+e.message,'error');
   }
-  document.getElementById('crm-modal-title').textContent='Редагувати лід';
-  openM('mo-crm');
 }
-
-async function saveLeadModal(){
-  var fn=(document.getElementById('crm-fn')||{value:''}).value.trim();
-  var ln=(document.getElementById('crm-ln')||{value:''}).value.trim();
-  if(!fn&&!ln){mkToast('Вкажіть ім\'я','error');return;}
-  var obj={
-    fn:fn, ln:ln,
-    phone:(document.getElementById('crm-phone')||{value:''}).value,
-    subject:(document.getElementById('crm-subj')||{value:''}).value,
-    crm_stage:(document.getElementById('crm-stage')||{value:'new'}).value,
-    tutor_id:(document.getElementById('crm-tutor')||{value:''}).value||null,
-    crm_note:(document.getElementById('crm-note')||{value:''}).value,
-    crm_date:localDateStr(new Date()),
-    status:'trial'
-  };
-  try{
-    if(S.editId){ await dbUpdate('students',S.editId,obj); }
-    else{ obj.id=uid(); await dbInsert('students',obj); }
-    mkToast('Збережено');
-    closeM('mo-crm');
-    renderCrm();
-  }catch(e){mkToast('Помилка: '+e.message,'error');}
-}
-
-async function moveLead(id,stage){
-  try{
-    await dbUpdate('students',id,{crm_stage:stage});
-    var s=(S.students||[]).find(function(x){return x.id===id;});
-    if(s) s.crmStage=stage;
-    renderCrm();
-  }catch(e){mkToast('Помилка','error');}
-}
-
-async function deleteLead(id){
-  if(!confirm('Видалити лід?'))return;
-  try{
-    await dbDelete('students',id);
-    S.students=S.students.filter(function(x){return x.id!==id;});
-    mkToast('Видалено');
-    renderCrm();
-  }catch(e){mkToast('Помилка','error');}
-}
-
-window.openAddLead=openAddLead;
-window.openEditLead=openEditLead;
 window.saveLeadModal=saveLeadModal;
 window.moveLead=moveLead;
 window.deleteLead=deleteLead;
