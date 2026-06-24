@@ -3343,7 +3343,7 @@ function openPayM(id=null){
   S.editId=id;document.getElementById('mp-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043F\u043B\u0430\u0442\u0456\u0436':'\u041D\u043E\u0432\u0438\u0439 \u043F\u043B\u0430\u0442\u0456\u0436';
   popSel('p-std',S.students,'id',function(s){return s.fn+' '+s.ln;},'\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F');
   const months=['\u0421\u0456\u0447\u0435\u043D\u044C','\u041B\u044E\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u041A\u0432\u0456\u0442\u0435\u043D\u044C','\u0422\u0440\u0430\u0432\u0435\u043D\u044C','\u0427\u0435\u0440\u0432\u0435\u043D\u044C','\u041B\u0438\u043F\u0435\u043D\u044C','\u0421\u0435\u0440\u043F\u0435\u043D\u044C','\u0412\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0416\u043E\u0432\u0442\u0435\u043D\u044C','\u041B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043D\u044C'];
-  document.getElementById('p-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('p-date').value=localDateStr(new Date());
   document.getElementById('p-mon').value=months[new Date().getMonth()];
   if(id){const p=S.payments.find(x=>x.id===id);if(p){document.getElementById('p-std').value=p.studentId||'';document.getElementById('p-amt').value=p.amount||'';document.getElementById('p-mth').value=p.method||'cash';document.getElementById('p-date').value=p.date||'';document.getElementById('p-stat').value=p.status||'paid';document.getElementById('p-mon').value=p.month||months[new Date().getMonth()];document.getElementById('p-note').value=p.note||'';}}
   else{document.getElementById('p-std').value='';document.getElementById('p-amt').value='';document.getElementById('p-mth').value='cash';document.getElementById('p-stat').value='paid';document.getElementById('p-note').value='';}
@@ -3857,7 +3857,7 @@ function renderSchDay(){
   const day    = new Date(now);
   day.setDate(now.getDate() + offset);
   day.setHours(0,0,0,0);
-  const ds = day.toISOString().slice(0,10);
+  const ds = localDateStr(day);
   const dnames = ['\u041D\u0435\u0434\u0456\u043B\u044F','\u041F\u043E\u043D\u0435\u0434\u0456\u043B\u043E\u043A','\u0412\u0456\u0432\u0442\u043E\u0440\u043E\u043A','\u0421\u0435\u0440\u0435\u0434\u0430','\u0427\u0435\u0442\u0432\u0435\u0440','\u041F\'\u044F\u0442\u043D\u0438\u0446\u044F','\u0421\u0443\u0431\u043E\u0442\u0430'];
   document.getElementById('wklbl').textContent =
     dnames[day.getDay()] + ', ' + day.toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
@@ -4531,7 +4531,7 @@ function sendInvoiceEmail(){
   var cPhone  = cfg.phone || '';
   var cEmail  = cfg.email || '';
   var num     = 'INV-'+Date.now().toString().slice(-6);
-  var today   = fd(new Date().toISOString().slice(0,10));
+  var today   = fd(localDateStr(new Date()));
 
   var subject = '\u0420\u0430\u0445\u0443\u043d\u043e\u043a-\u0444\u0430\u043a\u0442\u0443\u0440\u0430 \u2116'+num+' \u2014 '+s.fn+' '+s.ln;
 
