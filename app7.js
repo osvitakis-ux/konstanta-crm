@@ -2031,172 +2031,188 @@ var _syncTimer = null;
 // ANALYTICS DASHBOARD
 // =
 function renderAnalytics(){
-  var pg = document.getElementById('pg-analytics');
-  if(!pg) return;
+  var pg=document.getElementById('pg-analytics');
+  if(!pg)return;
 
-  // Date range filter
-  var rangeEl = document.getElementById('an-range');
-  var range   = rangeEl ? rangeEl.value : '30';
-  var now     = new Date();
-  var fromDate = new Date(now);
-  if(range === 'week')  fromDate.setDate(now.getDate()-7);
-  else if(range === '30') fromDate.setDate(now.getDate()-30);
-  else if(range === '90') fromDate.setDate(now.getDate()-90);
-  else if(range === 'year') fromDate.setFullYear(now.getFullYear()-1);
-  else fromDate = new Date(0); // all time
-  var fromStr = localDateStr(fromDate);
-
-  var lessons  = (S.lessons||[]).filter(function(l){ return l.date >= fromStr; });
-  var comms    = (S.comms||[]).filter(function(c){ return c.date >= fromStr; });
-  var students = S.students || [];
-  var tutors   = S.tutors   || [];
-  var branches = S.branches || [{id:'all', name:'\u0412\u0441\u0456 \u0444\u0456\u043B\u0456\u0457'}];
-
-  // = Helper =
-  function kpi(icon, label, value, sub, color){
-    return '<div class="an-kpi" style="--kc:'+color+'">'
-      +'<div class="an-kpi-ico">'+icon+'</div>'
-      +'<div class="an-kpi-val">'+value+'</div>'
-      +'<div class="an-kpi-lbl">'+label+'</div>'
-      +(sub?'<div class="an-kpi-sub">'+sub+'</div>':'')
-      +'</div>';
+  // Populate tutor filter
+  var tutSel=document.getElementById('an-tutor');
+  if(tutSel){
+    var curTut=tutSel.value;
+    tutSel.innerHTML='<option value="">Всі репетитори</option>'
+      +(S.tutors||[]).map(function(t){return '<option value="'+t.id+'"'+(t.id===curTut?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';}).join('');
+    if(curTut) tutSel.value=curTut;
   }
 
-  function statRow(label, value, total, color){
-    var pct = total ? Math.round(value/total*100) : 0;
-    return '<div class="an-row">'
-      +'<div class="an-row-lbl">'+label+'</div>'
-      +'<div class="an-row-bar"><div class="an-row-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'
-      +'<div class="an-row-val">'+value+'</div>'
-      +'</div>';
-  }
+  // Date range
+  var range=(document.getElementById('an-range')||{value:'30'}).value;
+  var now=new Date(), fromDate=new Date(now);
+  if(range==='week') fromDate.setDate(now.getDate()-7);
+  else if(range==='30') fromDate.setDate(now.getDate()-30);
+  else if(range==='90') fromDate.setDate(now.getDate()-90);
+  else if(range==='year') fromDate.setFullYear(now.getFullYear()-1);
+  else fromDate=new Date(0);
+  var fromStr=localDateStr(fromDate);
 
-  function calcStats(lessonsArr, commsArr, studentsArr){
-    var done     = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
-    var missed   = uncoveredMissedFilter(lessonsArr).length;
-    var cancelled= lessonsArr.filter(function(l){return l.status==='cancelled';}).length;
-    var planned  = lessonsArr.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
-    var total    = lessonsArr.length;
-    var income   = lessonsArr.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';})
-                    .reduce(function(s,l){return s+(parseFloat(l.price)||0);},0);
-    return { done, missed, cancelled, planned, total, income,
-      students: studentsArr.length,
-      comms: commsArr.length };
-  }
+  var selTutor=(tutSel||{value:''}).value;
+  var allLessons=(S.lessons||[]).filter(function(l){return l.date>=fromStr;});
+  var lessons=selTutor?allLessons.filter(function(l){return (l.tutorId||l.tutor_id)===selTutor;}):allLessons;
+  var students=selTutor
+    ?(S.students||[]).filter(function(s){return (s.tutorId||s.tutor_id)===selTutor||((s.tutorIds||[]).indexOf(selTutor)>=0);})
+    :(S.students||[]);
 
-  // = OVERALL stats =
-  var overallStats = calcStats(lessons, comms, students);
+  // Stats
+  var done     = lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';});
+  var missed   = uncoveredMissedFilter(lessons);
+  var planned  = lessons.filter(function(l){return l.status==='planned'||l.status==='scheduled';});
+  var cancelled= lessons.filter(function(l){return l.status==='cancelled';});
 
-  // = BY BRANCH =
-  var branchRows = '';
-  var allBranches = (S.branches||[]);
-  if(!allBranches.length) allBranches = [{id:null,name:'\u0417\u0430\u0433\u0430\u043B\u044C\u043D\u0430'}];
+  var doneH    = Math.round(done.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var missedH  = Math.round(missed.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var plannedH = Math.round(planned.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var totalH   = Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var income   = done.reduce(function(s,l){return s+(parseFloat(l.price)||0);},0);
+  var activeStudents = students.filter(function(s){return s.status==='active';}).length;
+  var pct      = totalH>0?Math.round(doneH/totalH*100):0;
 
-  allBranches.forEach(function(b){
-    var bLessons  = b.id ? lessons.filter(function(l){return l.branchId===b.id||l.branch_id===b.id;}) : lessons;
-    var bComms    = b.id ? comms.filter(function(c){return c.branchId===b.id||c.branch_id===b.id;}) : comms;
-    var bStudents = b.id ? students.filter(function(s){return s.branchId===b.id||s.branch_id===b.id;}) : students;
-    var bs = calcStats(bLessons, bComms, bStudents);
-    var maxL = Math.max(overallStats.total, 1);
-    branchRows += '<div class="an-branch-card">'
-      +'<div class="an-branch-title">\uD83C\uDFE2 '+b.name+'</div>'
-      +'<div class="an-kpi-row">'
-      +kpi('\u2705','\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E',   bs.done,     null,'var(--tut)')
-      +kpi('\u274C','\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E',   bs.missed,   null,'var(--danger)')
-      +kpi('\uD83D\uDD04','\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E',bs.done,    null,'var(--adm)')
-      +kpi('\uD83D\uDCAC','\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0439', bs.comms,    null,'var(--god2)')
-      +kpi('\uD83D\uDC65','\u0423\u0447\u043D\u0456\u0432',       bs.students, null,'var(--dir)')
-      +'</div>'
-      +'<div style="margin-top:8px">'
-      +statRow('\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E',    bs.done,     Math.max(bs.total,1),'var(--tut)')
-      +statRow('\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E',    bs.missed,   Math.max(bs.total,1),'var(--danger)')
-      +statRow('\u0421\u043A\u0430\u0441\u043E\u0432\u0430\u043D\u043E',    bs.cancelled,Math.max(bs.total,1),'var(--t3)')
-      +'</div>'
-      +'</div>';
+  // Subjects breakdown
+  var subjMap={};
+  done.forEach(function(l){
+    var s=l.subject||'Інше';
+    subjMap[s]=(subjMap[s]||0)+(parseFloat(l.dur)||60)/60;
   });
+  var subjArr=Object.keys(subjMap).map(function(k){return{name:k,h:Math.round(subjMap[k]*10)/10};})
+    .sort(function(a,b){return b.h-a.h;});
 
-  // = BY TUTOR =
-  var tutorRows = '';
-  var filtBranch = document.getElementById('an-branch')?.value||'';
-  var filtTutor  = document.getElementById('an-tutor')?.value||'';
-  var visibleTutors = tutors.filter(function(t){
-    if(filtBranch && t.branchId!==filtBranch && t.branch_id!==filtBranch) return false;
-    if(filtTutor  && t.id!==filtTutor) return false;
-    return true;
-  });
-  if(!visibleTutors.length) visibleTutors = tutors;
-
-  var maxDone = Math.max.apply(null, visibleTutors.map(function(t){
-    return lessons.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).length;
-  }).concat([1]));
-
-  visibleTutors.forEach(function(t){
-    var tL = lessons.filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;});
-    var tC = comms.filter(function(c){return c.tutorId===t.id||c.tutor_id===t.id;});
-    var tS = students.filter(function(s){return s.tutorId===t.id||s.tutor_id===t.id;});
-    var ts = calcStats(tL, tC, tS);
-    var pctDone = maxDone ? Math.round(ts.done/maxDone*100) : 0;
-    tutorRows += '<div class="an-tutor-row">'
-      +'<div style="display:flex;align-items:center;gap:8px;min-width:140px">'
-      +mkAv(t.fn,t.ln,32)
-      +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
-      +'<div style="font-size:11px;color:var(--t2)">'+t.subj+'</div></div>'
-      +'</div>'
-      +'<div class="an-tutor-stats">'
-      +'<div class="an-stat-cell" title="\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E"><span class="an-stat-ico">\u2705</span>'+ts.done+'</div>'
-      +'<div class="an-stat-cell" title="\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E"><span class="an-stat-ico">\u274C</span>'+ts.missed+'</div>'
-      +'<div class="an-stat-cell" title="\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0439"><span class="an-stat-ico">\uD83D\uDCAC</span>'+ts.comms+'</div>'
-      +'<div class="an-stat-cell" title="\u0423\u0447\u043D\u0456\u0432"><span class="an-stat-ico">\uD83D\uDC65</span>'+ts.students+'</div>'
-      +'</div>'
-      +'<div class="an-bar-wrap"><div class="an-bar-fill" style="width:'+pctDone+'%"></div></div>'
-      +'</div>';
-  });
-
-  // = Populate filters =
-  var branchSel = document.getElementById('an-branch');
-  if(branchSel && branchSel.children.length <= 1){
-    (S.branches||[]).forEach(function(b){
-      var opt=document.createElement('option'); opt.value=b.id; opt.textContent=b.name; branchSel.appendChild(opt);
+  // Tutors breakdown (only for all-tutors view)
+  var tutorArr=[];
+  if(!selTutor){
+    var tutMap={};
+    done.forEach(function(l){
+      var tid=l.tutorId||l.tutor_id;
+      if(tid) tutMap[tid]=(tutMap[tid]||0)+(parseFloat(l.dur)||60)/60;
     });
+    tutorArr=Object.keys(tutMap).map(function(tid){
+      var t=(S.tutors||[]).find(function(x){return x.id===tid;});
+      return{name:t?t.fn+' '+t.ln:tid, h:Math.round(tutMap[tid]*10)/10, id:tid};
+    }).sort(function(a,b){return b.h-a.h;});
   }
-  var tutorSel = document.getElementById('an-tutor');
-  if(tutorSel && tutorSel.children.length <= 1){
-    tutors.forEach(function(t){
-      var opt=document.createElement('option'); opt.value=t.id; opt.textContent=t.fn+' '+t.ln; tutorSel.appendChild(opt);
+
+  // Colors
+  var COLORS=['#6366f1','#22c55e','#f59e0b','#ef4444','#14b8a6','#ec4899','#8b5cf6','#f97316','#06b6d4','#84cc16'];
+
+  function pieChart(canvasId, data, total){
+    var c=document.getElementById(canvasId);
+    if(!c||!c.getContext)return;
+    var ctx=c.getContext('2d');
+    var cx=c.width/2, cy=c.height/2, r=Math.min(cx,cy)-8;
+    ctx.clearRect(0,0,c.width,c.height);
+    if(!total){
+      ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);
+      ctx.fillStyle='#e5e7eb';ctx.fill();return;
+    }
+    var start=-Math.PI/2;
+    data.forEach(function(d,i){
+      var angle=(d.v/total)*2*Math.PI;
+      ctx.beginPath();ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r,start,start+angle);
+      ctx.fillStyle=COLORS[i%COLORS.length];ctx.fill();
+      start+=angle;
     });
+    // White center (donut)
+    ctx.beginPath();ctx.arc(cx,cy,r*0.55,0,2*Math.PI);
+    ctx.fillStyle='var(--s1)'||'#fff';ctx.fill();
+    // Center text
+    ctx.fillStyle='#111';ctx.font='bold 14px sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(total+'г',cx,cy);
   }
 
-  // = Render =
-  var rangeLabel = {week:'\u0422\u0438\u0436\u0434\u0435\u043D\u044C','30':'30 \u0434\u043D\u0456\u0432','90':'3 \u043C\u0456\u0441\u044F\u0446\u0456',year:'\u0420\u0456\u043A',all:'\u0417\u0430 \u0432\u0435\u0441\u044C \u0447\u0430\u0441'}[range]||range;
-  document.getElementById('an-content').innerHTML =
-    // Overall summary
-    '<div class="an-section-title">\uD83C\uDF10 \u0417\u0430\u0433\u0430\u043B\u044C\u043D\u0430 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430 \u2014 '+rangeLabel+'</div>'
-    +'<div class="an-kpi-row an-kpi-row--big">'
-    +kpi('\u2705','\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432',   overallStats.done,     overallStats.total+' \u0432\u0441\u044C\u043E\u0433\u043E','var(--tut)')
-    +kpi('\u274C','\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432',   overallStats.missed,   Math.round((overallStats.missed/(Math.max(overallStats.total,1)))*100)+'%','var(--danger)')
-    +kpi('\uD83D\uDD04','\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E',      overallStats.done,     Math.round(overallStats.income)+' \u20B4','var(--adm)')
-    +kpi('\uD83D\uDCAC','\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0439',        overallStats.comms,    '\u0437 \u0431\u0430\u0442\u044C\u043A\u0430\u043C\u0438','var(--god2)')
-    +kpi('\uD83D\uDC65','\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432',     students.filter(function(s){return s.status==='active';}).length, students.length+' \u0432\u0441\u044C\u043E\u0433\u043E','var(--dir)')
-    +'</div>'
+  function legend(data, total){
+    return data.map(function(d,i){
+      var pct2=total?Math.round(d.v/total*100):0;
+      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12px">'
+        +'<span style="width:10px;height:10px;border-radius:50%;background:'+COLORS[i%COLORS.length]+';flex-shrink:0;display:inline-block"></span>'
+        +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.name+'</span>'
+        +'<span style="color:var(--t2);font-size:11px">'+d.v+'г ('+pct2+'%)</span>'
+        +'</div>';
+    }).join('');
+  }
 
-    // By branch
-    + (allBranches.length > 1
-      ? '<div class="an-section-title" style="margin-top:20px">\uD83C\uDFE2 \u041F\u043E \u0444\u0456\u043B\u0456\u044F\u0445</div>'
-        +'<div class="an-branches-grid">'+branchRows+'</div>'
-      : '')
+  // Build HTML
+  var rangeLabel={'week':'7 днів','30':'30 днів','90':'90 днів','year':'Рік','all':'Весь час'}[range]||'30 днів';
+  var tutorLabel=selTutor?((S.tutors||[]).find(function(t){return t.id===selTutor;})||{fn:'',ln:''}).fn+' '+((S.tutors||[]).find(function(t){return t.id===selTutor;})||{ln:''}).ln:'Всі репетитори';
 
-    // By tutor
-    +'<div class="an-section-title" style="margin-top:20px">\uD83D\uDC64 \u041F\u043E \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430\u0445</div>'
-    +'<div class="an-tutor-header">'
-    +'<div style="min-width:140px">\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440</div>'
-    +'<div class="an-tutor-stats"><span>\u2705 \u041F\u0440\u043E\u0432\u0456\u0432</span><span>\u274C \u041F\u0440\u043E\u043F\u0443\u0441\u043A</span><span>\uD83D\uDEAB \u0421\u043A\u0430\u0441\u043E\u0432</span><span>\uD83D\uDCAC \u041A\u043E\u043C\u0443\u043D</span><span>\uD83D\uDC65 \u0423\u0447\u043D\u0456</span></div>'
-    +'<div style="flex:1;font-size:10px;color:var(--t2);padding-left:8px">% \u0432\u0456\u0434 \u043B\u0456\u0434\u0435\u0440\u0430</div>'
-    +'</div>'
-    +'<div>'+tutorRows+'</div>';
+  var statusData=[
+    {name:'Проведено', v:doneH},
+    {name:'Пропущено', v:missedH},
+    {name:'Заплановано', v:plannedH},
+    {name:'Скасовано', v:Math.round(cancelled.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10}
+  ].filter(function(d){return d.v>0;});
+
+  var subjData=subjArr.map(function(x){return{name:x.name,v:x.h};});
+  var tutData=tutorArr.map(function(x){return{name:x.name,v:x.h};});
+
+  pg.innerHTML=
+    '<div class="card" style="margin-bottom:16px">'+
+    '<div class="ch" style="flex-wrap:wrap;gap:8px">'+
+    '<span class="ct">📊 Аналітика — '+rangeLabel+(selTutor?' · '+tutorLabel:'')+'</span>'+
+    '</div>'+
+    // KPI row
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;padding:16px 0 8px">'+
+    kpiBox('✅','Годин проведено',doneH,'#22c55e')+
+    kpiBox('❌','Годин пропущено',missedH,'#ef4444')+
+    kpiBox('📅','Заплановано',plannedH,'#6366f1')+
+    kpiBox('💰','Дохід',income+'₴','#14b8a6')+
+    kpiBox('👥','Активних учнів',activeStudents,'#f59e0b')+
+    kpiBox('📈','Виконання',pct+'%','#8b5cf6')+
+    '</div>'+
+    '</div>'+
+
+    // Charts row
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:16px">'+
+
+    // Status pie
+    '<div class="card">'+
+    '<div class="ch"><span class="ct">Статуси занять</span></div>'+
+    '<div style="display:flex;align-items:center;gap:16px;padding:12px">'+
+    '<canvas id="pie-status" width="140" height="140" style="flex-shrink:0"></canvas>'+
+    '<div style="flex:1;min-width:0">'+legend(statusData,totalH)+'</div>'+
+    '</div></div>'+
+
+    // Subjects pie
+    (subjData.length?
+    '<div class="card">'+
+    '<div class="ch"><span class="ct">По предметах (год)</span></div>'+
+    '<div style="display:flex;align-items:center;gap:16px;padding:12px">'+
+    '<canvas id="pie-subj" width="140" height="140" style="flex-shrink:0"></canvas>'+
+    '<div style="flex:1;min-width:0">'+legend(subjData,doneH)+'</div>'+
+    '</div></div>':'')+
+
+    // Tutors pie (all-tutor view)
+    (!selTutor && tutData.length?
+    '<div class="card">'+
+    '<div class="ch"><span class="ct">По репетиторах (год)</span></div>'+
+    '<div style="display:flex;align-items:center;gap:16px;padding:12px">'+
+    '<canvas id="pie-tutor" width="140" height="140" style="flex-shrink:0"></canvas>'+
+    '<div style="flex:1;min-width:0">'+legend(tutData,doneH)+'</div>'+
+    '</div></div>':'')+
+
+    '</div>';
+
+  // Draw pies after DOM update
+  setTimeout(function(){
+    pieChart('pie-status', statusData, totalH);
+    if(subjData.length) pieChart('pie-subj', subjData, doneH);
+    if(!selTutor && tutData.length) pieChart('pie-tutor', tutData, doneH);
+  }, 50);
+
+  function kpiBox(ico, lbl, val, color){
+    return '<div style="flex:1;min-width:120px;background:var(--s2);border-radius:12px;padding:12px 14px;border-left:3px solid '+color+'">'
+      +'<div style="font-size:18px;font-weight:700;color:'+color+'">'+val+'</div>'
+      +'<div style="font-size:11px;color:var(--t2);margin-top:2px">'+ico+' '+lbl+'</div>'
+      +'</div>';
+  }
 }
-
-
-// == localStorage stubs (not used in Supabase version) ==
 function saveS(){ 
   // In Supabase version, data is saved to DB in real-time
   // godConfig is kept in memory only
