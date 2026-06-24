@@ -616,11 +616,11 @@ var ROLES = {
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
   admin: {
-    label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
+    label:'\u0410\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','payments','reports'],
-    can:{students:true,tutors:true,lessons:true,payments:true,users:false,settings:true,danger:false,deleteAny:false},
-    seeIncome:true, seeAll:true, canEditUsers:false, showGodBanner:false
+    nav:['dashboard','students','tutors','schedule','lessons','analytics','crm','reports','users','settings'],
+    can:{students:true,tutors:true,lessons:true,comms:true,payments:false,users:true,settings:true,danger:false,deleteAny:true},
+    seeIncome:false, seeAll:true, canEditUsers:true, showGodBanner:false
   },
   network_admin: {
     label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
@@ -2162,7 +2162,7 @@ function renderAnalytics(){
     kpiBox('✅','Годин проведено',doneH,'#22c55e')+
     kpiBox('❌','Годин пропущено',missedH,'#ef4444')+
     kpiBox('📅','Заплановано',plannedH,'#6366f1')+
-    kpiBox('💰','Дохід',income+'₴','#14b8a6')+
+    (P().seeIncome?kpiBox('💰','Дохід',income+'₴','#14b8a6'):'')+
     kpiBox('👥','Активних учнів',activeStudents,'#f59e0b')+
     kpiBox('📈','Виконання',pct+'%','#8b5cf6')+
     '</div>'+
