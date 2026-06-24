@@ -3295,15 +3295,16 @@ function openLessM(id, date, time){
   if(dl_l) dl_l.innerHTML = (S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
   popSel('l-tutor', S.tutors, 'id', function(t){return t.fn+' '+t.ln;}, 'Викладач');
   makeSearchable('l-tutor'); if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
-  if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
   if(typeof toggleRecurOpts === 'function') toggleRecurOpts();
 
   if(id){
     var l = (S.lessons||[]).find(function(x){return x.id===id;});
     if(l){
       document.getElementById('l-std').value = l.studentId||l.student_id||'';
+      if(document.getElementById('l-std')._updateSearch) document.getElementById('l-std')._updateSearch();
       document.getElementById('l-subj').value = l.subject||'';
       document.getElementById('l-tutor').value = l.tutorId||l.tutor_id||'';
+      if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
       document.getElementById('l-date').value = l.date||'';
       document.getElementById('l-time').value = l.time||'10:00';
       document.getElementById('l-dur').value = l.dur||60;
@@ -3328,7 +3329,7 @@ function openLessM(id, date, time){
     document.getElementById('l-date').value = date||localDateStr(new Date());
     document.getElementById('l-time').value = time||'10:00';
     var mt = myTutor();
-    if(mt) document.getElementById('l-tutor').value = mt.id;
+    if(mt){ document.getElementById('l-tutor').value = mt.id; if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch(); }
   }
 
   if(typeof renderCustomFields==='function') renderCustomFields('lesson','mo-lesson-cf');
@@ -3347,8 +3348,8 @@ function openPayM(id=null){
   const months=['\u0421\u0456\u0447\u0435\u043D\u044C','\u041B\u044E\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u041A\u0432\u0456\u0442\u0435\u043D\u044C','\u0422\u0440\u0430\u0432\u0435\u043D\u044C','\u0427\u0435\u0440\u0432\u0435\u043D\u044C','\u041B\u0438\u043F\u0435\u043D\u044C','\u0421\u0435\u0440\u043F\u0435\u043D\u044C','\u0412\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0416\u043E\u0432\u0442\u0435\u043D\u044C','\u041B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043D\u044C'];
   document.getElementById('p-date').value=localDateStr(new Date());
   document.getElementById('p-mon').value=months[new Date().getMonth()];
-  if(id){const p=S.payments.find(x=>x.id===id);if(p){document.getElementById('p-std').value=p.studentId||'';document.getElementById('p-amt').value=p.amount||'';document.getElementById('p-mth').value=p.method||'cash';document.getElementById('p-date').value=p.date||'';document.getElementById('p-stat').value=p.status||'paid';document.getElementById('p-mon').value=p.month||months[new Date().getMonth()];document.getElementById('p-note').value=p.note||'';}}
-  else{document.getElementById('p-std').value='';document.getElementById('p-amt').value='';document.getElementById('p-mth').value='cash';document.getElementById('p-stat').value='paid';document.getElementById('p-note').value='';}
+  if(id){const p=S.payments.find(x=>x.id===id);if(p){document.getElementById('p-std').value=p.studentId||'';if(document.getElementById('p-std')&&document.getElementById('p-std')._updateSearch) document.getElementById('p-std')._updateSearch();;document.getElementById('p-amt').value=p.amount||'';document.getElementById('p-mth').value=p.method||'cash';document.getElementById('p-date').value=p.date||'';document.getElementById('p-stat').value=p.status||'paid';document.getElementById('p-mon').value=p.month||months[new Date().getMonth()];document.getElementById('p-note').value=p.note||'';}}
+  else{document.getElementById('p-std').value='';if(document.getElementById('p-std')&&document.getElementById('p-std')._updateSearch) document.getElementById('p-std')._updateSearch();;document.getElementById('p-amt').value='';document.getElementById('p-mth').value='cash';document.getElementById('p-stat').value='paid';document.getElementById('p-note').value='';}
   renderCustomFields('payment','mo-payment-cf');
   openM('mo-payment');
 }
