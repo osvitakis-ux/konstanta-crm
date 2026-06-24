@@ -568,170 +568,123 @@ async function renderInvoiceLog(){
 }
 
 function renderInvoicePage(){
-  var sel=document.getElementById('inv-student');
-  if(sel && myStudents().length){
-    if(sel.options.length<=1){
-      sel.innerHTML='<option value="">— оберіть учня —</option>'
-        +myStudents().map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
-    }
+  var pg=document.getElementById('pg-invoice');
+  if(!pg)return;
+
+  // Populate student select
+  var sSel=document.getElementById('inv-student');
+  if(sSel){
+    var cur=sSel.value;
+    sSel.innerHTML='<option value="">— оберіть учня —</option>'
+      +myStudents().filter(function(s){return s.status==='active'||s.status==='trial';})
+        .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(s){return '<option value="'+s.id+'"'+(s.id===cur?' selected':'')+'>'+s.fn+' '+s.ln+'</option>';}).join('');
+    if(cur) sSel.value=cur;
   }
+
+  var sid=(sSel||{value:''}).value;
+  var student=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+  var phone=student?(student.parentPhone||student.phone||''):'';
+
+  var dateFrom=(document.getElementById('inv-from')||{value:''}).value;
+  var dateTo=(document.getElementById('inv-to')||{value:''}).value||localDateStr(new Date());
+  var price=parseFloat((document.getElementById('inv-price')||{value:'0'}).value)||0;
+
+  // Filter lessons: planned + done for the period
+  var now2=new Date();
+  var defaultFrom=now2.getFullYear()+'-'+String(now2.getMonth()+1).padStart(2,'0')+'-01';
+  var defaultTo=localDateStr(new Date(now2.getFullYear(),now2.getMonth()+1,0));
+  if(!dateFrom) dateFrom=defaultFrom;
+  if(!dateTo) dateTo=defaultTo;
+  var validStatuses=['planned','scheduled','done','completed','makeup'];
+  var lessons=sid?(S.lessons||[]).filter(function(l){
+    if((l.studentId||l.student_id)!==sid) return false;
+    if(validStatuses.indexOf(l.status)<0) return false;
+    if(l.date<dateFrom) return false;
+    if(l.date>dateTo) return false;
+    return true;
+  }).sort(function(a,b){return a.date.localeCompare(b.date);}):[];
+
+  var totalHours=Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var total=Math.round(totalHours*price*10)/10;
+
+  // Build invoice text
+  var invText='';
+  if(student&&lessons.length){
+    var tutor=lessons[0]?(S.tutors||[]).find(function(t){return t.id===(lessons[0].tutorId||lessons[0].tutor_id);}):null;
+    invText='\uD83D\uDCCB \u0420\u0410\u0425\u0423\u041D\u041E\u041A\n'
+      +'\u0423\u0447\u0435\u043D\u044C: '+student.fn+' '+student.ln+'\n'
+      +(tutor?'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440: '+tutor.fn+' '+tutor.ln+'\n':'')
+      +'\u041f\u0435\u0440\u0456\u043e\u0434: '+(dateFrom?fd(dateFrom)+' \u2014 ':'')+fd(dateTo)+'\n'
+      +'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n'
+      +lessons.map(function(l,i){
+        var dur=(parseFloat(l.dur)||60)/60;
+        var stlbl={'planned':'план','scheduled':'план','done':'прове','completed':'прове','makeup':'відпр'}[l.status]||l.status; return (i+1)+'. '+fd(l.date)+' ('+stlbl+') | '+(l.subject||'')+(l.time?' о '+l.time:'')+' | '+dur+'год × '+price+'₴ = '+Math.round(dur*price*10)/10+'₴';
+      }).join('\n')+'\n'
+      +'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n'
+      +'\u0413\u043e\u0434\u0438\u043d: '+totalHours+'\n'
+      +'\u0420\u0410\u0417\u041e\u041c: '+total+' \u20b4';
+  var invEl=document.getElementById('invoice-content');
+  if(!invEl)return;
+
+  invEl.innerHTML=!sid?
+    '<div style="color:var(--t3);text-align:center;padding:40px">Оберіть учня</div>'
+  :('<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+    // Left: params
+    +'<div>'
+    +'<div class="fgr" style="margin-bottom:10px"><label>Від дати</label><input type="date" id="inv-from" value="'+dateFrom+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
+    +'<div class="fgr" style="margin-bottom:10px"><label>До дати</label><input type="date" id="inv-to" value="'+dateTo+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
+    +'<div class="fgr" style="margin-bottom:10px"><label>Ціна за годину (₴)</label><input type="number" id="inv-price" value="'+price+'" onchange="renderInvoicePage()" style="font-size:12px" placeholder="400"></div>'
+    +(phone?'<div style="font-size:12px;color:var(--t2);margin-bottom:12px">📱 Телефон: <b>'+phone+'</b></div>':'<div style="color:var(--danger);font-size:12px;margin-bottom:12px">⚠️ Телефон не вказано</div>')
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +(phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceViber()" style="background:#7360f2">🟣 Viber</button>':'')
+    +(phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceTelegram()" style="background:#2196f3">✈️ Telegram</button>':'')
+    +'<button class="btn btn-g btn-sm" onclick="copyInvoiceText()">📋 Копіювати</button>'
+    +'</div>'
+    +'</div>'
+    // Right: preview
+    +'<div>'
+    +'<div style="background:var(--s2);border-radius:10px;padding:14px;font-family:JetBrains Mono,monospace;font-size:12px;white-space:pre-wrap;line-height:1.6;min-height:200px;border:1px solid var(--b1)">'
+    +(invText||'<span style="color:var(--t3)">Немає проведених занять за цей період</span>')
+    +'</div>'
+    +'<div style="margin-top:8px;font-size:12px;color:var(--t2)">Занять: '+lessons.length+' | Годин: '+totalHours+' | Сума: <b>'+total+'₴</b></div>'
+    +'</div>'
+    +'</div>');
+
+  // Store for send functions
+  window._invText=invText;
+  window._invPhone=phone;
 }
 
-window.updateInvPhone = updateInvPhone;
-window.openViberContact = openViberContact;
-window.sendViberFromPanel = sendViberFromPanel;
-window.openBranchM = openBranchM;
-window.saveBranchModal = saveBranchModal;
-window.splitLessonTo30 = splitLessonTo30;
-window.calcTutorRating = calcTutorRating;
-window.updateAllTutorRatings = updateAllTutorRatings;
-window.logInvoice = logInvoice;
-window.renderInvoiceLog = renderInvoiceLog;
-window.renderInvoicePage = renderInvoicePage;
+function sendInvoiceViber(){
+  var phone=(window._invPhone||'').replace(/\D/g,'');
+  var text=encodeURIComponent(window._invText||'');
+  if(!phone){mkToast('Немає телефону','error');return;}
+  window.open('viber://chat?number='+phone+'&text='+text);
+}
 
+function sendInvoiceTelegram(){
+  var phone=(window._invPhone||'').replace(/\D/g,'');
+  var text=encodeURIComponent(window._invText||'');
+  if(!phone){mkToast('Немає телефону','error');return;}
+  // Try to open Telegram with phone
+  window.open('tg://resolve?phone='+phone+'&text='+text);
+  // Fallback: copy to clipboard
+  navigator.clipboard&&navigator.clipboard.writeText(window._invText||'').then(function(){
+    mkToast('Текст скопійовано — вставте у Telegram','info');
+  });
+}
 
+function copyInvoiceText(){
+  var txt=window._invText||'';
+  if(!txt){mkToast('Немає рахунку','error');return;}
+  navigator.clipboard?navigator.clipboard.writeText(txt).then(function(){mkToast('Скопійовано ✅');}):mkToast('Скопіюйте вручну','info');
+}
 
-
-
-
-// =
-//  CRM - SUPABASE EDITION
-// =
-
-// = Constants & Roles =
-
-var ROLES = {
-  god: {
-    label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
-    avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
-    can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
-    seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
-  },
-  director: {
-    label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
-    avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
-    can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
-    seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
-  },
-  admin: {
-    label:'\u0410\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
-    avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','analytics','crm','reports','users','settings'],
-    can:{students:true,tutors:true,lessons:true,comms:true,payments:false,users:true,settings:true,danger:false,deleteAny:true},
-    seeIncome:false, seeAll:true, canEditUsers:true, showGodBanner:false
-  },
-  network_admin: {
-    label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
-    avatarBg:'linear-gradient(135deg,#5b60d4,#29abe2)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','invoice','invoice-log','reports','analytics','crm','users','settings'],
-    can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
-    seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
-  },
-  tutor: {
-    label:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440', icon:'\uD83D\uDCDA', color:'var(--tut)',
-    avatarBg:'linear-gradient(135deg,#22b573,#7ac943)',
-    nav:['dashboard','students','schedule','lessons','comms','profile'],
-    can:{students:true,tutors:false,lessons:true,comms:true,payments:false,users:false,settings:false,danger:false,deleteAny:false},
-    seeIncome:false, seeAll:false, canEditUsers:false, showGodBanner:false
-  },
-  };
-
-var NAV_CFG = [
-  {id:'dashboard',  ico:'\u229E',  lbl:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',     sec:'\u0413\u043E\u043B\u043E\u0432\u043D\u0435'},
-  {id:'students',   ico:'\u25CE',  lbl:'\u0423\u0447\u043D\u0456',         sec:'\u0413\u043E\u043B\u043E\u0432\u043D\u0435', badge:true},
-  {id:'tutors',     ico:'\u25C8',  lbl:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',    sec:'\u0413\u043E\u043B\u043E\u0432\u043D\u0435'},
-  {id:'schedule',   ico:'\u25A6',  lbl:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',      sec:'\u041D\u0430\u0432\u0447\u0430\u043D\u043D\u044F'},
-  {id:'lessons',    ico:'\u25C9',  lbl:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',      sec:'\u041D\u0430\u0432\u0447\u0430\u043D\u043D\u044F'},
-  {id:'payments',   ico:'\u25C8',  lbl:'\u041E\u043F\u043B\u0430\u0442\u0430',       sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
-  {id:'reports',    ico:'\u25E7',  lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
-  {id:'analytics',  ico:'\u25A4',  lbl:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430',   sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
-  {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-  {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-  {id:'settings',   ico:'\u25C9',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-  {id:'crm', ico:'▤', lbl:'CRM', sec:'Менеджмент'},
-    {id:'comms',       ico:'\u25CE', lbl:'\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0457', sec:'\u041d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
-  {id:'invoice',     ico:'\u25A6', lbl:'\u0420\u0430\u0445\u0443\u043d\u043e\u043a',                  sec:'\u0424\u0456\u043d\u0430\u043d\u0441\u0438'},
-  {id:'invoice-log', ico:'\u25A4', lbl:'\u041b\u043e\u0433 \u0440\u0430\u0445\u0443\u043d\u043a\u0456\u0432', sec:'\u0424\u0456\u043d\u0430\u043d\u0441\u0438'},
-  {id:'profile',    ico:'\u25A3',  lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',  sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
-];
-
-var DEFAULT_NAV_CFG = NAV_CFG;
-
-var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',crm:'CRM',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430','comms':'Комунікації','invoice':'Рахунок','invoice-log':'Лог рахунків','analytics':'Аналітика','crm':'CRM','profile':'Мій профіль','reports':'Звіти','users':'Користувачі','settings':'Налаштування'};
-
-var UA_PERMS=[
-  {k:'students',  lbl:'\u0423\u0447\u043D\u0456 \u2014 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0456 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F'},
-  {k:'tutors',    lbl:'\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0456 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F'},
-  {k:'lessons',   lbl:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F'},
-  {k:'payments',  lbl:'\u041E\u043F\u043B\u0430\u0442\u0430 \u2014 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0456 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F'},
-  {k:'users',     lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438 \u2014 \u0443\u043F\u0440\u0430\u0432\u043B\u0456\u043D\u043D\u044F'},
-  {k:'settings',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F \u0446\u0435\u043D\u0442\u0440\u0443'},
-  {k:'danger',    lbl:'\u041D\u0435\u0431\u0435\u0437\u043F\u0435\u0447\u043D\u0430 \u0437\u043E\u043D\u0430'},
-  {k:'seeIncome', lbl:'\u0411\u0430\u0447\u0438\u0442\u0438 \u0444\u0456\u043D\u0430\u043D\u0441\u0438 \u0442\u0430 \u0434\u043E\u0445\u043E\u0434\u0438'},
-  {k:'seeAll',    lbl:'\u0411\u0430\u0447\u0438\u0442\u0438 \u0432\u0441\u0456 \u0437\u0430\u043F\u0438\u0441\u0438 (\u043D\u0435 \u0442\u0456\u043B\u044C\u043A\u0438 \u0441\u0432\u043E\u0457)'},
-  {k:'deleteAny', lbl:'\u0412\u0438\u0434\u0430\u043B\u044F\u0442\u0438 \u0431\u0443\u0434\u044C-\u044F\u043A\u0456 \u0437\u0430\u043F\u0438\u0441\u0438'},
-];
-
-var UA_PAGES=[
-  {id:'dashboard', ico:'\u229E',lbl:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',     sec:'\u0413\u043E\u043B\u043E\u0432\u043D\u0435'},
-  {id:'students',  ico:'\u25CE',lbl:'\u0423\u0447\u043D\u0456',         sec:'\u0413\u043E\u043B\u043E\u0432\u043D\u0435'},
-  {id:'tutors',    ico:'\u25C8',lbl:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',    sec:'\u0413\u043E\u043B\u043E\u0432\u043D\u0435'},
-  {id:'schedule',  ico:'\u25A6',lbl:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',      sec:'\u041D\u0430\u0432\u0447\u0430\u043D\u043D\u044F'},
-  {id:'lessons',   ico:'\u25C9',lbl:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',      sec:'\u041D\u0430\u0432\u0447\u0430\u043D\u043D\u044F'},
-  {id:'payments',  ico:'\u25C8',lbl:'\u041E\u043F\u043B\u0430\u0442\u0430',       sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
-  {id:'reports',   ico:'\u25E7',lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
-  {id:'users',     ico:'\u25CE',lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-  {id:'settings',  ico:'\u25C9',lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-  {id:'profile',   ico:'\u25A3',lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',  sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
-];
-
-var PERM_LABELS = {
-  students:'\u0423\u0447\u043D\u0456 \u2014 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0456 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F',
-  tutors:'\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0456 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F',
-  lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F',
-  payments:'\u041E\u043F\u043B\u0430\u0442\u0430 \u2014 \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0456 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F',
-  users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438 \u2014 \u0443\u043F\u0440\u0430\u0432\u043B\u0456\u043D\u043D\u044F',
-  settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F \u0446\u0435\u043D\u0442\u0440\u0443',
-  danger:'\u041D\u0435\u0431\u0435\u0437\u043F\u0435\u0447\u043D\u0430 \u0437\u043E\u043D\u0430 (\u0441\u043A\u0438\u0434\u0430\u043D\u043D\u044F \u0434\u0430\u043D\u0438\u0445)',
-  seeIncome:'\u0411\u0430\u0447\u0438\u0442\u0438 \u0444\u0456\u043D\u0430\u043D\u0441\u0438 \u0442\u0430 \u0434\u043E\u0445\u043E\u0434\u0438',
-  seeAll:'\u0411\u0430\u0447\u0438\u0442\u0438 \u0432\u0441\u0456 \u0437\u0430\u043F\u0438\u0441\u0438 (\u043D\u0435 \u0442\u0456\u043B\u044C\u043A\u0438 \u0441\u0432\u043E\u0457)'
-};
-
-var COMM_TYPES={
-  call:  {ico:'\uD83D\uDCDE', label:'\u0414\u0437\u0432\u0456\u043D\u043E\u043A',     color:'#29abe2'},
-  msg:   {ico:'\uD83D\uDCAC', label:'\u041F\u043E\u0432\u0456\u0434\u043E\u043C\u043B\u0435\u043D\u043D\u044F',color:'#22b573'},
-  meeting:{ico:'\uD83E\uDD1D',label:'\u0417\u0443\u0441\u0442\u0440\u0456\u0447',     color:'#d9e021'},
-  email: {ico:'\uD83D\uDCE7', label:'Email',       color:'#a78bfa'},
-  other: {ico:'\uD83D\uDCCB', label:'\u0406\u043D\u0448\u0435',        color:'#7a8aaa'},
-};
-
-var DEFAULT_PERMS = {
-  god:     {students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,seeIncome:true,seeAll:true},
-  director:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,seeIncome:true,seeAll:true},
-  admin:   {students:true,tutors:false,lessons:true,payments:true,users:false,settings:false,danger:false,seeIncome:true,seeAll:true},
-  tutor:   {students:false,tutors:false,lessons:true,payments:false,users:false,settings:false,danger:false,seeIncome:false,seeAll:false}
-};
-
-var RIGHTS_MATRIX = [
-  ['\u0424\u0443\u043D\u043A\u0446\u0456\u044F','\u26A1 \u0411\u043E\u0433','\uD83D\uDC51 \u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440','\uD83D\uDEE1\uFE0F \u0410\u0434\u043C\u0456\u043D','\uD83D\uDCDA \u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440'],
-  ['\u041F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0443\u0441\u0456\u0445 \u0443\u0447\u043D\u0456\u0432','\u2705','\u2705','\u2705','\u2705 \u0421\u0432\u043E\u0457\u0445'],
-  ['\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F \u0443\u0447\u043D\u0456\u0432','\u2705','\u2705','\u2705','\u274C'],
-  ['\u041F\u0435\u0440\u0435\u0433\u043B\u044F\u0434 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0456\u0432','\u2705','\u2705','\u2705 \u043E\u0433\u043B\u044F\u0434','\u274C'],
-  ['\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0456\u0432','\u2705','\u2705','\u274C','\u274C'],
-  ['\u0420\u043E\u0437\u043A\u043B\u0430\u0434 \u2014 \u0432\u0441\u0456','\u2705','\u2705','\u2705','\u2705 \u0421\u0432\u0456\u0439'],
-  ['\u0417\u0430\u043D\u044F\u0442\u0442\u044F \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D\u044F','\u2705','\u2705','\u2705','\u2705 \u0421\u0432\u043E\u0457'],
-  ['\u0424\u0456\u043D\u0430\u043D\u0441\u0438 / \u043E\u043F\u043B\u0430\u0442\u0438','\u2705','\u2705','\u2705','\u274C'],
-  ['\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430 \u2014 \u0434\u043E\u0445\u043E\u0434\u0438','\u2705','\u2705','\u2705','\u274C'],
-  ['\u0423\u043F\u0440\u0430\u0432\u043B\u0456\u043D\u043D\u044F \u0430\u043A\u0430\u0443\u043D\u0442\u0430\u043C\u0438','\u2705','\u2705','\u274C','\u274C'],
-  ['\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F \u0446\u0435\u043D\u0442\u0440\u0443','\u2705','\u2705','\u274C','\u274C'],
-  ['\u041D\u0435\u0431\u0435\u0437\u043F\u0435\u0447\u043D\u0430 \u0437\u043E\u043D\u0430','\u2705','\u274C','\u274C','\u274C'],
-  ['\u0420\u043E\u043B\u044C "\u0411\u043E\u0433" \u0456\u043D\u0448\u0438\u043C','\u2705','\u274C','\u274C','\u274C'],
-  ['\u0421\u043A\u0438\u0434\u0430\u043D\u043D\u044F \u0432\u0441\u0456\u0445 \u0434\u0430\u043D\u0438\u0445','\u2705','\u274C','\u274C','\u274C'],
-];
-
-// = UI & Render functions =
+window.renderInvoicePage=renderInvoicePage;
+window.sendInvoiceViber=sendInvoiceViber;
+window.sendInvoiceTelegram=sendInvoiceTelegram;
+window.copyInvoiceText=copyInvoiceText;
 
 function R(){return CU?.role||'tutor';}
 
@@ -4115,137 +4068,145 @@ function openAddLead(){
 }
 
 function renderCrm(){
-  var el = document.getElementById('crm-board');
-  if(!el) return;
-  var crmEl = document.getElementById('pg-crm');
-  if(crmEl){
-    var sb = document.querySelector('.sb');
-    crmEl.style.left = (sb && sb.offsetWidth > 0 ? sb.offsetWidth : 224) + 'px';
-  }
+  var pg=document.getElementById('pg-crm');
+  if(!pg)return;
 
-  var fStage = (document.getElementById('crm-f-stage')||{value:''}).value||'';
-  var fMonth = (document.getElementById('crm-f-month')||{value:''}).value||'';
-  var fResp  = (document.getElementById('crm-f-resp') ||{value:''}).value||'';
+  // Populate student filter for new lead
+  var stages=['new','contacted','trial','active','rejected'];
+  var stageLabels={new:'🆕 Новий',contacted:'📞 Контакт',trial:'🎯 Пробне',active:'✅ Активний',rejected:'❌ Відмова'};
+  var stageColors={new:'#6366f1',contacted:'#f59e0b',trial:'#14b8a6',active:'#22c55e',rejected:'#ef4444'};
 
-  // Populate responsible select on first render
-  var respSel = document.getElementById('crm-f-resp');
-  if(respSel && respSel.options.length <= 1){
-    (S.users||[]).filter(function(u){ return u.role==='god'||u.role==='director'||u.role==='admin'; })
-      .forEach(function(u){
-        var o = document.createElement('option');
-        o.value = u.id; o.textContent = u.fn+' '+u.ln;
-        respSel.appendChild(o);
-      });
-    respSel.value = fResp;
-  }
+  // Filter
+  var fStage=(document.getElementById('crm-f-stage')||{value:''}).value;
+  var fSearch=(document.getElementById('crm-search')||{value:''}).value.toLowerCase();
 
-  var students = (S.students||[]).filter(function(s){
-    if(fStage && getCrmStage(s) !== fStage) return false;
-    if(fMonth && (s.crmDate||'').slice(0,7) !== fMonth) return false;
-    if(fResp  && s.crmResponsible !== fResp) return false;
+  // Get leads from students where crmStage is set OR all students as leads
+  var leads=(S.students||[]).filter(function(s){
+    if(fStage && s.crmStage!==fStage) return false;
+    if(fSearch){
+      var name=(s.fn+' '+s.ln).toLowerCase();
+      if(!name.includes(fSearch)&&!(s.phone||'').includes(fSearch)) return false;
+    }
     return true;
   });
 
-  var groups = {};
-  CRM_COLS.forEach(function(c){ groups[c.id] = []; });
-  students.forEach(function(s){
-    var st = getCrmStage(s);
-    if(!groups[st]) st = 'lead';
-    groups[st].push(s);
+  // Build board HTML
+  var html='<div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'
+    +'<button class="btn btn-p btn-sm" onclick="openAddLead()">+ Додати лід</button>'
+    +'<input id="crm-search" placeholder="🔍 Пошук..." onchange="renderCrm()" oninput="renderCrm()" style="padding:5px 10px;border:1px solid var(--b1);border-radius:8px;background:var(--s1);font-size:12px;width:180px">'
+    +'<select id="crm-f-stage" onchange="renderCrm()" style="padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s1);font-size:12px">'
+    +'<option value="">Всі етапи</option>'
+    +stages.map(function(s){return '<option value="'+s+'"'+(fStage===s?' selected':'')+'>'+stageLabels[s]+'</option>';}).join('')
+    +'</select>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;overflow-x:auto;min-height:300px">';
+
+  stages.forEach(function(stage){
+    var col=leads.filter(function(s){return (s.crmStage||'new')===stage;});
+    html+='<div style="background:var(--s2);border-radius:12px;padding:10px;min-height:200px">'
+      +'<div style="font-weight:700;font-size:12px;color:'+stageColors[stage]+';margin-bottom:8px;display:flex;justify-content:space-between">'
+      +'<span>'+stageLabels[stage]+'</span><span style="background:'+stageColors[stage]+'22;color:'+stageColors[stage]+';border-radius:20px;padding:1px 8px;font-size:11px">'+col.length+'</span>'
+      +'</div>'
+      +col.map(function(s){
+        var tutor=(S.tutors||[]).find(function(t){return t.id===(s.tutorId||s.tutor_id);});
+        return '<div style="background:var(--s1);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;border:1px solid var(--b1)" onclick="openEditLead(this.dataset.id)" data-id="'+s.id+'">'+'\n'
+          +'<div style="font-weight:600;font-size:12px">'+s.fn+' '+s.ln+'</div>'
+          +(s.phone?'<div style="font-size:10px;color:var(--t2)">📱 '+s.phone+'</div>':'')
+          +(s.subject?'<div style="font-size:10px;color:var(--t2)">📚 '+s.subject+'</div>':'')
+          +(tutor?'<div style="font-size:10px;color:var(--t2)">👤 '+tutor.fn+' '+tutor.ln+'</div>':'')
+          +(s.crmDate?'<div style="font-size:10px;color:var(--t3)">📅 '+fd(s.crmDate)+'</div>':'')
+          +'<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">'
+          +stages.filter(function(x){return x!==stage;}).map(function(ns){
+            return '<button onclick="event.stopPropagation();moveLead(this.dataset.id,this.dataset.ns)" data-id="'+s.id+'" data-ns="'+ns+'" style="font-size:9px;padding:2px 5px;border:1px solid '+stageColors[ns]+';color:'+stageColors[ns]+';background:none;border-radius:4px;cursor:pointer">&rarr;'+stageLabels[ns].split(' ')[0]+'</button>';
+          }).join('')
+          +'<button onclick="event.stopPropagation();deleteLead(this.dataset.id)" data-id="'+s.id+'" style="font-size:9px;padding:2px 5px;border:1px solid #ef4444;color:#ef4444;background:none;border-radius:4px;cursor:pointer;margin-left:auto">&times;</button>'
+          +'</div>'
+          +'</div>';
+      }).join('')
+      +'</div>';
   });
-
-  var cols = fStage ? CRM_COLS.filter(function(c){ return c.id===fStage; }) : CRM_COLS;
-
-  // Update stats bar
-  var statsEl = document.getElementById('crm-stats');
-  if(statsEl){
-    var total = students.length;
-    var won   = students.filter(function(s){ return getCrmStage(s)==='won'; }).length;
-    var lost  = students.filter(function(s){ return getCrmStage(s)==='lost'; }).length;
-    var conv  = total>0 ? Math.round(won/total*100) : 0;
-    statsEl.innerHTML =
-      '<span>Всього: <b>'+total+'</b></span>'
-      +'<span style="color:var(--tut)">Успішно: <b>'+won+'</b></span>'
-      +'<span style="color:var(--danger)">Не реал.: <b>'+lost+'</b></span>'
-      +'<span style="color:var(--adm)">Конверсія: <b>'+conv+'%</b></span>';
-  }
-
-  el.innerHTML = '';
-
-  cols.forEach(function(col){
-    var cards = groups[col.id]||[];
-
-    var colDiv = document.createElement('div');
-    colDiv.className = 'crm-col';
-    colDiv.addEventListener('dragover',  function(e){ crmDragOver(e); });
-    colDiv.addEventListener('dragleave', function(e){ crmDragLeave(e); });
-    colDiv.addEventListener('drop',      function(e){ crmDrop(e, col.id); });
-
-    var hdr = document.createElement('div');
-    hdr.className = 'crm-col-hdr';
-    hdr.style.borderTop = '3px solid ' + col.color;
-    hdr.innerHTML = '<span style="font-size:14px">'+col.ico+'</span>'
-      + '<span class="crm-col-lbl">'+col.lbl+'</span>'
-      + '<span class="crm-col-cnt">'+cards.length+'</span>';
-    colDiv.appendChild(hdr);
-
-    var body = document.createElement('div');
-    body.className = 'crm-col-body';
-
-    cards.forEach(function(s){
-      var tutor = s.tutorId ? (S.tutors||[]).find(function(t){ return t.id===s.tutorId; }) : null;
-      var resp  = s.crmResponsible ? (S.users||[]).find(function(u){ return u.id===s.crmResponsible; }) : null;
-      var lc    = (S.comms||[]).filter(function(c){ return c.studentId===s.id; })
-                    .sort(function(a,b){ return (b.date||'')>(a.date||'')?1:-1; })[0];
-
-      var card = document.createElement('div');
-      card.className = 'crm-card';
-      card.draggable = true;
-
-      var sid = s.id;
-      card.addEventListener('dragstart', function(e){ crmDragStart(e, sid); });
-      card.addEventListener('dragend',   crmDragEnd);
-
-      var info = document.createElement('div');
-      info.innerHTML =
-        '<div class="crm-card-name">'+s.fn+' '+s.ln+'</div>'
-        +(s.subject ? '<div class="crm-card-subj">'+s.subject+'</div>' : '')
-        +(tutor ? '<div class="crm-card-meta">◈ '+tutor.fn+' '+tutor.ln+'</div>' : '')
-        +(resp  ? '<div class="crm-card-meta" style="color:var(--dir)">★ '+resp.fn+' '+resp.ln+'</div>' : '')
-        +((s.phone||s.parentPhone) ? '<div class="crm-card-meta">☎ '+(s.phone||s.parentPhone)+'</div>' : '')
-        +(s.crmDate ? '<div class="crm-card-comm">▣ '+fd(s.crmDate)+'</div>' : '')
-        +(lc ? '<div class="crm-card-comm">◎ '+fd(lc.date)+'</div>' : '');
-      info.querySelector('.crm-card-name').addEventListener('click', function(){ openStudM(sid); });
-      card.appendChild(info);
-
-      // Action buttons
-      var acts = document.createElement('div');
-      acts.className = 'crm-card-actions';
-
-      var editBtn = document.createElement('button');
-      editBtn.className = 'crm-mv-btn';
-      editBtn.title = 'Редагувати';
-      editBtn.textContent = '✏';
-      editBtn.addEventListener('click', function(e){ e.stopPropagation(); openCrmCard(sid); });
-      acts.appendChild(editBtn);
-
-      CRM_COLS.filter(function(c){ return c.id !== col.id; }).forEach(function(c){
-        var btn = document.createElement('button');
-        btn.className = 'crm-mv-btn';
-        btn.title = '→ ' + c.lbl;
-        btn.textContent = c.ico;
-        (function(cid){ btn.addEventListener('click', function(e){ e.stopPropagation(); setCrmStage(sid, cid); }); })(c.id);
-        acts.appendChild(btn);
-      });
-      card.appendChild(acts);
-      body.appendChild(card);
-    });
-
-    colDiv.appendChild(body);
-    el.appendChild(colDiv);
-  });
-  setTimeout(crmInitScroll, 50);
+  html+='</div>';
+  pg.innerHTML=html;
 }
+
+function openAddLead(){
+  S.editId=null;
+  ['crm-fn','crm-ln','crm-phone','crm-subj','crm-note'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
+  var sel=document.getElementById('crm-stage'); if(sel) sel.value='new';
+  var tsel=document.getElementById('crm-tutor');
+  if(tsel) tsel.innerHTML='<option value="">— без репетитора —</option>'
+    +(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+  document.getElementById('crm-modal-title').textContent='Новий лід';
+  openM('mo-crm');
+}
+
+function openEditLead(id){
+  var s=(S.students||[]).find(function(x){return x.id===id;});
+  if(!s)return;
+  S.editId=id;
+  var f={fn:s.fn,ln:s.ln,phone:s.phone||'',subj:s.subject||'',note:s.crmNote||''};
+  Object.keys(f).forEach(function(k){
+    var el=document.getElementById('crm-'+k); if(el) el.value=f[k];
+  });
+  var sel=document.getElementById('crm-stage'); if(sel) sel.value=s.crmStage||'new';
+  var tsel=document.getElementById('crm-tutor');
+  if(tsel){
+    tsel.innerHTML='<option value="">— без репетитора —</option>'
+      +(S.tutors||[]).map(function(t){return '<option value="'+t.id+'"'+(t.id===(s.tutorId||s.tutor_id)?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';}).join('');
+  }
+  document.getElementById('crm-modal-title').textContent='Редагувати лід';
+  openM('mo-crm');
+}
+
+async function saveLeadModal(){
+  var fn=(document.getElementById('crm-fn')||{value:''}).value.trim();
+  var ln=(document.getElementById('crm-ln')||{value:''}).value.trim();
+  if(!fn&&!ln){mkToast('Вкажіть ім\'я','error');return;}
+  var obj={
+    fn:fn, ln:ln,
+    phone:(document.getElementById('crm-phone')||{value:''}).value,
+    subject:(document.getElementById('crm-subj')||{value:''}).value,
+    crm_stage:(document.getElementById('crm-stage')||{value:'new'}).value,
+    tutor_id:(document.getElementById('crm-tutor')||{value:''}).value||null,
+    crm_note:(document.getElementById('crm-note')||{value:''}).value,
+    crm_date:localDateStr(new Date()),
+    status:'trial'
+  };
+  try{
+    if(S.editId){ await dbUpdate('students',S.editId,obj); }
+    else{ obj.id=uid(); await dbInsert('students',obj); }
+    mkToast('Збережено');
+    closeM('mo-crm');
+    renderCrm();
+  }catch(e){mkToast('Помилка: '+e.message,'error');}
+}
+
+async function moveLead(id,stage){
+  try{
+    await dbUpdate('students',id,{crm_stage:stage});
+    var s=(S.students||[]).find(function(x){return x.id===id;});
+    if(s) s.crmStage=stage;
+    renderCrm();
+  }catch(e){mkToast('Помилка','error');}
+}
+
+async function deleteLead(id){
+  if(!confirm('Видалити лід?'))return;
+  try{
+    await dbDelete('students',id);
+    S.students=S.students.filter(function(x){return x.id!==id;});
+    mkToast('Видалено');
+    renderCrm();
+  }catch(e){mkToast('Помилка','error');}
+}
+
+window.openAddLead=openAddLead;
+window.openEditLead=openEditLead;
+window.saveLeadModal=saveLeadModal;
+window.moveLead=moveLead;
+window.deleteLead=deleteLead;
 
 function openCrmCard(studentId){
   var s=(S.students||[]).find(function(x){return x.id===studentId;});
@@ -4732,3 +4693,4 @@ document.addEventListener('change', function(e){
     }
   }
 });
+}
