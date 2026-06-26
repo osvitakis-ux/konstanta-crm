@@ -634,15 +634,15 @@ body.role-tutor .comm-add-btn { display: none !important; }
               <span class="ct">Найближчі заняття</span>
               <button class="btn btn-g btn-sm" onclick="nav('schedule')">Розклад →</button>
             </div>
-            <table><thead><tr><th>Учень</th><th>Предмет</th><th>Час</th><th>Статус</th></tr></thead>
-            <tbody id="dt-lessons"></tbody></table>
+            <div style="max-height:220px;overflow-y:auto"><table><thead><tr><th>Учень</th><th>Предмет</th><th>Час</th><th>Статус</th></tr></thead>
+            <tbody id="dt-lessons"></tbody></table></div>
           </div>
           <div class="card tutor-hidden">
             <div class="ch">
               <span class="ct">💬 Комунікації</span>
               <button class="btn btn-p btn-sm" onclick="openCommM()">+ Додати</button>
             </div>
-            <div style="padding:14px 18px">
+            <div style="padding:14px 18px;max-height:260px;overflow-y:auto">
               <div class="comm-log" id="dash-comm-log2"></div>
             </div>
           </div>
@@ -654,7 +654,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
         <div class="tc">
           <div class="card"><div class="ch"><span class="ct">Предмети</span></div><div style="padding:16px 18px" id="dash-subj"></div></div>
-          <div class="card tutor-hidden"><div class="ch"><span class="ct">Статус оплат</span></div><div style="padding:16px 18px" id="dash-pay"></div></div>
+          <div id="dash-pay" style="display:none"></div>
         </div>
 
       
