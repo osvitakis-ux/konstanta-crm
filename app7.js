@@ -1276,22 +1276,22 @@ function renderDashBottom(){
     if(rt)rt.textContent='\u041E\u0441\u0442\u0430\u043D\u043D\u0456 \u043F\u043B\u0430\u0442\u0435\u0436\u0456';
     var rec=[].concat(S.payments).sort(function(a,b){return new Date(b.date)-new Date(a.date);}).slice(0,6);
     if(rb)rb.innerHTML=rec.length
-      ?'<table><thead><tr><th>\u0423\u0447\u0435\u043D\u044C</th><th>\u0421\u0443\u043C\u0430</th><th>\u0414\u0430\u0442\u0430</th><th>\u0421\u0442\u0430\u0442\u0443\u0441</th></tr></thead><tbody>'
+      ?'<div style="max-height:220px;overflow-y:auto"><table><thead><tr><th>\u0423\u0447\u0435\u043D\u044C</th><th>\u0421\u0443\u043C\u0430</th><th>\u0414\u0430\u0442\u0430</th><th>\u0421\u0442\u0430\u0442\u0443\u0441</th></tr></thead><tbody>'
         +rec.map(function(p){
           return '<tr><td>'+sn(p.studentId)+'</td>'
             +'<td style="font-family:JetBrains Mono,monospace">'+(p.amount||0).toLocaleString('uk-UA')+'\u20B4</td>'
             +'<td style="font-size:11px">'+fd(p.date)+'</td>'
             +'<td>'+bst(p.status)+'</td></tr>';
-        }).join('')+'</tbody></table>'
+        }).join('')+'</tbody></table></div>'
       :'<div class="empty" style="padding:20px"><div class="ei">\uD83D\uDCB3</div>\u041F\u043B\u0430\u0442\u0435\u0436\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</div>';
   } else {
-    if(rt)rt.textContent='\u041C\u043E\u0457 \u0443\u0447\u043D\u0456';
+    if(rt)rt.textContent='\u0423\u0447\u043D\u0456';
     var msArr=myStudents();
     if(rb)rb.innerHTML=msArr.length
-      ?'<table><thead><tr><th>\u0406\u043C\'\u044F</th><th>\u041F\u0440\u0435\u0434\u043C\u0435\u0442</th><th>\u0421\u0442\u0430\u0442\u0443\u0441</th></tr></thead><tbody>'
+      ?'<div style="max-height:220px;overflow-y:auto"><table><thead><tr><th>\u0406\u043C\'\u044F</th><th>\u041F\u0440\u0435\u0434\u043C\u0435\u0442</th><th>\u0421\u0442\u0430\u0442\u0443\u0441</th></tr></thead><tbody>'
         +msArr.map(function(s){
           return '<tr><td>'+s.fn+' '+s.ln+'</td><td>'+(s.subject||'\u2014')+'</td><td>'+bst(s.status)+'</td></tr>';
-        }).join('')+'</tbody></table>'
+        }).join('')+'</tbody></table></div>'
       :'<div class="empty" style="padding:20px"><div class="ei">\uD83D\uDC65</div>\u0423\u0447\u043D\u0456\u0432 \u043D\u0435 \u043F\u0440\u0438\u0437\u043D\u0430\u0447\u0435\u043D\u043E</div>';
   }
 
@@ -1314,13 +1314,7 @@ function renderDashBottom(){
   var paid=S.payments.filter(function(p){return p.status==='paid';}).reduce(function(a,p){return a+p.amount;},0);
   var pend=S.payments.filter(function(p){return p.status==='pending';}).reduce(function(a,p){return a+p.amount;},0);
   var over=S.payments.filter(function(p){return p.status==='overdue';}).reduce(function(a,p){return a+p.amount;},0);
-  document.getElementById('dash-pay').innerHTML=(P().seeIncome && R()!=='tutor')
-    ?'<div class="ms"><span class="msl">\u2705 \u041E\u043F\u043B\u0430\u0447\u0435\u043D\u043E</span><span class="msv" style="color:var(--tut)">'+paid.toLocaleString('uk-UA')+'\u20B4</span></div>'
-    +'<div class="ms"><span class="msl">\u23F3 \u041E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F</span><span class="msv" style="color:var(--dir)">'+pend.toLocaleString('uk-UA')+'\u20B4</span></div>'
-    +'<div class="ms"><span class="msl">\u26A0\uFE0F \u041F\u0440\u043E\u0441\u0442\u0440\u043E\u0447\u0435\u043D\u043E</span><span class="msv" style="color:var(--danger)">'+over.toLocaleString('uk-UA')+'\u20B4</span></div>'
-    +'<div class="ms"><span class="msl">\u0412\u0441\u044C\u043E\u0433\u043E \u043F\u043B\u0430\u0442\u0435\u0436\u0456\u0432</span><span class="msv">'+S.payments.length+'</span></div>'
-    :(R()==='tutor'?'':'<div class="empty"><div class="ei">\uD83D\uDD12</div>\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0443 \u0442\u0430 \u0430\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0443</div>');
-  // Hide payment cards entirely for tutors
+  // dash-pay card removed from dashboard
   var rbCard = document.getElementById('dash-rb-card');
   var payCard = document.getElementById('dash-pay-card');
   var isTutor = R()==='tutor';
