@@ -1071,44 +1071,50 @@ function renderDashKpi(){
     return;
   }
 
-  var maxDone=Math.max.apply(null,tutors.map(function(t){
-    return weekL.filter(function(l){return l.tutorId===t.id&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).length;
+  var maxDoneH=Math.max.apply(null,tutors.map(function(t){
+    return weekL.filter(function(l){return (l.tutorId===t.id||l.tutor_id===t.id)&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0);
   }).concat([1]));
 
-  // Summary footer row
-  var totalDone=0,totalMissed=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
+  var totalDoneH=0,totalMissedH=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
   var rowsArr=[];
   tutors.forEach(function(t){
-    var tl=weekL.filter(function(l){return l.tutorId===t.id;});
-    var tDone   =Math.round(tl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
-    var tMissed =uncoveredMissedFilter(tl).length;
+    var tl=weekL.filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;});
+    // Проведено — години за тиждень
+    var tDoneH  =Math.round(tl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    // Заплановано — кількість
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
-    var tComms  =weekComms.filter(function(c){return c.tutorId===t.id;}).length;
-    var tStudents=S.students.filter(function(s){return s.tutorId===t.id&&s.status==='active';}).length;
-    var tTotal  =tDone+tMissed; // denominator: only lessons that happened or were missed
-    var tPct    =tTotal>0?Math.round(tDone/tTotal*100):tPlanned>0?0:100;
-    var barW    =maxDone>0?Math.round(tDone/maxDone*100):0;
+    // Заплановані години
+    var tPlannedH=Math.round(tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    // Пропущені — некомпенсовані за 3 місяці, в годинах
+    var t3mL=allL.filter(function(l){return (l.tutorId===t.id||l.tutor_id===t.id)&&l.date>=from3m;});
+    var tMissedH=Math.round(uncoveredMissedFilter(t3mL).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    var tComms  =weekComms.filter(function(c){return c.tutorId===t.id||c.tutor_id===t.id;}).length;
+    var tStudents=S.students.filter(function(s){return (s.tutorId===t.id||s.tutor_id===t.id)&&s.status==='active';}).length;
+    // Виконання = проведено / (проведено + заплановано) * 100
+    var tTotalH =Math.round((tDoneH+tPlannedH)*10)/10;
+    var tPct    =tTotalH>0?Math.round(tDoneH/tTotalH*100):(tPlanned>0?0:100);
+    var barW    =maxDoneH>0?Math.round(tDoneH/maxDoneH*100):0;
     var pctColor=tPct>=80?'var(--tut)':tPct>=50?'var(--dir)':'var(--danger)';
 
-    totalDone+=tDone; totalMissed+=tMissed;
+    totalDoneH+=tDoneH; totalMissedH+=tMissedH;
     totalPlanned+=tPlanned; totalTutComms+=tComms; totalStudents+=tStudents;
 
-    // Trend vs prev week
-    var prevTl=prevL.filter(function(l){return l.tutorId===t.id;});
-    var prevTDone=prevTl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
+    // Тренд проведених годин vs минулий тиждень
+    var prevTl=prevL.filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;});
+    var prevTDoneH=Math.round(prevTl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
     var trendTxt='', trendCls='same';
-    var dd=tDone-prevTDone;
+    var dd=Math.round((tDoneH-prevTDoneH)*10)/10;
     if(dd>0){trendTxt='\u2191+'+dd;trendCls='up';}
     else if(dd<0){trendTxt='\u2193'+dd;trendCls='down';}
-    else if(prevTDone>0){trendTxt='='+tDone;trendCls='same';}
+    else if(prevTDoneH>0){trendTxt='='+tDoneH;trendCls='same';}
 
     var rowHtml = '<tr>'
       +'<td><div style="display:flex;align-items:center;gap:8px">'+mkAv(t.fn,t.ln,28,t.photo)
       +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
-      +'<div style="font-size:10px;color:var(--t3)">'+( t.subj||'\u2014')+'</div></div></div></td>'
+      +'<div style="font-size:10px;color:var(--t3)">'+(t.subj||'\u2014')+'</div></div></div></td>'
 
       +'<td><div style="display:flex;align-items:center;gap:8px">'
-      +'<span style="font-weight:700;font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+tDone+'</span>'
+      +'<span style="font-weight:700;font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+tDoneH+'\u0433</span>'
       +(trendTxt?'<span class="kpi-badge '+trendCls+'" style="font-size:9px">'+trendTxt+'</span>':'')
       +'</div>'
       +'<div class="mini-bar"><div class="mini-fill" style="width:'+barW+'%;background:var(--tut)"></div></div></td>'
@@ -1118,14 +1124,12 @@ function renderDashKpi(){
       +'</td>'
 
       +'<td style="text-align:center">'
-      +'<span style="font-weight:700;font-size:16px;color:'+(tMissed>0?'var(--danger)':'var(--t3)')+'">'+tMissed+'</span>'
+      +'<span style="font-weight:700;font-size:16px;color:'+(tMissedH>0?'var(--danger)':'var(--t3)')+'">'+tMissedH+'\u0433</span>'
       +'</td>'
 
-
-      +'<td><div style="display:flex;align-items:center;gap:6px;justify-content:center">'
+      +'<td style="text-align:center">'
       +'<span style="font-weight:700;font-size:16px;color:var(--adm)">'+tComms+'</span>'
-
-      +'</div></td>'
+      +'</td>'
 
       +'<td style="text-align:center">'
       +'<span style="font-size:14px">'+tStudents+'</span>'
@@ -1133,29 +1137,32 @@ function renderDashKpi(){
 
       +'<td>'
       +'<div style="font-weight:700;font-size:15px;color:'+pctColor+'">'+tPct+'%</div>'
-      +'<div style="font-size:10px;color:var(--t3)">'+tDone+' / '+(tDone+tMissed)+'</div>'
+      +'<div style="font-size:10px;color:var(--t3)">'+tDoneH+'\u0433 / '+tTotalH+'\u0433</div>'
       +'</td>'
       +'</tr>';
     rowsArr.push(rowHtml);
   });
   var rows = rowsArr.join('');
 
-  // Total row
-  var totalEffective=totalDone+totalMissed;
-  var totalPct=totalEffective>0?Math.round(totalDone/totalEffective*100):0;
-  var totalPctColor=totalPct>=80?'var(--tut)':totalPct>=50?'var(--dir)':'var(--danger)';
+  // Підсумковий рядок
+  totalDoneH=Math.round(totalDoneH*10)/10;
+  totalMissedH=Math.round(totalMissedH*10)/10;
+  var totalPct=0;
   if(R()!=='tutor'){
+    var allTotalH=Math.round(weekL.filter(function(l){return l.status!=='cancelled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    totalPct=allTotalH>0?Math.round(totalDoneH/allTotalH*100):0;
+    var totalPctColor=totalPct>=80?'var(--tut)':totalPct>=50?'var(--dir)':'var(--danger)';
     rows+='<tr style="background:rgba(255,255,255,.03);font-weight:700;border-top:2px solid var(--b1)">'
-    +'<td><span style="font-size:12px;color:var(--t2);letter-spacing:.5px">\u0420\u0410\u0417\u041E\u041C / \u0421\u0415\u0420\u0415\u0414\u041D\u0404</span></td>'
-    +'<td><span style="font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+totalDone+'</span></td>'
+    +'<td><span style="font-size:12px;color:var(--t2);letter-spacing:.5px">\u0420\u0410\u0417\u041e\u041c / \u0421\u0415\u0420\u0415\u0414\u041d\u0404</span></td>'
+    +'<td><span style="font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+totalDoneH+'\u0433</span></td>'
     +'<td style="text-align:center;color:var(--t2)">'+totalPlanned+'</td>'
-    +'<td style="text-align:center;color:'+(totalMissed>0?'var(--danger)':'var(--t3)')+'">'+totalMissed+'</td>'
+    +'<td style="text-align:center;color:'+(totalMissedH>0?'var(--danger)':'var(--t3)')+'">'+totalMissedH+'\u0433</td>'
     +'<td style="text-align:center;color:var(--adm)">'+totalTutComms+'</td>'
     +'<td style="text-align:center">'+totalStudents+'</td>'
     +'<td><span style="font-weight:700;color:'+totalPctColor+'">'+totalPct+'%</span></td>'
     +'</tr>';
   }
-    tbody.innerHTML=rows;
+  tbody.innerHTML=rows;
 }
 
 function renderDashTrends(){
