@@ -961,7 +961,7 @@ function renderDashStats(){
     +'<div class="ssub">\u0417\u0430\u0433\u0430\u043B\u043E\u043C: '+ms.length+'</div><span class="sico">\u25CE</span></div>'
     +'<div class="sc green">'
     +'<div class="slbl">\u0417\u0430\u043D\u044F\u0442\u044C \u0446\u044C\u043E\u0433\u043E \u043C\u0456\u0441\u044F\u0446\u044F</div>'
-    +'<div class="sval">'+Math.round(monthL.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
+    +'<div class="sval">'+Math.round(monthL.filter(function(l){return l.status!=='cancelled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
     +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+Math.round(monthL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
     +'<span class="sico">\u25C9</span></div>';
   if(P().seeIncome && R()!=='tutor'){
@@ -1004,42 +1004,45 @@ function renderDashKpi(){
     return inWeek(c.date,wr)&&(R()!=='tutor'||!_myT||(c.tutorId||c.tutor_id)===_myT.id);
   });
 
-  var done    = Math.round(weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
-  // Missed HOURS (uncovered missed, last 3 months)
+  // Години проведених занять (тиждень)
+  var doneH = Math.round(weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  // Години запланованих (тиждень, без скасованих)
+  var plannedH = Math.round(weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  // Загальні години тижня (проведені + заплановані, без скасованих і пропущених)
+  var totalH = Math.round(weekL.filter(function(l){return l.status!=='cancelled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  // Пропущені — некомпенсовані за 3 місяці, в годинах
   var threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
   var from3m = localDateStr(threeMonthsAgo);
-  var allMyLessons = myLessons();
-  var missed3m = uncoveredMissedFilter(allMyLessons.filter(function(l){ return l.date>=from3m; }));
-  var missed = missed3m.reduce(function(sum,l){ return sum+(parseFloat(l.dur)||60)/60; }, 0);
-  missed = Math.round(missed*10)/10; // round to 1 decimal
-  var makeup  = weekL.filter(function(l){return l.status==='makeup';}).length;
-  var cancelled=weekL.filter(function(l){return l.status==='cancelled';}).length;
-  var planned = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
-  var totalComms=weekComms.length;
-  var total   = Math.round(weekL.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
-  var pct     = total>0?Math.round(done/total*100):0;
+  var missed3m = uncoveredMissedFilter(allL.filter(function(l){ return l.date>=from3m; }));
+  var missedH = Math.round(missed3m.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var cancelled = weekL.filter(function(l){return l.status==='cancelled';}).length;
+  var plannedCnt = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
+  var totalComms = weekComms.length;
+  // Виконання плану = проведені / (проведені + заплановані) * 100
+  var pct = totalH>0 ? Math.round(doneH/totalH*100) : 0;
 
   var wrPrev=getWeekRange(offset-1);
   var prevL  =allL.filter(function(l){return inWeek(l.date,wrPrev);});
-  var prevDone=prevL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).length;
-  var prevMissed=uncoveredMissedFilter(prevL).length;
+  var prevDoneH =Math.round(prevL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var prevTotalH=Math.round(prevL.filter(function(l){return l.status!=='cancelled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var prevMissed3m=uncoveredMissedFilter(prevL);
+  var prevMissedH =Math.round(prevMissed3m.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
   var prevComms=(S.comms||[]).filter(function(c){return inWeek(c.date,wrPrev);}).length;
-  var prevPct =prevL.length>0?Math.round(prevDone/prevL.length*100):0;
+  var prevPct=prevTotalH>0?Math.round(prevDoneH/prevTotalH*100):0;
 
   function trend(cur,prev){
     if(prev===0&&cur===0)return {cls:'same',txt:'\u2014 0'};
-    if(prev===0)return {cls:'up',txt:'\u2191 \u043D\u043E\u0432\u0438\u0439'};
-    var d=cur-prev;
+    if(prev===0)return {cls:'up',txt:'\u2191 \u043d\u043e\u0432\u0438\u0439'};
+    var d=Math.round((cur-prev)*10)/10;
     return d>0?{cls:'up',txt:'\u2191 +'+d}:d<0?{cls:'down',txt:'\u2193 '+d}:{cls:'same',txt:'= '+cur};
   }
 
   var kpis=[
-    {ico:'\u2705',val:done,     lbl:'\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0437\u0430\u043D\u044F\u0442\u044C', sub:planned+' \u0449\u0435 \u0437\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u043E',         accent:'var(--tut)',    tr:trend(done,prevDone)},
-    {ico:'\u274C',val:missed,   lbl:'\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E \u0443\u0447\u043D\u044F\u043C\u0438', sub:'\u0421\u043A\u0430\u0441\u043E\u0432\u0430\u043D\u043E: '+cancelled,            accent:'var(--danger)', tr:trend(missed,prevMissed)},
-    {ico:'\uD83D\uDCAC',val:totalComms,lbl:'\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0439',     sub:'\u0414\u0437\u0432\u0456\u043D\u043A\u0438 \u0442\u0430 \u043F\u043E\u0432\u0456\u0434\u043E\u043C\u043B\u0435\u043D\u043D\u044F',          accent:'var(--adm)',    tr:trend(totalComms,prevComms)},
-    {ico:'\uD83D\uDCC8',val:pct+'%',  lbl:'\u0412\u0438\u043A\u043E\u043D\u0430\u043D\u043D\u044F \u043F\u043B\u0430\u043D\u0443',  sub:done+' \u0437 '+total+' \u0437\u0430\u043D\u044F\u0442\u044C',         accent:'#a78bfa',      tr:trend(pct,prevPct)},
+    {ico:'\u2705',val:doneH+'\u0433', lbl:'\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e \u0437\u0430\u043d\u044f\u0442\u044c', sub:plannedCnt+' \u0449\u0435 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u043e', accent:'var(--tut)', tr:trend(doneH,prevDoneH)},
+    {ico:'\u274c',val:missedH+'\u0433', lbl:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e \u0443\u0447\u043d\u044f\u043c\u0438', sub:'\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e: '+cancelled, accent:'var(--danger)', tr:trend(missedH,prevMissedH)},
+    {ico:'\ud83d\udcac',val:totalComms, lbl:'\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0439', sub:'\u0414\u0437\u0432\u0456\u043d\u043a\u0438 \u0442\u0430 \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043d\u044f', accent:'var(--adm)', tr:trend(totalComms,prevComms)},
+    {ico:'\ud83d\udcc8',val:pct+'%', lbl:'\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u043f\u043b\u0430\u043d\u0443', sub:doneH+'\u0433 \u0437 '+totalH+'\u0433', accent:'#a78bfa', tr:trend(pct,prevPct)},
   ];
-
   var wkpiEl=document.getElementById('dash-week-kpi');
   if(wkpiEl){
     wkpiEl.innerHTML=kpis.map(function(k){
