@@ -788,10 +788,12 @@ function filterByBranch(arr){
   return CU?.branchId || (S.branches[0]?.id);
 }
 
-function mkAv(fn,ln,sz=30){
+function mkAv(fn,ln,sz,photo){
+  sz=sz||30;
+  if(photo) return '<div class="av" style="width:'+sz+'px;height:'+sz+'px;overflow:hidden;flex-shrink:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>';
   const cs=['#6c8fff','#a78bfa','#34d399','#f59e0b','#f87171','#0ea5e9','#ec4899','#ff6b35'];
   const i=((fn||'A').charCodeAt(0)+((ln||'B').charCodeAt(0)))%cs.length;
-  return ("<div class=\"av\" style=\"background:"+(cs[i])+";width:"+(sz)+"px;height:"+(sz)+"px;font-size:"+(sz*.38)+"px;color:#fff\">"+((fn||'?')[0])+((ln||'')[0]||'')+"</div>");
+  return '<div class="av" style="background:'+cs[i]+';width:'+sz+'px;height:'+sz+'px;font-size:'+(sz*.38)+'px;color:#fff">'+((fn||'?')[0])+((ln||'')[0]||'')+'</div>';
 }
 
 function bst(s){
@@ -1101,7 +1103,7 @@ function renderDashKpi(){
     else if(prevTDone>0){trendTxt='='+tDone;trendCls='same';}
 
     var rowHtml = '<tr>'
-      +'<td><div style="display:flex;align-items:center;gap:8px">'+mkAv(t.fn,t.ln,28)
+      +'<td><div style="display:flex;align-items:center;gap:8px">'+mkAv(t.fn,t.ln,28,t.photo)
       +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
       +'<div style="font-size:10px;color:var(--t3)">'+( t.subj||'\u2014')+'</div></div></div></td>'
 
@@ -1217,7 +1219,7 @@ function renderDashTrends(){
       var total = vals[vals.length-1];
 
       tutorRows += '<div class="trend-tutor-row">'
-        + mkAv(t.fn, t.ln, 26)
+        + mkAv(t.fn,t.ln,26,t.photo)
         + '<div class="trend-tutor-name">'+t.fn+' '+t.ln+'</div>'
         + '<div class="trend-tutor-bars">'
         + vals.map(function(v,i){
@@ -3236,7 +3238,7 @@ function openStudM(id=null){
     stList.innerHTML=S.tutors.map(function(t){
       return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px;user-select:none">'
         +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'
-        +mkAv(t.fn,t.ln,20)
+        +mkAv(t.fn,t.ln,20,t.photo)
         +'<span>'+t.fn+' '+t.ln+'</span>'
         +'</label>';
     }).join('');
@@ -3575,8 +3577,14 @@ function buildUAHeader(u){
   wrap.style.cssText='display:flex;align-items:center;gap:12px;margin-bottom:10px';
   var av=document.createElement('div');
   av.className='av';
-  av.style.cssText='background:'+ro.avatarBg+';width:44px;height:44px;font-size:17px;font-weight:700;color:#fff;flex-shrink:0';
-  av.textContent=(u.fn[0]||'')+(u.ln[0]||'');
+  av.style.cssText='width:44px;height:44px;flex-shrink:0;overflow:hidden;border-radius:50%';
+  var _mt2=myTutor();
+  if(_mt2&&_mt2.photo){
+    av.innerHTML='<img src="'+_mt2.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+  } else {
+    av.style.cssText+=(';background:'+ro.avatarBg+';font-size:17px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center');
+    av.textContent=(u.fn[0]||'')+(u.ln[0]||'');
+  }
   var info=document.createElement('div');
   info.innerHTML='<div style="font-weight:700;font-size:15px">'+u.fn+' '+u.ln+'</div>'
     +'<div style="font-size:12px;color:var(--t2);margin-top:2px">@'+u.login
@@ -4090,7 +4098,7 @@ function renderTutors(){
     var branchBadge=isSuperAdmin()&&!currentBranch()
       ?'<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px">'+branchName(t.branchId||t.branch_id)+'</span>':''
     rows+='<tr>'
-      +'<td><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,36)
+      +'<td><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,36,t.photo)
       +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
       +(t.subj?'<div style="font-size:11px;color:var(--t2)">'+t.subj+'</div>':'')
       +'</div></div></td>'
@@ -4134,8 +4142,14 @@ function updateSBUser(){
   if(!CU)return;
   const r=ROLES[CU.role];
   const av=document.getElementById('sb-av');
-  av.style.background=r.avatarBg;av.style.width='34px';av.style.height='34px';av.style.fontSize='13px';av.style.color=CU.role==='director'?'#1b1464':'#fff';av.style.fontFamily="'Syne',sans-serif";av.style.fontWeight='700';
-  av.textContent=(CU.fn[0]||'')+(CU.ln[0]||'');
+  var _mt=myTutor();
+  if(_mt&&_mt.photo){
+    av.style.background='none';av.style.width='34px';av.style.height='34px';av.style.padding='0';av.style.overflow='hidden';
+    av.innerHTML='<img src="'+_mt.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+  } else {
+    av.style.background=r.avatarBg;av.style.width='34px';av.style.height='34px';av.style.fontSize='13px';av.style.color=CU.role==='director'?'#1b1464':'#fff';av.style.fontFamily="'Syne',sans-serif";av.style.fontWeight='700';
+    av.textContent=(CU.fn[0]||'')+(CU.ln[0]||'');
+  }
   document.getElementById('sb-name').textContent=CU.fn+' '+CU.ln;
   document.getElementById('sb-rpill').innerHTML=('<span class="rpill '+(CU.role)+'">'+(r.icon)+' '+(r.label)+'</span>');
 }
@@ -4186,7 +4200,7 @@ function openAddLead(){
   var stList=document.getElementById('s-tutor-list');
   if(stList)stList.innerHTML=(S.tutors||[]).map(function(t){
     return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px">'
-      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'+mkAv(t.fn,t.ln,20)+'<span>'+t.fn+' '+t.ln+'</span></label>';
+      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'+mkAv(t.fn,t.ln,20,t.photo)+'<span>'+t.fn+' '+t.ln+'</span></label>';
   }).join('');
   ['fn','ln','age','grade','phone','email','notes'].forEach(function(f){var el=document.getElementById('s-'+f);if(el)el.value='';});
   var pf=document.getElementById('s-parent-fn');if(pf)pf.value='';
@@ -4341,7 +4355,7 @@ function openAddLead(){
   var stList=document.getElementById('s-tutor-list');
   if(stList)stList.innerHTML=(S.tutors||[]).map(function(t){
     return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px">'
-      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'+mkAv(t.fn,t.ln,20)+'<span>'+t.fn+' '+t.ln+'</span></label>';
+      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'+mkAv(t.fn,t.ln,20,t.photo)+'<span>'+t.fn+' '+t.ln+'</span></label>';
   }).join('');
   ['fn','ln','age','grade','phone','email','notes'].forEach(function(f){var el=document.getElementById('s-'+f);if(el)el.value='';});
   var pf=document.getElementById('s-parent-fn');if(pf)pf.value='';
