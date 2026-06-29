@@ -189,6 +189,8 @@ textarea{resize:vertical;min-height:72px}
 .msl{font-size:13px;color:var(--t2)}
 .msv{font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace}
 .tc{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tc>*{min-width:0}
+[style*="grid-template-columns:1fr 1.4fr 1fr"]>*{min-width:0}
 .chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);cursor:pointer;transition:.15s;font-weight:500}
 .chip:hover,.chip.active{background:var(--adm-bg);border-color:var(--adm);color:var(--adm)}
 .empty{text-align:center;padding:36px 20px;color:var(--t3)}
@@ -568,7 +570,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <!-- ═══ WEEK NAVIGATION + SUMMARY ═══ -->
         <div class="card" style="margin-bottom:16px">
           <div class="ch" style="flex-wrap:wrap;gap:8px">
-            <span class="ct">📊 Тижневий зріз</span>
+            <span class="ct" style="background:linear-gradient(90deg,var(--adm),var(--dir2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">📊 Тижневий зріз</span>
             <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
               <button class="btn btn-g btn-sm" onclick="dashKpiWeek(-1)">← Минулий</button>
               <span id="dash-week-lbl" style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--t2);min-width:160px;text-align:center">…</span>
@@ -582,9 +584,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
         <!-- ═══ PER-TUTOR KPI TABLE ═══ -->
         <div class="card tutor-hidden" style="margin-bottom:16px">
-          <div class="ch" style="flex-wrap:wrap;gap:8px">
-            <span class="ct">👥 KPI по репетиторах</span>
-            <span id="dash-tutor-week-lbl" style="font-size:11px;color:var(--t3);font-family:JetBrains Mono,monospace;margin-left:auto"></span>
+          <div class="ch" style="border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--adm),var(--dir2)) 1">
+            <span class="ct" style="background:linear-gradient(90deg,var(--adm),var(--dir2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">👥 KPI по репетиторах</span>
+            <span id="dash-tutor-week-lbl" style="font-size:11px;font-family:JetBrains Mono,monospace;margin-left:auto;background:linear-gradient(90deg,var(--adm),var(--dir2));color:#fff;padding:3px 12px;border-radius:20px;font-weight:600"></span>
           </div>
           <div class="tkpi-wrap">
             <table class="tkpi">
@@ -607,11 +609,11 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <!-- ═══ TREND CHARTS ROW ═══ -->
         <div class="tc" style="margin-bottom:16px">
           <div class="card">
-            <div class="ch"><span class="ct">📉 Динаміка занять (4 тижні)</span></div>
+            <div class="ch" style="border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--adm),var(--dir2)) 1"><span class="ct" style="background:linear-gradient(90deg,var(--adm),var(--dir2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">📉 Динаміка занять (4 тижні)</span></div>
             <div id="dash-trend-lessons" style="padding:16px 18px"></div>
           </div>
           <div class="card">
-            <div class="ch"><span class="ct">💬 Динаміка комунікацій (4 тижні)</span></div>
+            <div class="ch" style="border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--dir2),var(--adm)) 1"><span class="ct" style="background:linear-gradient(90deg,var(--dir2),var(--adm));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">💬 Динаміка комунікацій (4 тижні)</span></div>
             <div id="dash-trend-comms" style="padding:16px 18px"></div>
           </div>
         </div>
@@ -630,18 +632,18 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div>
 
         <!-- ═══ BOTTOM ROW ═══ -->
-        <div style="display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:14px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:14px;margin-bottom:16px;min-width:0">
           <div class="card tutor-hidden">
-            <div class="ch">
-              <span class="ct">🗓 Найближчі заняття</span>
+            <div class="ch" style="border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--adm),var(--dir2)) 1">
+              <span class="ct" style="background:linear-gradient(90deg,var(--adm),var(--dir2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">🗓 Найближчі заняття</span>
               <button class="btn btn-g btn-sm" onclick="nav('schedule')">Розклад →</button>
             </div>
             <div style="max-height:240px;overflow-y:auto"><table><thead><tr><th>Учень</th><th>Предмет</th><th>Час</th><th>Статус</th></tr></thead>
             <tbody id="dt-lessons"></tbody></table></div>
           </div>
           <div class="card tutor-hidden">
-            <div class="ch">
-              <span class="ct">💬 Комунікації</span>
+            <div class="ch" style="border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--dir2),var(--adm)) 1">
+              <span class="ct" style="background:linear-gradient(90deg,var(--dir2),var(--adm));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">💬 Комунікації</span>
               <button class="btn btn-p btn-sm" onclick="openCommM()">+ Додати</button>
             </div>
             <div style="padding:10px 16px;max-height:260px;overflow-y:auto">
@@ -649,7 +651,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             </div>
           </div>
           <div class="card tutor-hidden">
-            <div class="ch"><span class="ct" id="dash-rt">Учні</span></div>
+            <div class="ch" style="border-bottom:3px solid transparent;border-image:linear-gradient(90deg,var(--adm),var(--dir2)) 1"><span class="ct" style="background:linear-gradient(90deg,var(--adm),var(--dir2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text" id="dash-rt">Учні</span></div>
             <div id="dash-rb"></div>
           </div>
         </div>
