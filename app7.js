@@ -3855,21 +3855,34 @@ function renderProfile(){
   }
 }
 function renderReports(){
-  const months=['\u0421\u0456\u0447','\u041B\u044E\u0442','\u0411\u0435\u0440','\u041A\u0432\u0456','\u0422\u0440\u0430','\u0427\u0435\u0440','\u041B\u0438\u043F','\u0421\u0435\u0440','\u0412\u0435\u0440','\u0416\u043E\u0432','\u041B\u0438\u0441','\u0413\u0440\u0443'];
+  //Ховаємо доходи для адміна
+  var incCard=document.getElementById('rc-income')&&document.getElementById('rc-income').closest('.card');
+  if(incCard) incCard.style.display=(R()==='admin')?'none':'';
+
+  const months=['\u0421\u0456\u0447','\u041b\u044e\u0442','\u0411\u0435\u0440','\u041a\u0432\u0456','\u0422\u0440\u0430','\u0427\u0435\u0440','\u041b\u0438\u043f','\u0421\u0435\u0440','\u0412\u0435\u0440','\u0416\u043e\u0432','\u041b\u0438\u0441','\u0413\u0440\u0443'];
   const md=new Array(12).fill(0);
-  S.payments.filter(p=>p.status==='paid').forEach(p=>{const d=new Date(p.date);md[d.getMonth()]+=p.amount;});
-  const maxI=Math.max(...md,1);
-  document.getElementById('rc-income').innerHTML=md.map((v,i)=>('<div class="bw"><div class="bar" style="height:'+(v/maxI*100)+'%;background:linear-gradient(180deg,var(--adm),var(--adm2))">'+(v>0?`<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t2);white-space:nowrap;font-family:JetBrains Mono,monospace">${v>=1000?(v/1000).toFixed(0)+'\u043A':v}</div>`:'')+'</div><div class="blbl">'+(months[i])+'</div></div>')).join('');
-  const sc={};S.lessons.forEach(l=>{sc[l.subject]=(sc[l.subject]||0)+1;});
+  S.payments.filter(function(p){return p.status==='paid';}).forEach(function(p){const d=new Date(p.date);md[d.getMonth()]+=p.amount;});
+  const maxI=Math.max.apply(null,md.concat([1]));
+  document.getElementById('rc-income').innerHTML=md.map(function(v,i){return '<div class="bw"><div class="bar" style="height:'+(v/maxI*100)+'%;background:linear-gradient(180deg,var(--adm),var(--adm2))">'+(v>0?'<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t2);white-space:nowrap;font-family:JetBrains Mono,monospace">'+(v>=1000?(v/1000).toFixed(0)+'\u043a':v)+'</div>':'')+'</div><div class="blbl">'+months[i]+'</div></div>';}).join('');
+  const sc={};S.lessons.forEach(function(l){sc[l.subject]=(sc[l.subject]||0)+1;});
   const totalL=(Math.round(S.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10)||1;
   const cols=['var(--adm)','var(--tut)','var(--dir)','var(--god)','#a78bfa','#0ea5e9'];
-  document.getElementById('rc-subj').innerHTML=Object.entries(sc).sort((a,b)=>b[1]-a[1]).map(([s,c],i)=>('<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">'+(s)+'</span><span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+(c)+' ('+(Math.round(c/totalL*100))+'%)</span></div><div class="pb"><div class="pf" style="width:'+(c/totalL*100)+'%;background:'+(cols[i%cols.length])+'"></div></div></div>')).join('')||'<div class="empty"><div class="ei">\uD83D\uDCDA</div>\u041D\u0435\u043C\u0430\u0454 \u0434\u0430\u043D\u0438\u0445</div>';
-  const tl={};S.lessons.forEach(l=>{if(l.tutorId)tl[l.tutorId]=(tl[l.tutorId]||0)+1;});
-  const maxT=Math.max(...Object.values(tl),1);
-  document.getElementById('rc-tload').innerHTML=Object.entries(tl).map(([id,c])=>('<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">'+(tn(id))+'</span><span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+(c)+' \u0437\u0430\u043D\u044F\u0442\u044C</span></div><div class="pb"><div class="pf" style="width:'+(c/maxT*100)+'%"></div></div></div>')).join('')||'<div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>\u041D\u0435\u043C\u0430\u0454 \u0434\u0430\u043D\u0438\u0445</div>';
-  const totalInc=S.payments.filter(p=>p.status==='paid').reduce((a,p)=>a+p.amount,0);
-  document.getElementById('rc-gen').innerHTML=('\n    <div class="ms"><span class="msl">\u0412\u0441\u044C\u043E\u0433\u043E \u0443\u0447\u043D\u0456\u0432</span><span class="msv">'+(S.students.length)+'</span></div>\n    <div class="ms"><span class="msl">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432</span><span class="msv">'+(S.students.filter(s=>s.status==='active').length)+'</span></div>\n    <div class="ms"><span class="msl">\u0412\u0441\u044C\u043E\u0433\u043E \u0437\u0430\u043D\u044F\u0442\u044C</span><span class="msv">'+(S.lessons.length)+'</span></div>\n    <div class="ms"><span class="msl">\u0417\u0430\u0433\u0430\u043B\u044C\u043D\u0438\u0439 \u0434\u043E\u0445\u0456\u0434</span><span class="msv" style="color:var(--tut)">'+(totalInc.toLocaleString('uk-UA'))+'\u20B4</span></div>\n    <div class="ms"><span class="msl">\u0421\u0435\u0440\u0435\u0434\u043D\u044F \u0432\u0430\u0440\u0442\u0456\u0441\u0442\u044C</span><span class="msv">'+(S.lessons.length?(totalInc/S.lessons.length).toFixed(0)+'\u20B4':'\u2014')+'</span></div>\n    <div class="ms"><span class="msl">\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0456\u0432</span><span class="msv">'+(S.tutors.length)+'</span></div>');}
-
+  document.getElementById('rc-subj').innerHTML=Object.entries(sc).sort(function(a,b){return b[1]-a[1];}).map(function(e,i){var s=e[0],c=e[1];return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">'+s+'</span><span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+c+' ('+Math.round(c/totalL*100)+'%)</span></div><div class="pb"><div class="pf" style="width:'+(c/totalL*100)+'%;background:'+cols[i%cols.length]+'"></div></div></div>';}).join('')||'<div class="empty"><div class="ei">\uD83D\uDCDA</div>\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445</div>';
+  const tl={};S.lessons.forEach(function(l){if(l.tutorId)tl[l.tutorId]=(tl[l.tutorId]||0)+1;});
+  const maxT=Math.max.apply(null,Object.values(tl).concat([1]));
+  document.getElementById('rc-tload').innerHTML=Object.entries(tl).map(function(e){var id=e[0],c=e[1];return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">'+tn(id)+'</span><span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+c+' \u0437\u0430\u043d\u044f\u0442\u044c</span></div><div class="pb"><div class="pf" style="width:'+(c/maxT*100)+'%"></div></div></div>';}).join('')||'<div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445</div>';
+  const totalInc=S.payments.filter(function(p){return p.status==='paid';}).reduce(function(a,p){return a+p.amount;},0);
+  var showIncome=P().seeIncome&&R()!=='tutor'&&R()!=='admin';
+  document.getElementById('rc-gen').innerHTML=
+    '<div class="ms"><span class="msl">\u0412\u0441\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(S.students.length)+'</span></div>'
+    +'<div class="ms"><span class="msl">\u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0445 \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(S.students.filter(function(s){return s.status==='active';}).length)+'</span></div>'
+    +'<div class="ms"><span class="msl">\u0412\u0441\u044c\u043e\u0433\u043e \u0437\u0430\u043d\u044f\u0442\u044c</span><span class="msv">'+(S.lessons.length)+'</span></div>'
+    +(showIncome
+      ?'<div class="ms"><span class="msl">\u0417\u0430\u0433\u0430\u043b\u044c\u043d\u0438\u0439 \u0434\u043e\u0445\u0456\u0434</span><span class="msv" style="color:var(--tut)">'+(totalInc.toLocaleString('uk-UA'))+'\u20b4</span></div>'
+       +'<div class="ms"><span class="msl">\u0421\u0435\u0440\u0435\u0434\u043d\u044f \u0432\u0430\u0440\u0442\u0456\u0441\u0442\u044c</span><span class="msv">'+(S.lessons.length?(totalInc/S.lessons.length).toFixed(0)+'\u20b4':'\u2014')+'</span></div>'
+      :'')
+    +'<div class="ms"><span class="msl">\u0412\u0438\u043a\u043b\u0430\u0434\u0430\u0447\u0456\u0432</span><span class="msv">'+(S.tutors.length)+'</span></div>';
+}
 
 
 
