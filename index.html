@@ -310,15 +310,15 @@ textarea{resize:vertical;min-height:72px}
 .trend-chart{display:flex;align-items:flex-end;gap:6px;height:80px;padding:4px 0}
 .trend-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
 .trend-bar{width:100%;border-radius:4px 4px 0 0;min-height:4px;transition:height .3s ease}
-.trend-weeks{display:flex;gap:4px;padding:8px 0 4px}
-.trend-week{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.trend-weeks{display:flex;gap:4px;padding:8px 0 4px;overflow:hidden}
+.trend-week{flex:1;min-width:0;max-width:25%;display:flex;flex-direction:column;align-items:center;gap:3px}
 .trend-week-now .trend-week-lbl{color:var(--adm);font-weight:700}
 .trend-week-val{font-size:11px;font-weight:700;color:var(--t1);font-family:'JetBrains Mono',monospace}
 .trend-week-bar-wrap{width:100%;height:6px;background:var(--b1);border-radius:3px;overflow:hidden}
 .trend-week-bar{height:100%;border-radius:3px;min-width:4px;transition:width .4s ease}
-.trend-week-lbl{font-size:9px;color:var(--t3);font-family:'JetBrains Mono',monospace;white-space:nowrap;text-align:center}
+.trend-week-lbl{font-size:8px;color:var(--t3);font-family:'JetBrains Mono',monospace;white-space:nowrap;text-align:center;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .trend-tutor-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
-.trend-tutor-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--b1)}
+.trend-tutor-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--b1);overflow:hidden}
 .trend-tutor-name{font-size:11px;color:var(--t2);min-width:120px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
 .trend-tutor-bars{display:flex;flex:1;gap:4px;align-items:center}
 .trend-tutor-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
@@ -485,7 +485,7 @@ textarea{resize:vertical;min-height:72px}
 
 /* Hide financial elements for tutors */
 body.role-tutor .tutor-hidden { display: none !important; }
-  .tutor-hidden { display: flex; }
+  div.tutor-hidden:not(.card) { display: flex; }
 body.role-tutor .comm-add-btn { display: none !important; }
 </style>
 </head>
