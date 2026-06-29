@@ -482,6 +482,7 @@ textarea{resize:vertical;min-height:72px}
 
 /* Hide financial elements for tutors */
 body.role-tutor .tutor-hidden { display: none !important; }
+  .tutor-hidden { display: flex; }
 body.role-tutor .comm-add-btn { display: none !important; }
 </style>
 </head>
@@ -1005,10 +1006,26 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="page" id="pg-comms">
         <div class="card">
           <div class="ch"><span class="ct">💬 Комунікації</span><button class="btn btn-p" onclick="openCommM()" style="margin-left:auto">+ Додати комунікацію</button></div>
-          <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--b1)">
-            <select id="comm-f-student" onchange="renderCommsPage()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="">Всі учні</option></select>
-            <select id="comm-f-tutor" onchange="renderCommsPage()" class="tutor-hidden" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="">Всі репетитори</option></select>
-            <select id="comm-f-type" onchange="renderCommsPage()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="">Всі типи</option><option value="call">Дзвінок</option><option value="message">Повідомлення</option><option value="meeting">Зустріч</option><option value="email">Email</option></select>
+          <div style="padding:12px 18px;display:flex;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--b1);align-items:flex-end">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Учень</label>
+              <select id="comm-f-student" onchange="renderCommsPage()" style="font-size:12px;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);min-width:160px"><option value="">Всі учні</option></select>
+            </div>
+            <div class="tutor-hidden" style="flex-direction:column;gap:4px">
+              <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Репетитор</label>
+              <select id="comm-f-tutor" onchange="renderCommsPage()" style="font-size:12px;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);min-width:160px"><option value="">Всі репетитори</option></select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Тип</label>
+              <select id="comm-f-type" onchange="renderCommsPage()" style="font-size:12px;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1)">
+                <option value="">Всі типи</option>
+                <option value="call">📞 Дзвінок</option>
+                <option value="message">💬 Повідомлення</option>
+                <option value="meeting">🤝 Зустріч</option>
+                <option value="email">📧 Email</option>
+              </select>
+            </div>
+            <button class="btn btn-g btn-sm" onclick="document.getElementById('comm-f-student').value='';document.getElementById('comm-f-tutor').value='';document.getElementById('comm-f-type').value='';renderCommsPage()" style="align-self:flex-end;padding:6px 12px;font-size:12px">✕ Скинути</button>
           </div>
           <div style="overflow-x:auto"><table><thead><tr><th>Дата</th><th>Тип</th><th>Учень</th><th>Репетитор</th><th>Нотатка</th></tr></thead><tbody id="comms-tbody"></tbody></table></div>
         </div>
