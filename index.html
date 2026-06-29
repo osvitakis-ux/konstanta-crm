@@ -742,10 +742,29 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
       <!-- ── REPORTS ── -->
       <div class="page" id="pg-reports">
+        <!-- Фільтр -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="ch" style="flex-wrap:wrap;gap:8px">
+            <span class="ct">📊 Аналітика</span>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <select id="rc-range" onchange="renderReports()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1)">
+                <option value="month">Поточний місяць</option>
+                <option value="week">Поточний тиждень</option>
+                <option value="2week">2 тижні</option>
+                <option value="4week">4 тижні</option>
+                <option value="3month">3 місяці</option>
+                <option value="6month">6 місяців</option>
+                <option value="year">Рік</option>
+                <option value="all">Весь час</option>
+              </select>
+              <span id="rc-range-lbl" style="font-size:11px;color:var(--t3)"></span>
+            </div>
+          </div>
+        </div>
         <div class="ag">
-          <div class="card"><div class="ch"><span class="ct">Доходи по місяцях</span></div><div style="padding:18px"><div class="bar-chart" id="rc-income"></div><div style="display:flex;justify-content:space-around;margin-top:3px" id="rc-income-l"></div></div></div>
-          <div class="card"><div class="ch"><span class="ct">Заняття по предметах</span></div><div style="padding:18px" id="rc-subj"></div></div>
-          <div class="card"><div class="ch"><span class="ct">Завантаженість репетиторів</span></div><div style="padding:18px" id="rc-tload"></div></div>
+          <div class="card" id="rc-income-card"><div class="ch"><span class="ct">Доходи по місяцях</span></div><div style="padding:18px"><div class="bar-chart" id="rc-income"></div></div></div>
+          <div class="card"><div class="ch"><span class="ct">Заняття по предметах (год)</span></div><div style="padding:18px" id="rc-subj"></div></div>
+          <div class="card"><div class="ch"><span class="ct">Завантаженість репетиторів (год)</span></div><div style="padding:18px" id="rc-tload"></div></div>
           <div class="card"><div class="ch"><span class="ct">Загальна статистика</span></div><div style="padding:14px 18px" id="rc-gen"></div></div>
         </div>
       </div>
