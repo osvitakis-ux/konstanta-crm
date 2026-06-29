@@ -3855,35 +3855,125 @@ function renderProfile(){
   }
 }
 function renderReports(){
-  //Ховаємо доходи для адміна
-  var incCard=document.getElementById('rc-income')&&document.getElementById('rc-income').closest('.card');
-  if(incCard) incCard.style.display=(R()==='admin')?'none':'';
+  // === Діапазон дат ===
+  var range = (document.getElementById('rc-range')||{value:'month'}).value;
+  var now = new Date();
+  var fromDate = new Date(now);
 
-  const months=['\u0421\u0456\u0447','\u041b\u044e\u0442','\u0411\u0435\u0440','\u041a\u0432\u0456','\u0422\u0440\u0430','\u0427\u0435\u0440','\u041b\u0438\u043f','\u0421\u0435\u0440','\u0412\u0435\u0440','\u0416\u043e\u0432','\u041b\u0438\u0441','\u0413\u0440\u0443'];
-  const md=new Array(12).fill(0);
-  S.payments.filter(function(p){return p.status==='paid';}).forEach(function(p){const d=new Date(p.date);md[d.getMonth()]+=p.amount;});
-  const maxI=Math.max.apply(null,md.concat([1]));
-  document.getElementById('rc-income').innerHTML=md.map(function(v,i){return '<div class="bw"><div class="bar" style="height:'+(v/maxI*100)+'%;background:linear-gradient(180deg,var(--adm),var(--adm2))">'+(v>0?'<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t2);white-space:nowrap;font-family:JetBrains Mono,monospace">'+(v>=1000?(v/1000).toFixed(0)+'\u043a':v)+'</div>':'')+'</div><div class="blbl">'+months[i]+'</div></div>';}).join('');
-  const sc={};S.lessons.forEach(function(l){sc[l.subject]=(sc[l.subject]||0)+1;});
-  const totalL=(Math.round(S.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10)||1;
-  const cols=['var(--adm)','var(--tut)','var(--dir)','var(--god)','#a78bfa','#0ea5e9'];
-  document.getElementById('rc-subj').innerHTML=Object.entries(sc).sort(function(a,b){return b[1]-a[1];}).map(function(e,i){var s=e[0],c=e[1];return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">'+s+'</span><span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+c+' ('+Math.round(c/totalL*100)+'%)</span></div><div class="pb"><div class="pf" style="width:'+(c/totalL*100)+'%;background:'+cols[i%cols.length]+'"></div></div></div>';}).join('')||'<div class="empty"><div class="ei">\uD83D\uDCDA</div>\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445</div>';
-  const tl={};S.lessons.forEach(function(l){if(l.tutorId)tl[l.tutorId]=(tl[l.tutorId]||0)+1;});
-  const maxT=Math.max.apply(null,Object.values(tl).concat([1]));
-  document.getElementById('rc-tload').innerHTML=Object.entries(tl).map(function(e){var id=e[0],c=e[1];return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px">'+tn(id)+'</span><span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+c+' \u0437\u0430\u043d\u044f\u0442\u044c</span></div><div class="pb"><div class="pf" style="width:'+(c/maxT*100)+'%"></div></div></div>';}).join('')||'<div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445</div>';
-  const totalInc=S.payments.filter(function(p){return p.status==='paid';}).reduce(function(a,p){return a+p.amount;},0);
-  var showIncome=P().seeIncome&&R()!=='tutor'&&R()!=='admin';
-  document.getElementById('rc-gen').innerHTML=
+  if(range === 'week'){
+    var day = now.getDay()||7;
+    fromDate = new Date(now); fromDate.setDate(now.getDate() - day + 1);
+    fromDate.setHours(0,0,0,0);
+  } else if(range === '2week'){
+    fromDate.setDate(now.getDate() - 14);
+  } else if(range === '4week'){
+    fromDate.setDate(now.getDate() - 28);
+  } else if(range === 'month'){
+    fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if(range === '3month'){
+    fromDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+  } else if(range === '6month'){
+    fromDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+  } else if(range === 'year'){
+    fromDate = new Date(now.getFullYear(), 0, 1);
+  } else {
+    fromDate = new Date(0);
+  }
+  var fromStr = localDateStr(fromDate);
+  var toStr   = localDateStr(now);
+
+  // Підпис діапазону
+  var lbl = document.getElementById('rc-range-lbl');
+  if(lbl && range !== 'all'){
+    lbl.textContent = fromDate.toLocaleDateString('uk-UA',{day:'numeric',month:'short'})
+      + ' — ' + now.toLocaleDateString('uk-UA',{day:'numeric',month:'short',year:'numeric'});
+  } else if(lbl){ lbl.textContent = ''; }
+
+  // Ховаємо доходи для адміна
+  var incCard = document.getElementById('rc-income-card');
+  if(incCard) incCard.style.display = (R()==='admin') ? 'none' : '';
+
+  // === Фільтрація занять ===
+  var lessons = (S.lessons||[]).filter(function(l){
+    return l.date >= fromStr && l.date <= toStr && l.status !== 'cancelled';
+  });
+
+  function hrs(arr){ return Math.round(arr.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
+
+  // === Доходи по місяцях (в годинах занять) ===
+  var months = ['\u0421\u0456\u0447','\u041b\u044e\u0442','\u0411\u0435\u0440','\u041a\u0432\u0456','\u0422\u0440\u0430','\u0427\u0435\u0440','\u041b\u0438\u043f','\u0421\u0435\u0440','\u0412\u0435\u0440','\u0416\u043e\u0432','\u041b\u0438\u0441','\u0413\u0440\u0443'];
+  var md = new Array(12).fill(0);
+  lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';})
+    .forEach(function(l){ var d=new Date(l.date); md[d.getMonth()]+=(parseFloat(l.dur)||60)/60; });
+  md = md.map(function(v){return Math.round(v*10)/10;});
+  var maxI = Math.max.apply(null, md.concat([1]));
+  var incEl = document.getElementById('rc-income');
+  if(incEl) incEl.innerHTML = md.map(function(v,i){
+    return '<div class="bw"><div class="bar" style="height:'+(v/maxI*100)+'%;background:linear-gradient(180deg,var(--adm),var(--adm2))">'
+      +(v>0?'<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t2);white-space:nowrap;font-family:JetBrains Mono,monospace">'+v+'\u0433</div>':'')
+      +'</div><div class="blbl">'+months[i]+'</div></div>';
+  }).join('');
+
+  // === Заняття по предметах (год) ===
+  var sc = {};
+  lessons.forEach(function(l){
+    if(!l.subject) return;
+    sc[l.subject] = (sc[l.subject]||0) + (parseFloat(l.dur)||60)/60;
+  });
+  var totalSubjH = hrs(lessons) || 1;
+  var cols = ['var(--adm)','var(--tut)','var(--dir)','var(--god)','#a78bfa','#0ea5e9','#f59e0b','#ec4899'];
+  var subjEl = document.getElementById('rc-subj');
+  if(subjEl) subjEl.innerHTML = Object.entries(sc).sort(function(a,b){return b[1]-a[1];})
+    .map(function(e,i){
+      var s=e[0], h=Math.round(e[1]*10)/10, pct=Math.round(e[1]/totalSubjH*100);
+      return '<div style="margin-bottom:10px">'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+        +'<span style="font-size:12px">'+s+'</span>'
+        +'<span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+h+'\u0433 ('+pct+'%)</span></div>'
+        +'<div class="pb"><div class="pf" style="width:'+(e[1]/totalSubjH*100)+'%;background:'+cols[i%cols.length]+'"></div></div></div>';
+    }).join('') || '<div class="empty"><div class="ei">\uD83D\uDCDA</div>\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445</div>';
+
+  // === Завантаженість репетиторів (год) ===
+  var tl = {};
+  lessons.forEach(function(l){
+    var tid = l.tutorId||l.tutor_id;
+    if(tid) tl[tid] = (tl[tid]||0) + (parseFloat(l.dur)||60)/60;
+  });
+  var entries = Object.entries(tl).map(function(e){return{id:e[0],h:Math.round(e[1]*10)/10};}).sort(function(a,b){return b.h-a.h;});
+  var maxT = entries.length ? entries[0].h : 1;
+  var tloadEl = document.getElementById('rc-tload');
+  if(tloadEl) tloadEl.innerHTML = entries.map(function(e){
+    return '<div style="margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+      +'<span style="font-size:12px">'+tn(e.id)+'</span>'
+      +'<span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+e.h+'\u0433</span></div>'
+      +'<div class="pb"><div class="pf" style="width:'+(e.h/maxT*100)+'%;background:var(--adm)"></div></div></div>';
+  }).join('') || '<div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445</div>';
+
+  // === Загальна статистика ===
+  var doneL  = lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';});
+  var missedL= uncoveredMissedFilter(lessons);
+  var doneH  = hrs(doneL);
+  var missedH= hrs(missedL);
+  var totalH = hrs(lessons);
+  var pct    = totalH>0 ? Math.round(doneH/totalH*100) : 0;
+  var totalInc = (S.payments||[]).filter(function(p){
+    return p.status==='paid' && p.date>=fromStr && p.date<=toStr;
+  }).reduce(function(a,p){return a+p.amount;},0);
+  var showIncome = P().seeIncome && R()!=='tutor' && R()!=='admin';
+
+  var genEl = document.getElementById('rc-gen');
+  if(genEl) genEl.innerHTML =
     '<div class="ms"><span class="msl">\u0412\u0441\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(S.students.length)+'</span></div>'
     +'<div class="ms"><span class="msl">\u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0445 \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(S.students.filter(function(s){return s.status==='active';}).length)+'</span></div>'
-    +'<div class="ms"><span class="msl">\u0412\u0441\u044c\u043e\u0433\u043e \u0437\u0430\u043d\u044f\u0442\u044c</span><span class="msv">'+(S.lessons.length)+'</span></div>'
+    +'<div class="ms"><span class="msl">\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e (\u0433\u043e\u0434)</span><span class="msv" style="color:var(--tut)">'+doneH+'\u0433</span></div>'
+    +'<div class="ms"><span class="msl">\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e (\u0433\u043e\u0434)</span><span class="msv" style="color:var(--danger)">'+missedH+'\u0433</span></div>'
+    +'<div class="ms"><span class="msl">\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u043f\u043b\u0430\u043d\u0443</span><span class="msv" style="color:'+(pct>=80?'var(--tut)':pct>=50?'var(--dir)':'var(--danger)')+'">'+pct+'%</span></div>'
     +(showIncome
-      ?'<div class="ms"><span class="msl">\u0417\u0430\u0433\u0430\u043b\u044c\u043d\u0438\u0439 \u0434\u043e\u0445\u0456\u0434</span><span class="msv" style="color:var(--tut)">'+(totalInc.toLocaleString('uk-UA'))+'\u20b4</span></div>'
-       +'<div class="ms"><span class="msl">\u0421\u0435\u0440\u0435\u0434\u043d\u044f \u0432\u0430\u0440\u0442\u0456\u0441\u0442\u044c</span><span class="msv">'+(S.lessons.length?(totalInc/S.lessons.length).toFixed(0)+'\u20b4':'\u2014')+'</span></div>'
+      ?'<div class="ms"><span class="msl">\u0414\u043e\u0445\u0456\u0434 \u0437\u0430 \u043f\u0435\u0440\u0456\u043e\u0434</span><span class="msv" style="color:var(--tut)">'+(totalInc.toLocaleString('uk-UA'))+'\u20b4</span></div>'
       :'')
     +'<div class="ms"><span class="msl">\u0412\u0438\u043a\u043b\u0430\u0434\u0430\u0447\u0456\u0432</span><span class="msv">'+(S.tutors.length)+'</span></div>';
 }
-
 
 
 function renderSch(){
