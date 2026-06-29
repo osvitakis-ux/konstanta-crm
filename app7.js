@@ -272,33 +272,35 @@ function renderCommsPage(){
   var tbody=document.getElementById('comms-tbody');
   if(!tbody)return;
 
-  // Зберігаємо поточні значення ДО перебудови списків
-  var fStud =(document.getElementById('comm-f-student')||{value:''}).value;
-  var fTutor=(document.getElementById('comm-f-tutor')||{value:''}).value;
-  var fType =(document.getElementById('comm-f-type')||{value:''}).value;
-
-  // Populate student filter
+  // Populate student filter (popSelSearch сам зберігає поточне значення)
   var fStudSel=document.getElementById('comm-f-student');
   if(fStudSel){
     popSelSearch('comm-f-student', [{id:'',fn:'\u0412\u0441\u0456 \u0443\u0447\u043d\u0456',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
-    if(fStud){ fStudSel.value=fStud; if(fStudSel._updateSearch) fStudSel._updateSearch(); }
   }
 
   // Populate tutor filter
   var fTutSel=document.getElementById('comm-f-tutor');
   if(fTutSel && R()!=='tutor'){
     popSelSearch('comm-f-tutor', [{id:'',fn:'\u0412\u0441\u0456 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438',ln:''}].concat(S.tutors||[]), 'id', function(t){return t.fn+(t.ln?' '+t.ln:'');}, '');
-    if(fTutor){ fTutSel.value=fTutor; if(fTutSel._updateSearch) fTutSel._updateSearch(); }
   }
-  if(R()==='tutor'){
-    var _myT=myTutor();
-    if(_myT) _selfId=_myT.id;
-  }
+
+  // Читаємо значення ПІСЛЯ оновлення списків
+  var fStud =(document.getElementById('comm-f-student')||{value:''}).value;
+  var fTutor=(document.getElementById('comm-f-tutor')||{value:''}).value;
+  var fType =(document.getElementById('comm-f-type')||{value:''}).value;
+
+  var _selfId=null;
+  if(R()==='tutor'){ var _mt=myTutor(); if(_mt) _selfId=_mt.id; }
   var comms=[].concat(S.comms||[]).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
   if(_selfId) comms=comms.filter(function(c){return (c.tutorId||c.tutor_id)===_selfId;});
   if(fStud) comms=comms.filter(function(c){return (c.studentId||c.student_id)===fStud;});
   if(fTutor) comms=comms.filter(function(c){return (c.tutorId||c.tutor_id)===fTutor;});
-  if(fType) comms=comms.filter(function(c){return c.type===fType;});
+  if(fType) comms=comms.filter(function(c){
+    var t=c.type||'';
+    if(fType==='message') return t==='message'||t==='msg';
+    if(fType==='meeting') return t==='meeting'||t==='meet';
+    return t===fType;
+  });
   var ico={call:'📞',message:'💬',meeting:'🤝',email:'📧',other:'📋',msg:'💬',meet:'🤝'};
   if(!comms.length){
     tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">Комунікацій немає</td></tr>';
@@ -817,9 +819,16 @@ function mkToast(msg,type='success'){
 
 function popSel(id,arr,valKey,lblFn,placeholder='\u2014'){const el=document.getElementById(id);if(!el)return;el.innerHTML=("<option value=\"\">"+(placeholder)+"</option>")+arr.map(x=>("<option value=\""+(x[valKey])+"\">"+(lblFn(x))+"</option>")).join('');}
 function popSelSearch(id,arr,valKey,lblFn,placeholder){
-  popSel(id,arr,valKey,lblFn,placeholder);
-  makeSearchable(id);
   var el=document.getElementById(id);
+  var savedVal=el?el.value:'';
+  popSel(id,arr,valKey,lblFn,placeholder);
+  // Відновлюємо значення якщо воно є серед нових options
+  if(el&&savedVal){
+    el.value=savedVal;
+    // якщо option не знайдено — скидаємо
+    if(el.value!==savedVal) el.value='';
+  }
+  makeSearchable(id);
   if(el&&el._updateSearch) el._updateSearch();
 }
 
