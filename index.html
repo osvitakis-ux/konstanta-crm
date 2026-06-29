@@ -296,8 +296,8 @@ textarea{resize:vertical;min-height:72px}
 .kpi-badge.same{background:var(--s3);color:var(--t3)}
 .tkpi-wrap{overflow-x:auto;padding:0 0 4px}
 .tkpi{width:100%;border-collapse:collapse;font-size:13px}
-.tkpi th{padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--b1);white-space:nowrap;cursor:help}
-.tkpi td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.tkpi th{padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--b1);white-space:nowrap;cursor:help}
+.tkpi td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
 .tkpi tbody tr:hover td{background:rgba(255,255,255,.02)}
 .tkpi tbody tr:last-child td{border-bottom:none}
 .mini-bar{height:4px;background:var(--b2);border-radius:4px;margin-top:4px;width:80px}
@@ -317,7 +317,7 @@ textarea{resize:vertical;min-height:72px}
 .trend-week-lbl{font-size:9px;color:var(--t3);font-family:'JetBrains Mono',monospace;white-space:nowrap;text-align:center}
 .trend-tutor-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .trend-tutor-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--b1)}
-.trend-tutor-name{font-size:11px;color:var(--t2);min-width:90px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trend-tutor-name{font-size:11px;color:var(--t2);min-width:120px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
 .trend-tutor-bars{display:flex;flex:1;gap:4px;align-items:center}
 .trend-tutor-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
 .trend-tutor-num{font-size:10px;font-weight:600;color:var(--t2);font-family:'JetBrains Mono',monospace}
@@ -329,7 +329,7 @@ textarea{resize:vertical;min-height:72px}
 .tutor-trend-row{display:flex;gap:4px;align-items:center}
 /* Communications */
 .comm-log{display:flex;flex-direction:column;gap:8px}
-.comm-item{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 14px;display:flex;align-items:flex-start;gap:10px}
+.comm-item{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 12px;display:flex;align-items:flex-start;gap:8px;transition:border-color .15s}.comm-item:hover{border-color:var(--adm)}
 .comm-ico{font-size:18px;flex-shrink:0;margin-top:1px}
 .comm-body{flex:1;min-width:0}
 .comm-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px}
@@ -403,6 +403,7 @@ textarea{resize:vertical;min-height:72px}
   .sgrid{grid-template-columns:1fr 1fr!important;gap:10px}
   .kpi-grid{grid-template-columns:1fr 1fr!important}
   .tc{grid-template-columns:1fr!important;gap:10px}
+  [style*="grid-template-columns:1fr 1.4fr 1fr"]{grid-template-columns:1fr!important;gap:10px}
 
   /* tables: horizontal scroll */
   .card{overflow-x:hidden}
@@ -586,10 +587,10 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <span id="dash-tutor-week-lbl" style="font-size:11px;color:var(--t3);font-family:JetBrains Mono,monospace;margin-left:auto"></span>
           </div>
           <div class="tkpi-wrap">
-            <table class="tkpi" style="table-layout:fixed;width:100%">
+            <table class="tkpi">
               <thead>
                 <tr>
-                  <th style="width:200px">Репетитор</th>
+                  <th style="min-width:180px">Репетитор</th>
                   <th title="Проведені години за тиждень">✅ Проведено</th>
                   <th title="Заплановано, ще не проведено">📅 Планів</th>
                   <th title="Некомпенсовані пропуски учнів (год)">❌ Пропущено</th>
@@ -629,13 +630,13 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div>
 
         <!-- ═══ BOTTOM ROW ═══ -->
-        <div class="tc" style="margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:14px;margin-bottom:16px">
           <div class="card tutor-hidden">
             <div class="ch">
-              <span class="ct">Найближчі заняття</span>
+              <span class="ct">🗓 Найближчі заняття</span>
               <button class="btn btn-g btn-sm" onclick="nav('schedule')">Розклад →</button>
             </div>
-            <div style="max-height:220px;overflow-y:auto"><table><thead><tr><th>Учень</th><th>Предмет</th><th>Час</th><th>Статус</th></tr></thead>
+            <div style="max-height:240px;overflow-y:auto"><table><thead><tr><th>Учень</th><th>Предмет</th><th>Час</th><th>Статус</th></tr></thead>
             <tbody id="dt-lessons"></tbody></table></div>
           </div>
           <div class="card tutor-hidden">
@@ -643,12 +644,12 @@ body.role-tutor .comm-add-btn { display: none !important; }
               <span class="ct">💬 Комунікації</span>
               <button class="btn btn-p btn-sm" onclick="openCommM()">+ Додати</button>
             </div>
-            <div style="padding:14px 18px;max-height:260px;overflow-y:auto">
+            <div style="padding:10px 16px;max-height:260px;overflow-y:auto">
               <div class="comm-log" id="dash-comm-log2"></div>
             </div>
           </div>
           <div class="card tutor-hidden">
-            <div class="ch"><span class="ct" id="dash-rt">Останні платежі</span></div>
+            <div class="ch"><span class="ct" id="dash-rt">Учні</span></div>
             <div id="dash-rb"></div>
           </div>
         </div>
