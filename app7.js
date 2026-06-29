@@ -3115,7 +3115,7 @@ async function startApp(){
       else if(pg==='schedule')  renderSch();
       else if(pg==='lessons')   renderLessons();
       else if(pg==='payments')  renderPayments();
-      else if(pg==='reports')   renderReports();
+      else if(pg==='reports')   renderAllAnalytics();
       else if(pg==='users')     renderUsers();
       else if(pg==='settings')  renderSettings();
       else if(pg==='profile')   renderProfile();
@@ -3422,7 +3422,7 @@ function nav(page){
   if(page==='schedule')renderSch();
   if(page==='lessons')renderLessons();
   if(page==='payments')renderPayments();
-  if(page==='reports')renderReports();
+  if(page==='reports')renderAllAnalytics();
   if(page==='branches'){renderBranches();renderBranchStats();}
   if(page==='users')renderUsers();
   if(page==='settings')renderSettings();
@@ -3436,8 +3436,7 @@ function nav(page){
   var _crmEl=document.getElementById('pg-crm');
   if(page==='crm'){if(_crmEl)_crmEl.style.display='flex';renderCrm();}
   else{if(_crmEl)_crmEl.style.display='none';}
-  if(page==='analytics')renderAnalytics();
-  if(isCustomPage)renderCustomPage(page);
+    if(isCustomPage)renderCustomPage(page);
   if(window.innerWidth<=768)closeSidebar();
 }
 
@@ -3847,6 +3846,24 @@ function renderProfile(){
     if(prev && mt.photo) prev.innerHTML = '<img src="'+mt.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
   }
 }
+function renderAllAnalytics(){
+  // Sync range filter: rc-range drives both
+  var range = (document.getElementById('rc-range')||{value:'month'}).value;
+  // Temporarily set an-range to same value for renderAnalytics
+  var anRange = document.getElementById('an-range');
+  if(!anRange){
+    // Create hidden element if needed
+    anRange = document.createElement('select');
+    anRange.id = 'an-range';
+    anRange.style.display = 'none';
+    document.body.appendChild(anRange);
+  }
+  anRange.innerHTML = '<option value="'+range+'" selected>'+range+'</option>';
+
+  renderAnalytics();
+  renderReports();
+}
+
 function renderReports(){
   // === Діапазон дат ===
   var range = (document.getElementById('rc-range')||{value:'month'}).value;
