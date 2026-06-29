@@ -1117,9 +1117,10 @@ function renderDashKpi(){
     else if(prevTDoneH>0){trendTxt='='+tDoneH;trendCls='same';}
 
     var rowHtml = '<tr>'
-      +'<td style="min-width:180px;max-width:220px"><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,36,t.photo)
-      +'<div style="min-width:0"><div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+t.fn+' '+t.ln+'</div>'
-      +'<div style="font-size:10px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">'+(t.subj||'\u2014')+'</div></div></div></td>'
+      +'<td style="min-width:180px"><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,34,t.photo)
+      +'<div style="min-width:0"><div style="font-weight:600;font-size:12px;line-height:1.3">'+t.fn+'</div>'
+      +'<div style="font-weight:700;font-size:12px;line-height:1.3">'+t.ln+'</div>'
+      +'<div style="font-size:10px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">'+(t.subj||'\u2014')+'</div></div></div></td>'
 
       +'<td><div style="display:flex;align-items:center;gap:8px">'
       +'<span style="font-weight:700;font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+tDoneH+'\u0433</span>'
@@ -1234,8 +1235,8 @@ function renderDashTrends(){
       var total = vals[vals.length-1];
 
       tutorRows += '<div class="trend-tutor-row">'
-        + mkAv(t.fn,t.ln,26,t.photo)
-        + '<div class="trend-tutor-name">'+t.fn+' '+t.ln+'</div>'
+        + mkAv(t.fn,t.ln,24,t.photo)
+        + '<div class="trend-tutor-name">'+(t.ln||t.fn)+' '+(t.fn?t.fn[0]+'.':'')+'</div>'
         + '<div class="trend-tutor-bars">'
         + vals.map(function(v,i){
             var pct = Math.round(v/tMax*100);
