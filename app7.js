@@ -4088,44 +4088,42 @@ function renderSchWeek(){
 
 
 function renderTutors(){
+  var isAdmin=R()==='god'||R()==='director'||R()==='admin'||R()==='network_admin';
   var ce=can('tutors');
   var rows='';
   S.tutors.forEach(function(t){
     var acc=S.users.find(function(u){return u.id===t.accId||u.id===t.acc_uid;});
     var cnt=S.students.filter(function(s){
-      return s.tutorId===t.id||s.tutor_id===t.id||(s.tutorIds&&s.tutorIds.indexOf(t.id)>=0);
+      return (s.tutorId===t.id||s.tutor_id===t.id||(s.tutorIds&&s.tutorIds.indexOf(t.id)>=0))&&s.status==='active';
     }).length;
-    var lessonsCount=Math.round(myLessons().filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
     var branchBadge=isSuperAdmin()&&!currentBranch()
-      ?'<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px">'+branchName(t.branchId||t.branch_id)+'</span>':''
+      ?('<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px">'+branchName(t.branchId||t.branch_id)+'</span>'):'';
+    var editBtns=isAdmin
+      ?('<div style="display:inline-flex;gap:4px;margin-left:8px">'
+        +'<button class="btn btn-g btn-sm" onclick="openTutM(\'' +t.id+ '\')" title="\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438">\u270f\ufe0f</button>'
+        +(ce?('<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delTutor(\'' +t.id+ '\')" title="\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438">\uD83D\uDDD1</button>'):'')
+        +'</div>')
+      :'';
+    var accHtml=acc
+      ?('<div style="display:flex;align-items:center;gap:6px">'+mkAv(acc.fn||'?',acc.ln||'',24)
+        +'<div><div style="font-size:12px;font-weight:600">'+(acc.fn||'')+' '+(acc.ln||'')+'</div>'
+        +'<div style="font-size:10px;color:var(--t2)">'+(acc.email||'')+'</div></div>'
+        +'<span class="rpill '+acc.role+'" style="font-size:10px;padding:2px 8px">'+ROLES[acc.role].icon+' '+ROLES[acc.role].label+'</span>'
+        +'</div>')
+      :'<span style="font-size:11px;color:var(--t3)">\u2014 \u0430\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u0440\u0438\u0432\u0027\u044f\u0437\u0430\u043d\u043e</span>';
     rows+='<tr>'
       +'<td><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,36,t.photo)
       +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
       +(t.subj?'<div style="font-size:11px;color:var(--t2)">'+t.subj+'</div>':'')
       +'</div></div></td>'
-      +'<td>'+(acc
-        ?'<div style="display:flex;align-items:center;gap:6px">'
-          +mkAv(acc.fn||'?',acc.ln||'',24)
-          +'<div><div style="font-size:12px;font-weight:600">'+(acc.fn||'')+' '+(acc.ln||'')+'</div>'
-          +'<div style="font-size:10px;color:var(--t2)">'+(acc.email||'')+'</div></div>'
-          +'<span class="rpill '+acc.role+'" style="font-size:10px;padding:2px 8px">'+ROLES[acc.role].icon+' '+ROLES[acc.role].label+'</span>'
-          +'</div>'
-        :'<span style="font-size:11px;color:var(--t3)">— акаунт не прив\u0027язано</span>')+'</td>'
+      +'<td>'+accHtml+'</td>'
       +'<td style="text-align:center"><span class="badge bb">'+cnt+'</span></td>'
-      +'<td style="text-align:center;color:var(--t2)">'+lessonsCount+'</td>'
-      +'<td>'+branchBadge+'</td>'
-      +'<td><div style="display:flex;gap:4px">'
-      +(ce
-        ?'<button class="btn btn-g btn-sm" onclick="openTutM('+t.id+')">\u270F\uFE0F</button>'
-         +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delTutor('+t.id+')">\uD83D\uDDD1</button>'
-        :'<span style="font-size:10px;color:var(--t3)">перегляд</span>')
-      +'</div></td>'
+      +'<td style="text-align:right">'+branchBadge+editBtns+'</td>'
       +'</tr>';
   });
   document.getElementById('tt-table').innerHTML=rows||
-    '<tr><td colspan="6"><div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>Репетиторів немає</div></td></tr>';
+    '<tr><td colspan="4"><div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432 \u043d\u0435\u043c\u0430\u0454</div></td></tr>';
 }
-
 
 function updateBranchSelector(){
   var el=document.getElementById('branch-sel');
