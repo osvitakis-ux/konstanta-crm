@@ -249,7 +249,7 @@ var NAV_CFG = [
 
 var DEFAULT_NAV_CFG = NAV_CFG;
 
-var PLABELS={dashboard:'\u0414\u0430\u0448\u0431\u043E\u0440\u0434',students:'\u0423\u0447\u043D\u0456',tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',schedule:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u041E\u043F\u043B\u0430\u0442\u0430',reports:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',users:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',settings:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F',profile:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',crm:'CRM',analytics:'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430'};
+var PLABELS={dashboard:'Дашборд',students:'Учні',tutors:'Репетитори',schedule:'Розклад',lessons:'Заняття',payments:'Оплата',reports:'Аналітика',users:'Акаунти',settings:'Налаштування',profile:'Мій профіль',crm:'CRM',analytics:'Статистика',comms:'Комунікації',missed:'Пропущені уроки',invoice:'Рахунок',branches:'Філії',telephony:'Телефонія'};
 
 function localDateStr(d){
   if(typeof d === 'string') return d;
@@ -272,29 +272,28 @@ function renderCommsPage(){
   var tbody=document.getElementById('comms-tbody');
   if(!tbody)return;
 
+  // Зберігаємо поточні значення ДО перебудови списків
+  var fStud =(document.getElementById('comm-f-student')||{value:''}).value;
+  var fTutor=(document.getElementById('comm-f-tutor')||{value:''}).value;
+  var fType =(document.getElementById('comm-f-type')||{value:''}).value;
+
   // Populate student filter
   var fStudSel=document.getElementById('comm-f-student');
   if(fStudSel){
-    var cur=fStudSel.value;
-    popSelSearch('comm-f-student', [{id:'',fn:'\u0412\u0441\u0456 \u0443\u0447\u043D\u0456',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
-    if(cur){ fStudSel.value=cur; if(fStudSel._updateSearch) fStudSel._updateSearch(); }
+    popSelSearch('comm-f-student', [{id:'',fn:'\u0412\u0441\u0456 \u0443\u0447\u043d\u0456',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
+    if(fStud){ fStudSel.value=fStud; if(fStudSel._updateSearch) fStudSel._updateSearch(); }
   }
 
-  // Populate tutor filter (admin/director/god only)
+  // Populate tutor filter
   var fTutSel=document.getElementById('comm-f-tutor');
   if(fTutSel && R()!=='tutor'){
-    var curT=fTutSel.value;
-    popSelSearch('comm-f-tutor', [{id:'',fn:'Всі репетитори',ln:''}].concat(S.tutors||[]), 'id', function(t){return t.fn+(t.ln?' '+t.ln:'');}, '');
-    if(curT){ fTutSel.value=curT; if(fTutSel._updateSearch) fTutSel._updateSearch(); }
+    popSelSearch('comm-f-tutor', [{id:'',fn:'\u0412\u0441\u0456 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438',ln:''}].concat(S.tutors||[]), 'id', function(t){return t.fn+(t.ln?' '+t.ln:'');}, '');
+    if(fTutor){ fTutSel.value=fTutor; if(fTutSel._updateSearch) fTutSel._updateSearch(); }
   }
-  var _selfId=null;
   if(R()==='tutor'){
     var _myT=myTutor();
     if(_myT) _selfId=_myT.id;
   }
-  var fStud=(document.getElementById('comm-f-student')||{value:''}).value;
-  var fTutor=(document.getElementById('comm-f-tutor')||{value:''}).value;
-  var fType=(document.getElementById('comm-f-type')||{value:''}).value;
   var comms=[].concat(S.comms||[]).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
   if(_selfId) comms=comms.filter(function(c){return (c.tutorId||c.tutor_id)===_selfId;});
   if(fStud) comms=comms.filter(function(c){return (c.studentId||c.student_id)===fStud;});
