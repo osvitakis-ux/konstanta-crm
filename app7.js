@@ -4117,8 +4117,7 @@ function renderSchDay(){
         const heightPx = Math.max((dur/60)*ROW_H, 18);
         if(lh<START_H||lh>=END_H) return;
         var _isCov = l.status==='missed' && isCoveredMissed(l);
-        var _isMakeupPair = l.status==='makeup' && isMakeupForMissed(l);
-        var ecl = (_isCov || _isMakeupPair) ? 'ec-covered'
+        var ecl = _isCov ? 'ec-covered'
           : l.status==='missed'  ? 'ec-miss'
           : l.status==='makeup'  ? 'ec-make'
           : (l.status==='completed'||l.status==='done') ? 'ec-done'
@@ -4204,8 +4203,7 @@ function renderSchWeek(){
       const heightPx=Math.max((dur/60)*ROW_H, 18);
       if(lh<START_H||lh>=END_H) return;
       var _isCov=l.status==='missed'&&isCoveredMissed(l);
-      var _isMakeupPair2 = l.status==='makeup' && isMakeupForMissed(l);
-      var ecl=(_isCov||_isMakeupPair2)?'ec-covered'
+      var ecl=_isCov?'ec-covered'
         :l.status==='missed'?'ec-miss'
         :l.status==='makeup'?'ec-make'
         :(l.status==='completed'||l.status==='done')?'ec-done'
