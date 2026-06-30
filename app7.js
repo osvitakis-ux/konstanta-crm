@@ -233,16 +233,16 @@ var NAV_CFG = [
   {id:'tutors',     ico:'\u25C8',  lbl:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438',    sec:'\u0413\u043E\u043B\u043E\u0432\u043D\u0435'},
   {id:'schedule',   ico:'\u25A6',  lbl:'\u0420\u043E\u0437\u043A\u043B\u0430\u0434',      sec:'\u041D\u0430\u0432\u0447\u0430\u043D\u043D\u044F'},
   {id:'lessons',    ico:'\u25C9',  lbl:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',      sec:'\u041D\u0430\u0432\u0447\u0430\u043D\u043D\u044F'},
+  {id:'comms',      ico:'\u25CE',  lbl:'\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0457', sec:'\u041D\u0430\u0432\u0447\u0430\u043D\u043D\u044F'},
   {id:'payments',   ico:'\u25C8',  lbl:'\u041E\u043F\u043B\u0430\u0442\u0430',       sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
+  {id:'invoice',    ico:'\u25C8',  lbl:'\u0420\u0430\u0445\u0443\u043D\u043E\u043A',  sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'reports',    ico:'\u25E7',  lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
+  {id:'crm',        ico:'\u25A4',  lbl:'CRM',              sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
+  {id:'telephony',  ico:'\u25C9',  lbl:'\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u0456\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'settings',   ico:'\u25C9',  lbl:'\u041D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
-  {id:'comms',       ico:'◎', lbl:'Комунікації',    sec:'Навчання'},
-  {id:'invoice',     ico:'◈', lbl:'Рахунок',         sec:'Фінанси'},
-  {id:'crm',         ico:'▤', lbl:'CRM',              sec:'Менеджмент'},
-  {id:'telephony',   ico:'◉', lbl:'Телефонія',         sec:'Система'},
-  {id:'profile',     ico:'▣', lbl:'Мій профіль',      sec:'Особисте'},
+  {id:'profile',    ico:'\u25A3',  lbl:'\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C', sec:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0435'},
 ];
 
 var DEFAULT_NAV_CFG = NAV_CFG;
