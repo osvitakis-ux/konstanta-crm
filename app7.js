@@ -4527,6 +4527,14 @@ function renderCrm(){
         (function(cid){ btn.addEventListener('click', function(e){ e.stopPropagation(); setCrmStage(sid, cid); }); })(c.id);
         acts.appendChild(btn);
       });
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'crm-mv-btn crm-del-btn';
+      delBtn.title = 'Видалити лід';
+      delBtn.textContent = '🗑';
+      delBtn.addEventListener('click', function(e){ e.stopPropagation(); delStudent(sid); });
+      acts.appendChild(delBtn);
+
       card.appendChild(acts);
       body.appendChild(card);
     });
