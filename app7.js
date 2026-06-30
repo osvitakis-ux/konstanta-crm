@@ -3936,8 +3936,11 @@ function renderReports(){
     var tid = l.tutorId||l.tutor_id;
     if(tid) tl[tid] = (tl[tid]||0) + (parseFloat(l.dur)||60)/60;
   });
-  var entries = Object.entries(tl).map(function(e){return{id:e[0],h:Math.round(e[1]*10)/10};}).sort(function(a,b){return b.h-a.h;});
-  var maxT = entries.length ? entries[0].h : 1;
+  // Включаємо ВСІХ репетиторів, навіть з 0 годин у періоді
+  var entries = (S.tutors||[]).map(function(t){
+    return {id:t.id, h:Math.round((tl[t.id]||0)*10)/10};
+  }).sort(function(a,b){return b.h-a.h;});
+  var maxT = entries.length ? Math.max.apply(null, entries.map(function(e){return e.h;}).concat([1])) : 1;
   var tloadEl = document.getElementById('rc-tload');
   if(tloadEl) tloadEl.innerHTML = entries.map(function(e){
     return '<div style="margin-bottom:10px">'
