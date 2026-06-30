@@ -1203,6 +1203,9 @@ function renderDashKpi(){
 function renderDashTrends(){
   if(!CU) return;
   var offset = S.dashWeekOffset||0;
+  var curWr = getWeekRange(offset);
+  var trendLbl = document.getElementById('dash-trend-week-lbl');
+  if(trendLbl) trendLbl.textContent = curWr.label;
   var weeks = [];
   for(var i=3;i>=0;i--){
     var wr = getWeekRange(offset-i);
