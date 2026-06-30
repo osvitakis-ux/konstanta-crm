@@ -2048,7 +2048,7 @@ var _syncTimer = null;
 // ANALYTICS DASHBOARD
 // =
 function renderAnalytics(){
-  var pg=document.getElementById('pg-analytics');
+  var pg=document.getElementById('pg-reports');
   if(!pg)return;
 
   // Populate tutor filter
@@ -2061,7 +2061,7 @@ function renderAnalytics(){
   }
 
   // Date range
-  var range=(document.getElementById('an-range')||{value:'month'}).value;
+  var range=(document.getElementById('rc-range')||{value:'month'}).value;
   var now=new Date(), fromDate=new Date(now);
   if(range==='week'){
     var day=now.getDay()||7; fromDate=new Date(now); fromDate.setDate(now.getDate()-day+1); fromDate.setHours(0,0,0,0);
@@ -3847,19 +3847,6 @@ function renderProfile(){
   }
 }
 function renderAllAnalytics(){
-  // Sync range filter: rc-range drives both
-  var range = (document.getElementById('rc-range')||{value:'month'}).value;
-  // Temporarily set an-range to same value for renderAnalytics
-  var anRange = document.getElementById('an-range');
-  if(!anRange){
-    // Create hidden element if needed
-    anRange = document.createElement('select');
-    anRange.id = 'an-range';
-    anRange.style.display = 'none';
-    document.body.appendChild(anRange);
-  }
-  anRange.innerHTML = '<option value="'+range+'" selected>'+range+'</option>';
-
   renderAnalytics();
   renderReports();
 }
