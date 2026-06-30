@@ -2780,36 +2780,54 @@ async function delLead(id){
   if(!s){mkToast('\u041b\u0456\u0434 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e','error');return;}
 
   if(s.status==='active'){
-    // \u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c \u2014 \u043d\u0435 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e, \u043b\u0438\u0448\u0435 \u043f\u0440\u0438\u0431\u0438\u0440\u0430\u0454\u043c\u043e \u0437 \u0434\u043e\u0448\u043a\u0438
     if(!confirm('\u0426\u0435\u0439 \u043b\u0456\u0434 \u0432\u0436\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c. \u0412\u0456\u043d \u041d\u0415 \u0431\u0443\u0434\u0435 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u0438\u0439 \u0437 \u0441\u0438\u0441\u0442\u0435\u043c\u0438 \u2014 \u043b\u0438\u0448\u0435 \u043f\u0440\u0438\u0431\u0440\u0430\u043d\u043e \u0437 CRM-\u0434\u043e\u0448\u043a\u0438. \u041f\u0440\u043e\u0434\u043e\u0432\u0436\u0438\u0442\u0438?')) return;
     try{
-      await dbUpdate('students',id,{crm_stage:'lost'});
+      setSaving();
+      var _u = await _sb.from('students').update({crm_stage:'lost', updated_at:new Date().toISOString()}).eq('id',id);
+      if(_u.error){ console.error('delLead update error:', _u.error); mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+_u.error.message,'error'); return; }
+      var idx=(S.students||[]).findIndex(function(x){return x.id===id;});
+      if(idx>=0){ S.students[idx].crmStage='lost'; S.students[idx].crm_stage='lost'; }
+      if(S.currentPage==='crm') renderCrm();
+      setSynced();
       mkToast('\u041f\u0440\u0438\u0431\u0440\u0430\u043d\u043e \u0437 CRM');
-    }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error'); }
+    }catch(e){ console.error('delLead exception:', e); mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
     return;
   }
 
-  // \u041d\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u043b\u0456\u0434 (trial/paused/completed \u0430\u0431\u043e \u0431\u0435\u0437 \u0441\u0442\u0430\u0442\u0443\u0441\u0443) \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e \u0444\u0456\u0437\u0438\u0447\u043d\u043e
   if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043b\u0456\u0434 \u00ab'+s.fn+' '+s.ln+'\u00bb \u043f\u043e\u0432\u043d\u0456\u0441\u0442\u044e?')) return;
   try{
-    // \u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e \u043f\u043e\u0432'\u044f\u0437\u0430\u043d\u0456 \u0437\u0430\u043f\u0438\u0441\u0438, \u0449\u043e\u0431 \u043d\u0435 \u0432\u043f\u0435\u0440\u0442\u0438\u0441\u044f \u0432 FK constraint
     var relLessons=(S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)===id;});
     var relPayments=(S.payments||[]).filter(function(p){return (p.studentId||p.student_id)===id;});
     var relComms=(S.comms||[]).filter(function(c){return (c.studentId||c.student_id)===id;});
-    for(var i=0;i<relLessons.length;i++){ await _sb.from('lessons').delete().eq('id',relLessons[i].id); }
-    for(var j=0;j<relPayments.length;j++){ await _sb.from('payments').delete().eq('id',relPayments[j].id); }
-    for(var k=0;k<relComms.length;k++){ await _sb.from('comms').delete().eq('id',relComms[k].id); }
-    // \u0412\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e \u0441\u0430\u043c\u043e\u0433\u043e \u0443\u0447\u043d\u044f \u043d\u0430\u043f\u0440\u044f\u043c\u0443 (\u0431\u0435\u0437 \u043e\u0447\u0456\u043a\u0443\u0432\u0430\u043d\u043d\u044f loadTableFresh)
     setSaving();
+    for(var i=0;i<relLessons.length;i++){
+      var _rl=await _sb.from('lessons').delete().eq('id',relLessons[i].id);
+      if(_rl.error) console.error('delLead lesson cleanup error:', _rl.error);
+    }
+    for(var j=0;j<relPayments.length;j++){
+      var _rp=await _sb.from('payments').delete().eq('id',relPayments[j].id);
+      if(_rp.error) console.error('delLead payment cleanup error:', _rp.error);
+    }
+    for(var k=0;k<relComms.length;k++){
+      var _rc=await _sb.from('comms').delete().eq('id',relComms[k].id);
+      if(_rc.error) console.error('delLead comm cleanup error:', _rc.error);
+    }
     var _del = await _sb.from('students').delete().eq('id',id);
-    if(_del.error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+_del.error.message,'error'); return; }
-    // \u041e\u043f\u0442\u0438\u043c\u0456\u0441\u0442\u0438\u0447\u043d\u043e \u043f\u0440\u0438\u0431\u0438\u0440\u0430\u0454\u043c\u043e \u0437 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0433\u043e \u0441\u0442\u0435\u0439\u0442\u0443 \u043e\u0434\u0440\u0430\u0437\u0443 \u0434\u043b\u044f \u043c\u0438\u0442\u0442\u0454\u0432\u043e\u0433\u043e UI
+    if(_del.error){
+      console.error('delLead student delete error:', _del.error);
+      mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f: '+_del.error.message,'error');
+      return;
+    }
     S.students = (S.students||[]).filter(function(x){return x.id!==id;});
+    S.lessons  = (S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)!==id;});
+    S.payments = (S.payments||[]).filter(function(p){return (p.studentId||p.student_id)!==id;});
+    S.comms    = (S.comms||[]).filter(function(c){return (c.studentId||c.student_id)!==id;});
     if(S.currentPage==='crm') renderCrm();
     setSynced();
     mkToast('\u041b\u0456\u0434 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043e');
-  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+  }catch(e){ console.error('delLead exception:', e); mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
 }
+window.delLead = delLead;
 
 async function saveTutor(){
   var fn=document.getElementById('t-fn').value.trim(), ln=document.getElementById('t-ln').value.trim();
@@ -4448,11 +4466,6 @@ function openAddLead(){
 function renderCrm(){
   var el = document.getElementById('crm-board');
   if(!el) return;
-  var crmEl = document.getElementById('pg-crm');
-  if(crmEl){
-    var sb = document.querySelector('.sb');
-    crmEl.style.left = (sb && sb.offsetWidth > 0 ? sb.offsetWidth : 224) + 'px';
-  }
 
   var fStage = (document.getElementById('crm-f-stage')||{value:''}).value||'';
   var fMonth = (document.getElementById('crm-f-month')||{value:''}).value||'';
