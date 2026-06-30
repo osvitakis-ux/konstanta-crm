@@ -200,25 +200,27 @@ textarea{resize:vertical;min-height:72px}
 .empty .ei{font-size:36px;margin-bottom:8px}
 
 /* ─── CRM KANBAN BOARD ─── */
-#crm-board{display:flex;gap:14px;align-items:flex-start;min-width:max-content}
-.crm-col{width:260px;flex-shrink:0;background:var(--s1);border:1px solid var(--b1);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 280px)}
-.crm-col.crm-over{border-color:var(--adm);box-shadow:0 0 0 2px var(--adm-bg)}
-.crm-col-hdr{padding:12px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--b1);background:var(--s2)}
-.crm-col-lbl{font-size:12.5px;font-weight:700;flex:1;font-family:'Syne',sans-serif}
-.crm-col-cnt{font-size:11px;color:var(--t3);background:var(--s3);border-radius:10px;padding:1px 8px;font-family:'JetBrains Mono',monospace}
-.crm-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:80px}
-.crm-card{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;cursor:grab;transition:.15s}
-.crm-card:hover{border-color:var(--adm);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+#crm-board{display:flex;gap:12px;align-items:flex-start;min-width:max-content;padding-bottom:4px}
+.crm-col{width:240px;flex-shrink:0;background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 260px);transition:border-color .15s,box-shadow .15s}
+.crm-col.crm-over{border-color:var(--adm);box-shadow:0 0 0 3px var(--adm-bg)}
+.crm-col-hdr{padding:10px 12px;display:flex;align-items:flex-start;gap:8px;border-bottom:1px solid var(--b1);background:var(--s1);min-height:44px}
+.crm-col-hdr-ico{font-size:14px;flex-shrink:0;line-height:1.3;margin-top:1px}
+.crm-col-lbl{font-size:12px;font-weight:700;flex:1;font-family:'Syne',sans-serif;line-height:1.3;word-break:break-word}
+.crm-col-cnt{font-size:10.5px;color:var(--t3);background:var(--s3);border-radius:10px;padding:1px 7px;font-family:'JetBrains Mono',monospace;flex-shrink:0;margin-top:1px}
+.crm-col-body{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px}
+.crm-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;cursor:grab;transition:.15s}
+.crm-card:hover{border-color:var(--adm);box-shadow:0 3px 10px rgba(0,0,0,.07);transform:translateY(-1px)}
 .crm-card:active{cursor:grabbing}
-.crm-card-name{font-size:13px;font-weight:600;cursor:pointer;margin-bottom:3px}
+.crm-card-name{font-size:13px;font-weight:600;cursor:pointer;margin-bottom:3px;line-height:1.3}
 .crm-card-name:hover{color:var(--adm)}
 .crm-card-subj{font-size:11px;color:var(--t2);margin-bottom:2px}
-.crm-card-meta{font-size:11px;color:var(--t3);margin-bottom:2px}
+.crm-card-meta{font-size:11px;color:var(--t3);margin-bottom:2px;display:flex;align-items:center;gap:4px}
 .crm-card-comm{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-top:4px}
-.crm-card-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--b1)}
-.crm-mv-btn{background:var(--s1);border:1px solid var(--b1);border-radius:6px;width:24px;height:24px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;color:var(--t2)}
-.crm-mv-btn:hover{border-color:var(--adm);background:var(--adm-bg);color:var(--adm)}
+.crm-card-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--b1)}
+.crm-mv-btn{background:var(--s2);border:1px solid var(--b1);border-radius:6px;width:22px;height:22px;font-size:10.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;color:var(--t2);flex-shrink:0}
+.crm-mv-btn:hover{border-color:var(--adm);background:var(--adm-bg);color:var(--adm);transform:scale(1.1)}
 .crm-mv-btn.crm-del-btn:hover{border-color:var(--danger);background:rgba(248,113,113,.1);color:var(--danger)}
+.crm-empty-col{text-align:center;padding:24px 8px;color:var(--t3);font-size:11px}
 
 /* ─── USERS PAGE ─── */
 .ulr{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--b1);transition:.15s}
@@ -1090,24 +1092,33 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
       <!-- ── CRM ── -->
       <div class="page" id="pg-crm">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-          <select id="crm-f-stage" onchange="renderCrm()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1)">
-            <option value="">Всі етапи</option>
-            <option value="lead">⬤ Новий лід</option>
-            <option value="request">✉ Запит</option>
-            <option value="trial">◎ Тестовий урок</option>
-            <option value="contract">✍ Підписання договору</option>
-            <option value="invoice">▤ Виставлення рахунку</option>
-            <option value="payment">◈ Оплата</option>
-            <option value="won">✅ Успішно реалізовано</option>
-            <option value="lost">❌ Не реалізовано</option>
-          </select>
-          <input type="month" id="crm-f-month" onchange="renderCrm()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1)">
-          <select id="crm-f-resp" onchange="renderCrm()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1)">
-            <option value="">Всі відповідальні</option>
-          </select>
-          <button class="btn btn-g btn-sm" onclick="document.getElementById('crm-f-stage').value='';document.getElementById('crm-f-month').value='';document.getElementById('crm-f-resp').value='';renderCrm()">✕ Скинути</button>
-          <button class="btn btn-p btn-sm" onclick="openAddLead()" style="margin-left:auto">+ Новий лід</button>
+        <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Етап</label>
+            <select id="crm-f-stage" onchange="renderCrm()" style="font-size:12px;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);min-width:170px">
+              <option value="">Всі етапи</option>
+              <option value="lead">⬤ Новий лід</option>
+              <option value="request">✉ Запит</option>
+              <option value="trial">◎ Тестовий урок</option>
+              <option value="contract">✍ Підписання договору</option>
+              <option value="invoice">▤ Виставлення рахунку</option>
+              <option value="payment">◈ Оплата</option>
+              <option value="won">✅ Успішно реалізовано</option>
+              <option value="lost">❌ Не реалізовано</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Місяць</label>
+            <input type="month" id="crm-f-month" onchange="renderCrm()" style="font-size:12px;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1)">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Відповідальний</label>
+            <select id="crm-f-resp" onchange="renderCrm()" style="font-size:12px;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);min-width:170px">
+              <option value="">Всі відповідальні</option>
+            </select>
+          </div>
+          <button class="btn btn-g btn-sm" onclick="document.getElementById('crm-f-stage').value='';document.getElementById('crm-f-month').value='';document.getElementById('crm-f-resp').value='';renderCrm()" style="align-self:flex-end">✕ Скинути</button>
+          <button class="btn btn-p btn-sm" onclick="openAddLead()" style="margin-left:auto;align-self:flex-end">+ Новий лід</button>
         </div>
         <div id="crm-stats" style="display:flex;gap:18px;margin-bottom:14px;font-size:13px;color:var(--t2);flex-wrap:wrap"></div>
         <div id="crm-board-scroll" style="overflow-x:auto;padding-bottom:8px">
