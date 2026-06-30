@@ -261,11 +261,11 @@ function onLessStatChange(){
   var mkWrap=document.getElementById('l-makeup-wrap');
   var msWrap=document.getElementById('l-miss-wrap');
   var spWrap=document.getElementById('l-split-wrap');
-  if(mkWrap) mkWrap.style.display=stat==='makeup'?'block':'none';
-  if(msWrap) msWrap.style.display=(stat==='missed'||stat==='makeup')?'block':'none';
+  if(mkWrap) mkWrap.style.display=(stat==='makeup'||stat==='makeup_planned')?'block':'none';
+  if(msWrap) msWrap.style.display=(stat==='missed'||stat==='makeup'||stat==='makeup_planned')?'block':'none';
   var canSplit30=dur>=60;
   var canSplit60=dur>=120;
-  if(spWrap) spWrap.style.display=((stat==='missed'||stat==='makeup')&&canSplit30)?'block':'none';
+  if(spWrap) spWrap.style.display=((stat==='missed'||stat==='makeup'||stat==='makeup_planned')&&canSplit30)?'block':'none';
   var btn60=document.getElementById('split-btn-60');
   if(btn60) btn60.style.display=canSplit60?'inline-flex':'none';
 }
@@ -831,8 +831,8 @@ function mkAv(fn,ln,sz,photo){
 }
 
 function bst(s){
-  var m={active:'bg',trial:'bb',paused:'by',completed:'br',planned:'bb',done:'bg',cancelled:'br',missed:'br',makeup:'by',paid:'bg',pending:'by',overdue:'br'};
-  var l={active:'Активний',trial:'Пробне',paused:'Призупин.',completed:'Завершив',planned:'Планов.',done:'Проведено',cancelled:'Скасов.',missed:'Пропущено',makeup:'Відпрацювання',paid:'Оплачено',pending:'Очікується',overdue:'Прострочено'};
+  var m={active:'bg',trial:'bb',paused:'by',completed:'br',planned:'bb',done:'bg',cancelled:'br',missed:'br',makeup:'by',makeup_planned:'bn',paid:'bg',pending:'by',overdue:'br'};
+  var l={active:'Активний',trial:'Пробне',paused:'Призупин.',completed:'Завершив',planned:'Планов.',done:'Проведено',cancelled:'Скасов.',missed:'Пропущено',makeup:'Відпрацьовано',makeup_planned:'План. відпрац.',paid:'Оплачено',pending:'Очікується',overdue:'Прострочено'};
   return '<span class="badge '+(m[s]||'bb')+'">'+( l[s]||s)+'</span>';
 }
 
@@ -1452,7 +1452,7 @@ function renderLessons(){
     return l.status===sv;
   });
 
-  var hasMissed = sv==='missed'||sv==='makeup'||(!sv&&data.some(function(l){return l.status==='missed'||l.status==='makeup';}));
+  var hasMissed = sv==='missed'||sv==='makeup'||sv==='makeup_planned'||(!sv&&data.some(function(l){return l.status==='missed'||l.status==='makeup'||l.status==='makeup_planned';}));
   var mc=document.getElementById('lt-miss-col'); if(mc) mc.style.display=hasMissed?'':'none';
   var mkc=document.getElementById('lt-makeup-col'); if(mkc) mkc.style.display=hasMissed?'':'none';
 
@@ -2765,8 +2765,8 @@ async function saveLesson(){
     status:     _stat,
     notes:      document.getElementById('l-notes')?.value||'',
     branch_id:  myBranchId()||null,
-    missed_date: (_stat==='missed'||_stat==='makeup') ? (document.getElementById('l-miss-date')?.value||null) : null,
-    makeup_date: _stat==='makeup' ? (document.getElementById('l-makeup-date')?.value||null) : null,
+    missed_date: (_stat==='missed'||_stat==='makeup'||_stat==='makeup_planned') ? (document.getElementById('l-miss-date')?.value||null) : null,
+    makeup_date: (_stat==='makeup'||_stat==='makeup_planned') ? (document.getElementById('l-makeup-date')?.value||null) : null,
     hw:          document.getElementById('l-hw')?.value||null,
   };
   window._saving = true;
@@ -4120,6 +4120,7 @@ function renderSchDay(){
         var ecl = _isCov ? 'ec-covered'
           : l.status==='missed'  ? 'ec-miss'
           : l.status==='makeup'  ? 'ec-make'
+          : l.status==='makeup_planned' ? 'ec-makeplan'
           : (l.status==='completed'||l.status==='done') ? 'ec-done'
           : 'ec-plan';
         var canDel = can('lessons');
@@ -4206,6 +4207,7 @@ function renderSchWeek(){
       var ecl=_isCov?'ec-covered'
         :l.status==='missed'?'ec-miss'
         :l.status==='makeup'?'ec-make'
+        :l.status==='makeup_planned'?'ec-makeplan'
         :(l.status==='completed'||l.status==='done')?'ec-done'
         :'ec-plan';
       var canDel=can('lessons');
