@@ -441,6 +441,10 @@ function openBranchM(id){
     var el=document.getElementById('br-'+f);
     if(el) el.value=b?(b[f]||b[f.replace('addr','address')]||''):'';
   });
+  ['pay_recipient','pay_card','pay_bank','pay_edrpou','pay_purpose'].forEach(function(f){
+    var el=document.getElementById('br-'+f.replace('_','-'));
+    if(el) el.value=b?(b[f]||''):'';
+  });
   S.editId=id||null;
   openM('mo-branch');
 }
@@ -452,7 +456,12 @@ async function saveBranchModal(){
     name:name,
     address:(document.getElementById('br-addr')||{value:''}).value,
     phone:(document.getElementById('br-phone')||{value:''}).value,
-    email:(document.getElementById('br-email')||{value:''}).value
+    email:(document.getElementById('br-email')||{value:''}).value,
+    pay_recipient:(document.getElementById('br-pay-recipient')||{value:''}).value,
+    pay_card:(document.getElementById('br-pay-card')||{value:''}).value,
+    pay_bank:(document.getElementById('br-pay-bank')||{value:''}).value,
+    pay_edrpou:(document.getElementById('br-pay-edrpou')||{value:''}).value,
+    pay_purpose:(document.getElementById('br-pay-purpose')||{value:''}).value
   };
   try{
     if(S.editId) await dbUpdate('branches',S.editId,obj);
@@ -637,16 +646,32 @@ function renderInvoicePage(){
   var student=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
   var phone=student?(student.parentPhone||student.phone||''):'';
 
+  // Populate branch select (requisites for payment)
+  var brSel=document.getElementById('inv-branch');
+  if(brSel){
+    var curBr=brSel.value;
+    var brOpts=(S.branches||[]).map(function(b){return '<option value="'+b.id+'"'+(b.id===curBr?' selected':'')+'>'+b.name+'</option>';}).join('');
+    brSel.innerHTML=brOpts || '<option value="">\u0424\u0456\u043b\u0456\u0457 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e</option>';
+    if(!curBr && (S.branches||[]).length){
+      var defBrId = myBranchId() || S.branches[0].id;
+      brSel.value = defBrId;
+    }
+  }
+  var bid=(brSel||{value:''}).value;
+  var branch=bid?(S.branches||[]).find(function(b){return b.id===bid;}):null;
+
   var dateFrom=(document.getElementById('inv-from')||{value:''}).value;
-  var dateTo=(document.getElementById('inv-to')||{value:''}).value||localDateStr(new Date());
+  var dateTo=(document.getElementById('inv-to')||{value:''}).value;
   var fallbackPrice=parseFloat((document.getElementById('inv-price')||{value:'0'}).value)||0;
 
   var now2=new Date();
-  var defaultFrom=now2.getFullYear()+'-'+String(now2.getMonth()+1).padStart(2,'0')+'-01';
+  var defaultFrom=localDateStr(now2);
   var defaultTo=localDateStr(new Date(now2.getFullYear(),now2.getMonth()+1,0));
   if(!dateFrom) dateFrom=defaultFrom;
   if(!dateTo) dateTo=defaultTo;
-  var validStatuses=['planned','scheduled','done','completed','makeup'];
+
+  // Тільки ЗАПЛАНОВАНІ заняття — рахунок виставляється наперед (передоплата)
+  var validStatuses=['planned','scheduled'];
   var lessons=sid?(S.lessons||[]).filter(function(l){
     if((l.studentId||l.student_id)!==sid) return false;
     if(validStatuses.indexOf(l.status)<0) return false;
@@ -681,7 +706,7 @@ function renderInvoicePage(){
   var invText='';
   if(student&&lessons.length){
     var lines=[];
-    lines.push('\uD83D\uDCCB \u0420\u0410\u0425\u0423\u041D\u041E\u041A');
+    lines.push('\uD83D\uDCCB \u0420\u0410\u0425\u0423\u041D\u041E\u041A \u041d\u0410 \u041e\u041f\u041b\u0410\u0422\u0423');
     lines.push('\u0423\u0447\u0435\u043d\u044c: '+student.fn+' '+student.ln);
     lines.push('\u041f\u0435\u0440\u0456\u043e\u0434: '+(dateFrom?fd(dateFrom)+' \u2014 ':'')+fd(dateTo));
     lines.push('\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500');
@@ -693,8 +718,7 @@ function renderInvoicePage(){
       lines.push('\uD83D\uDC64 '+(g.tutor?g.tutor.fn+' '+g.tutor.ln:'\u0411\u0435\u0437 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430')+' \u2014 '+g.subj);
       g.lessons.forEach(function(l,i){
         var dur=(parseFloat(l.dur)||60)/60;
-        var stlbl={'planned':'\u043f\u043b\u0430\u043d','scheduled':'\u043f\u043b\u0430\u043d','done':'\u043f\u0440\u043e\u0432\u0435','completed':'\u043f\u0440\u043e\u0432\u0435','makeup':'\u0432\u0456\u0434\u043f\u0440'}[l.status]||l.status;
-        lines.push('  '+(i+1)+'. '+fd(l.date)+(l.time?' '+l.time:'')+' ('+stlbl+') \u2014 '+dur+'\u0433\u043e\u0434 = '+lessonCost(l)+'\u20b4');
+        lines.push('  '+(i+1)+'. '+fd(l.date)+(l.time?' '+l.time:'')+' \u2014 '+dur+'\u0433\u043e\u0434 = '+lessonCost(l)+'\u20b4');
       });
       lines.push('  \u0420\u0430\u0437\u043e\u043c: '+gHours+'\u0433\u043e\u0434 / '+gTotal+'\u20b4');
       lines.push('');
@@ -702,35 +726,60 @@ function renderInvoicePage(){
 
     lines.push('\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500');
     lines.push('\u0412\u0421\u042c\u041e\u0413\u041e \u0433\u043e\u0434\u0438\u043d: '+totalHours);
-    lines.push('\u0420\u0410\u0417\u041e\u041c \u0414\u041e \u041e\u041f\u041b\u0410\u0422\u0418: '+total+' \u20b4');
+    lines.push('\u0414\u041e \u0421\u041f\u041b\u0410\u0422\u0418: '+total+' \u20b4');
+
+    // Реквізити для оплати
+    if(branch && (branch.pay_recipient||branch.pay_card||branch.pay_bank)){
+      lines.push('');
+      lines.push('\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500');
+      lines.push('\uD83D\uDCB3 \u0420\u0415\u041a\u0412\u0406\u0417\u0418\u0422\u0418 \u0414\u041b\u042f \u041e\u041f\u041b\u0410\u0422\u0418');
+      if(branch.pay_recipient) lines.push('\u041e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447: '+branch.pay_recipient);
+      if(branch.pay_card) lines.push('\u0420\u0430\u0445\u0443\u043d\u043e\u043a/\u041a\u0430\u0440\u0442\u0430: '+branch.pay_card);
+      if(branch.pay_bank) lines.push('\u0411\u0430\u043d\u043a: '+branch.pay_bank);
+      if(branch.pay_edrpou) lines.push('\u0404\u0414\u0420\u041f\u041e\u0423/\u0406\u041f\u041d: '+branch.pay_edrpou);
+      lines.push('\u041f\u0440\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u043d\u044f: '+(branch.pay_purpose||'\u041e\u043f\u043b\u0430\u0442\u0430 \u0437\u0430 \u043d\u0430\u0432\u0447\u0430\u043d\u043d\u044f')+' \u2014 '+student.fn+' '+student.ln);
+    }
+
     invText=lines.join('\n');
   }
 
   var invEl=document.getElementById('invoice-content');
   if(!invEl)return;
 
-  invEl.innerHTML=!sid?
-    '<div style="color:var(--t3);text-align:center;padding:40px">\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f</div>'
-  :('<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
-    +'<div>'
-    +'<div class="fgr" style="margin-bottom:10px"><label>\u0412\u0456\u0434 \u0434\u0430\u0442\u0438</label><input type="date" id="inv-from" value="'+dateFrom+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
-    +'<div class="fgr" style="margin-bottom:10px"><label>\u0414\u043e \u0434\u0430\u0442\u0438</label><input type="date" id="inv-to" value="'+dateTo+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
-    +'<div class="fgr" style="margin-bottom:10px"><label>\u0426\u0456\u043d\u0430 \u0437\u0430 \u0433\u043e\u0434\u0438\u043d\u0443 \u20b4 (\u044f\u043a\u0449\u043e \u0432 \u0437\u0430\u043d\u044f\u0442\u0442\u0456 \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u0430)</label><input type="number" id="inv-price" value="'+fallbackPrice+'" onchange="renderInvoicePage()" style="font-size:12px" placeholder="400"></div>'
-    +'<div style="font-size:11px;color:var(--t3);margin-bottom:10px">\uD83D\uDCA1 \u042f\u043a\u0449\u043e \u0432 \u0437\u0430\u043d\u044f\u0442\u0442\u0456 \u0432\u043a\u0430\u0437\u0430\u043d\u0430 \u0432\u043b\u0430\u0441\u043d\u0430 \u0446\u0456\u043d\u0430 \u2014 \u0432\u043e\u043d\u0430 \u043c\u0430\u0454 \u043f\u0440\u0456\u043e\u0440\u0438\u0442\u0435\u0442. \u0420\u0430\u0445\u0443\u043d\u043e\u043a \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u043e\u0431\u2019\u0454\u0434\u043d\u0443\u0454 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0432\u0441\u0456\u0445 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432 \u0442\u0430 \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u0456\u0432 \u0446\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u044f.</div>'
-    +(phone?'<div style="font-size:12px;color:var(--t2);margin-bottom:12px">\uD83D\uDCF1 \u0422\u0435\u043b\u0435\u0444\u043e\u043d: <b>'+phone+'</b></div>':'<div style="color:var(--danger);font-size:12px;margin-bottom:12px">\u26A0\uFE0F \u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e</div>')
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    +(phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceViber()" style="background:#7360f2">\uD83D\uDFE3 Viber</button>':'')
-    +(phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceTelegram()" style="background:#2196f3">\u2708\uFE0F Telegram</button>':'')
-    +'<button class="btn btn-g btn-sm" onclick="copyInvoiceText()">\uD83D\uDCCB \u041a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438</button>'
-    +'</div>'
-    +'</div>'
-    +'<div>'
-    +'<div style="background:var(--s2);border-radius:10px;padding:14px;font-family:JetBrains Mono,monospace;font-size:12px;white-space:pre-wrap;line-height:1.6;min-height:200px;border:1px solid var(--b1)">'
-    +(invText||'<span style="color:var(--t3)">\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u0438\u0445 \u0437\u0430\u043d\u044f\u0442\u044c \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434</span>')
-    +'</div>'
-    +'<div style="margin-top:8px;font-size:12px;color:var(--t2)">\u0417\u0430\u043d\u044f\u0442\u044c: '+lessons.length+' | \u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432: '+groupOrder.length+' | \u0413\u043e\u0434\u0438\u043d: '+totalHours+' | \u0421\u0443\u043c\u0430: <b>'+total+'\u20b4</b></div>'
-    +'</div>'
-    +'</div>');
+  var branchSelHtml='<div class="fgr" style="margin-bottom:10px"><label>\uD83C\uDFE2 \u0424\u0456\u043b\u0456\u044f (\u0440\u0435\u043a\u0432\u0456\u0437\u0438\u0442\u0438 \u043e\u043f\u043b\u0430\u0442\u0438)</label><select id="inv-branch" onchange="renderInvoicePage()" style="font-size:12px"></select></div>';
+
+  var leftCol = '<div>'
+    + branchSelHtml
+    + '<div class="fgr" style="margin-bottom:10px"><label>\u0412\u0456\u0434 \u0434\u0430\u0442\u0438</label><input type="date" id="inv-from" value="'+dateFrom+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
+    + '<div class="fgr" style="margin-bottom:10px"><label>\u0414\u043e \u0434\u0430\u0442\u0438</label><input type="date" id="inv-to" value="'+dateTo+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
+    + '<div class="fgr" style="margin-bottom:10px"><label>\u0426\u0456\u043d\u0430 \u0437\u0430 \u0433\u043e\u0434\u0438\u043d\u0443 \u20b4 (\u044f\u043a\u0449\u043e \u0432 \u0437\u0430\u043d\u044f\u0442\u0442\u0456 \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u0430)</label><input type="number" id="inv-price" value="'+fallbackPrice+'" onchange="renderInvoicePage()" style="font-size:12px" placeholder="400"></div>'
+    + '<div style="font-size:11px;color:var(--t3);margin-bottom:10px">\uD83D\uDCA1 \u0420\u0430\u0445\u0443\u043d\u043e\u043a \u0444\u043e\u0440\u043c\u0443\u0454\u0442\u044c\u0441\u044f \u0442\u0456\u043b\u044c\u043a\u0438 \u0456\u0437 \u0417\u0410\u041f\u041b\u0410\u041d\u041e\u0412\u0410\u041d\u0418\u0425 \u0437\u0430\u043d\u044f\u0442\u044c (\u043f\u0435\u0440\u0435\u0434\u043e\u043f\u043b\u0430\u0442\u0430). \u042f\u043a\u0449\u043e \u0432 \u0437\u0430\u043d\u044f\u0442\u0442\u0456 \u0432\u043a\u0430\u0437\u0430\u043d\u0430 \u0432\u043b\u0430\u0441\u043d\u0430 \u0446\u0456\u043d\u0430 \u2014 \u0432\u043e\u043d\u0430 \u043c\u0430\u0454 \u043f\u0440\u0456\u043e\u0440\u0438\u0442\u0435\u0442. \u0420\u0430\u0445\u0443\u043d\u043e\u043a \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u043e\u0431\u2019\u0454\u0434\u043d\u0443\u0454 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0432\u0441\u0456\u0445 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432 \u0442\u0430 \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u0456\u0432.</div>'
+    + (student
+      ? (phone?'<div style="font-size:12px;color:var(--t2);margin-bottom:12px">\uD83D\uDCF1 \u0422\u0435\u043b\u0435\u0444\u043e\u043d: <b>'+phone+'</b></div>':'<div style="color:var(--danger);font-size:12px;margin-bottom:12px">\u26A0\uFE0F \u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e</div>')
+      : '<div style="font-size:12px;color:var(--t3);margin-bottom:12px">\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f \u0449\u043e\u0431 \u0441\u0444\u043e\u0440\u043c\u0443\u0432\u0430\u0442\u0438 \u0440\u0430\u0445\u0443\u043d\u043e\u043a</div>')
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + (phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceViber()" style="background:#7360f2">\uD83D\uDFE3 Viber</button>':'')
+    + (phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceTelegram()" style="background:#2196f3">\u2708\uFE0F Telegram</button>':'')
+    + '<button class="btn btn-g btn-sm" onclick="copyInvoiceText()">\uD83D\uDCCB \u041a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438</button>'
+    + '</div>'
+    + '</div>';
+
+  var rightCol = '<div>'
+    + '<div style="background:var(--s2);border-radius:10px;padding:14px;font-family:JetBrains Mono,monospace;font-size:12px;white-space:pre-wrap;line-height:1.6;min-height:200px;border:1px solid var(--b1)">'
+    + (invText||(!sid?'<span style="color:var(--t3)">\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f \u0449\u043e\u0431 \u043f\u043e\u0431\u0430\u0447\u0438\u0442\u0438 \u0440\u0430\u0445\u0443\u043d\u043e\u043a</span>':'<span style="color:var(--t3)">\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u0445 \u0437\u0430\u043d\u044f\u0442\u044c \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434</span>'))
+    + '</div>'
+    + '<div style="margin-top:8px;font-size:12px;color:var(--t2)">\u0417\u0430\u043d\u044f\u0442\u044c: '+lessons.length+' | \u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432: '+groupOrder.length+' | \u0413\u043e\u0434\u0438\u043d: '+totalHours+' | \u0421\u0443\u043c\u0430: <b>'+total+'\u20b4</b></div>'
+    + '</div>';
+
+  invEl.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'+leftCol+rightCol+'</div>';
+
+  // Populate branch select after innerHTML is set
+  var brSel2=document.getElementById('inv-branch');
+  if(brSel2){
+    var brOpts2=(S.branches||[]).map(function(b){return '<option value="'+b.id+'"'+(b.id===bid?' selected':'')+'>'+b.name+'</option>';}).join('');
+    brSel2.innerHTML=brOpts2 || '<option value="">\u0424\u0456\u043b\u0456\u0457 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e</option>';
+    if(bid) brSel2.value=bid;
+  }
 
   window._invText=invText;
   window._invPhone=phone;
