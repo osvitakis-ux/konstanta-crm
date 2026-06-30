@@ -584,9 +584,14 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
         <!-- ═══ PER-TUTOR KPI TABLE ═══ -->
         <div class="card tutor-hidden" style="margin-bottom:16px">
-          <div class="ch">
+          <div class="ch" style="flex-wrap:wrap;gap:8px">
             <span class="ct">👥 KPI по репетиторах</span>
-            <span id="dash-tutor-week-lbl" style="font-size:11px;font-family:JetBrains Mono,monospace;color:var(--t3);margin-left:auto"></span>
+            <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+              <button class="btn btn-g btn-sm" onclick="dashKpiWeek(-1)">← Минулий</button>
+              <span id="dash-tutor-week-lbl" style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--t2);min-width:140px;text-align:center"></span>
+              <button class="btn btn-g btn-sm" onclick="dashKpiWeek(1)">Наступний →</button>
+              <button class="btn btn-p btn-sm" onclick="dashKpiWeek(0)">Цей тиждень</button>
+            </div>
           </div>
           <div class="tkpi-wrap">
             <table class="tkpi">
@@ -607,6 +612,13 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div>
 
         <!-- ═══ TREND CHARTS ROW ═══ -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--t2);font-weight:600">🗓 Перегляд тижнів:</span>
+          <button class="btn btn-g btn-sm" onclick="dashKpiWeek(-1)">← Минулий</button>
+          <span id="dash-trend-week-lbl" style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--t2);min-width:140px;text-align:center"></span>
+          <button class="btn btn-g btn-sm" onclick="dashKpiWeek(1)">Наступний →</button>
+          <button class="btn btn-p btn-sm" onclick="dashKpiWeek(0)">Цей тиждень</button>
+        </div>
         <div class="tc" style="margin-bottom:16px">
           <div class="card">
             <div class="ch"><span class="ct">📉 Динаміка занять (4 тижні)</span></div>
