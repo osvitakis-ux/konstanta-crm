@@ -137,6 +137,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
 .by{background:rgba(245,158,11,.15);color:var(--dir)}
 .br{background:rgba(248,113,113,.15);color:var(--danger)}
 .bp{background:rgba(167,139,250,.15);color:#a78bfa}
+.bn{background:rgba(148,163,184,.18);color:#64748b}
 .av{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700;flex-shrink:0;font-family:'Syne',sans-serif}
 
 /* ─── MODAL ─── */
@@ -170,6 +171,7 @@ textarea{resize:vertical;min-height:72px}
 .ec-miss{background:rgba(239,68,68,.18);border-left:3px solid #ef4444;color:#dc2626}
 .ec-make{background:rgba(245,158,11,.2);border-left:3px solid #f59e0b;color:#d97706}
 .ec-covered{background:rgba(139,92,246,.2);border-left:3px solid #8b5cf6;color:#7c3aed}
+.ec-makeplan{background:rgba(148,163,184,.2);border-left:3px solid #94a3b8;color:#64748b}
 .ec-plan{background:rgba(41,171,226,.18);border-left:3px solid var(--adm);color:var(--adm)}
 .ec0{background:rgba(108,143,255,.22);border-left:2.5px solid var(--adm);color:var(--adm)}
 .ec1{background:rgba(52,211,153,.18);border-left:2.5px solid var(--tut);color:var(--tut)}
@@ -718,7 +720,8 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <option value="planned">Заплановані</option>
             <option value="completed">Проведені</option>
             <option value="missed">Пропущені</option>
-            <option value="makeup">Відпрацювання</option>
+            <option value="makeup_planned">Заплановане відпрацювання</option>
+            <option value="makeup">Відпрацювання (проведено)</option>
           </select>
           <select id="sch-tutor-filter" style="display:none;font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1)" onchange="renderSch()">
             <option value="">Усі репетитори</option>
@@ -737,7 +740,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div class="ch">
             <span class="ct">Заняття</span>
             <select id="lf-student" onchange="renderLessons()" style="width:180px;font-size:12px;padding:5px 8px;margin-right:4px"><option value="">Всі учні</option></select>
-            <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="missed">Пропущені</option><option value="makeup">Відпрацювання</option></select>
+            <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="missed">Пропущені</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select>
           </div>
           <table><thead><tr><th>Учень</th><th>Предмет</th><th>Репетитор</th><th>Дата та час</th><th>Тривалість</th><th id="lt-miss-col" style="display:none">Дата пропуску</th><th id="lt-makeup-col" style="display:none">Відпрацювання</th><th>Нотатки</th><th>Статус</th><th></th></tr></thead><tbody id="lt-table"></tbody></table>
         </div>
@@ -1360,7 +1363,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
 <option value="22:30">22:30</option>
 <option value="22:45">22:45</option>
 </select></div>
-      <div class="fgr"><label>Статус</label><select id="l-stat"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="missed">Пропущене</option><option value="makeup">Відпрацювання</option></select></div>
+      <div class="fgr"><label>Статус</label><select id="l-stat"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="missed">Пропущене</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select></div>
       <div id="l-miss-wrap" style="display:none" class="fgr"><label>Дата пропуску</label><input id="l-miss-date" type="date"></div>
       <div id="l-makeup-wrap" style="display:none" class="fgr"><label>Дата відпрацювання</label><input id="l-makeup-date" type="date"></div>
       <div id="l-split-wrap" style="display:none" class="fgr full"><div style="background:rgba(245,158,11,.12);border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><div style="font-weight:600;font-size:13px">Розбити на частини</div><div style="font-size:11px;color:var(--t2)">Кілька занять по 30 хв або по 1 год</div></div><div style="display:flex;gap:6px"><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="splitLessonTo30()">✂️ ×30 хв</button><button type="button" id="split-btn-60" class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="splitLessonTo60()">✂️ ×1 год</button></div></div></div>
