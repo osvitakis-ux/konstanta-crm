@@ -3284,8 +3284,10 @@ async function startApp(){
   var lastPage = '';
   try{ lastPage = localStorage.getItem('sb_page')||''; }catch(e){}
   var allowedPages = userNav();
-  // Always open dashboard with fresh data
-  try{ nav('dashboard'); }catch(e){}
+  // Відновлюємо останню відкриту сторінку (якщо вона досі доступна цій ролі),
+  // інакше відкриваємо дашборд за замовчуванням
+  var pageToOpen = (lastPage && allowedPages.indexOf(lastPage) >= 0) ? lastPage : 'dashboard';
+  try{ nav(pageToOpen); }catch(e){ try{ nav('dashboard'); }catch(e2){} }
 
   // Second silent load to catch any data that arrived after first load
   loadAll().then(function(){
