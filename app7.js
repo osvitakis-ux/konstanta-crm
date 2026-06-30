@@ -621,7 +621,7 @@ function renderInvoicePage(){
   var sSel=document.getElementById('inv-student');
   if(sSel){
     var cur=sSel.value;
-    var invStudents=[{id:'',fn:'\u2014 \u043E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F \u2014',ln:''}].concat(myStudents().filter(function(s){return s.status==='active'||s.status==='trial';}).sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');}));
+    var invStudents=[{id:'',fn:'\u2014 \u043e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f \u2014',ln:''}].concat(myStudents().filter(function(s){return s.status==='active'||s.status==='trial';}).sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');}));
     popSelSearch('inv-student', invStudents, 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
     if(cur){ sSel.value=cur; if(sSel._updateSearch) sSel._updateSearch(); }
   }
@@ -632,9 +632,8 @@ function renderInvoicePage(){
 
   var dateFrom=(document.getElementById('inv-from')||{value:''}).value;
   var dateTo=(document.getElementById('inv-to')||{value:''}).value||localDateStr(new Date());
-  var price=parseFloat((document.getElementById('inv-price')||{value:'0'}).value)||0;
+  var fallbackPrice=parseFloat((document.getElementById('inv-price')||{value:'0'}).value)||0;
 
-  // Filter lessons: planned + done for the period
   var now2=new Date();
   var defaultFrom=now2.getFullYear()+'-'+String(now2.getMonth()+1).padStart(2,'0')+'-01';
   var defaultTo=localDateStr(new Date(now2.getFullYear(),now2.getMonth()+1,0));
@@ -647,56 +646,85 @@ function renderInvoicePage(){
     if(l.date<dateFrom) return false;
     if(l.date>dateTo) return false;
     return true;
-  }).sort(function(a,b){return a.date.localeCompare(b.date);}):[];
+  }).sort(function(a,b){return a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'');}):[];
+
+  function lessonCost(l){
+    var dur=(parseFloat(l.dur)||60)/60;
+    if(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price))) return parseFloat(l.price);
+    return Math.round(dur*fallbackPrice*10)/10;
+  }
 
   var totalHours=Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
-  var total=Math.round(totalHours*price*10)/10;
+  var total=Math.round(lessons.reduce(function(s,l){return s+lessonCost(l);},0)*10)/10;
 
-  // Build invoice text
+  var groups={};
+  var groupOrder=[];
+  lessons.forEach(function(l){
+    var tid=l.tutorId||l.tutor_id;
+    var tutor=tid?(S.tutors||[]).find(function(t){return t.id===tid;}):null;
+    var subj=l.subject||'\u0406\u043d\u0448\u0435';
+    var key=(tid||'')+'|'+subj;
+    if(!groups[key]){
+      groups[key]={tutor:tutor, subj:subj, lessons:[]};
+      groupOrder.push(key);
+    }
+    groups[key].lessons.push(l);
+  });
+
   var invText='';
   if(student&&lessons.length){
-    var tutor=lessons[0]?(S.tutors||[]).find(function(t){return t.id===(lessons[0].tutorId||lessons[0].tutor_id);}):null;
-    invText='\uD83D\uDCCB \u0420\u0410\u0425\u0423\u041D\u041E\u041A\n'
-      +'\u0423\u0447\u0435\u043D\u044C: '+student.fn+' '+student.ln+'\n'
-      +(tutor?'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440: '+tutor.fn+' '+tutor.ln+'\n':'')
-      +'\u041f\u0435\u0440\u0456\u043e\u0434: '+(dateFrom?fd(dateFrom)+' \u2014 ':'')+fd(dateTo)+'\n'
-      +'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n'
-      +lessons.map(function(l,i){
+    var lines=[];
+    lines.push('\uD83D\uDCCB \u0420\u0410\u0425\u0423\u041D\u041E\u041A');
+    lines.push('\u0423\u0447\u0435\u043d\u044c: '+student.fn+' '+student.ln);
+    lines.push('\u041f\u0435\u0440\u0456\u043e\u0434: '+(dateFrom?fd(dateFrom)+' \u2014 ':'')+fd(dateTo));
+    lines.push('\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500');
+
+    groupOrder.forEach(function(key){
+      var g=groups[key];
+      var gHours=Math.round(g.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+      var gTotal=Math.round(g.lessons.reduce(function(s,l){return s+lessonCost(l);},0)*10)/10;
+      lines.push('\uD83D\uDC64 '+(g.tutor?g.tutor.fn+' '+g.tutor.ln:'\u0411\u0435\u0437 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430')+' \u2014 '+g.subj);
+      g.lessons.forEach(function(l,i){
         var dur=(parseFloat(l.dur)||60)/60;
-        var stlbl={'planned':'план','scheduled':'план','done':'прове','completed':'прове','makeup':'відпр'}[l.status]||l.status; return (i+1)+'. '+fd(l.date)+' ('+stlbl+') | '+(l.subject||'')+(l.time?' о '+l.time:'')+' | '+dur+'год × '+price+'₴ = '+Math.round(dur*price*10)/10+'₴';
-      }).join('\n')+'\n'
-      +'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n'
-      +'\u0413\u043e\u0434\u0438\u043d: '+totalHours+'\n'
-      +'\u0420\u0410\u0417\u041e\u041c: '+total+' \u20b4';
+        var stlbl={'planned':'\u043f\u043b\u0430\u043d','scheduled':'\u043f\u043b\u0430\u043d','done':'\u043f\u0440\u043e\u0432\u0435','completed':'\u043f\u0440\u043e\u0432\u0435','makeup':'\u0432\u0456\u0434\u043f\u0440'}[l.status]||l.status;
+        lines.push('  '+(i+1)+'. '+fd(l.date)+(l.time?' '+l.time:'')+' ('+stlbl+') \u2014 '+dur+'\u0433\u043e\u0434 = '+lessonCost(l)+'\u20b4');
+      });
+      lines.push('  \u0420\u0430\u0437\u043e\u043c: '+gHours+'\u0433\u043e\u0434 / '+gTotal+'\u20b4');
+      lines.push('');
+    });
+
+    lines.push('\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500');
+    lines.push('\u0412\u0421\u042c\u041e\u0413\u041e \u0433\u043e\u0434\u0438\u043d: '+totalHours);
+    lines.push('\u0420\u0410\u0417\u041e\u041c \u0414\u041e \u041e\u041f\u041b\u0410\u0422\u0418: '+total+' \u20b4');
+    invText=lines.join('\n');
+  }
+
   var invEl=document.getElementById('invoice-content');
   if(!invEl)return;
 
   invEl.innerHTML=!sid?
-    '<div style="color:var(--t3);text-align:center;padding:40px">Оберіть учня</div>'
+    '<div style="color:var(--t3);text-align:center;padding:40px">\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f</div>'
   :('<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
-    // Left: params
     +'<div>'
-    +'<div class="fgr" style="margin-bottom:10px"><label>Від дати</label><input type="date" id="inv-from" value="'+dateFrom+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
-    +'<div class="fgr" style="margin-bottom:10px"><label>До дати</label><input type="date" id="inv-to" value="'+dateTo+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
-    +'<div class="fgr" style="margin-bottom:10px"><label>Ціна за годину (₴)</label><input type="number" id="inv-price" value="'+price+'" onchange="renderInvoicePage()" style="font-size:12px" placeholder="400"></div>'
-    +(phone?'<div style="font-size:12px;color:var(--t2);margin-bottom:12px">📱 Телефон: <b>'+phone+'</b></div>':'<div style="color:var(--danger);font-size:12px;margin-bottom:12px">⚠️ Телефон не вказано</div>')
+    +'<div class="fgr" style="margin-bottom:10px"><label>\u0412\u0456\u0434 \u0434\u0430\u0442\u0438</label><input type="date" id="inv-from" value="'+dateFrom+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
+    +'<div class="fgr" style="margin-bottom:10px"><label>\u0414\u043e \u0434\u0430\u0442\u0438</label><input type="date" id="inv-to" value="'+dateTo+'" onchange="renderInvoicePage()" style="font-size:12px"></div>'
+    +'<div class="fgr" style="margin-bottom:10px"><label>\u0426\u0456\u043d\u0430 \u0437\u0430 \u0433\u043e\u0434\u0438\u043d\u0443 \u20b4 (\u044f\u043a\u0449\u043e \u0432 \u0437\u0430\u043d\u044f\u0442\u0442\u0456 \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u0430)</label><input type="number" id="inv-price" value="'+fallbackPrice+'" onchange="renderInvoicePage()" style="font-size:12px" placeholder="400"></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-bottom:10px">\uD83D\uDCA1 \u042f\u043a\u0449\u043e \u0432 \u0437\u0430\u043d\u044f\u0442\u0442\u0456 \u0432\u043a\u0430\u0437\u0430\u043d\u0430 \u0432\u043b\u0430\u0441\u043d\u0430 \u0446\u0456\u043d\u0430 \u2014 \u0432\u043e\u043d\u0430 \u043c\u0430\u0454 \u043f\u0440\u0456\u043e\u0440\u0438\u0442\u0435\u0442. \u0420\u0430\u0445\u0443\u043d\u043e\u043a \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u043e\u0431\u2019\u0454\u0434\u043d\u0443\u0454 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0432\u0441\u0456\u0445 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432 \u0442\u0430 \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u0456\u0432 \u0446\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u044f.</div>'
+    +(phone?'<div style="font-size:12px;color:var(--t2);margin-bottom:12px">\uD83D\uDCF1 \u0422\u0435\u043b\u0435\u0444\u043e\u043d: <b>'+phone+'</b></div>':'<div style="color:var(--danger);font-size:12px;margin-bottom:12px">\u26A0\uFE0F \u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e</div>')
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    +(phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceViber()" style="background:#7360f2">🟣 Viber</button>':'')
-    +(phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceTelegram()" style="background:#2196f3">✈️ Telegram</button>':'')
-    +'<button class="btn btn-g btn-sm" onclick="copyInvoiceText()">📋 Копіювати</button>'
+    +(phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceViber()" style="background:#7360f2">\uD83D\uDFE3 Viber</button>':'')
+    +(phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceTelegram()" style="background:#2196f3">\u2708\uFE0F Telegram</button>':'')
+    +'<button class="btn btn-g btn-sm" onclick="copyInvoiceText()">\uD83D\uDCCB \u041a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438</button>'
     +'</div>'
     +'</div>'
-    // Right: preview
     +'<div>'
     +'<div style="background:var(--s2);border-radius:10px;padding:14px;font-family:JetBrains Mono,monospace;font-size:12px;white-space:pre-wrap;line-height:1.6;min-height:200px;border:1px solid var(--b1)">'
-    +(invText||'<span style="color:var(--t3)">Немає проведених занять за цей період</span>')
+    +(invText||'<span style="color:var(--t3)">\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u0438\u0445 \u0437\u0430\u043d\u044f\u0442\u044c \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434</span>')
     +'</div>'
-    +'<div style="margin-top:8px;font-size:12px;color:var(--t2)">Занять: '+lessons.length+' | Годин: '+totalHours+' | Сума: <b>'+total+'₴</b></div>'
+    +'<div style="margin-top:8px;font-size:12px;color:var(--t2)">\u0417\u0430\u043d\u044f\u0442\u044c: '+lessons.length+' | \u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432: '+groupOrder.length+' | \u0413\u043e\u0434\u0438\u043d: '+totalHours+' | \u0421\u0443\u043c\u0430: <b>'+total+'\u20b4</b></div>'
     +'</div>'
     +'</div>');
 
-  // Store for send functions
-  }
   window._invText=invText;
   window._invPhone=phone;
 }
