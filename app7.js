@@ -2734,6 +2734,8 @@ async function saveStudent(){
     notes:  document.getElementById('s-notes')?.value||'',
     parent_fn:   (document.getElementById('s-parent-fn')?.value||'').trim(),
     parent_phone:(document.getElementById('s-parent-phone')?.value||'').trim(),
+    crm_stage: document.getElementById('s-crm-stage')?.value||'lead',
+    crm_responsible: document.getElementById('s-crm-resp')?.value||null,
     branch_id: myBranchId()||null,
   };
   // Auto-link to current tutor if none selected
@@ -2766,6 +2768,29 @@ async function delStudent(id){
   if(!can('students')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
   if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0443\u0447\u043D\u044F?')) return;
   try{ await dbDelete('students',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+}
+
+// \u0411\u0435\u0437\u043f\u0435\u0447\u043d\u0435 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u043b\u0456\u0434\u0430 \u0437 CRM-\u0434\u043e\u0448\u043a\u0438:
+// - \u044f\u043a\u0449\u043e \u0446\u0435 \u0449\u0435 \u043d\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c (\u043d\u0435 status==='active') \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e\u0441\u044f \u0444\u0456\u0437\u0438\u0447\u043d\u043e
+// - \u044f\u043a\u0449\u043e \u0432\u0436\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c \u2014 \u043b\u0438\u0448\u0435 \u043f\u0440\u0438\u0431\u0438\u0440\u0430\u0454\u043c\u043e \u0437 CRM-\u0434\u043e\u0448\u043a\u0438 (\u0441\u0442\u0430\u0432\u0438\u043c\u043e \u0435\u0442\u0430\u043f lost), \u0441\u0430\u043c \u0443\u0447\u0435\u043d\u044c \u0437\u0430\u043b\u0438\u0448\u0430\u0454\u0442\u044c\u0441\u044f
+async function delLead(id){
+  if(!can('students')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  var s=(S.students||[]).find(function(x){return x.id===id;});
+  if(!s){mkToast('\u041b\u0456\u0434 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e','error');return;}
+
+  if(s.status==='active'){
+    // \u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c \u2014 \u043d\u0435 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e, \u043b\u0438\u0448\u0435 \u043f\u0440\u0438\u0431\u0438\u0440\u0430\u0454\u043c\u043e \u0437 \u0434\u043e\u0448\u043a\u0438
+    if(!confirm('\u0426\u0435\u0439 \u043b\u0456\u0434 \u0432\u0436\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c. \u0412\u0456\u043d \u041d\u0415 \u0431\u0443\u0434\u0435 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u0438\u0439 \u0437 \u0441\u0438\u0441\u0442\u0435\u043c\u0438 \u2014 \u043b\u0438\u0448\u0435 \u043f\u0440\u0438\u0431\u0440\u0430\u043d\u043e \u0437 CRM-\u0434\u043e\u0448\u043a\u0438. \u041f\u0440\u043e\u0434\u043e\u0432\u0436\u0438\u0442\u0438?')) return;
+    try{
+      await dbUpdate('students',id,{crm_stage:'lost'});
+      mkToast('\u041f\u0440\u0438\u0431\u0440\u0430\u043d\u043e \u0437 CRM');
+    }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error'); }
+    return;
+  }
+
+  // \u041d\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u043b\u0456\u0434 (trial/paused/completed \u0430\u0431\u043e \u0431\u0435\u0437 \u0441\u0442\u0430\u0442\u0443\u0441\u0443) \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e \u0444\u0456\u0437\u0438\u0447\u043d\u043e
+  if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043b\u0456\u0434 \u00ab'+s.fn+' '+s.ln+'\u00bb \u043f\u043e\u0432\u043d\u0456\u0441\u0442\u044e?')) return;
+  try{ await dbDelete('students',id); mkToast('\u041b\u0456\u0434 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043e'); }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error'); }
 }
 
 async function saveTutor(){
@@ -3325,6 +3350,13 @@ function openStudM(id=null){
         +'</label>';
     }).join('');
   }
+  // Populate CRM responsible select (admins/directors/god)
+  var respSel=document.getElementById('s-crm-resp');
+  if(respSel){
+    respSel.innerHTML='<option value="">\u2014 \u043d\u0435 \u043f\u0440\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u043e \u2014</option>'
+      +(S.users||[]).filter(function(u){return u.role==='god'||u.role==='director'||u.role==='admin';})
+        .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
+  }
   const flds=['fn','ln','age','grade','phone','email','notes'];
   const pflds=[];
   if(id){const s=S.students.find(x=>x.id===id);if(s){flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value=s[f]||'';});document.getElementById('s-subj').value=s.subject||'';// Set multi-select values for tutors
@@ -3336,9 +3368,14 @@ function openStudM(id=null){
     cb.closest('label').style.background=cb.checked?'rgba(41,171,226,.15)':'var(--s1)';
     cb.closest('label').style.borderColor=cb.checked?'var(--adm)':'var(--b1)';
   });document.getElementById('s-status').value=s.status||'active';document.getElementById('s-src').value=s.src||'referral';
+      var crmStEl=document.getElementById('s-crm-stage'); if(crmStEl) crmStEl.value=getCrmStage(s);
+      var crmRespEl=document.getElementById('s-crm-resp'); if(crmRespEl) crmRespEl.value=s.crmResponsible||'';
       var pf=document.getElementById('s-parent-fn');if(pf)pf.value=s.parentFn||'';
       var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';}}
-  else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';}
+  else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';
+    var crmStEl2=document.getElementById('s-crm-stage'); if(crmStEl2) crmStEl2.value='lead';
+    var crmRespEl2=document.getElementById('s-crm-resp'); if(crmRespEl2) crmRespEl2.value='';
+  }
   renderCustomFields('student','mo-student-cf');
   var invBtn = document.getElementById('inv-btn');
   if(invBtn) invBtn.style.display = (id && (R()==='god'||R()==='director')) ? 'inline-flex' : 'none';
@@ -4383,24 +4420,10 @@ async function setCrmStage(studentId, stage){
 }
 
 function openAddLead(){
-  S.editId=null;
-  document.getElementById('ms-title').textContent='Новий лід';
-  var dl_s=document.getElementById('subj-list-s');
-  if(dl_s)dl_s.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
-  var stSel=document.getElementById('s-tutor');
-  if(stSel)stSel.innerHTML=(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
-  var stList=document.getElementById('s-tutor-list');
-  if(stList)stList.innerHTML=(S.tutors||[]).map(function(t){
-    return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px">'
-      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'+mkAv(t.fn,t.ln,20,t.photo)+'<span>'+t.fn+' '+t.ln+'</span></label>';
-  }).join('');
-  ['fn','ln','age','grade','phone','email','notes'].forEach(function(f){var el=document.getElementById('s-'+f);if(el)el.value='';});
-  var pf=document.getElementById('s-parent-fn');if(pf)pf.value='';
-  var pp=document.getElementById('s-parent-phone');if(pp)pp.value='';
+  openStudM(null);
+  document.getElementById('ms-title').textContent='\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434';
   document.getElementById('s-status').value='trial';
-  document.getElementById('s-src').value='referral';
-  renderCustomFields('student','mo-student-cf');
-  openM('mo-student');
+  var crmStEl=document.getElementById('s-crm-stage'); if(crmStEl) crmStEl.value='lead';
 }
 
 
@@ -4539,7 +4562,7 @@ function renderCrm(){
       delBtn.className = 'crm-mv-btn crm-del-btn';
       delBtn.title = 'Видалити лід';
       delBtn.textContent = '🗑';
-      delBtn.addEventListener('click', function(e){ e.stopPropagation(); delStudent(sid); });
+      delBtn.addEventListener('click', function(e){ e.stopPropagation(); delLead(sid); });
       acts.appendChild(delBtn);
 
       card.appendChild(acts);
@@ -4552,26 +4575,6 @@ function renderCrm(){
   setTimeout(crmInitScroll, 50);
 }
 
-function openAddLead(){
-  S.editId=null;
-  document.getElementById('ms-title').textContent='Новий лід';
-  var dl_s=document.getElementById('subj-list-s');
-  if(dl_s)dl_s.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
-  var stSel=document.getElementById('s-tutor');
-  if(stSel)stSel.innerHTML=(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
-  var stList=document.getElementById('s-tutor-list');
-  if(stList)stList.innerHTML=(S.tutors||[]).map(function(t){
-    return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px">'
-      +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'+mkAv(t.fn,t.ln,20,t.photo)+'<span>'+t.fn+' '+t.ln+'</span></label>';
-  }).join('');
-  ['fn','ln','age','grade','phone','email','notes'].forEach(function(f){var el=document.getElementById('s-'+f);if(el)el.value='';});
-  var pf=document.getElementById('s-parent-fn');if(pf)pf.value='';
-  var pp=document.getElementById('s-parent-phone');if(pp)pp.value='';
-  document.getElementById('s-status').value='trial';
-  document.getElementById('s-src').value='referral';
-  renderCustomFields('student','mo-student-cf');
-  openM('mo-student');
-}
 
 async function setCrmStage(studentId, stage){
   var i=(S.students||[]).findIndex(function(s){return s.id===studentId;});
