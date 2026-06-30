@@ -2807,6 +2807,7 @@ async function saveTutor(){
     rate:   document.getElementById('t-rate')?.value||null,
     bio:    document.getElementById('t-bio')?.value||'',
     rating: parseInt(document.getElementById('t-rating')?.value)||5,
+    acc_uid: document.getElementById('t-acc')?.value||null,
     branch_id: myBranchId()||null,
   };
   window._saving = true;
@@ -3391,8 +3392,23 @@ function openStudM(id=null){
 function openTutM(id=null){
   if(!can('tutors')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
   S.editId=id;document.getElementById('mt-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430':'\u041D\u043E\u0432\u0438\u0439 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447';
-  if(id){const t=S.tutors.find(x=>x.id===id);if(t){['fn','ln','phone','email','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value=t[f]||'';});document.getElementById('t-subj').value=t.subj||'';if(document.getElementById('t-rate'))document.getElementById('t-rate').value=t.rate||'';}}
-  else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});}
+
+  // Populate account select: only show users with role 'tutor' not already linked to another tutor
+  var accSel=document.getElementById('t-acc');
+  if(accSel){
+    var linkedIds=(S.tutors||[]).filter(function(t){return t.id!==id;}).map(function(t){return t.accId||t.acc_uid;}).filter(Boolean);
+    var opts=(S.users||[]).filter(function(u){
+      return u.role==='tutor' && linkedIds.indexOf(u.id)<0;
+    }).map(function(u){
+      return '<option value="'+u.id+'">'+(u.fn||'')+' '+(u.ln||'')+(u.username?' (@'+u.username+')':'')+'</option>';
+    }).join('');
+    accSel.innerHTML='<option value="">\u2014 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u043E \u2014</option>'+opts;
+  }
+
+  if(id){const t=S.tutors.find(x=>x.id===id);if(t){['fn','ln','phone','email','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value=t[f]||'';});document.getElementById('t-subj').value=t.subj||'';if(document.getElementById('t-rate'))document.getElementById('t-rate').value=t.rate||'';
+    if(accSel) accSel.value=t.accId||t.acc_uid||'';
+  }}
+  else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});if(accSel)accSel.value='';}
   renderCustomFields('tutor','mo-tutor-cf');
   openM('mo-tutor');
 }
