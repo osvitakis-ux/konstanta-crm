@@ -4454,10 +4454,10 @@ function renderCrm(){
     var lost  = students.filter(function(s){ return getCrmStage(s)==='lost'; }).length;
     var conv  = total>0 ? Math.round(won/total*100) : 0;
     statsEl.innerHTML =
-      '<span>Всього: <b>'+total+'</b></span>'
-      +'<span style="color:var(--tut)">Успішно: <b>'+won+'</b></span>'
-      +'<span style="color:var(--danger)">Не реал.: <b>'+lost+'</b></span>'
-      +'<span style="color:var(--adm)">Конверсія: <b>'+conv+'%</b></span>';
+      '<span style="background:var(--s2);border:1px solid var(--b1);border-radius:20px;padding:5px 14px">\u0412\u0441\u044c\u043e\u0433\u043e: <b>'+total+'</b></span>'
+      +'<span style="background:var(--tut-bg);border:1px solid rgba(34,181,115,.25);border-radius:20px;padding:5px 14px;color:var(--tut)">\u0423\u0441\u043f\u0456\u0448\u043d\u043e: <b>'+won+'</b></span>'
+      +'<span style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);border-radius:20px;padding:5px 14px;color:var(--danger)">\u041d\u0435 \u0440\u0435\u0430\u043b.: <b>'+lost+'</b></span>'
+      +'<span style="background:var(--adm-bg);border:1px solid rgba(41,171,226,.25);border-radius:20px;padding:5px 14px;color:var(--adm)">\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0456\u044f: <b>'+conv+'%</b></span>';
   }
 
   el.innerHTML = '';
@@ -4474,13 +4474,20 @@ function renderCrm(){
     var hdr = document.createElement('div');
     hdr.className = 'crm-col-hdr';
     hdr.style.borderTop = '3px solid ' + col.color;
-    hdr.innerHTML = '<span style="font-size:14px">'+col.ico+'</span>'
+    hdr.innerHTML = '<span class="crm-col-hdr-ico">'+col.ico+'</span>'
       + '<span class="crm-col-lbl">'+col.lbl+'</span>'
       + '<span class="crm-col-cnt">'+cards.length+'</span>';
     colDiv.appendChild(hdr);
 
     var body = document.createElement('div');
     body.className = 'crm-col-body';
+
+    if(!cards.length){
+      var empty = document.createElement('div');
+      empty.className = 'crm-empty-col';
+      empty.textContent = '\u041f\u043e\u0440\u043e\u0436\u043d\u044c\u043e';
+      body.appendChild(empty);
+    }
 
     cards.forEach(function(s){
       var tutor = s.tutorId ? (S.tutors||[]).find(function(t){ return t.id===s.tutorId; }) : null;
