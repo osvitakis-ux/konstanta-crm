@@ -2642,7 +2642,7 @@ function refreshPage(key){
   if(typeof S === 'undefined' || !S.currentPage) return;
   var pg = S.currentPage;
   var map = {
-    students:['students','dashboard','profile'],
+    students:['students','dashboard','profile','crm'],
     tutors:['tutors','dashboard','profile'],
     lessons:['lessons','schedule','dashboard','profile'],
     payments:['payments','dashboard'],
@@ -2663,6 +2663,7 @@ function refreshPage(key){
     else if(pg==='settings'  && typeof renderSettings ==='function') renderSettings();
     else if(pg==='users'     && typeof renderUsers    ==='function') renderUsers();
     else if(pg==='profile'   && typeof renderProfile  ==='function') renderProfile();
+    else if(pg==='crm'       && typeof renderCrm      ==='function') renderCrm();
   else if(pg==='telephony' && typeof renderTelephony==='function') renderTelephony();
   } catch(e) { console.warn('refreshPage error:', e); }
 }
@@ -2790,7 +2791,24 @@ async function delLead(id){
 
   // \u041d\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u043b\u0456\u0434 (trial/paused/completed \u0430\u0431\u043e \u0431\u0435\u0437 \u0441\u0442\u0430\u0442\u0443\u0441\u0443) \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e \u0444\u0456\u0437\u0438\u0447\u043d\u043e
   if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043b\u0456\u0434 \u00ab'+s.fn+' '+s.ln+'\u00bb \u043f\u043e\u0432\u043d\u0456\u0441\u0442\u044e?')) return;
-  try{ await dbDelete('students',id); mkToast('\u041b\u0456\u0434 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043e'); }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error'); }
+  try{
+    // \u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e \u043f\u043e\u0432'\u044f\u0437\u0430\u043d\u0456 \u0437\u0430\u043f\u0438\u0441\u0438, \u0449\u043e\u0431 \u043d\u0435 \u0432\u043f\u0435\u0440\u0442\u0438\u0441\u044f \u0432 FK constraint
+    var relLessons=(S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)===id;});
+    var relPayments=(S.payments||[]).filter(function(p){return (p.studentId||p.student_id)===id;});
+    var relComms=(S.comms||[]).filter(function(c){return (c.studentId||c.student_id)===id;});
+    for(var i=0;i<relLessons.length;i++){ await _sb.from('lessons').delete().eq('id',relLessons[i].id); }
+    for(var j=0;j<relPayments.length;j++){ await _sb.from('payments').delete().eq('id',relPayments[j].id); }
+    for(var k=0;k<relComms.length;k++){ await _sb.from('comms').delete().eq('id',relComms[k].id); }
+    // \u0412\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e \u0441\u0430\u043c\u043e\u0433\u043e \u0443\u0447\u043d\u044f \u043d\u0430\u043f\u0440\u044f\u043c\u0443 (\u0431\u0435\u0437 \u043e\u0447\u0456\u043a\u0443\u0432\u0430\u043d\u043d\u044f loadTableFresh)
+    setSaving();
+    var _del = await _sb.from('students').delete().eq('id',id);
+    if(_del.error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+_del.error.message,'error'); return; }
+    // \u041e\u043f\u0442\u0438\u043c\u0456\u0441\u0442\u0438\u0447\u043d\u043e \u043f\u0440\u0438\u0431\u0438\u0440\u0430\u0454\u043c\u043e \u0437 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0433\u043e \u0441\u0442\u0435\u0439\u0442\u0443 \u043e\u0434\u0440\u0430\u0437\u0443 \u0434\u043b\u044f \u043c\u0438\u0442\u0442\u0454\u0432\u043e\u0433\u043e UI
+    S.students = (S.students||[]).filter(function(x){return x.id!==id;});
+    if(S.currentPage==='crm') renderCrm();
+    setSynced();
+    mkToast('\u041b\u0456\u0434 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043e');
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
 }
 
 async function saveTutor(){
