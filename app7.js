@@ -1369,6 +1369,7 @@ function renderStudents(){
     return (s.fn+' '+s.ln).toLowerCase().includes(_q)
         || (s.ln+' '+s.fn).toLowerCase().includes(_q)
         || (s.phone||'').includes(_q)
+        || (s.parentPhone||'').includes(_q)
         || (s.email||'').toLowerCase().includes(_q);
   });
   if(sfCur!=='all') data=data.filter(function(s){return s.status===sfCur;});
