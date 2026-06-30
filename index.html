@@ -169,6 +169,7 @@ textarea{resize:vertical;min-height:72px}
 .ec-done{background:rgba(34,197,94,.18);border-left:3px solid #22c55e;color:#16a34a}
 .ec-miss{background:rgba(239,68,68,.18);border-left:3px solid #ef4444;color:#dc2626}
 .ec-make{background:rgba(245,158,11,.2);border-left:3px solid #f59e0b;color:#d97706}
+.ec-covered{background:rgba(139,92,246,.2);border-left:3px solid #8b5cf6;color:#7c3aed}
 .ec-plan{background:rgba(41,171,226,.18);border-left:3px solid var(--adm);color:var(--adm)}
 .ec0{background:rgba(108,143,255,.22);border-left:2.5px solid var(--adm);color:var(--adm)}
 .ec1{background:rgba(52,211,153,.18);border-left:2.5px solid var(--tut);color:var(--tut)}
@@ -1362,7 +1363,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fgr"><label>Статус</label><select id="l-stat"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="missed">Пропущене</option><option value="makeup">Відпрацювання</option></select></div>
       <div id="l-miss-wrap" style="display:none" class="fgr"><label>Дата пропуску</label><input id="l-miss-date" type="date"></div>
       <div id="l-makeup-wrap" style="display:none" class="fgr"><label>Дата відпрацювання</label><input id="l-makeup-date" type="date"></div>
-      <div id="l-split-wrap" style="display:none" class="fgr full"><div style="background:rgba(245,158,11,.12);border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px"><div><div style="font-weight:600;font-size:13px">Розбити на ×30 хв</div><div style="font-size:11px;color:var(--t2)">Кілька занять по 30 хв</div></div><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="splitLessonTo30()">✂️ Розбити</button></div></div>
+      <div id="l-split-wrap" style="display:none" class="fgr full"><div style="background:rgba(245,158,11,.12);border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><div style="font-weight:600;font-size:13px">Розбити на частини</div><div style="font-size:11px;color:var(--t2)">Кілька занять по 30 хв або по 1 год</div></div><div style="display:flex;gap:6px"><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="splitLessonTo30()">✂️ ×30 хв</button><button type="button" id="split-btn-60" class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="splitLessonTo60()">✂️ ×1 год</button></div></div></div>
       <div class="fgr"><label>Вартість ₴</label>
         <div style="display:flex;gap:6px">
           <input id="l-price" type="number" placeholder="0" style="flex:1">
