@@ -1311,7 +1311,22 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <select id="s-tutor" style="display:none"></select>
       </div>
       <div class="fgr"><label>Статус</label><select id="s-status"><option value="active">Активний</option><option value="trial">Пробне</option><option value="paused">Призупинений</option><option value="completed">Завершив</option></select></div>
-      <div class="fgr"><label>Джерело</label><select id="s-src"><option value="referral">Рекомендація</option><option value="internet">Інтернет</option><option value="social">Соцмережі</option><option value="other">Інше</option></select></div>      <div class="fgr full"><label>Нотатки</label><textarea id="s-notes"></textarea></div>
+      <div class="fgr"><label>Джерело</label><select id="s-src"><option value="referral">Рекомендація</option><option value="internet">Інтернет</option><option value="social">Соцмережі</option><option value="other">Інше</option></select></div>
+      <div class="fgr full" style="grid-column:1/-1;margin-top:6px;padding-top:10px;border-top:1px solid var(--b1)">
+        <div style="font-size:11px;font-weight:700;color:var(--adm);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">CRM</div>
+      </div>
+      <div class="fgr"><label>Етап CRM</label><select id="s-crm-stage">
+        <option value="lead">⬤ Новий лід</option>
+        <option value="request">✉ Запит</option>
+        <option value="trial">◎ Тестовий урок</option>
+        <option value="contract">✍ Підписання договору</option>
+        <option value="invoice">▤ Виставлення рахунку</option>
+        <option value="payment">◈ Оплата</option>
+        <option value="won">✅ Успішно реалізовано</option>
+        <option value="lost">❌ Не реалізовано</option>
+      </select></div>
+      <div class="fgr"><label>Відповідальний (адмін/директор)</label><select id="s-crm-resp"><option value="">— не призначено —</option></select></div>
+      <div class="fgr full"><label>Нотатки</label><textarea id="s-notes"></textarea></div>
     </div></div>
     <div id="mo-student-cf" class="fg" style="padding:0 24px 0;margin-top:0"></div>
     <div class="mdlf"><button class="btn btn-g" onclick="closeM('mo-student')">Скасувати</button><button class="btn btn-p" onclick="saveStudent()">💾 Зберегти</button></div>
