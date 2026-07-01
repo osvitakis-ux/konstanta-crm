@@ -861,14 +861,28 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div><div class="god-banner-title">Режим Бога — повний доступ</div><div class="god-banner-text">Редагування системних налаштувань, скидання даних та управління базою</div></div>
         </div>
         <div class="tc">
-          <div class="card"><div class="ch"><span class="ct">Репетиторський центр «Константа»</span></div>
-            <div class="mdlb"><div class="fg">
-              <div class="fgr full"><label>Назва</label><input id="set-name" type="text"></div>
-              <div class="fgr"><label>Телефон</label><input id="set-phone" type="text"></div>
-              <div class="fgr"><label>Email</label><input id="set-email" type="email"></div>
-              <div class="fgr full"><label>Адреса</label><input id="set-addr" type="text"></div>
-              <div class="fgr full"><button class="btn btn-p" onclick="saveSettings()">💾 Зберегти</button></div>
-            </div></div>
+          <div class="card">
+            <div class="ch">
+              <span class="ct">🏢 Репетиторський центр «Константа»</span>
+              <button class="btn btn-p btn-sm" onclick="saveSettings()">💾 Зберегти назву</button>
+            </div>
+            <div style="padding:14px 18px 0">
+              <div class="fgr full" style="margin-bottom:14px">
+                <label>Загальна назва центру</label>
+                <input id="set-name" type="text" placeholder="Репетиторський центр «Константа»">
+              </div>
+            </div>
+            <!-- Філії -->
+            <div style="padding:0 18px;border-top:1px solid var(--b1);margin-top:4px">
+              <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;padding:12px 0 8px">Філії</div>
+              <div id="branch-list"></div>
+            </div>
+            <div style="padding:14px 18px;border-top:1px solid var(--b1);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <span style="font-size:12px;color:var(--t3)">Додати філію:</span>
+              <input id="new-branch-name" placeholder="Назва філії" style="flex:1;min-width:140px">
+              <input id="new-branch-addr" placeholder="Адреса (необов.)" style="flex:1;min-width:140px">
+              <button class="btn btn-p btn-sm" onclick="addBranch()">+ Додати</button>
+            </div>
           </div>
           <div class="card">
           <div class="ch">
@@ -919,15 +933,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
             </div>
           </div>
 
-          <div class="card" id="branches-card">
-          <div class="ch"><span class="ct">🏢 Філії</span></div>
-          <div style="padding:14px 18px" id="branch-list"></div>
-          <div style="padding:0 18px 18px;display:flex;gap:8px">
-            <input id="new-branch-name" placeholder="Назва філії" style="flex:1">
-            <input id="new-branch-addr" placeholder="Адреса (необов.)" style="flex:1">
-            <button class="btn btn-p btn-sm" onclick="addBranch()">+ Додати</button>
-          </div>
-        </div>
         <div class="card"><div class="ch"><span class="ct">Предмети та ціни</span></div>
             <div style="padding:14px 18px" id="set-subj-list"></div>
             <div style="padding:0 18px 18px;display:flex;gap:8px">
