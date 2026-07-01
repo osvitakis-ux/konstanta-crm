@@ -2470,7 +2470,13 @@ async function initApp(){
     return;
   }
   var createClient = supabase.createClient;
-  _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+  _sb = createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false
+    }
+  });
   var setupEl = document.getElementById('setup');
   var lsEl    = document.getElementById('ls');
   var asEl    = document.getElementById('as');
@@ -2513,6 +2519,9 @@ async function initApp(){
       await loadProfile(session.user);
       hideLoading();
       startApp();
+    } else if(event === 'TOKEN_REFRESHED' && session){
+      // Токен оновлено — нічого додаткового не потрібно, Supabase JS вже використовує новий
+      console.log('Token refreshed automatically');
     } else if(event === 'SIGNED_OUT'){
       CU = null;
       stopChannels();
@@ -2735,10 +2744,26 @@ async function loadTableFresh(table){
   refreshPage(key);
 }
 
+// Автоматично оновлює сесію якщо JWT протермінований
+async function refreshIfExpired(error){
+  if(!error) return false;
+  if(error.message && (error.message.includes('JWT expired') || error.message.includes('No API key') || error.status === 401)){
+    try{
+      var r = await _sb.auth.refreshSession();
+      if(r.error){ mkToast('\u0421\u0435\u0441\u0456\u044f \u0437\u0430\u043a\u0456\u043d\u0447\u0438\u043b\u0430\u0441\u044c. \u0041\u0074\u006f\u006c\u006f\u0067\u0074\u0065\u0020\u0437\u043d\u043e\u0432\u0443.','error'); return false; }
+      return true; // успішно оновлено
+    }catch(e){ return false; }
+  }
+  return false;
+}
+
 async function dbInsert(table, data){
   setSaving();
   var _ri = await _sb.from(table).insert(data); var error = _ri.error;
-  if(error){ mkToast('Помилка: '+error.message,'error'); throw error; }
+  if(error && await refreshIfExpired(error)){
+    _ri = await _sb.from(table).insert(data); error = _ri.error;
+  }
+  if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
   setTimeout(function(){ loadTableFresh(table); }, 800);
 }
 async function dbUpdate(table, id, data){
@@ -2749,13 +2774,19 @@ async function dbUpdate(table, id, data){
     ? Object.assign({}, data)
     : Object.assign({}, data, {updated_at: new Date().toISOString()});
   var _ru = await _sb.from(table).update(updateData).eq('id', id); var error = _ru.error;
-  if(error){ mkToast('Помилка: '+error.message,'error'); throw error; }
+  if(error && await refreshIfExpired(error)){
+    _ru = await _sb.from(table).update(updateData).eq('id', id); error = _ru.error;
+  }
+  if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
   setTimeout(function(){ loadTableFresh(table); }, 800);
 }
 async function dbDelete(table, id){
   setSaving();
   var _rd = await _sb.from(table).delete().eq('id',id); var error = _rd.error;
-  if(error){ mkToast('Помилка: '+error.message,'error'); throw error; }
+  if(error && await refreshIfExpired(error)){
+    _rd = await _sb.from(table).delete().eq('id',id); error = _rd.error;
+  }
+  if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
   setTimeout(function(){ loadTableFresh(table); }, 500);
 }
 
