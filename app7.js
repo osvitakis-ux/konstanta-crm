@@ -1393,7 +1393,8 @@ function renderDashBottom(){
   var sc={};ml.forEach(function(l){sc[l.subject]=(sc[l.subject]||0)+(parseFloat(l.dur)||60)/60;});
   var colors=['var(--adm)','var(--tut)','var(--dir)','var(--god2)','#a78bfa','#0ea5e9'];
   var maxS=Math.max.apply(null,Object.values(sc).concat([1]));
-  document.getElementById('dash-subj').innerHTML=Object.entries(sc)
+  var dashSubjEl=document.getElementById('dash-subj');
+  if(dashSubjEl) dashSubjEl.innerHTML=Object.entries(sc)
     .sort(function(a,b){return b[1]-a[1];}).slice(0,6)
     .map(function(e,i){
       return '<div style="margin-bottom:9px">'
