@@ -734,7 +734,7 @@ function renderInvoicePage(){
       lines.push('\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500');
       lines.push('\uD83D\uDCB3 \u0420\u0415\u041a\u0412\u0406\u0417\u0418\u0422\u0418 \u0414\u041b\u042f \u041e\u041f\u041b\u0410\u0422\u0418');
       if(branch.pay_recipient) lines.push('\u041e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447: '+branch.pay_recipient);
-      if(branch.pay_card) lines.push('\u0420\u0430\u0445\u0443\u043d\u043e\u043a/\u041a\u0430\u0440\u0442\u0430: '+branch.pay_card);
+      if(branch.pay_card) lines.push('IBAN: '+branch.pay_card);
       if(branch.pay_bank) lines.push('\u0411\u0430\u043d\u043a: '+branch.pay_bank);
       if(branch.pay_edrpou) lines.push('\u0404\u0414\u0420\u041f\u041e\u0423/\u0406\u041f\u041d: '+branch.pay_edrpou);
       lines.push('\u041f\u0440\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u043d\u044f: '+(branch.pay_purpose||'\u041e\u043f\u043b\u0430\u0442\u0430 \u0437\u0430 \u043d\u0430\u0432\u0447\u0430\u043d\u043d\u044f')+' \u2014 '+student.fn+' '+student.ln);
@@ -3599,8 +3599,9 @@ function nav(page){
   const pel=document.getElementById('pg-'+page);if(pel)pel.classList.add('active');
   const nel=document.getElementById('ni-'+page);
   if(nel){nel.classList.add('active');nel.className=nel.className.replace(/ (god|dir|tut)/g,'');if(R()==='god')nel.classList.add('god');else if(R()==='director')nel.classList.add('dir');else if(R()==='tutor')nel.classList.add('tut');}
-  var branchSuffix=(!isSuperAdmin()&&myBranchId()&&S.branches.length>1)?' \u2014 '+branchName(myBranchId()):'';
-  document.getElementById('ptitle').textContent=(PLABELS[page]||page)+branchSuffix;
+  document.getElementById('ptitle').textContent=(PLABELS[page]||page);
+
+
   S.currentPage=page;
   try{ localStorage.setItem('sb_page', page); }catch(e){}
   const addMap={students:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0443\u0447\u043D\u044F',tutors:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430',lessons:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u0414\u043E\u0434\u0430\u0442\u0438 \u043F\u043B\u0430\u0442\u0456\u0436',schedule:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F',users:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0430\u043A\u0430\u0443\u043D\u0442'};
