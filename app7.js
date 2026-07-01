@@ -2406,10 +2406,7 @@ async function importBackup(input){
       var table = order[i];
       var rows  = backup.data[table];
       if(!rows || !rows.length){ stats[table]=0; continue; }
-      // Delete existing rows
-      var delRes = await _sb.from(table).delete().neq('id','00000000-0000-0000-0000-000000000000');
-      if(delRes.error) errors.push('del '+table+': '+delRes.error.message);
-      // Upsert backup rows in chunks of 50
+      // Upsert backup rows in chunks of 50 (без delete — щоб не блокувало RLS)
       var inserted = 0;
       for(var j=0;j<rows.length;j+=50){
         var chunk = rows.slice(j,j+50);
