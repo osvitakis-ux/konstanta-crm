@@ -1339,6 +1339,56 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 <!-- Tutor -->
+<!-- ═══ USER EDIT MODAL ═══ -->
+<div class="mo" id="mo-user">
+  <div class="mdl" style="max-width:440px">
+    <div class="mdlh"><div class="mdlt" id="mu-title">Редагувати акаунт</div><button class="xbtn" onclick="closeM('mo-user')">×</button></div>
+    <div class="mdlb">
+      <div class="fgr"><label>Ім'я *</label><input id="u-fn" placeholder="Ім'я"></div>
+      <div class="fgr"><label>Прізвище</label><input id="u-ln" placeholder="Прізвище"></div>
+      <div class="fgr full"><label>Email</label><input id="u-email" type="email" placeholder="email@..." disabled style="opacity:.6"></div>
+      <div class="fgr"><label>Роль</label>
+        <select id="u-role" onchange="toggleTutLink()">
+          <option value="tutor">Репетитор</option>
+          <option value="admin">Адміністратор</option>
+          <option value="director">Директор</option>
+          <option value="god">Бог системи</option>
+        </select>
+      </div>
+      <div class="fgr full" id="u-tlink-wrap" style="display:none">
+        <label>Прив'язати до викладача</label>
+        <select id="u-tlink" style="width:100%"><option value="">— не прив'язано —</option></select>
+      </div>
+    </div>
+    <div class="mdlf">
+      <button class="btn btn-p" onclick="saveUser()">💾 Зберегти</button>
+      <button class="btn btn-g" onclick="closeM('mo-user')">Скасувати</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ USER ACCESS MODAL ═══ -->
+<div class="mo" id="mo-user-access">
+  <div class="mdl" style="max-width:560px">
+    <div class="mdlh"><div class="mdlt">🔐 Права доступу</div><button class="xbtn" onclick="closeM('mo-user-access')">×</button></div>
+    <div class="mdlb" style="padding:0">
+      <div id="ua-user-info" style="padding:14px 18px;border-bottom:1px solid var(--b1)"></div>
+      <div style="display:flex;border-bottom:1px solid var(--b1)">
+        <button class="ua-tab active" onclick="uaTab(0,this)">⚙️ Права</button>
+        <button class="ua-tab" onclick="uaTab(1,this)">🗺 Навігація</button>
+        <button class="ua-tab" onclick="uaTab(2,this)">📋 Підсумок</button>
+      </div>
+      <div class="ua-panel active" style="padding:16px"><div id="ua-perms-grid"></div></div>
+      <div class="ua-panel" style="padding:16px"><div id="ua-nav-grid"></div></div>
+      <div class="ua-panel" style="padding:16px"><div id="ua-summary"></div></div>
+    </div>
+    <div class="mdlf">
+      <button class="btn btn-d btn-sm" id="ua-reset-all" onclick="resetAllUserAccess()">↺ Скинути все</button>
+      <button class="btn btn-g" onclick="closeM('mo-user-access')">Закрити</button>
+    </div>
+  </div>
+</div>
+
 <div class="mo" id="mo-tutor">
   <div class="mdl">
     <div class="mdlh"><div class="mdlt" id="mt-title">Репетитор</div><button class="xbtn" onclick="closeM('mo-tutor')">×</button></div>
