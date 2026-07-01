@@ -3089,35 +3089,59 @@ async function renderUsers(){
 }
 
 async function openUserM(id){
-  S.editId=id;
-  var u=(S.users||[]).find(function(x){return x.id===id;});
-  if(!u) return;
-  document.getElementById('mu-title').textContent='\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0430\u043A\u0430\u0443\u043D\u0442';
-  document.getElementById('u-fn').value=u.fn||'';
-  document.getElementById('u-ln').value=u.ln||'';
-  document.getElementById('u-email').value=u.email||'';
-  document.getElementById('u-role').value=u.role||'tutor';
+  S.editId=id||null;
+  var u=id?(S.users||[]).find(function(x){return x.id===id;}):null;
+  if(id&&!u) return;
+
+  var titleEl=document.getElementById('mu-title');
+  if(titleEl) titleEl.textContent=id?'Редагувати акаунт':'Новий акаунт';
+
+  var fnEl=document.getElementById('u-fn');     if(fnEl)    fnEl.value=u?u.fn||'':'';
+  var lnEl=document.getElementById('u-ln');     if(lnEl)    lnEl.value=u?u.ln||'':'';
+  var emEl=document.getElementById('u-email');  if(emEl)  { emEl.value=u?u.email||'':''; emEl.disabled=!!id; emEl.style.opacity=id?'0.6':'1'; }
+  var roEl=document.getElementById('u-role');   if(roEl)    roEl.value=u?u.role||'tutor':'tutor';
   toggleTutLink();
-  popSel('u-tlink',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u041F\u0440\u0438\u0432\'\u044F\u0437\u0430\u0442\u0438 \u0434\u043E \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430');
-  var linked=(S.tutors||[]).find(function(t){return t.acc_uid===id||t.accId===id;});
-  if(linked) document.getElementById('u-tlink').value=linked.id;
+  popSel('u-tlink',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u041f\u0440\u0438\u0432\'\u044f\u0437\u0430\u0442\u0438 \u0434\u043e \u0432\u0438\u043a\u043b\u0430\u0434\u0430\u0447\u0430');
+  if(id){
+    var linked=(S.tutors||[]).find(function(t){return t.acc_uid===id||t.accId===id;});
+    if(linked){ var tlEl=document.getElementById('u-tlink'); if(tlEl) tlEl.value=linked.id; }
+  }
   openM('mo-user');
 }
 
 async function saveUser(){
-  if(!S.editId) return;
-  var fn=document.getElementById('u-fn').value.trim(), ln=document.getElementById('u-ln').value.trim();
+  var fn=document.getElementById('u-fn').value.trim();
+  var ln=document.getElementById('u-ln').value.trim();
   var role=document.getElementById('u-role').value;
+  var email=document.getElementById('u-email').value.trim();
+
+  if(!fn){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0456\u043c\u2019\u044f','error'); return; }
+
   try{
-    await dbUpdate('profiles',S.editId,{fn,ln,role});
-    // Link tutor
-    var tutorId=document.getElementById('u-tlink')?.value;
-    if(role==='tutor'&&tutorId){
-      await _sb.from('tutors').update({acc_uid:S.editId}).eq('id',tutorId);
+    if(!S.editId){
+      // Новий акаунт — запрошуємо через Supabase Admin API
+      if(!email){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044c email','error'); return; }
+      var _inv = await _sb.auth.admin.inviteUserByEmail(email, {
+        data:{ fn, ln, role }
+      });
+      if(_inv.error) throw _inv.error;
+      // Одразу оновимо профіль щойно створеного користувача
+      if(_inv.data?.user?.id){
+        await _sb.from('profiles').update({fn,ln,role}).eq('id',_inv.data.user.id);
+      }
+      mkToast('\u0417\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u043d\u044f \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043d\u043e \u043d\u0430 '+email);
+    } else {
+      // Редагування існуючого
+      await dbUpdate('profiles',S.editId,{fn,ln,role});
+      var tutorId=document.getElementById('u-tlink')?.value;
+      if(role==='tutor'&&tutorId){
+        await _sb.from('tutors').update({acc_uid:S.editId}).eq('id',tutorId);
+      }
+      if(CU?.id===S.editId){ CU=Object.assign({},CU,{fn,ln,role}); updateSBUser(); buildSidebar(); }
+      mkToast('\u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e');
     }
-    if(CU?.id===S.editId){ CU=Object.assign({},CU,{fn,ln,role}); updateSBUser(); buildSidebar(); }
-    mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); closeM('mo-user'); S.editId=null; renderUsers();
-  }catch(e){ mkToast('Помилка збереження: '+(e.message||e),'error'); console.error('saveUser error:',e); }
+    closeM('mo-user'); S.editId=null; renderUsers();
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); console.error('saveUser error:',e); }
 }
 
 async function delUser(id){
