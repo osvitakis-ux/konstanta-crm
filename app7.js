@@ -3974,17 +3974,26 @@ function renderBranches(){
   (S.branches||[]).forEach(function(b){
     var bid=b.id;
     var isActive=S.currentBranchId===bid;
-    var editBtn='<button class="btn btn-g btn-sm" onclick="editBranch(this.dataset.id)" data-id="'+bid+'">\u270F\uFE0F</button>';
-    var delBtn=S.branches.length>1?'<button class="btn btn-sm btn-d" onclick="delBranch(this.dataset.id)" data-id="'+bid+'">\uD83D\uDDD1</button>':'';
-    html+='<div class="ms">'+
-      '<div style="flex:1">'+
-        '<div style="font-weight:600;font-size:13px">'+(isActive?'\u2705 ':'')+b.name+'</div>'+
-        (b.address?'<div style="font-size:11px;color:var(--t2)">'+b.address+'</div>':'')+
-      '</div>'+
-      '<div style="display:flex;gap:6px">'+editBtn+delBtn+'</div>'+
-    '</div>';
+    var reqLines='';
+    if(b.pay_recipient) reqLines+='<div style="font-size:11px;color:var(--t2)">\uD83D\uDCB3 '+b.pay_recipient+'</div>';
+    if(b.pay_card)      reqLines+='<div style="font-size:11px;color:var(--t2)">'+b.pay_card+(b.pay_bank?' \u00B7 '+b.pay_bank:'')+'</div>';
+    html+='<div class="ms" style="flex-direction:column;align-items:stretch;gap:6px;padding:12px 0;border-bottom:1px solid var(--b1)">'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<div style="flex:1">'
+          +'<div style="font-weight:700;font-size:13px">'+(isActive?'\u2705 ':'')+b.name+'</div>'
+          +(b.address?'<div style="font-size:11px;color:var(--t2)">\uD83D\uDCCD '+b.address+'</div>':'')
+          +(b.phone?'<div style="font-size:11px;color:var(--t2)">\uD83D\uDCDE '+b.phone+'</div>':'')
+          +(b.email?'<div style="font-size:11px;color:var(--t2)">\u2709\uFE0F '+b.email+'</div>':'')
+          +(reqLines?'<div style="margin-top:4px">'+reqLines+'</div>':'')
+        +'</div>'
+        +'<div style="display:flex;gap:6px;flex-shrink:0">'
+          +'<button class="btn btn-g btn-sm" onclick="editBranch(this.dataset.id)" data-id="'+bid+'">\u270F\uFE0F</button>'
+          +(S.branches.length>1?'<button class="btn btn-sm btn-d" onclick="delBranch(this.dataset.id)" data-id="'+bid+'">\uD83D\uDDD1</button>':'')
+        +'</div>'
+      +'</div>'
+    +'</div>';
   });
-  el.innerHTML=html||'<div style="font-size:12px;color:var(--t3)">\u041D\u0435\u043C\u0430\u0454 \u0444\u0456\u043B\u0456\u0439</div>';
+  el.innerHTML=html||'<div style="font-size:12px;color:var(--t3);padding:8px 0">\u041D\u0435\u043C\u0430\u0454 \u0444\u0456\u043B\u0456\u0439</div>';
 }
 
 
@@ -5088,9 +5097,6 @@ function renderSettings(){
   var gcWrap = document.getElementById('god-constructor-wrap');
   if(gcWrap) gcWrap.style.display = (R()==='god') ? 'block' : 'none';
   document.getElementById('set-name').value=S.settings.name||'';
-  document.getElementById('set-phone').value=S.settings.phone||'';
-  document.getElementById('set-email').value=S.settings.email||'';
-  document.getElementById('set-addr').value=S.settings.address||'';
   document.getElementById('set-subj-list').innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><span class="msv">'+(s.price)+'\u20B4/\u0433\u043E\u0434</span><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj('+(i)+')">\u00D7</button></div></div>')).join('');
   // God-only sections
   const isGod=R()==='god';
