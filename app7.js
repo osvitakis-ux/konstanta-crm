@@ -3144,7 +3144,7 @@ async function uaPermChange(key,val,roleDefault){
   if(!perms.can) perms.can={};
   if(val===roleDefault) delete perms.can[key]; else perms.can[key]=val;
   if(!Object.keys(perms.can).length) delete perms.can;
-  try{ await dbUpdate('profiles',_uaUserId,{perms}); if(CU?.id===_uaUserId)CU.perms=perms; }catch(e){}
+  try{ await dbUpdate('profiles',_uaUserId,{perms}); if(CU?.id===_uaUserId)CU.perms=perms; }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); console.error('ua error:',e); return; }
   var u2=(S.users||[]).find(function(x){return x.id===_uaUserId;}); if(u2){u2.perms=perms;buildUASummary(u2);}
 }
 
@@ -3153,7 +3153,7 @@ async function uaResetPerm(key){
   if(!u) return;
   var perms=JSON.parse(JSON.stringify(u.perms||{}));
   if(perms.can){delete perms.can[key];if(!Object.keys(perms.can).length)delete perms.can;}
-  try{ await dbUpdate('profiles',_uaUserId,{perms}); if(CU?.id===_uaUserId)CU.perms=perms; }catch(e){}
+  try{ await dbUpdate('profiles',_uaUserId,{perms}); if(CU?.id===_uaUserId)CU.perms=perms; }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); console.error('ua error:',e); return; }
   var u2=(S.users||[]).find(function(x){return x.id===_uaUserId;}); if(u2){u2.perms=perms;buildUAPerms(u2);buildUASummary(u2);}
 }
 
@@ -3171,7 +3171,7 @@ async function uaNavChange(pageId,show,isInRole){
   }
   if(!perms.hideNav.length)delete perms.hideNav;
   if(!perms.showNav.length)delete perms.showNav;
-  try{ await dbUpdate('profiles',_uaUserId,{perms}); if(CU?.id===_uaUserId){CU.perms=perms;buildSidebar();} }catch(e){}
+  try{ await dbUpdate('profiles',_uaUserId,{perms}); if(CU?.id===_uaUserId){CU.perms=perms;buildSidebar();} }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); console.error('ua error:',e); return; }
   var u2=(S.users||[]).find(function(x){return x.id===_uaUserId;}); if(u2){u2.perms=perms;buildUASummary(u2);}
 }
 
