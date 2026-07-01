@@ -3158,7 +3158,10 @@ async function openUserAccessM(id){
   _uaUserId=id;
   document.querySelectorAll('.ua-tab').forEach(function(t,i){t.classList.toggle('active',i===0);});
   document.querySelectorAll('.ua-panel').forEach(function(p,i){p.classList.toggle('active',i===0);});
-  buildUAHeader(u); buildUAPerms(u); buildUANav(u); buildUASummary(u);
+  try{ buildUAHeader(u); }catch(e){ console.error('buildUAHeader error:',e); }
+  try{ buildUAPerms(u); }catch(e){ console.error('buildUAPerms error:',e); }
+  try{ buildUANav(u); }catch(e){ console.error('buildUANav error:',e); }
+  try{ buildUASummary(u); }catch(e){ console.error('buildUASummary error:',e); }
   openM('mo-user-access');
 }
 
@@ -3744,6 +3747,8 @@ var UA_PERMS = [
   {k:'deleteAny', lbl:'\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f',    icon:'\uD83D\uDDD1'},
   {k:'seeIncome', lbl:'\u0411\u0430\u0447\u0438\u0442\u0438 \u0434\u043e\u0445\u043e\u0434\u0438', icon:'\uD83D\uDCB0'},
 ];
+// UA_PAGES ініціалізується з NAV_CFG при першому зверненні
+function getUAPages(){ return NAV_CFG.map(function(n){ return {id:n.id, lbl:n.lbl, ico:n.ico, sec:n.sec}; }); }
 
 function buildUAHeader(u){
   var ro=ROLES[u.role];
@@ -3784,7 +3789,7 @@ function buildUANav(u){
   var el=document.getElementById('ua-nav-grid');
   if(!el)return;
   el.innerHTML='';
-  UA_PAGES.forEach(function(pg){
+  getUAPages().forEach(function(pg){
     var inRole=roleNav.includes(pg.id);
     var isOn=(inRole&&!hideNav.includes(pg.id))||showNav.includes(pg.id);
     var item=document.createElement('div');
@@ -3894,8 +3899,9 @@ function buildUASummary(u){
   if(hideNav.length||showNav.length){
     html+='<div style="font-weight:600;font-size:11px;color:var(--dir);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">\uD83D\uDCCB \u041D\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u044F \u0437\u043C\u0456\u043D\u0435\u043D\u0430:</div>';
     html+='<div style="display:flex;flex-direction:column;gap:3px">';
-    hideNav.forEach(function(p){var pg=UA_PAGES.find(function(x){return x.id===p;});html+='<div style="font-size:12px;color:var(--danger)">\u274C \u041F\u0440\u0438\u0445\u043E\u0432\u0430\u043D\u043E: '+(pg?pg.ico+' '+pg.lbl:p)+'</div>';});
-    showNav.forEach(function(p){var pg=UA_PAGES.find(function(x){return x.id===p;});html+='<div style="font-size:12px;color:var(--tut)">\u2705 \u0414\u043E\u0434\u0430\u043D\u043E: '+(pg?pg.ico+' '+pg.lbl:p)+'</div>';});
+    var _uap=getUAPages();
+    hideNav.forEach(function(p){var pg=_uap.find(function(x){return x.id===p;});html+='<div style="font-size:12px;color:var(--danger)">\u274C \u041F\u0440\u0438\u0445\u043E\u0432\u0430\u043D\u043E: '+(pg?pg.ico+' '+pg.lbl:p)+'</div>';});
+    showNav.forEach(function(p){var pg=_uap.find(function(x){return x.id===p;});html+='<div style="font-size:12px;color:var(--tut)">\u2705 \u0414\u043E\u0434\u0430\u043D\u043E: '+(pg?pg.ico+' '+pg.lbl:p)+'</div>';});
     html+='</div>';
   }
 
