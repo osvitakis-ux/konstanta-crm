@@ -2364,11 +2364,15 @@ async function exportBackup(){
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    mkToast('Резервну копію збережено');
+    mkToast('\u0420\u0435\u0437\u0435\u0440\u0432\u043d\u0443 \u043a\u043e\u043f\u0456\u044e \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e \u2705');
+    var _eL={branches:'\uD83C\uDFE2 \u0424.',tutors:'\uD83D\uDC64 \u0420.',students:'\uD83D\uDC65 \u0423.',lessons:'\uD83D\uDCCB \u0417.',payments:'\uD83D\uDCB3 \u041f.',subjects:'\uD83D\uDCDA \u041f.',comms:'\uD83D\uDCAC \u041a.',pricing_rules:'\uD83D\uDCB0 \u041f.',settings:'\u2699 \u041d.',profiles:'\uD83D\uDC64 \u041f.'};
+    var _eR=['\uD83D\uDCE4 \u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e:'];
+    Object.keys(backup.data).forEach(function(t){_eR.push((_eL[t]||t)+': '+(backup.data[t]||[]).length+' \u0437\u0430\u043f.');});
+    alert(_eR.join('\n'));
   }catch(e){
-    mkToast('Помилка: '+e.message,'error');
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');
   }
-  if(btn){ btn.disabled=false; btn.textContent='⬇ Завантажити резервну копію'; }
+  if(btn){ btn.disabled=false; btn.textContent='\u2b07 \u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438 \u0440\u0435\u0437\u0435\u0440\u0432\u043d\u0443 \u043a\u043e\u043f\u0456\u044e'; }
 }
 
 function importBackupClick(){
@@ -2434,6 +2438,13 @@ async function importBackup(input){
     // Reload all data and re-render
     await loadAll();
     nav(S.currentPage||'dashboard');
+
+    // Import summary
+    var _iL={branches:'\uD83C\uDFE2 \u0424\u0456\u043b\u0456\u0457',tutors:'\uD83D\uDC64 \u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438',students:'\uD83D\uDC65 \u0423\u0447\u043d\u0456',lessons:'\uD83D\uDCCB \u0417\u0430\u043d\u044f\u0442\u0442\u044f',payments:'\uD83D\uDCB3 \u041f\u043b\u0430\u0442\u0435\u0436\u0456',subjects:'\uD83D\uDCDA \u041f\u0440\u0435\u0434\u043c\u0435\u0442\u0438',comms:'\uD83D\uDCAC \u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0457',pricing_rules:'\uD83D\uDCB0 \u041f\u0440\u0430\u0432\u0438\u043b\u0430',settings:'\u2699\uFE0F \u041d\u0430\u043b\u0430\u0448\u0442.'};
+    var _iR=['\uD83D\uDCE5 \u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043e \u0437 \u043a\u043e\u043f\u0456\u0457 \u0432\u0456\u0434 '+created+':'];
+    Object.entries(stats).forEach(function(e){_iR.push((_iL[e[0]]||e[0])+': '+e[1]+' \u0437\u0430\u043f\u0438\u0441\u0456\u0432');});
+    if(errors.length) _iR.push('\n\u26A0\uFE0F \u041f\u043e\u043c\u0438\u043b\u043a\u0438: '+errors.join('; '));
+    alert(_iR.join('\n'));
 
   }catch(e){
     console.error('importBackup exception:', e);
