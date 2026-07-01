@@ -1533,12 +1533,34 @@ function renderPayments(){
   // Show invoice toolbar only for god/director
   var invToolbar = document.getElementById('inv-toolbar');
   if(invToolbar) invToolbar.style.display = (R()==='god'||R()==='director') ? 'block' : 'none';
-  var paid=S.payments.filter(function(p){return p.status==='paid';}).reduce(function(a,p){return a+p.amount;},0);
-  var pend=S.payments.filter(function(p){return p.status==='pending';}).reduce(function(a,p){return a+p.amount;},0);
-  var over=S.payments.filter(function(p){return p.status==='overdue';}).reduce(function(a,p){return a+p.amount;},0);
-  document.getElementById('py-paid').textContent=paid.toLocaleString('uk-UA')+'\u20B4';
-  document.getElementById('py-pend').textContent=pend.toLocaleString('uk-UA')+'\u20B4';
-  document.getElementById('py-over').textContent=over.toLocaleString('uk-UA')+'\u20B4';
+
+  // Допоміжна функція вартості заняття
+  function lessonAmt(l){
+    if(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price))) return parseFloat(l.price);
+    return 0;
+  }
+
+  var myLess = myLessons();
+  // Отримано = проведені заняття
+  var paid = myLess.filter(function(l){
+    return l.status==='done'||l.status==='completed'||l.status==='makeup';
+  }).reduce(function(a,l){ return a+lessonAmt(l); }, 0);
+
+  // Очікується = заплановані заняття
+  var pend = myLess.filter(function(l){
+    return l.status==='planned'||l.status==='scheduled';
+  }).reduce(function(a,l){ return a+lessonAmt(l); }, 0);
+
+  // Різниця = Очікується − Отримано
+  var diff = pend - paid;
+
+  document.getElementById('py-paid').textContent = Math.round(paid).toLocaleString('uk-UA')+'\u20B4';
+  document.getElementById('py-pend').textContent = Math.round(pend).toLocaleString('uk-UA')+'\u20B4';
+  var overEl = document.getElementById('py-over');
+  if(overEl){
+    overEl.textContent = (diff>=0?'+':'')+Math.round(diff).toLocaleString('uk-UA')+'\u20B4';
+    overEl.style.color = diff<0 ? 'var(--danger)' : diff>0 ? 'var(--tut)' : '';
+  }
   var mm={cash:'\u0413\u043E\u0442\u0456\u0432\u043A\u0430',card:'\u041A\u0430\u0440\u0442\u043A\u0430',transfer:'\u041F\u0435\u0440\u0435\u043A\u0430\u0437'};
   var ce=can('payments');
   var data=[].concat(S.payments).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
@@ -4088,15 +4110,26 @@ function renderReports(){
   function hrs(arr){ return Math.round(arr.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
 
   // === Доходи по місяцях (₴) ===
+  // === Доходи по місяцях (заплановані + проведені заняття × ціна, ₴) ===
   var months = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
   var md = new Array(12).fill(0);
   var curYear = new Date().getFullYear();
-  (S.payments||[]).filter(function(p){
-    if(!p.date) return false;
-    return new Date(p.date).getFullYear() === curYear;
-  }).forEach(function(p){
-    var d = new Date(p.date);
-    md[d.getMonth()] += parseFloat(p.amount)||0;
+  var validInc = ['planned','scheduled','done','completed','makeup'];
+  lessons.filter(function(l){
+    if(!l.date) return false;
+    if(validInc.indexOf(l.status)<0) return false;
+    return new Date(l.date).getFullYear() === curYear;
+  }).forEach(function(l){
+    var mon = new Date(l.date).getMonth();
+    var cost = 0;
+    if(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price))){
+      cost = parseFloat(l.price);
+    } else {
+      // фолбек: поле amount з платежу відповідного заняття
+      var pay = (S.payments||[]).find(function(p){return p.lessonId===l.id||p.lesson_id===l.id;});
+      if(pay) cost = parseFloat(pay.amount)||0;
+    }
+    md[mon] += cost;
   });
   md = md.map(function(v){return Math.round(v);});
   var maxI = Math.max.apply(null, md.concat([1]));
@@ -4107,7 +4140,6 @@ function renderReports(){
       +(lbl?'<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t2);white-space:nowrap;font-family:JetBrains Mono,monospace">'+lbl+'₴</div>':'')
       +'</div><div class="blbl">'+months[i]+'</div></div>';
   }).join('');
-
   // === Заняття по предметах (год) ===
   var sc = {};
   lessons.forEach(function(l){
