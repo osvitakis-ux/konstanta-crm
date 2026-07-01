@@ -4114,7 +4114,7 @@ function renderReports(){
   var months = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
   var md = new Array(12).fill(0);
   var curYear = new Date().getFullYear();
-  var validInc = ['planned','scheduled','done','completed','makeup'];
+  var validInc = ['done','completed','makeup'];
   lessons.filter(function(l){
     if(!l.date) return false;
     if(validInc.indexOf(l.status)<0) return false;
