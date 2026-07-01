@@ -4109,13 +4109,12 @@ function renderReports(){
 
   function hrs(arr){ return Math.round(arr.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
 
-  // === Доходи по місяцях (₴) ===
-  // === Доходи по місяцях (заплановані + проведені заняття × ціна, ₴) ===
+  // === Доходи по місяцях (₴) — всі проведені заняття року, незалежно від фільтра ===
   var months = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
   var md = new Array(12).fill(0);
   var curYear = new Date().getFullYear();
   var validInc = ['done','completed','makeup'];
-  lessons.filter(function(l){
+  myLessons().filter(function(l){
     if(!l.date) return false;
     if(validInc.indexOf(l.status)<0) return false;
     return new Date(l.date).getFullYear() === curYear;
