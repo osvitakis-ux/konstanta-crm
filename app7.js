@@ -2379,54 +2379,70 @@ async function importBackup(input){
   var file = input.files[0];
   if(!file){ return; }
   var btn = document.getElementById('restore-btn');
-  if(btn){ btn.disabled=true; btn.textContent='Відновлення...'; }
+  if(btn){ btn.disabled=true; btn.textContent='\u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f...'; }
 
   try{
     var text = await file.text();
     var backup = JSON.parse(text);
 
     if(!backup.version || !backup.data){
-      mkToast('Невірний формат файлу','error');
-      if(btn){btn.disabled=false;btn.textContent='⬆ Відновити з копії';}
+      mkToast('\u041d\u0435\u0432\u0456\u0440\u043d\u0438\u0439 \u0444\u043e\u0440\u043c\u0430\u0442 \u0444\u0430\u0439\u043b\u0443','error');
+      if(btn){btn.disabled=false;btn.textContent='\u2B06 \u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0437 \u043a\u043e\u043f\u0456\u0457';}
       return;
     }
 
-    if(!confirm('Відновити дані з копії від '+backup.created.slice(0,10)+'?\n\n⚠ Це перезапише ВСІ поточні дані!')){
-      if(btn){btn.disabled=false;btn.textContent='⬆ Відновити з копії';}
+    var created = (backup.created||'').slice(0,10) || '\u043d\u0435\u0432\u0456\u0434\u043e\u043c\u043e';
+    if(!confirm('\u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0434\u0430\u043d\u0456 \u0437 \u043a\u043e\u043f\u0456\u0457 \u0432\u0456\u0434 '+created+'?\n\n\u26A0 \u0426\u0435 \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0438\u0448\u0435 \u0412\u0421\u0406 \u043f\u043e\u0442\u043e\u0447\u043d\u0456 \u0434\u0430\u043d\u0456!')){
+      if(btn){btn.disabled=false;btn.textContent='\u2B06 \u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0437 \u043a\u043e\u043f\u0456\u0457';}
       input.value='';
       return;
     }
 
     var stats = {};
+    var errors = [];
     // Restore tables in correct order (deps first)
-    var order = ['branches','subjects','pricing_rules','tutors','students','lessons','payments','comms','settings'];
+    var order = ['branches','subjects','pricing_rules','tutors','students','lessons','payments','comms'];
     for(var i=0;i<order.length;i++){
       var table = order[i];
       var rows  = backup.data[table];
       if(!rows || !rows.length){ stats[table]=0; continue; }
-      // Delete existing
-      await _sb.from(table).delete().neq('id','');
-      // Insert backup rows in chunks of 50
+      // Delete existing rows
+      var delRes = await _sb.from(table).delete().neq('id','00000000-0000-0000-0000-000000000000');
+      if(delRes.error) errors.push('del '+table+': '+delRes.error.message);
+      // Upsert backup rows in chunks of 50
       var inserted = 0;
       for(var j=0;j<rows.length;j+=50){
         var chunk = rows.slice(j,j+50);
-        var res = await _sb.from(table).insert(chunk);
-        if(!res.error) inserted += chunk.length;
+        var res = await _sb.from(table).upsert(chunk, {onConflict:'id'});
+        if(res.error){ errors.push(table+': '+res.error.message); }
+        else inserted += chunk.length;
       }
       stats[table] = inserted;
     }
 
-    // Reload all data
+    // Settings: single upsert (may not have id field)
+    if(backup.data.settings && backup.data.settings.length){
+      var sr = await _sb.from('settings').upsert(backup.data.settings, {onConflict:'id'});
+      if(sr.error) errors.push('settings: '+sr.error.message);
+      else stats.settings = backup.data.settings.length;
+    }
+
+    if(errors.length){
+      console.error('Backup import errors:', errors);
+      mkToast('\u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u0437 \u043f\u043e\u043c\u0438\u043b\u043a\u0430\u043c\u0438. \u0414\u0435\u0442\u0430\u043b\u0456 \u0432 \u043a\u043e\u043d\u0441\u043e\u043b\u0456 (F12)','error');
+    } else {
+      mkToast('\u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u2705');
+    }
+
+    // Reload all data and re-render
     await loadAll();
-    renderSch && renderSch();
     nav(S.currentPage||'dashboard');
 
-    var summary = Object.entries(stats).map(function(e){return e[0]+': '+e[1];}).join(', ');
-    mkToast('Відновлено! '+summary);
   }catch(e){
-    mkToast('Помилка відновлення: '+e.message,'error');
+    console.error('importBackup exception:', e);
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');
   }
-  if(btn){btn.disabled=false;btn.textContent='⬆ Відновити з копії';}
+  if(btn){btn.disabled=false;btn.textContent='\u2B06 \u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0437 \u043a\u043e\u043f\u0456\u0457';}
   input.value='';
 }
 
