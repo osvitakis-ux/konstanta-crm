@@ -4087,17 +4087,24 @@ function renderReports(){
 
   function hrs(arr){ return Math.round(arr.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
 
-  // === Доходи по місяцях (в годинах занять) ===
-  var months = ['\u0421\u0456\u0447','\u041b\u044e\u0442','\u0411\u0435\u0440','\u041a\u0432\u0456','\u0422\u0440\u0430','\u0427\u0435\u0440','\u041b\u0438\u043f','\u0421\u0435\u0440','\u0412\u0435\u0440','\u0416\u043e\u0432','\u041b\u0438\u0441','\u0413\u0440\u0443'];
+  // === Доходи по місяцях (₴) ===
+  var months = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
   var md = new Array(12).fill(0);
-  lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';})
-    .forEach(function(l){ var d=new Date(l.date); md[d.getMonth()]+=(parseFloat(l.dur)||60)/60; });
-  md = md.map(function(v){return Math.round(v*10)/10;});
+  var curYear = new Date().getFullYear();
+  (S.payments||[]).filter(function(p){
+    if(!p.date) return false;
+    return new Date(p.date).getFullYear() === curYear;
+  }).forEach(function(p){
+    var d = new Date(p.date);
+    md[d.getMonth()] += parseFloat(p.amount)||0;
+  });
+  md = md.map(function(v){return Math.round(v);});
   var maxI = Math.max.apply(null, md.concat([1]));
   var incEl = document.getElementById('rc-income');
   if(incEl) incEl.innerHTML = md.map(function(v,i){
+    var lbl = v>0 ? (v>=1000 ? (Math.round(v/100)/10)+'к' : v) : '';
     return '<div class="bw"><div class="bar" style="height:'+(v/maxI*100)+'%;background:linear-gradient(180deg,var(--adm),var(--adm2))">'
-      +(v>0?'<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t2);white-space:nowrap;font-family:JetBrains Mono,monospace">'+v+'\u0433</div>':'')
+      +(lbl?'<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t2);white-space:nowrap;font-family:JetBrains Mono,monospace">'+lbl+'₴</div>':'')
       +'</div><div class="blbl">'+months[i]+'</div></div>';
   }).join('');
 
