@@ -8,6 +8,21 @@
 <!-- v202606151511 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Репетиторський центр "Константа"</title>
+<meta name="theme-color" content="#29abe2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="КРМ Константа">
+<link rel="manifest" href="manifest.json">
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(){ console.log('SW registered'); })
+      .catch(function(e){ console.warn('SW error:', e); });
+  });
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Karla:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1621,7 +1636,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fg"><label>Email</label><input id="br-email" placeholder="email@..."></div>
       <div class="fg" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--b1)"><label style="color:var(--adm)">💳 Реквізити для оплати</label></div>
       <div class="fg"><label>Отримувач (ФОП/ТОВ/ПІБ)</label><input id="br-pay-recipient" placeholder="ФОП Іваненко І.І."></div>
-      <div class="fg"><label>Номер картки / IBAN</label><input id="br-pay-card" placeholder="4441 1111 2222 3333 або UA..."></div>
+      <div class="fg"><label>IBAN</label><input id="br-pay-card" placeholder="UA..."></div>
       <div class="fg"><label>Банк</label><input id="br-pay-bank" placeholder="ПриватБанк, monobank..."></div>
       <div class="fg"><label>ЄДРПОУ / ІПН</label><input id="br-pay-edrpou" placeholder="12345678"></div>
       <div class="fg"><label>Призначення платежу (шаблон)</label><input id="br-pay-purpose" placeholder="Оплата за навчання"></div>
