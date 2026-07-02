@@ -1,11 +1,11 @@
-const CACHE_NAME = 'konstanta-crm-v1';
+const CACHE_NAME = 'konstanta-crm-v2';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/app7.js',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  './',
+  './index.html',
+  './app7.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', function(e) {
@@ -21,8 +21,8 @@ self.addEventListener('activate', function(e) {
   e.waitUntil(
     caches.keys().then(function(keys) {
       return Promise.all(
-        keys.filter(function(k) { return k !== CACHE_NAME; })
-            .map(function(k) { return caches.delete(k); })
+        keys.filter(function(k){ return k !== CACHE_NAME; })
+            .map(function(k){ return caches.delete(k); })
       );
     })
   );
@@ -30,13 +30,10 @@ self.addEventListener('activate', function(e) {
 });
 
 self.addEventListener('fetch', function(e) {
-  // Supabase і API запити — завжди з мережі
-  if (e.request.url.includes('supabase.co') ||
-      e.request.url.includes('supabase.com')) {
-    return;
-  }
+  if(e.request.url.includes('supabase.co') ||
+     e.request.url.includes('supabase.com')) return;
   e.respondWith(
-    caches.match(e.request).then(function(cached) {
+    caches.match(e.request).then(function(cached){
       return cached || fetch(e.request);
     })
   );
