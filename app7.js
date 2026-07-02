@@ -263,11 +263,12 @@ function onLessStatChange(){
   var spWrap=document.getElementById('l-split-wrap');
   if(mkWrap) mkWrap.style.display=(stat==='makeup'||stat==='makeup_planned')?'block':'none';
   if(msWrap) msWrap.style.display=(stat==='missed'||stat==='makeup'||stat==='makeup_planned')?'block':'none';
-  var canSplit30=dur>=60;
-  var canSplit60=dur>=120;
-  if(spWrap) spWrap.style.display=((stat==='missed'||stat==='makeup'||stat==='makeup_planned')&&canSplit30)?'block':'none';
-  var btn60=document.getElementById('split-btn-60');
-  if(btn60) btn60.style.display=canSplit60?'inline-flex':'none';
+  var canSplit=dur>=60 && (stat==='missed'||stat==='makeup'||stat==='makeup_planned');
+  if(spWrap) spWrap.style.display=canSplit?'block':'none';
+  // Ініціалізуємо поле частин якщо порожнє
+  var splitInput=document.getElementById('split-parts-input');
+  if(splitInput && canSplit && !splitInput.value) splitInput.value='30, 60';
+  if(canSplit) updateSplitPreview();
 }
 
 function renderCommsPage(){
@@ -508,6 +509,70 @@ async function splitLessonToChunks(chunkMin){
 }
 function splitLessonTo30(){ return splitLessonToChunks(30); }
 function splitLessonTo60(){ return splitLessonToChunks(60); }
+
+function splitPreset(val){
+  var el=document.getElementById('split-parts-input');
+  if(el){ el.value=val; updateSplitPreview(); }
+}
+
+function updateSplitPreview(){
+  var id=S.editId;
+  var orig=id?(S.lessons||[]).find(function(l){return l.id===id;}):null;
+  var curDur=parseInt((document.getElementById('l-dur')||{value:'60'}).value)||parseInt((orig||{}).dur)||60;
+  var input=(document.getElementById('split-parts-input')?.value||'').trim();
+  var preview=document.getElementById('split-preview');
+  if(!preview) return;
+  if(!input){preview.textContent='';return;}
+  var parts=input.split(',').map(function(s){return parseInt(s.trim())||0;}).filter(function(v){return v>0;});
+  if(!parts.length){preview.textContent='';return;}
+  var sum=parts.reduce(function(a,b){return a+b;},0);
+  if(sum!==curDur){
+    preview.textContent='\u26A0\uFE0F \u0421\u0443\u043c\u0430 ('+sum+' \u0445\u0432) \u043d\u0435 \u0434\u043e\u0440\u0456\u0432\u043d\u044e\u0454 \u0437\u0430\u0433\u0430\u043b\u044c\u043d\u0456\u0439 \u0442\u0440\u0438\u0432\u0430\u043b\u043e\u0441\u0442\u0456 ('+curDur+' \u0445\u0432)';
+    preview.style.color='var(--danger)';
+  } else {
+    preview.textContent='\u2713 '+parts.map(function(p,i){return '\u0427\u0430\u0441\u0442\u0438\u043d\u0430 '+(i+1)+': '+p+' \u0445\u0432';}).join(' + ');
+    preview.style.color='var(--tut)';
+  }
+}
+
+async function splitLessonCustom(){
+  var id=S.editId;
+  if(!id){mkToast('\u041d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u0443\u0440\u043e\u043a','error');return;}
+  var orig=(S.lessons||[]).find(function(l){return l.id===id;});
+  if(!orig){mkToast('\u0423\u0440\u043e\u043a \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e','error');return;}
+  var curDur=parseInt((document.getElementById('l-dur')||{value:'60'}).value)||parseInt(orig.dur)||60;
+  var input=(document.getElementById('split-parts-input')?.value||'').trim();
+  var parts=input.split(',').map(function(s){return parseInt(s.trim())||0;}).filter(function(v){return v>0;});
+  if(parts.length<2){mkToast('\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u043c\u0456\u043d\u0456\u043c\u0443\u043c 2 \u0447\u0430\u0441\u0442\u0438\u043d\u0438 \u0447\u0435\u0440\u0435\u0437 \u043a\u043e\u043c\u0443','error');return;}
+  var sum=parts.reduce(function(a,b){return a+b;},0);
+  if(sum!==curDur){mkToast('\u0421\u0443\u043c\u0430 \u0447\u0430\u0441\u0442\u0438\u043d ('+sum+' \u0445\u0432) \u043d\u0435 \u0434\u043e\u0440\u0456\u0432\u043d\u044e\u0454 \u0442\u0440\u0438\u0432\u0430\u043b\u043e\u0441\u0442\u0456 ('+curDur+' \u0445\u0432)','error');return;}
+  if(!confirm('\u0420\u043e\u0437\u0431\u0438\u0442\u0438 ('+curDur+' \u0445\u0432) \u043d\u0430: '+parts.join(' + ')+' \u0445\u0432?')) return;
+  var lt=orig.time||'10:00';
+  var lh0=parseInt(lt.split(':')[0]);
+  var lm0=parseInt(lt.split(':')[1]||'0');
+  var base={
+    student_id:orig.studentId||orig.student_id,
+    tutor_id:orig.tutorId||orig.tutor_id,
+    subject:orig.subject||'',date:orig.date,
+    status:orig.status||'missed',price:null,
+    branch_id:orig.branchId||orig.branch_id||null,
+    split_group_id:id
+  };
+  try{
+    await dbUpdate('lessons',id,{dur:parts[0],split_group_id:id,split_index:0});
+    var offset=lm0+parts[0];
+    for(var i=1;i<parts.length;i++){
+      var nh=lh0+Math.floor(offset/60);
+      var nm=offset%60;
+      var t=String(nh).padStart(2,'0')+':'+String(nm).padStart(2,'0');
+      await dbInsert('lessons',Object.assign({},base,{id:uid(),time:t,dur:parts[i],split_index:i}));
+      offset+=parts[i];
+    }
+    mkToast('\u0420\u043e\u0437\u0431\u0438\u0442\u043e: '+parts.join(' + ')+' \u0445\u0432');
+    closeM('mo-lesson');
+  }catch(e){mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');}
+}
+
 
 /*
  * ПРАВИЛА РОЗРАХУНКУ РЕЙТИНГУ РЕПЕТИТОРА (4 тижні)
