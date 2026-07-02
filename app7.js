@@ -1243,7 +1243,7 @@ function renderDashKpi(){
   var threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
   var from3m = localDateStr(threeMonthsAgo);
   var missed3m = uncoveredMissedFilter(allL.filter(function(l){ return l.date>=from3m; }));
-  var missedH = Math.round(missed3m.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var missedH = Math.round(allL.filter(function(l){return l.status==='missed'&&l.date>=from3m;}).reduce(function(s,l){return s+uncoveredMissedHours(l);},0)*10)/10;
   var cancelled = weekL.filter(function(l){return l.status==='cancelled';}).length;
   var plannedCnt = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
   var totalComms = weekComms.length;
@@ -1314,7 +1314,7 @@ function renderDashKpi(){
     var tPlannedH=Math.round(tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
     // Пропущені — некомпенсовані за 3 місяці, в годинах
     var t3mL=allL.filter(function(l){return (l.tutorId===t.id||l.tutor_id===t.id)&&l.date>=from3m;});
-    var tMissedH=Math.round(uncoveredMissedFilter(t3mL).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    var tMissedH=Math.round(t3mL.filter(function(l){return l.status==='missed';}).reduce(function(s,l){return s+uncoveredMissedHours(l);},0)*10)/10;
     var tComms  =weekComms.filter(function(c){return c.tutorId===t.id||c.tutor_id===t.id;}).length;
     var tStudents=S.students.filter(function(s){return (s.tutorId===t.id||s.tutor_id===t.id)&&s.status==='active';}).length;
     // Виконання = проведено / (проведено + заплановано) * 100
@@ -3751,7 +3751,15 @@ function openLessM(id, date, time){
       document.getElementById('l-notes').value = l.notes||'';
       // Load missed/makeup dates and hw
       var missEl=document.getElementById('l-miss-date');
-      if(missEl) missEl.value=l.missed_date||'';
+      var autoMissDate = l.missed_date||'';
+      // Якщо це makeup і є split_group_id — автоматично знаходимо дату пропущеного
+      if(!autoMissDate && (l.status==='makeup'||l.status==='makeup_planned') && l.split_group_id){
+        var origMissed=(S.lessons||[]).find(function(x){
+          return x.id===l.split_group_id && x.status==='missed';
+        });
+        if(origMissed) autoMissDate=origMissed.date;
+      }
+      if(missEl) missEl.value=autoMissDate;
       var makeupEl=document.getElementById('l-makeup-date');
       if(makeupEl) makeupEl.value=l.makeup_date||'';
       var hwEl=document.getElementById('l-hw');
@@ -4561,7 +4569,9 @@ function renderSchDay(){
         const heightPx = Math.max((dur/60)*ROW_H, 18);
         if(lh<START_H||lh>=END_H) return;
         var _isCov = l.status==='missed' && isCoveredMissed(l);
+        var _isPartial = !_isCov && l.status==='missed' && uncoveredMissedHours(l)*60 < (parseFloat(l.dur)||60);
         var ecl = _isCov ? 'ec-covered'
+          : _isPartial ? 'ec-partial'
           : l.status==='missed'  ? 'ec-miss'
           : l.status==='makeup'  ? 'ec-make'
           : l.status==='makeup_planned' ? 'ec-makeplan'
@@ -4648,7 +4658,9 @@ function renderSchWeek(){
       const heightPx=Math.max((dur/60)*ROW_H, 18);
       if(lh<START_H||lh>=END_H) return;
       var _isCov=l.status==='missed'&&isCoveredMissed(l);
+      var _isPartial=!_isCov&&l.status==='missed'&&uncoveredMissedHours(l)*60<(parseFloat(l.dur)||60);
       var ecl=_isCov?'ec-covered'
+        :_isPartial?'ec-partial'
         :l.status==='missed'?'ec-miss'
         :l.status==='makeup'?'ec-make'
         :l.status==='makeup_planned'?'ec-makeplan'
@@ -5538,6 +5550,25 @@ function getUncoveredMissed(lessons){
 }
 
 // Фільтр для дашборду: пропущені без відпрацювання
+// Повертає непокриту тривалість пропущеного уроку в годинах
+function uncoveredMissedHours(l){
+  if(l.status!=='missed') return 0;
+  var missedDur = parseFloat(l.dur)||60;
+  var sid = l.studentId||l.student_id;
+  var tid = l.tutorId||l.tutor_id;
+  var ldate = l.date;
+  // Знаходимо пов'язані makeup-уроки по даті пропуску
+  var makeups=(S.lessons||[]).filter(function(x){
+    if(x.status!=='makeup') return false;
+    if((x.studentId||x.student_id)!==sid) return false;
+    if((x.tutorId||x.tutor_id)!==tid) return false;
+    return x.missed_date===ldate;
+  });
+  var makeupDur=makeups.reduce(function(s,x){return s+(parseFloat(x.dur)||60);},0);
+  var uncovered=Math.max(0, missedDur-makeupDur);
+  return Math.round(uncovered/60*10)/10;
+}
+
 function uncoveredMissedFilter(lessons){
   return (lessons||[]).filter(function(l){
     return (l.status==='missed'||l.status==='absent') && !isCoveredMissed(l);
