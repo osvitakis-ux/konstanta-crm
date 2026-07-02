@@ -2455,6 +2455,52 @@ async function importBackup(input){
 }
 
 async function initApp(){
+  // ── VIEWER MODE: відкриття резервної копії без Supabase ──
+  var _isViewer = window.location.search.includes('viewer=1');
+  if(_isViewer){
+    var _bkRaw = sessionStorage.getItem('crm_backup');
+    if(!_bkRaw){ document.body.innerHTML='<div style="padding:40px;text-align:center"><h2>Помилка</h2><p>Дані не знайдено. <a href="viewer.html">Відкрийте резервну копію знову</a></p></div>'; return; }
+    var _bk = JSON.parse(_bkRaw);
+    var _d  = _bk.data;
+    S.students     = (_d.students    ||[]).map(normalizeStudent);
+    S.tutors       = (_d.tutors      ||[]).map(normalizeTutor);
+    S.lessons      = (_d.lessons     ||[]).map(normalizeLesson);
+    S.payments     = (_d.payments    ||[]).map(normalizePayment);
+    S.comms        = (_d.comms       ||[]).map(normalizeComm);
+    S.branches     = _d.branches     ||[];
+    S.subjects     = _d.subjects     ||[];
+    S.pricingRules = (_d.pricing_rules||[]).map(normalizePricingRule);
+    S.settings     = (_d.settings    ||[{}])[0]||{};
+    S.users        = _d.profiles     ||[];
+    // Мок поточного користувача — God-режим для перегляду всього
+    CU = { id:'viewer', fn:'Перегляд', ln:'(резервна копія)', role:'god', perms:{} };
+    applyGodConfig();
+    // Ховаємо форму логіну, показуємо головний екран
+    var asEl=document.getElementById('as'); if(asEl)asEl.style.display='block';
+    var lsEl=document.getElementById('ls'); if(lsEl)lsEl.style.display='none';
+    var setupEl=document.getElementById('setup'); if(setupEl)setupEl.style.display='none';
+    // Прибираємо лоадер якщо є
+    var loadDiv=document.getElementById('app-loading'); if(loadDiv)loadDiv.remove();
+    // Ін'єкція CSS для перемикання сторінок (як в startApp)
+    if(!document.getElementById('__pcss__')){
+      var _st=document.createElement('style');
+      _st.id='__pcss__';
+      _st.textContent='.page{display:none!important}.page.active{display:block!important;padding-bottom:40px}';
+      document.head.appendChild(_st);
+    }
+    window._viewerMode = true;
+    buildSidebar(); updateSBUser(); updateBranchSelector();
+    document.body.className = document.body.className.replace(/\brole-\w+\b/g,'');
+    document.body.classList.add('role-god');
+    // Показуємо банер "Режим перегляду"
+    var banner=document.createElement('div');
+    banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#f59e0b;color:#fff;text-align:center;padding:5px;font-size:12px;font-weight:700;pointer-events:none';
+    banner.textContent='\uD83D\uDC41 \u0420\u0415\u0416\u0418\u041c \u041f\u0415\u0420\u0415\u0413\u041b\u042f\u0414\u0423 \u2014 \u0420\u0435\u0437\u0435\u0440\u0432\u043d\u0430 \u043a\u043e\u043f\u0456\u044f \u0432\u0456\u0434 '+((_bk.created||'').slice(0,10))+' \u2014 \u0417\u043c\u0456\u043d\u0438 \u043d\u0435 \u0437\u0431\u0435\u0440\u0456\u0433\u0430\u044e\u0442\u044c\u0441\u044f';
+    document.body.appendChild(banner);
+    var contentEl=document.getElementById('content'); if(contentEl)contentEl.style.paddingTop='30px';
+    nav('dashboard');
+    return;
+  }
   // Wait for Supabase SDK to load (retry up to 3s)
   var sdkWait = 0;
   while(typeof supabase === 'undefined' && sdkWait < 30){
@@ -2758,6 +2804,7 @@ async function refreshIfExpired(error){
 }
 
 async function dbInsert(table, data){
+  if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   setSaving();
   var _ri = await _sb.from(table).insert(data); var error = _ri.error;
   if(error && await refreshIfExpired(error)){
@@ -2767,6 +2814,7 @@ async function dbInsert(table, data){
   setTimeout(function(){ loadTableFresh(table); }, 800);
 }
 async function dbUpdate(table, id, data){
+  if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   setSaving();
   // profiles table has no updated_at column
   var noTimestamp = ['profiles'];
@@ -2781,6 +2829,7 @@ async function dbUpdate(table, id, data){
   setTimeout(function(){ loadTableFresh(table); }, 800);
 }
 async function dbDelete(table, id){
+  if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   setSaving();
   var _rd = await _sb.from(table).delete().eq('id',id); var error = _rd.error;
   if(error && await refreshIfExpired(error)){
@@ -4274,7 +4323,7 @@ function renderSch(){
   const tf   = document.getElementById('sch-tutor-filter');
   if(btnW) btnW.classList.toggle('active-view', view==='week');
   if(btnD) btnD.classList.toggle('active-view', view==='day');
-  if(tf)   tf.style.display = view==='day' ? 'block' : 'none';
+  if(tf)   tf.style.display = (view==='day' && R()!=='tutor') ? 'block' : 'none';
   // Update prev/next labels
   const prevBtn = document.getElementById('sch-prev');
   const nextBtn = document.getElementById('sch-next');
