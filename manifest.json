@@ -2,7 +2,8 @@
   "name": "КРМ Константа",
   "short_name": "Константа",
   "description": "CRM-система Репетиторського центру Константа",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f0f4f8",
   "theme_color": "#29abe2",
@@ -10,34 +11,21 @@
   "lang": "uk",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
-  "categories": ["education", "business", "productivity"],
   "shortcuts": [
-    {
-      "name": "Учні",
-      "url": "/?page=students",
-      "description": "Список учнів"
-    },
-    {
-      "name": "Розклад",
-      "url": "/?page=schedule",
-      "description": "Розклад занять"
-    },
-    {
-      "name": "CRM",
-      "url": "/?page=crm",
-      "description": "CRM-дошка"
-    }
+    { "name": "Учні",    "url": "./?page=students",  "description": "Список учнів" },
+    { "name": "Розклад", "url": "./?page=schedule",  "description": "Розклад занять" },
+    { "name": "CRM",     "url": "./?page=crm",       "description": "CRM-дошка" }
   ]
 }
