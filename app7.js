@@ -1630,12 +1630,17 @@ function renderLessons(){
     if(cur){ sdf.value=cur; if(sdf._updateSearch) sdf._updateSearch(); }
   }
 
-  var data = [].concat(myLessons()).sort(function(a,b){
+  var data = [].concat(myLessons()).filter(function(l){
+    // Якщо пропущений урок відпрацьований — не показуємо його окремо (є makeup-запис)
+    if(l.status==='missed' && isCoveredMissed(l)) return false;
+    return true;
+  }).sort(function(a,b){
     return new Date(b.date+'T'+(b.time||'00:00'))-new Date(a.date+'T'+(a.time||'00:00'));
   });
   if(sdv) data = data.filter(function(l){return (l.studentId||l.student_id)===sdv;});
   if(sv)  data = data.filter(function(l){
     if(sv==='done') return l.status==='done'||l.status==='completed'||l.status==='makeup';
+    if(sv==='missed') return l.status==='missed' && !isCoveredMissed(l);
     return l.status===sv;
   });
 
@@ -1659,7 +1664,7 @@ function renderLessons(){
       +'<td style="font-family:JetBrains Mono,monospace;font-size:11px">'+fd(l.date)+' '+(l.time||'')+'</td>'
       +'<td>'+(l.dur||60)+' хв</td>'+mc2+mk2
       +'<td style="font-size:11px;color:var(--t2)">'+(l.notes||'—')+'</td>'
-      +'<td>'+bst(l.status)+'</td>'
+      +'<td>'+bst(l.status==='missed'&&isCoveredMissed(l)?'makeup':l.status)+'</td>'
       +'<td><div style="display:flex;gap:3px">'+btns+'</div></td></tr>';
   }).join('')
   : '<tr><td colspan="10"><div class="empty"><div class="ei">📚</div>Занять немає</div></td></tr>';
