@@ -4502,6 +4502,7 @@ function renderSchDay(){
   // Populate tutor filter
   const tf = document.getElementById('sch-tutor-filter');
   if(tf){
+    tf.style.display = R()==='tutor' ? 'none' : '';
     const prev = tf.value;
     tf.innerHTML = '<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>' +
       (S.tutors||[]).map(t=>('<option value="'+(t.id)+'">'+(t.fn)+' '+(t.ln)+'</option>')).join('');
