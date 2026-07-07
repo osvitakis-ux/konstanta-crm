@@ -207,7 +207,7 @@ var ROLES = {
   admin: {
     label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','crm','invoice','reports'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','crm','invoice','reports','telephony'],
     can:{students:true,tutors:true,lessons:true,comms:true,payments:false,users:false,settings:false,danger:false,deleteAny:true},
     seeIncome:false, seeAll:true, canEditUsers:false, showGodBanner:false
   },
@@ -5720,12 +5720,14 @@ function telSaveSettings(){
     record:   getCh('tel-record'),
     popup:    getCh('tel-popup'),
     autolog:  getCh('tel-autolog'),
+    autolead: getCh('tel-autolead'),
   };
   if(!cfg.provider){ mkToast('Оберіть провайдера','error'); return; }
-  if(!cfg.key){ mkToast('Введіть API Key / Login','error'); return; }
+  if(!cfg.key){ mkToast('Введіть API Key / Token','error'); return; }
   telSaveSettingsLocal(cfg);
   mkToast('Налаштування збережено ✅');
   telUpdateStatus('configured');
+  closeM('mo-tel-settings');
 }
 
 async function telTestConn(){
@@ -5771,15 +5773,50 @@ function telCopyWebhook(){
 }
 
 function telToggleSettings(){
-  var panel = document.getElementById('tel-settings-panel');
-  var btn = document.getElementById('tel-settings-toggle-btn');
-  if(!panel) return;
-  var isOpen = panel.style.display !== 'none';
-  panel.style.display = isOpen ? 'none' : 'block';
-  if(btn) btn.textContent = isOpen ? '\u2699 \u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f' : '\u2715 \u0417\u0430\u043a\u0440\u0438\u0442\u0438';
-  if(!isOpen) renderTelephony();
+  var cfg = telGetSettings();
+  // Заповнюємо модалку поточними налаштуваннями
+  if(cfg.provider){
+    document.getElementById('tel-provider').value = cfg.provider;
+    telSelectProv(cfg.provider);
+  }
+  var fields = {
+    'tel-url': cfg.url||'',
+    'tel-key': cfg.key||'',
+    'tel-secret': cfg.secret||'',
+    'tel-did': cfg.did||'',
+    'tel-ivr': cfg.ivr||''
+  };
+  Object.entries(fields).forEach(function(kv){
+    var el=document.getElementById(kv[0]); if(el) el.value=kv[1];
+  });
+  var checks = {'tel-record':cfg.record,'tel-popup':cfg.popup,'tel-autolog':cfg.autolog,'tel-autolead':cfg.autolead};
+  Object.entries(checks).forEach(function(kv){
+    var el=document.getElementById(kv[0]); if(el) el.checked=!!kv[1];
+  });
+  // Webhook URL
+  var _wUrls={kyivstar:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',zadarma:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook'};
+  var whEl=document.getElementById('tel-webhook-url');
+  if(whEl) whEl.value=_wUrls[cfg.provider]||'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook';
+  // Синхронізуємо статус
+  var dot=document.getElementById('tel-modal-dot');
+  var lbl=document.getElementById('tel-modal-status-lbl');
+  var pill=document.getElementById('tel-modal-status-pill');
+  var sdot=document.getElementById('tel-status-dot');
+  var slbl=document.getElementById('tel-status-lbl');
+  if(dot&&sdot) dot.style.background=sdot.style.background;
+  if(lbl&&slbl) lbl.textContent=slbl.textContent;
+  openM('mo-tel-settings');
 }
 window.telToggleSettings = telToggleSettings;
+
+function telSelectProv(prov){
+  document.getElementById('tel-provider').value = prov;
+  document.querySelectorAll('.prov-card').forEach(function(c){
+    c.classList.toggle('sel', c.dataset.prov===prov);
+  });
+  telProviderChange();
+}
+window.telSelectProv = telSelectProv;
 
 async function renderTelLog(){
   var body = document.getElementById('tel-log-body');
