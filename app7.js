@@ -2992,8 +2992,8 @@ async function saveStudent(){
     phone:  document.getElementById('s-phone')?.value||'',
     email:  document.getElementById('s-email')?.value||'',
     subject:document.getElementById('s-subj')?.value||'',
-    tutor_id:(function(){var cbs=document.querySelectorAll('.st-tutor-cb:checked');return cbs.length?cbs[0].value:null;})(),
-    tutor_ids:(function(){return Array.from(document.querySelectorAll('.st-tutor-cb:checked')).map(function(cb){return cb.value;}).join(',');})(),
+    tutor_id:(function(){var tags=document.querySelectorAll('.s-tutor-tag');return tags.length?tags[0].dataset.id:null;})(),
+    tutor_ids:(function(){return Array.from(document.querySelectorAll('.s-tutor-tag')).map(function(t){return t.dataset.id;}).join(',');})(),
     status: document.getElementById('s-status')?.value||'active',
     src:    document.getElementById('s-src')?.value||'referral',
     notes:  document.getElementById('s-notes')?.value||'',
@@ -3628,25 +3628,58 @@ window.doDelLesson = doDelLesson;
 window.saveCustomPageNotes = saveCustomPageNotes;
 window.renderAnalytics = renderAnalytics;
 
+function sRenderTutorTags(ids){
+  var list=document.getElementById('s-tutor-list');
+  if(!list) return;
+  list.innerHTML=(ids||[]).map(function(tid){
+    var t=(S.tutors||[]).find(function(x){return x.id===tid;});
+    if(!t) return '';
+    return '<span class="s-tutor-tag" data-id="'+tid+'" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--adm);border-radius:20px;background:rgba(41,171,226,.1);font-size:12px;color:var(--adm)">'
+      +t.fn+' '+t.ln
+      +'<button type="button" onclick="sRemoveTutor(\''+tid+'\')" style="background:none;border:none;cursor:pointer;color:var(--adm);font-size:14px;line-height:1;padding:0;margin-left:2px">×</button>'
+      +'</span>';
+  }).join('');
+}
+
+function sAddTutor(){
+  var input=document.getElementById('s-tutor-input');
+  if(!input||!input.value.trim()) return;
+  var val=input.value.trim();
+  // Шукаємо репетитора по імені
+  var t=(S.tutors||[]).find(function(x){return (x.fn+' '+x.ln).toLowerCase()===val.toLowerCase();});
+  if(!t){ mkToast('Репетитора не знайдено в списку','error'); return; }
+  // Перевіряємо чи вже доданий
+  var existing=Array.from(document.querySelectorAll('.s-tutor-tag')).map(function(el){return el.dataset.id;});
+  if(existing.indexOf(t.id)>=0){ mkToast('Вже доданий','error'); return; }
+  existing.push(t.id);
+  sRenderTutorTags(existing);
+  input.value='';
+}
+
+function sRemoveTutor(id){
+  var existing=Array.from(document.querySelectorAll('.s-tutor-tag')).map(function(el){return el.dataset.id;}).filter(function(x){return x!==id;});
+  sRenderTutorTags(existing);
+}
+
+window.sAddTutor=sAddTutor;
+window.sRemoveTutor=sRemoveTutor;
+
 function openStudM(id=null){
   if(!can('students')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
   S.editId=id;document.getElementById('ms-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0443\u0447\u043D\u044F':'\u041D\u043E\u0432\u0438\u0439 \u0443\u0447\u0435\u043D\u044C';
   // Populate subject datalist for student modal
   var dl_s=document.getElementById('subj-list-s');
   if(dl_s){dl_s.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');}
-  // Render tutor checkboxes
+  // Populate tutor datalist for searchable input
+  var tutorDl=document.getElementById('s-tutor-datalist');
+  if(tutorDl){tutorDl.innerHTML=(S.tutors||[]).map(function(t){return '<option value="'+t.fn+' '+t.ln+'" data-id="'+t.id+'">';}).join('');}
+  // Clear tutor tags and hidden select
   var stList=document.getElementById('s-tutor-list');
+  var stInput=document.getElementById('s-tutor-input');
+  if(stList) stList.innerHTML='';
+  if(stInput) stInput.value='';
   var stSel=document.getElementById('s-tutor');
-  if(stSel){stSel.innerHTML=S.tutors.map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');}
-  if(stList){
-    stList.innerHTML=S.tutors.map(function(t){
-      return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s1);font-size:12px;user-select:none">'
-        +'<input type="checkbox" class="st-tutor-cb" value="'+t.id+'" style="accent-color:var(--adm)">'
-        +mkAv(t.fn,t.ln,20,t.photo)
-        +'<span>'+t.fn+' '+t.ln+'</span>'
-        +'</label>';
-    }).join('');
-  }
+  if(stSel){stSel.innerHTML=(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');}
   // Populate CRM responsible select (admins/directors/god)
   var respSel=document.getElementById('s-crm-resp');
   if(respSel){
@@ -3656,15 +3689,10 @@ function openStudM(id=null){
   }
   const flds=['fn','ln','age','grade','phone','email','notes'];
   const pflds=[];
-  if(id){const s=S.students.find(x=>x.id===id);if(s){flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value=s[f]||'';});document.getElementById('s-subj').value=s.subject||'';// Set multi-select values for tutors
-  // Set tutor checkboxes
+  if(id){const s=S.students.find(x=>x.id===id);if(s){flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value=s[f]||'';});document.getElementById('s-subj').value=s.subject||'';
+  // Render tutor tags
   var _tIds=s.tutorIds||(s.tutorId?[s.tutorId]:[]);
-  document.querySelectorAll('.st-tutor-cb').forEach(function(cb){
-    cb.checked=_tIds.indexOf(cb.value)>=0;
-    // Highlight selected
-    cb.closest('label').style.background=cb.checked?'rgba(41,171,226,.15)':'var(--s1)';
-    cb.closest('label').style.borderColor=cb.checked?'var(--adm)':'var(--b1)';
-  });document.getElementById('s-status').value=s.status||'active';document.getElementById('s-src').value=s.src||'referral';
+  sRenderTutorTags(_tIds);document.getElementById('s-status').value=s.status||'active';document.getElementById('s-src').value=s.src||'referral';
       var crmStEl=document.getElementById('s-crm-stage'); if(crmStEl) crmStEl.value=getCrmStage(s);
       var crmRespEl=document.getElementById('s-crm-resp'); if(crmRespEl) crmRespEl.value=s.crmResponsible||'';
       var pf=document.getElementById('s-parent-fn');if(pf)pf.value=s.parentFn||'';
