@@ -3364,7 +3364,7 @@ async function openUserM(id){
   var emEl=document.getElementById('u-email');  if(emEl)  { emEl.value=u?u.email||'':''; emEl.disabled=!!id; emEl.style.opacity=id?'0.6':'1'; }
   var roEl=document.getElementById('u-role');   if(roEl)    roEl.value=u?u.role||'tutor':'tutor';
   toggleTutLink();
-  popSel('u-tlink',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u041f\u0440\u0438\u0432\'\u044f\u0437\u0430\u0442\u0438 \u0434\u043e \u0432\u0438\u043a\u043b\u0430\u0434\u0430\u0447\u0430');
+  popSel('u-tlink',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u041f\u0440\u0438\u0432\u2019\u044f\u0437\u0430\u0442\u0438 \u0434\u043e \u0432\u0438\u043a\u043b\u0430\u0434\u0430\u0447\u0430');
   if(id){
     var linked=(S.tutors||[]).find(function(t){return t.acc_uid===id||t.accId===id;});
     if(linked){ var tlEl=document.getElementById('u-tlink'); if(tlEl) tlEl.value=linked.id; }
@@ -3745,14 +3745,16 @@ function renderStudentCard(id){
 
     tl.innerHTML=events.length
       ? events.map(function(e){
-          return '<div style="font-size:11px;color:var(--t2);display:flex;gap:6px;align-items:flex-start;position:relative">'
+          return '<div style="font-size:11px;color:var(--t2)">'
             +'<span style="width:8px;height:8px;border-radius:50%;background:var(--b1);flex-shrink:0;margin-top:3px;margin-left:-16px;border:2px solid var(--adm)"></span>'
             +e.text+'</div>';
         }).join('')
-      : '<div style="font-size:11px;color:var(--t3)">Подій поки немає</div>';
+      : '\u041f\u043e\u0434\u0456\u0439 \u043f\u043e\u043a\u0438 \u043d\u0435\u043c\u0430\u0454';
   }
 }
 window.renderStudentCard = renderStudentCard;
+
+function openTutM(id=null){
   if(!can('tutors')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
   S.editId=id;document.getElementById('mt-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430':'\u041D\u043E\u0432\u0438\u0439 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447';
 
@@ -3770,7 +3772,7 @@ window.renderStudentCard = renderStudentCard;
 
   if(id){const t=S.tutors.find(x=>x.id===id);if(t){['fn','ln','phone','email','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value=t[f]||'';});document.getElementById('t-subj').value=t.subj||'';if(document.getElementById('t-rate'))document.getElementById('t-rate').value=t.rate||'';
     if(accSel) accSel.value=t.accId||t.acc_uid||'';
-  }
+  }}
   else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});if(accSel)accSel.value='';}
   renderCustomFields('tutor','mo-tutor-cf');
   openM('mo-tutor');
@@ -4783,7 +4785,7 @@ function renderTutors(){
         +'<div style="font-size:10px;color:var(--t2)">'+(acc.email||'')+'</div></div>'
         +'<span class="rpill '+acc.role+'" style="font-size:10px;padding:2px 8px">'+ROLES[acc.role].icon+' '+ROLES[acc.role].label+'</span>'
         +'</div>')
-      :'<span style="font-size:11px;color:var(--t3)">\u2014 \u0430\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u0440\u0438\u0432\u0027\u044f\u0437\u0430\u043d\u043e</span>';
+      :'<span style="font-size:11px;color:var(--t3)">\u2014 \u0430\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u0440\u0438\u0432\u2019\u044f\u0437\u0430\u043d\u043e</span>';
     rows+='<tr>'
       +'<td><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,36,t.photo)
       +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
@@ -5936,7 +5938,7 @@ async function renderTelLog(){
             ? '<audio controls style="height:28px;max-width:180px"><source src="'+recUrl+'"></audio>'
             : '<span style="color:var(--t3);font-size:11px">\u043d\u0435\u043c\u0430\u0454</span>')+'</td>'
           +'<td style="padding:8px">'
-            +(sid ? '<button class="btn btn-g btn-sm" onclick="openStudM(\''+sid+'\')">\ud83d\udc64</button>' : '<button class="btn btn-g btn-sm" onclick="telLinkStudent(\''+e.id+'\',\''+(e.caller_phone||e.phone||'')+'\')">\u041f\u0440\u0438\u0432\'\u044f\u0437\u0430\u0442\u0438</button>')
+            +(sid ? '<button class="btn btn-g btn-sm" onclick="openStudM(\''+sid+'\')">\ud83d\udc64</button>' : '<button class="btn btn-g btn-sm" onclick="telLinkStudent(\''+e.id+'\',\''+(e.caller_phone||e.phone||'')+'\')">\u041f\u0440\u0438\u0432\u2019\u044f\u0437\u0430\u0442\u0438</button>')
           +'</td>'
           +'</tr>';
       }).join('')
