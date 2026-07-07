@@ -5729,6 +5729,11 @@ function renderTelephony(){
     return;
   }
 
+  // Кнопка налаштувань — тільки для god, director, network_admin
+  var canSettings = r==='god' || r==='director' || r==='network_admin';
+  var settingsBtn = document.getElementById('tel-settings-toggle-btn');
+  if(settingsBtn) settingsBtn.style.display = canSettings ? '' : 'none';
+
   var cfg = telGetSettings();
 
   // Populate fields
