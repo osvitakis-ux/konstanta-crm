@@ -3208,13 +3208,16 @@ async function saveComm(){
   if(!date)   { mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0434\u0430\u0442\u0443','error'); return; }
   window._saving = true;
   try{
-    await dbInsert('comms',{ id:uid(), tutor_id:tutorId,
+    var newComm={ id:uid(), tutor_id:tutorId,
       student_id:document.getElementById('cm-student')?.value||null,
       date, type:document.getElementById('cm-type')?.value||'call',
       note:document.getElementById('cm-note')?.value||'',
-      branch_id:myBranchId()||null });
+      branch_id:myBranchId()||null };
+    await dbInsert('comms', newComm);
+    // Оптимістично додаємо в локальний стан одразу
+    var normalized=Object.assign({},newComm,{tutorId:newComm.tutor_id,studentId:newComm.student_id,branchId:newComm.branch_id});
+    S.comms.unshift(normalized);
     closeM('mo-comm'); mkToast('Записано'); window._saving=false;
-    // Add to local S.comms immediately
     if(S.currentPage==='comms') renderCommsPage();
   }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
 }
