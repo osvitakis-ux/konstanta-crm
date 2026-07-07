@@ -193,14 +193,14 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','invoice','reports','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','invoice','reports','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -5660,7 +5660,14 @@ function renderTelephony(){
 
   // Webhook URL
   var whEl = document.getElementById('tel-webhook-url');
-  if(whEl) whEl.value = 'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook';
+  var webhookUrls = {
+    kyivstar: 'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',
+    zadarma:  'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook',
+    binotel:  'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook',
+    ringostat:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook',
+  };
+  var prov2 = cfg.provider||'';
+  if(whEl) whEl.value = webhookUrls[prov2] || 'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook';
 
   telProviderChange();
   telUpdateStatus(cfg.provider && cfg.key ? 'configured' : 'none');
@@ -5671,10 +5678,21 @@ function telProviderChange(){
   var prov = (document.getElementById('tel-provider')||{value:''}).value;
   var rowUrl = document.getElementById('tel-row-url');
   var rowWh  = document.getElementById('tel-row-webhook');
-  if(rowUrl) rowUrl.style.display = (prov==='zadarma'||prov==='binotel'||prov==='ringostat') ? 'none' : '';
+  if(rowUrl) rowUrl.style.display = (prov==='zadarma'||prov==='binotel'||prov==='ringostat'||prov==='kyivstar') ? 'none' : '';
   if(rowWh)  rowWh.style.display  = prov ? '' : 'none';
+  // Для Київстару — перейменуємо поля
+  var keyLabel = document.querySelector('label[for="tel-key"]') || (document.getElementById('tel-key')?.closest('.fgr')?.querySelector('label'));
+  var secretLabel = document.querySelector('label[for="tel-secret"]') || (document.getElementById('tel-secret')?.closest('.fgr')?.querySelector('label'));
+  if(prov==='kyivstar'){
+    if(keyLabel) keyLabel.textContent = 'FMC Token (від Київстару)';
+    if(secretLabel) secretLabel.textContent = 'Токен вашої системи (придумайте)';
+  } else {
+    if(keyLabel) keyLabel.textContent = 'API Key / Login';
+    if(secretLabel) secretLabel.textContent = 'API Secret / Password';
+  }
   // Show provider-specific hints
   var hints = {
+    kyivstar: 'Київстар Бізнес АТС: отримайте FMC Token на fmc.kyivstar.ua/crm-integration → Інтеграція з CRM → Generic FMC API. Скопіюйте Webhook URL нижче і вставте в поле «URL віддаленої системи»',
     zadarma:  'Zadarma: отримайте API Key та Secret в особистому кабінеті → Налаштування → API',
     binotel:  'Binotel: API ключ у Binotel кабінеті → Інтеграції → API',
     ringostat:'Ringostat: токен у розділі Інтеграції → API',
