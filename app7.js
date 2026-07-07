@@ -313,17 +313,14 @@ function renderCommsPage(){
     tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">Комунікацій немає</td></tr>';
     return;
   }
-  var canDel=can('comms')||can('lessons');
   tbody.innerHTML=comms.map(function(c){
     var tutor=(S.tutors||[]).find(function(t){return t.id===(c.tutorId||c.tutor_id);});
     var student=(S.students||[]).find(function(s){return s.id===(c.studentId||c.student_id);});
-    var delBtn=canDel?('<button class="btn btn-sm" style="background:rgba(248,113,113,.1);color:var(--danger);padding:2px 7px" onclick="delComm(this.dataset.id)" data-id="'+c.id+'">🗑</button>'):'';
     return '<tr><td style="font-size:11px;color:var(--t2)">'+fd(c.date)+'</td>'
       +'<td>'+(ico[c.type]||'📋')+' '+(c.type||'—')+'</td>'
       +'<td>'+(student?student.fn+' '+student.ln:'—')+'</td>'
       +'<td>'+(tutor?tutor.fn+' '+tutor.ln:'—')+'</td>'
-      +'<td>'+(c.note||'—')+'</td>'
-      +'<td>'+delBtn+'</td></tr>';
+      +'<td>'+(c.note||'—')+'</td></tr>';
   }).join('');
 }
 
@@ -3208,16 +3205,13 @@ async function saveComm(){
   if(!date)   { mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0434\u0430\u0442\u0443','error'); return; }
   window._saving = true;
   try{
-    var newComm={ id:uid(), tutor_id:tutorId,
+    await dbInsert('comms',{ id:uid(), tutor_id:tutorId,
       student_id:document.getElementById('cm-student')?.value||null,
       date, type:document.getElementById('cm-type')?.value||'call',
       note:document.getElementById('cm-note')?.value||'',
-      branch_id:myBranchId()||null };
-    await dbInsert('comms', newComm);
-    // Оптимістично додаємо в локальний стан одразу
-    var normalized=Object.assign({},newComm,{tutorId:newComm.tutor_id,studentId:newComm.student_id,branchId:newComm.branch_id});
-    S.comms.unshift(normalized);
+      branch_id:myBranchId()||null });
     closeM('mo-comm'); mkToast('Записано'); window._saving=false;
+    // Add to local S.comms immediately
     if(S.currentPage==='comms') renderCommsPage();
   }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
 }
@@ -5368,9 +5362,9 @@ function renderSettings(){
   var setSubjEl=document.getElementById('set-subj-list'); if(setSubjEl) setSubjEl.innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><span class="msv">'+(s.price)+'\u20B4/\u0433\u043E\u0434</span><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj('+(i)+')">\u00D7</button></div></div>')).join('');
   // God-only sections
   const isGod=R()==='god';
-  var godBannerEl=document.getElementById('god-banner-settings'); if(godBannerEl) godBannerEl.style.display=isGod?'flex':'none';
-  var rightsSectionEl=document.getElementById('rights-section'); if(rightsSectionEl) rightsSectionEl.style.display=isGod?'block':'none';
-  var dangerZoneEl=document.getElementById('danger-zone'); if(dangerZoneEl) dangerZoneEl.style.display=isGod?'block':'none';
+  var gbEl=document.getElementById('god-banner-settings'); if(gbEl) gbEl.style.display=isGod?'flex':'none';
+  var rsEl=document.getElementById('rights-section'); if(rsEl) rsEl.style.display=isGod?'block':'none';
+  var dzEl=document.getElementById('danger-zone'); if(dzEl) dzEl.style.display=isGod?'block':'none';
   if(isGod){
     // Build rights matrix
     let rt='<thead><tr>'+RIGHTS_MATRIX[0].map((h,i)=>('<th style="'+(i===1?'color:var(--god)':i===2?'color:var(--dir)':i===3?'color:var(--adm)':i===4?'color:var(--tut)':'')+'">'+(h)+'</th>')).join('')+'</tr></thead><tbody>';
@@ -5660,14 +5654,8 @@ function renderTelephony(){
 
   // Webhook URL
   var whEl = document.getElementById('tel-webhook-url');
-  var webhookUrls = {
-    kyivstar: 'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',
-    zadarma:  'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook',
-    binotel:  'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook',
-    ringostat:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook',
-  };
-  var prov2 = cfg.provider||'';
-  if(whEl) whEl.value = webhookUrls[prov2] || 'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook';
+  var _wUrls={kyivstar:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',zadarma:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook'};
+  if(whEl) whEl.value = _wUrls[cfg.provider]||'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook';
 
   telProviderChange();
   telUpdateStatus(cfg.provider && cfg.key ? 'configured' : 'none');
@@ -5680,19 +5668,9 @@ function telProviderChange(){
   var rowWh  = document.getElementById('tel-row-webhook');
   if(rowUrl) rowUrl.style.display = (prov==='zadarma'||prov==='binotel'||prov==='ringostat'||prov==='kyivstar') ? 'none' : '';
   if(rowWh)  rowWh.style.display  = prov ? '' : 'none';
-  // Для Київстару — перейменуємо поля
-  var keyLabel = document.querySelector('label[for="tel-key"]') || (document.getElementById('tel-key')?.closest('.fgr')?.querySelector('label'));
-  var secretLabel = document.querySelector('label[for="tel-secret"]') || (document.getElementById('tel-secret')?.closest('.fgr')?.querySelector('label'));
-  if(prov==='kyivstar'){
-    if(keyLabel) keyLabel.textContent = 'FMC Token (від Київстару)';
-    if(secretLabel) secretLabel.textContent = 'Токен вашої системи (придумайте)';
-  } else {
-    if(keyLabel) keyLabel.textContent = 'API Key / Login';
-    if(secretLabel) secretLabel.textContent = 'API Secret / Password';
-  }
   // Show provider-specific hints
   var hints = {
-    kyivstar: 'Київстар Бізнес АТС: отримайте FMC Token на fmc.kyivstar.ua/crm-integration → Інтеграція з CRM → Generic FMC API. Скопіюйте Webhook URL нижче і вставте в поле «URL віддаленої системи»',
+    kyivstar: 'Київстар Бізнес АТС: отримайте FMC Token на fmc.kyivstar.ua/crm-integration. Скопіюйте Webhook URL нижче і вставте в поле «URL віддаленої системи» в кабінеті Київстару',
     zadarma:  'Zadarma: отримайте API Key та Secret в особистому кабінеті → Налаштування → API',
     binotel:  'Binotel: API ключ у Binotel кабінеті → Інтеграції → API',
     ringostat:'Ringostat: токен у розділі Інтеграції → API',
@@ -5808,11 +5786,11 @@ async function renderTelLog(){
         var dtStr = dt ? dt.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit',year:'2-digit'})
           +' '+dt.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'}) : '\u2014';
         var dur = e.duration ? (Math.floor(e.duration/60)+'\u0445\u0432 '+(e.duration%60)+'\u0441') : '\u2014';
-        var recUrl = e.record_url || e.recordUrl;
+        var recUrl = e.recording_url || e.record_url || e.recordUrl;
         var dir = e.status==='missed' ? 'missed' : (e.direction||'inbound');
         return '<tr style="border-top:1px solid var(--b1);font-size:13px">'
           +'<td style="padding:8px;color:'+(dirClr[dir]||'var(--t1)')+'">'+'\u260e'+' '+(dirLbl[dir]||dir)+'</td>'
-          +'<td style="padding:8px;font-family:JetBrains Mono,monospace;font-size:12px"><a href="tel:'+(e.phone||'')+'" style="color:var(--adm);text-decoration:none">'+(e.phone||'\u2014')+'</a></td>'
+          +'<td style="padding:8px;font-family:JetBrains Mono,monospace;font-size:12px"><a href="tel:'+(e.caller_phone||e.phone||'')+'" style="color:var(--adm);text-decoration:none">'+(e.caller_phone||e.phone||'\u2014')+'</a></td>'
           +'<td style="padding:8px">'+sName+'</td>'
           +'<td style="padding:8px;font-family:JetBrains Mono,monospace;font-size:12px">'+dur+'</td>'
           +'<td style="padding:8px;font-size:11px;color:var(--t2)">'+dtStr+'</td>'
@@ -5820,7 +5798,7 @@ async function renderTelLog(){
             ? '<audio controls style="height:28px;max-width:180px"><source src="'+recUrl+'"></audio>'
             : '<span style="color:var(--t3);font-size:11px">\u043d\u0435\u043c\u0430\u0454</span>')+'</td>'
           +'<td style="padding:8px">'
-            +(!sid ? '<button class="btn btn-g btn-sm" onclick="telLinkStudent(\''+e.id+'\',\''+(e.phone||'')+'\')">\u041f\u0440\u0438\u0432\u02bc\u044f\u0437\u0430\u0442\u0438</button>' : '')
+            +(sid ? '<button class="btn btn-g btn-sm" onclick="openStudM(\''+sid+'\')">\ud83d\udc64</button>' : '<button class="btn btn-g btn-sm" onclick="telLinkStudent(\''+e.id+'\',\''+(e.caller_phone||e.phone||'')+'\')">\u041f\u0440\u0438\u0432\'\u044f\u0437\u0430\u0442\u0438</button>')
           +'</td>'
           +'</tr>';
       }).join('')
