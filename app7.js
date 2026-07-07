@@ -5770,6 +5770,17 @@ function telCopyWebhook(){
   });
 }
 
+function telToggleSettings(){
+  var panel = document.getElementById('tel-settings-panel');
+  var btn = document.getElementById('tel-settings-toggle-btn');
+  if(!panel) return;
+  var isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if(btn) btn.textContent = isOpen ? '\u2699 \u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f' : '\u2715 \u0417\u0430\u043a\u0440\u0438\u0442\u0438';
+  if(!isOpen) renderTelephony();
+}
+window.telToggleSettings = telToggleSettings;
+
 async function renderTelLog(){
   var body = document.getElementById('tel-log-body');
   if(!body) return;
