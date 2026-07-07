@@ -185,7 +185,13 @@ textarea{resize:vertical;min-height:72px}
 .ec-done{background:rgba(34,197,94,.18);border-left:3px solid #22c55e;color:#16a34a}
 .ec-miss{background:rgba(239,68,68,.18);border-left:3px solid #ef4444;color:#dc2626}
 .ec-make{background:rgba(245,158,11,.2);border-left:3px solid #f59e0b;color:#d97706}
+.prov-card{transition:border-color .15s,background .15s}
+.prov-card:hover{border-color:var(--adm)!important}
+.prov-card-sel{border-color:var(--adm)!important;background:rgba(41,171,226,.08)!important;color:var(--adm)!important}
+input[type=checkbox]:checked+span{background:var(--adm)!important}
+input[type=checkbox]+span::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s}
 .ec-covered{background:rgba(139,92,246,.2);border-left:3px solid #8b5cf6;color:#7c3aed}
+.ec-partial{background:rgba(139,92,246,.1);border-left:3px solid #c4b5fd;color:#7c3aed;border-style:dashed}
 .ec-partial{background:rgba(139,92,246,.1);border-left:3px solid #c4b5fd;color:#7c3aed;border-style:dashed}
 .ec-makeplan{background:rgba(148,163,184,.2);border-left:3px solid #94a3b8;color:#64748b}
 .ec-plan{background:rgba(41,171,226,.18);border-left:3px solid var(--adm);color:var(--adm)}
@@ -1188,78 +1194,138 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="page" id="pg-telephony">
         <div class="tc">
 
-          <!-- Status card -->
+          <!-- Журнал — головна картка -->
           <div class="card" style="margin-bottom:0">
             <div class="ch">
-              <span class="ct">📞 Телефонія</span>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span class="ct">Журнал дзвінків</span>
+                <span id="tel-status-pill" style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;background:rgba(var(--danger-rgb),.1);color:var(--danger)">
+                  <span id="tel-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--t3);display:inline-block"></span>
+                  <span id="tel-status-lbl">Не підключено</span>
+                </span>
+              </div>
               <div style="display:flex;gap:8px;align-items:center">
-                <span id="tel-status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--t3);display:inline-block"></span>
-                <span id="tel-status-lbl" style="font-size:12px;color:var(--t3)">Не підключено</span>
-                <button class="btn btn-p btn-sm" onclick="telTestConn()">Перевірити з'єднання</button>
+                <select id="tel-log-filter" onchange="renderTelLog()" style="font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
+                  <option value="">Всі</option>
+                  <option value="inbound">Вхідні</option>
+                  <option value="outbound">Вихідні</option>
+                  <option value="missed">Пропущені</option>
+                </select>
+                <button class="btn btn-g btn-sm" onclick="renderTelLog()" title="Оновити">↻</button>
+                <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn">⚙ Налаштування</button>
               </div>
             </div>
+            <div id="tel-log-body" style="padding:0 18px 18px">
+              <div class="empty"><div class="ei">📞</div>Журнал дзвінків порожній</div>
+            </div>
+          </div>
 
-            <div style="padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px">
+          <!-- Налаштування — приховані за кнопкою -->
+          <div id="tel-settings-panel" class="card" style="margin-top:14px;display:none">
+            <div class="ch">
+              <span class="ct">⚙ Налаштування телефонії</span>
+              <button class="btn btn-g btn-sm" onclick="telToggleSettings()">✕ Закрити</button>
+            </div>
+            <div style="padding:0 18px 18px;display:grid;grid-template-columns:1fr 1fr;gap:18px">
 
-              <!-- Provider settings -->
+              <!-- Провайдер -->
               <div>
-                <div style="font-size:12px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Провайдер АТС</div>
+                <div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Провайдер АТС</div>
+
+                <!-- Картки провайдерів -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+                  <div onclick="document.getElementById('tel-provider').value='kyivstar';telProviderChange();document.querySelectorAll('.prov-card').forEach(e=>e.classList.remove('prov-card-sel'));this.classList.add('prov-card-sel')" class="prov-card" style="border:1px solid var(--b1);border-radius:8px;padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px">📱 Київстар</div>
+                  <div onclick="document.getElementById('tel-provider').value='zadarma';telProviderChange();document.querySelectorAll('.prov-card').forEach(e=>e.classList.remove('prov-card-sel'));this.classList.add('prov-card-sel')" class="prov-card" style="border:1px solid var(--b1);border-radius:8px;padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px">📞 Zadarma</div>
+                  <div onclick="document.getElementById('tel-provider').value='binotel';telProviderChange();document.querySelectorAll('.prov-card').forEach(e=>e.classList.remove('prov-card-sel'));this.classList.add('prov-card-sel')" class="prov-card" style="border:1px solid var(--b1);border-radius:8px;padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px">🏢 Binotel</div>
+                  <div onclick="document.getElementById('tel-provider').value='custom';telProviderChange();document.querySelectorAll('.prov-card').forEach(e=>e.classList.remove('prov-card-sel'));this.classList.add('prov-card-sel')" class="prov-card" style="border:1px solid var(--b1);border-radius:8px;padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px">⚡ Інший</div>
+                </div>
+                <select id="tel-provider" onchange="telProviderChange()" style="display:none">
+                  <option value="">— оберіть —</option>
+                  <option value="kyivstar">Київстар Бізнес АТС</option>
+                  <option value="zadarma">Zadarma</option>
+                  <option value="binotel">Binotel</option>
+                  <option value="ringostat">Ringostat</option>
+                  <option value="asterisk">Власний Asterisk</option>
+                  <option value="custom">Інший (Webhook)</option>
+                </select>
+
                 <div class="fg">
-                  <div class="fgr full">
-                    <label>Провайдер</label>
-                    <select id="tel-provider" onchange="telProviderChange()" style="width:100%;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);font-size:13px">
-                      <option value="">— оберіть —</option>
-                      <option value="kyivstar">Київстар Бізнес АТС</option>
-                      <option value="zadarma">Zadarma</option>
-                      <option value="binotel">Binotel</option>
-                      <option value="ringostat">Ringostat</option>
-                      <option value="asterisk">Власний Asterisk</option>
-                      <option value="custom">Інший (Webhook)</option>
-                    </select>
-                  </div>
                   <div class="fgr full" id="tel-row-url">
                     <label>URL / Host АТС</label>
-                    <input id="tel-url" type="text" placeholder="https://api.zadarma.com або sip.example.com">
+                    <input id="tel-url" type="text" placeholder="https://api.zadarma.com">
                   </div>
                   <div class="fgr">
-                    <label>API Key / Login</label>
+                    <label id="tel-key-label">API Key / Login</label>
                     <input id="tel-key" type="text" placeholder="ключ або логін">
                   </div>
                   <div class="fgr">
-                    <label>API Secret / Password</label>
+                    <label id="tel-secret-label">API Secret / Password</label>
                     <input id="tel-secret" type="password" placeholder="секрет або пароль">
                   </div>
                   <div class="fgr full" id="tel-row-webhook">
-                    <label>Webhook URL (для вхідних подій)</label>
+                    <label>Webhook URL</label>
                     <div style="display:flex;gap:6px;align-items:center">
                       <input id="tel-webhook-url" type="text" readonly style="background:var(--s2);font-size:11px;font-family:JetBrains Mono,monospace">
                       <button class="btn btn-g btn-sm" onclick="telCopyWebhook()" title="Скопіювати">📋</button>
                     </div>
-                    <div style="font-size:11px;color:var(--t3);margin-top:4px">Вставте цей URL в налаштування вашого провайдера</div>
+                    <div style="font-size:11px;color:var(--t3);margin-top:4px" id="tel-provider-hint"></div>
                   </div>
                 </div>
               </div>
 
-              <!-- Options -->
+              <!-- Опції -->
               <div>
-                <div style="font-size:12px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Налаштування</div>
+                <div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Опції</div>
                 <div class="fg">
                   <div class="fgr full">
                     <label>Вхідний номер (DID)</label>
                     <input id="tel-did" type="text" placeholder="+380441234567">
                   </div>
-                  <div class="fgr full" style="display:flex;align-items:center;gap:10px;padding:8px 0">
-                    <input type="checkbox" id="tel-record" style="width:16px;height:16px;cursor:pointer">
-                    <label for="tel-record" style="cursor:pointer;margin:0">Записувати дзвінки</label>
+                </div>
+                <!-- Тоггли замість чекбоксів -->
+                <div style="display:flex;flex-direction:column;gap:0">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b1)">
+                    <div>
+                      <div style="font-size:13px">Записувати дзвінки</div>
+                      <div style="font-size:11px;color:var(--t2)">Зберігати аудіозапис кожного дзвінка</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;margin:0">
+                      <input type="checkbox" id="tel-record" style="opacity:0;width:0;height:0;position:absolute">
+                      <span onclick="this.previousElementSibling.click()" style="position:absolute;inset:0;border-radius:11px;background:var(--b1);cursor:pointer;transition:.2s" id="tel-record-sw"></span>
+                    </label>
                   </div>
-                  <div class="fgr full" style="display:flex;align-items:center;gap:10px;padding:4px 0">
-                    <input type="checkbox" id="tel-popup" checked style="width:16px;height:16px;cursor:pointer">
-                    <label for="tel-popup" style="cursor:pointer;margin:0">Спливаюче вікно при вхідному дзвінку</label>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b1)">
+                    <div>
+                      <div style="font-size:13px">Авто-лід при невідомому</div>
+                      <div style="font-size:11px;color:var(--t2)">Новий лід у CRM для незнайомих номерів</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;margin:0">
+                      <input type="checkbox" id="tel-autolead" checked style="opacity:0;width:0;height:0;position:absolute">
+                      <span onclick="this.previousElementSibling.click()" style="position:absolute;inset:0;border-radius:11px;background:var(--adm);cursor:pointer;transition:.2s"></span>
+                    </label>
                   </div>
-                  <div class="fgr full" style="display:flex;align-items:center;gap:10px;padding:4px 0">
-                    <input type="checkbox" id="tel-autolog" checked style="width:16px;height:16px;cursor:pointer">
-                    <label for="tel-autolog" style="cursor:pointer;margin:0">Автологування в Комунікації</label>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b1)">
+                    <div>
+                      <div style="font-size:13px">Спливаюче вікно</div>
+                      <div style="font-size:11px;color:var(--t2)">Картка клієнта при вхідному дзвінку</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;margin:0">
+                      <input type="checkbox" id="tel-popup" checked style="opacity:0;width:0;height:0;position:absolute">
+                      <span onclick="this.previousElementSibling.click()" style="position:absolute;inset:0;border-radius:11px;background:var(--adm);cursor:pointer;transition:.2s"></span>
+                    </label>
                   </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0">
+                    <div>
+                      <div style="font-size:13px">Лог в комунікаціях</div>
+                      <div style="font-size:11px;color:var(--t2)">Автозапис кожного дзвінка</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;margin:0">
+                      <input type="checkbox" id="tel-autolog" checked style="opacity:0;width:0;height:0;position:absolute">
+                      <span onclick="this.previousElementSibling.click()" style="position:absolute;inset:0;border-radius:11px;background:var(--adm);cursor:pointer;transition:.2s"></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="fg" style="margin-top:12px">
                   <div class="fgr full">
                     <label>IVR-привітання</label>
                     <textarea id="tel-ivr" rows="2" placeholder="Вітаємо в РЦ Константа. Зачекайте, з'єднуємо з репетитором..."></textarea>
@@ -1267,29 +1333,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
                 </div>
               </div>
             </div>
-
-            <div style="padding:0 18px 18px;display:flex;gap:8px">
-              <button class="btn btn-p" onclick="telSaveSettings()">💾 Зберегти налаштування</button>
+            <div style="padding:0 18px 18px;display:flex;gap:8px;border-top:1px solid var(--b1);padding-top:14px">
+              <button class="btn btn-p" onclick="telSaveSettings()">💾 Зберегти</button>
               <button class="btn btn-g" onclick="telTestConn()">🔌 Перевірити з'єднання</button>
-            </div>
-          </div>
-
-          <!-- Call log -->
-          <div class="card" style="margin-top:14px">
-            <div class="ch">
-              <span class="ct">Журнал дзвінків</span>
-              <div style="display:flex;gap:8px">
-                <select id="tel-log-filter" onchange="renderTelLog()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
-                  <option value="">Всі</option>
-                  <option value="inbound">Вхідні</option>
-                  <option value="outbound">Вихідні</option>
-                  <option value="missed">Пропущені</option>
-                </select>
-                <button class="btn btn-g btn-sm" onclick="renderTelLog()">↻ Оновити</button>
-              </div>
-            </div>
-            <div id="tel-log-body" style="padding:0 18px 18px">
-              <div class="empty"><div class="ei">📞</div>Журнал дзвінків порожній</div>
             </div>
           </div>
 
