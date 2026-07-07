@@ -3710,12 +3710,6 @@ function renderStudentCard(id){
     var statusColors={active:'#eaf3de;color:#3B6D11',trial:'#e6f1fb;color:#185FA5',paused:'#faeeda;color:#854F0B',completed:'#f1efe8;color:#5f5e5a'};
     var tagHtml='<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:'+(statusColors[s.status]||'#f1efe8;color:#444')+'">'+(statusLabels[s.status]||s.status)+'</span>';
 
-    // Борг
-    var paidAmt=(S.payments||[]).filter(function(p){return (p.studentId||p.student_id)===id&&p.status==='paid';}).reduce(function(a,b){return a+(parseFloat(b.amount)||0);},0);
-    var totalAmt=(S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)===id&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).reduce(function(a,b){return a+(parseFloat(b.price)||0);},0);
-    var debt=totalAmt-paidAmt;
-    if(debt>0) tagHtml+='<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:#faeeda;color:#854F0B">Борг '+Math.round(debt)+' ₴</span>';
-
     // Пропуски
     var missedCount=(S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)===id&&l.status==='missed'&&!isCoveredMissed(l);}).length;
     if(missedCount>0) tagHtml+='<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:#fcebeb;color:#A32D2D">'+missedCount+' пропуск'+(missedCount===1?'':'и')+'</span>';
@@ -3735,13 +3729,6 @@ function renderStudentCard(id){
       var icons={done:'✅',completed:'✅',makeup:'🔄',missed:'❌',planned:'📅',cancelled:'🚫'};
       var lbls={done:'Урок проведено',completed:'Урок проведено',makeup:'Відпрацювання',missed:'Пропуск',planned:'Запланований урок',cancelled:'Скасовано'};
       events.push({date:l.date,text:(icons[l.status]||'📖')+' '+(lbls[l.status]||l.status)+' · '+fd(l.date)+(l.time?' · '+l.time:'')});
-    });
-
-    // Останні оплати
-    var sPays=(S.payments||[]).filter(function(p){return (p.studentId||p.student_id)===id;})
-      .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,2);
-    sPays.forEach(function(p){
-      events.push({date:p.date,text:'💰 Оплата '+(p.amount||'')+'₴ · '+fd(p.date)});
     });
 
     // Останні комунікації
