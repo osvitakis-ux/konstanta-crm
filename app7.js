@@ -5365,12 +5365,12 @@ function renderSettings(){
   var gcWrap = document.getElementById('god-constructor-wrap');
   if(gcWrap) gcWrap.style.display = (R()==='god') ? 'block' : 'none';
   var setNameEl=document.getElementById('set-name'); if(setNameEl) setNameEl.value=S.settings.name||'';
-  document.getElementById('set-subj-list').innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><span class="msv">'+(s.price)+'\u20B4/\u0433\u043E\u0434</span><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj('+(i)+')">\u00D7</button></div></div>')).join('');
+  var setSubjEl=document.getElementById('set-subj-list'); if(setSubjEl) setSubjEl.innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><span class="msv">'+(s.price)+'\u20B4/\u0433\u043E\u0434</span><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj('+(i)+')">\u00D7</button></div></div>')).join('');
   // God-only sections
   const isGod=R()==='god';
-  document.getElementById('god-banner-settings').style.display=isGod?'flex':'none';
-  document.getElementById('rights-section').style.display=isGod?'block':'none';
-  document.getElementById('danger-zone').style.display=isGod?'block':'none';
+  var godBannerEl=document.getElementById('god-banner-settings'); if(godBannerEl) godBannerEl.style.display=isGod?'flex':'none';
+  var rightsSectionEl=document.getElementById('rights-section'); if(rightsSectionEl) rightsSectionEl.style.display=isGod?'block':'none';
+  var dangerZoneEl=document.getElementById('danger-zone'); if(dangerZoneEl) dangerZoneEl.style.display=isGod?'block':'none';
   if(isGod){
     // Build rights matrix
     let rt='<thead><tr>'+RIGHTS_MATRIX[0].map((h,i)=>('<th style="'+(i===1?'color:var(--god)':i===2?'color:var(--dir)':i===3?'color:var(--adm)':i===4?'color:var(--tut)':'')+'">'+(h)+'</th>')).join('')+'</tr></thead><tbody>';
