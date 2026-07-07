@@ -1152,44 +1152,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
       
       
 
-      <div class="page" id="pg-profile">
-        <div class="tc">
-          <div class="card">
-              <div class="ch">
-                <span class="ct">Мій профіль</span>
-                <button class="btn btn-g btn-sm" onclick="toggleProfileEdit()">✏️ Редагувати</button>
-              </div>
-              <div style="padding:18px" id="pr-info"></div>
-              <div id="pr-edit-form" style="display:none;padding:0 18px 18px">
-                <div class="fg" style="margin-top:0">
-                  <div class="fgr"><label>Ім'я</label><input id="pr-fn" type="text"></div>
-                  <div class="fgr"><label>Прізвище</label><input id="pr-ln" type="text"></div>
-                  <div class="fgr"><label>Телефон</label><input id="pr-phone" type="text"></div>
-                  <div class="fgr"><label>Email</label><input id="pr-email" type="email"></div>
-                  <div class="fgr"><label>Предмети</label><input id="pr-subj" placeholder="через кому"></div>
-                  <div class="fgr full"><label>Фото</label>
-                    <div style="display:flex;align-items:center;gap:12px">
-                      <div id="pr-photo-preview" style="width:56px;height:56px;border-radius:50%;background:var(--s2);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--t3)">📷</div>
-                      <div>
-                        <input type="file" id="pr-photo-input" accept="image/*" style="display:none" onchange="uploadTutorPhoto(this)">
-                        <button class="btn btn-g btn-sm" onclick="document.getElementById('pr-photo-input').click()">Обрати фото</button>
-                        <div style="font-size:11px;color:var(--t3);margin-top:4px">JPG, PNG до 2 МБ</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="fgr full"><label>Про себе</label><textarea id="pr-bio" rows="3"></textarea></div>
-                </div>
-                <div style="display:flex;gap:8px;margin-top:8px">
-                  <button class="btn btn-p" onclick="saveProfileEdit()">💾 Зберегти</button>
-                  <button class="btn btn-g" onclick="toggleProfileEdit()">Скасувати</button>
-                </div>
-              </div>
-            </div>
-
-        </div>
-      </div>
-    </div>
-
       <!-- ── TELEPHONY ── -->
       <div class="page" id="pg-telephony">
         <div class="tc">
@@ -1341,6 +1303,46 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
         </div>
       </div>
+
+            <div class="page" id="pg-profile">
+        <div class="tc">
+          <div class="card">
+              <div class="ch">
+                <span class="ct">Мій профіль</span>
+                <button class="btn btn-g btn-sm" onclick="toggleProfileEdit()">✏️ Редагувати</button>
+              </div>
+              <div style="padding:18px" id="pr-info"></div>
+              <div id="pr-edit-form" style="display:none;padding:0 18px 18px">
+                <div class="fg" style="margin-top:0">
+                  <div class="fgr"><label>Ім'я</label><input id="pr-fn" type="text"></div>
+                  <div class="fgr"><label>Прізвище</label><input id="pr-ln" type="text"></div>
+                  <div class="fgr"><label>Телефон</label><input id="pr-phone" type="text"></div>
+                  <div class="fgr"><label>Email</label><input id="pr-email" type="email"></div>
+                  <div class="fgr"><label>Предмети</label><input id="pr-subj" placeholder="через кому"></div>
+                  <div class="fgr full"><label>Фото</label>
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <div id="pr-photo-preview" style="width:56px;height:56px;border-radius:50%;background:var(--s2);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--t3)">📷</div>
+                      <div>
+                        <input type="file" id="pr-photo-input" accept="image/*" style="display:none" onchange="uploadTutorPhoto(this)">
+                        <button class="btn btn-g btn-sm" onclick="document.getElementById('pr-photo-input').click()">Обрати фото</button>
+                        <div style="font-size:11px;color:var(--t3);margin-top:4px">JPG, PNG до 2 МБ</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="fgr full"><label>Про себе</label><textarea id="pr-bio" rows="3"></textarea></div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                  <button class="btn btn-p" onclick="saveProfileEdit()">💾 Зберегти</button>
+                  <button class="btn btn-g" onclick="toggleProfileEdit()">Скасувати</button>
+                </div>
+              </div>
+            </div>
+
+        </div>
+      </div>
+    </div>
+
+
 
 <!-- ── PROFILE (Tutor) ── -->
 </div><!-- /content -->
