@@ -3674,13 +3674,98 @@ function openStudM(id=null){
     var crmRespEl2=document.getElementById('s-crm-resp'); if(crmRespEl2) crmRespEl2.value='';
   }
   renderCustomFields('student','mo-student-cf');
+  renderStudentCard(id);
   var invBtn = document.getElementById('inv-btn');
   if(invBtn) invBtn.style.display = (id && (R()==='god'||R()==='director')) ? 'inline-flex' : 'none';
   openM('mo-student');
 }
 
 
-function openTutM(id=null){
+function renderStudentCard(id){
+  var card=document.getElementById('ms-card');
+  if(!card) return;
+  if(!id){ card.style.display='none'; return; }
+  var s=(S.students||[]).find(function(x){return x.id===id;});
+  if(!s){ card.style.display='none'; return; }
+  card.style.display='block';
+
+  // Аватар
+  var av=document.getElementById('ms-av');
+  if(av){ av.textContent=(s.fn||'?')[0]+(s.ln||'')[0]||''; }
+
+  // Ім'я та мета
+  var nm=document.getElementById('ms-fullname');
+  if(nm) nm.textContent=(s.fn||'')+' '+(s.ln||'');
+  var tutors=(s.tutorIds||[]).map(function(tid){
+    var t=(S.tutors||[]).find(function(x){return x.id===tid;});
+    return t?t.fn+' '+t.ln:'';
+  }).filter(Boolean).join(', ');
+  var meta=document.getElementById('ms-meta');
+  if(meta) meta.textContent=[s.subject,tutors,s.grade].filter(Boolean).join(' · ');
+
+  // Теги
+  var tags=document.getElementById('ms-tags');
+  if(tags){
+    var statusLabels={active:'Активний',trial:'Пробний',paused:'Призупинений',completed:'Завершив'};
+    var statusColors={active:'#eaf3de;color:#3B6D11',trial:'#e6f1fb;color:#185FA5',paused:'#faeeda;color:#854F0B',completed:'#f1efe8;color:#5f5e5a'};
+    var tagHtml='<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:'+(statusColors[s.status]||'#f1efe8;color:#444')+'">'+(statusLabels[s.status]||s.status)+'</span>';
+
+    // Борг
+    var paidAmt=(S.payments||[]).filter(function(p){return (p.studentId||p.student_id)===id&&p.status==='paid';}).reduce(function(a,b){return a+(parseFloat(b.amount)||0);},0);
+    var totalAmt=(S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)===id&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).reduce(function(a,b){return a+(parseFloat(b.price)||0);},0);
+    var debt=totalAmt-paidAmt;
+    if(debt>0) tagHtml+='<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:#faeeda;color:#854F0B">Борг '+Math.round(debt)+' ₴</span>';
+
+    // Пропуски
+    var missedCount=(S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)===id&&l.status==='missed'&&!isCoveredMissed(l);}).length;
+    if(missedCount>0) tagHtml+='<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:#fcebeb;color:#A32D2D">'+missedCount+' пропуск'+(missedCount===1?'':'и')+'</span>';
+
+    tags.innerHTML=tagHtml;
+  }
+
+  // Таймлайн — останні 5 подій
+  var tl=document.getElementById('ms-timeline');
+  if(tl){
+    var events=[];
+
+    // Останні заняття
+    var sLessons=(S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)===id;})
+      .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,3);
+    sLessons.forEach(function(l){
+      var icons={done:'✅',completed:'✅',makeup:'🔄',missed:'❌',planned:'📅',cancelled:'🚫'};
+      var lbls={done:'Урок проведено',completed:'Урок проведено',makeup:'Відпрацювання',missed:'Пропуск',planned:'Запланований урок',cancelled:'Скасовано'};
+      events.push({date:l.date,text:(icons[l.status]||'📖')+' '+(lbls[l.status]||l.status)+' · '+fd(l.date)+(l.time?' · '+l.time:'')});
+    });
+
+    // Останні оплати
+    var sPays=(S.payments||[]).filter(function(p){return (p.studentId||p.student_id)===id;})
+      .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,2);
+    sPays.forEach(function(p){
+      events.push({date:p.date,text:'💰 Оплата '+(p.amount||'')+'₴ · '+fd(p.date)});
+    });
+
+    // Останні комунікації
+    var sComms=(S.comms||[]).filter(function(c){return (c.studentId||c.student_id)===id;})
+      .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,2);
+    sComms.forEach(function(c){
+      var ico={call:'📞',message:'💬',meeting:'🤝',email:'📧'};
+      events.push({date:c.date,text:(ico[c.type]||'📋')+' '+(c.note||c.type||'Комунікація')+' · '+fd(c.date)});
+    });
+
+    // Сортуємо по даті і беремо 5
+    events.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    events=events.slice(0,5);
+
+    tl.innerHTML=events.length
+      ? events.map(function(e){
+          return '<div style="font-size:11px;color:var(--t2);display:flex;gap:6px;align-items:flex-start;position:relative">'
+            +'<span style="width:8px;height:8px;border-radius:50%;background:var(--b1);flex-shrink:0;margin-top:3px;margin-left:-16px;border:2px solid var(--adm)"></span>'
+            +e.text+'</div>';
+        }).join('')
+      : '<div style="font-size:11px;color:var(--t3)">Подій поки немає</div>';
+  }
+}
+window.renderStudentCard = renderStudentCard;
   if(!can('tutors')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
   S.editId=id;document.getElementById('mt-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430':'\u041D\u043E\u0432\u0438\u0439 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447';
 
@@ -3698,7 +3783,7 @@ function openTutM(id=null){
 
   if(id){const t=S.tutors.find(x=>x.id===id);if(t){['fn','ln','phone','email','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value=t[f]||'';});document.getElementById('t-subj').value=t.subj||'';if(document.getElementById('t-rate'))document.getElementById('t-rate').value=t.rate||'';
     if(accSel) accSel.value=t.accId||t.acc_uid||'';
-  }}
+  }
   else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});if(accSel)accSel.value='';}
   renderCustomFields('tutor','mo-tutor-cf');
   openM('mo-tutor');
