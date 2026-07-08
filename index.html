@@ -185,6 +185,8 @@ textarea{resize:vertical;min-height:72px}
 .ec-done{background:rgba(34,197,94,.18);border-left:3px solid #22c55e;color:#16a34a}
 .ec-miss{background:rgba(239,68,68,.18);border-left:3px solid #ef4444;color:#dc2626}
 .ec-make{background:rgba(245,158,11,.2);border-left:3px solid #f59e0b;color:#d97706}
+.ec-covered{background:rgba(139,92,246,.2);border-left:3px solid #8b5cf6;color:#7c3aed}
+.ec-partial{background:rgba(139,92,246,.1);border-left:3px solid #c4b5fd;color:#7c3aed;border-left-style:dashed}
 .prov-card{transition:border-color .15s,background .15s}
 .prov-card:hover{border-color:var(--adm)!important;background:rgba(41,171,226,.05)}
 .prov-card.sel{border-color:var(--adm)!important;background:rgba(41,171,226,.1);color:var(--adm);font-weight:600}
@@ -194,8 +196,6 @@ textarea{resize:vertical;min-height:72px}
 .tel-toggle-sw::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s}
 .tel-toggle input:checked+.tel-toggle-sw{background:var(--adm)}
 .tel-toggle input:checked+.tel-toggle-sw::after{transform:translateX(18px)}
-.ec-partial{background:rgba(139,92,246,.1);border-left:3px solid #c4b5fd;color:#7c3aed;border-style:dashed}
-.ec-partial{background:rgba(139,92,246,.1);border-left:3px solid #c4b5fd;color:#7c3aed;border-style:dashed}
 .ec-makeplan{background:rgba(148,163,184,.2);border-left:3px solid #94a3b8;color:#64748b}
 .ec-plan{background:rgba(41,171,226,.18);border-left:3px solid var(--adm);color:var(--adm)}
 .ec0{background:rgba(108,143,255,.22);border-left:2.5px solid var(--adm);color:var(--adm)}
@@ -1177,7 +1177,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
                   <option value="missed">Пропущені</option>
                 </select>
                 <button class="btn btn-g btn-sm" onclick="renderTelLog()" title="Оновити">↻</button>
-                <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn">⚙ Налаштування</button>
+                <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn" style="display:none">⚙ Налаштування</button>
               </div>
             </div>
             <div id="tel-log-body" style="padding:0 18px 18px">
