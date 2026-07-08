@@ -1630,12 +1630,17 @@ function renderLessons(){
     if(cur){ sdf.value=cur; if(sdf._updateSearch) sdf._updateSearch(); }
   }
 
-  var data = [].concat(myLessons()).sort(function(a,b){
+  var data = [].concat(myLessons()).filter(function(l){
+    // Покриті missed не показуємо в загальному списку (є як makeup)
+    if(!sv && l.status==='missed' && isCoveredMissed(l)) return false;
+    return true;
+  }).sort(function(a,b){
     return new Date(b.date+'T'+(b.time||'00:00'))-new Date(a.date+'T'+(a.time||'00:00'));
   });
   if(sdv) data = data.filter(function(l){return (l.studentId||l.student_id)===sdv;});
   if(sv)  data = data.filter(function(l){
     if(sv==='done') return l.status==='done'||l.status==='completed'||l.status==='makeup';
+    if(sv==='missed') return l.status==='missed' && !isCoveredMissed(l);
     return l.status===sv;
   });
 
