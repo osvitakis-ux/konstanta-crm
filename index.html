@@ -1329,17 +1329,19 @@ body.role-tutor .comm-add-btn { display: none !important; }
     <div class="mdlh"><div class="mdlt" id="ms-title">Учень</div><div style="display:flex;gap:6px"><button class="btn btn-g btn-sm" id="inv-btn" style="display:none" onclick="openInvoiceForStudent()">🧾 Рахунок</button><button class="xbtn" onclick="closeM('mo-student')">×</button></div></div>
 
     <!-- Картка учня з таймлайном -->
-    <div id="ms-card" style="display:none;padding:14px 16px;background:var(--s2);border-bottom:1px solid var(--b1);overflow:hidden">
-      <div style="display:flex;gap:10px;align-items:flex-start">
-        <div id="ms-av" style="width:40px;height:40px;border-radius:50%;background:var(--adm);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0"></div>
-        <div style="flex:1;min-width:0;overflow:hidden">
-          <div id="ms-fullname" style="font-size:14px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-          <div id="ms-meta" style="font-size:11px;color:var(--t2);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-          <div id="ms-tags" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    <div id="ms-card" style="display:none;background:var(--s2);border-bottom:1px solid var(--b1);max-height:220px;overflow-y:auto">
+      <div style="padding:12px 16px">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div id="ms-av" style="width:40px;height:40px;border-radius:50%;background:var(--adm);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div id="ms-fullname" style="font-size:14px;font-weight:700;margin-bottom:2px"></div>
+            <div id="ms-meta" style="font-size:11px;color:var(--t2);margin-bottom:6px"></div>
+            <div id="ms-tags" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+          </div>
         </div>
+        <!-- Таймлайн -->
+        <div id="ms-timeline" style="margin-top:10px;border-left:2px solid var(--b1);padding-left:10px;display:flex;flex-direction:column;gap:4px"></div>
       </div>
-      <!-- Таймлайн -->
-      <div id="ms-timeline" style="margin-top:10px;border-left:2px solid var(--b1);padding-left:10px;display:flex;flex-direction:column;gap:4px"></div>
     </div>
 
     <div class="mdlb"><div class="fg">
