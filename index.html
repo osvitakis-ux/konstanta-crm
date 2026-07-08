@@ -470,8 +470,7 @@ textarea{resize:vertical;min-height:72px}
 
   /* modals: bottom sheet */
   .mo{align-items:flex-end!important}
-  .mdl{width:100%!important;max-width:100%!important;border-radius:18px 18px 0 0!important;
-       max-height:88vh;margin:0}
+  .mdl{width:100vw!important;max-width:100vw!important;border-radius:18px 18px 0 0!important;max-height:88vh;margin:0!important;overflow-y:auto}
 
   /* forms: single column */
   .fg{grid-template-columns:1fr!important}
@@ -530,7 +529,8 @@ textarea{resize:vertical;min-height:72px}
   /* Prevent body scroll when sidebar open */
   body.sb-open{overflow:hidden}
   /* Modal fixes for mobile */
-  .mdl{width:calc(100vw - 16px)!important;margin:8px!important;border-radius:12px!important;max-height:90vh;overflow-y:auto}
+  .mdl{width:100vw!important;max-width:100vw!important;margin:0!important;border-radius:18px 18px 0 0!important;max-height:90vh;overflow-y:auto}
+  .mo{align-items:flex-end!important}
   /* Fix tables on mobile */
   table{font-size:12px}
   td,th{padding:8px 10px!important}
@@ -1325,7 +1325,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
 <!-- Student -->
 <div class="mo" id="mo-student">
-  <div class="mdl" style="max-width:700px;width:100%">
+  <div class="mdl" style="max-width:700px">
     <div class="mdlh"><div class="mdlt" id="ms-title">Учень</div><div style="display:flex;gap:6px"><button class="btn btn-g btn-sm" id="inv-btn" style="display:none" onclick="openInvoiceForStudent()">🧾 Рахунок</button><button class="xbtn" onclick="closeM('mo-student')">×</button></div></div>
 
     <!-- Картка учня з таймлайном -->
