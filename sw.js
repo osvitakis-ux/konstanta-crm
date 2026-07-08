@@ -1,4 +1,4 @@
-const CACHE_NAME = 'konstanta-crm-v3';
+const CACHE_NAME = 'konstanta-crm-v5';
 const ASSETS = [
   '/konstanta-crm/',
   '/konstanta-crm/index.html',
