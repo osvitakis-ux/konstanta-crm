@@ -3750,39 +3750,44 @@ function renderStudentCard(id){
     tags.innerHTML=tagHtml;
   }
 
-  // Таймлайн — останні 5 подій
+  // Таймлайн — події за останній місяць
   var tl=document.getElementById('ms-timeline');
   if(tl){
     var events=[];
+    var monthAgo=new Date(); monthAgo.setMonth(monthAgo.getMonth()-1);
+    var monthAgoStr=monthAgo.toISOString().slice(0,10);
 
-    // Останні заняття
-    var sLessons=(S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)===id;})
-      .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,3);
+    // Заняття за місяць
+    var sLessons=(S.lessons||[]).filter(function(l){
+      return (l.studentId||l.student_id)===id && (l.date||'')>=monthAgoStr;
+    }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var icons2={done:'\u2705',completed:'\u2705',makeup:'\uD83D\uDD04',missed:'\u274C',planned:'\uD83D\uDCC5',cancelled:'\uD83D\uDEAB'};
+    var lbls2={done:'\u0423\u0440\u043E\u043A \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E',completed:'\u0423\u0440\u043E\u043A \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E',makeup:'\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F',missed:'\u041F\u0440\u043E\u043F\u0443\u0441\u043A',planned:'\u0417\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u0438\u0439 \u0443\u0440\u043E\u043A',cancelled:'\u0421\u043A\u0430\u0441\u043E\u0432\u0430\u043D\u043E'};
+    var clr2={done:'var(--tut)',completed:'var(--tut)',makeup:'#f59e0b',missed:'var(--danger)',planned:'var(--adm)',cancelled:'var(--t3)'};
     sLessons.forEach(function(l){
-      var icons={done:'✅',completed:'✅',makeup:'🔄',missed:'❌',planned:'📅',cancelled:'🚫'};
-      var lbls={done:'Урок проведено',completed:'Урок проведено',makeup:'Відпрацювання',missed:'Пропуск',planned:'Запланований урок',cancelled:'Скасовано'};
-      events.push({date:l.date,text:(icons[l.status]||'📖')+' '+(lbls[l.status]||l.status)+' · '+fd(l.date)+(l.time?' · '+l.time:'')});
+      events.push({date:l.date,color:clr2[l.status]||'var(--t2)',
+        text:(icons2[l.status]||'\uD83D\uDCDA')+' '+(lbls2[l.status]||l.status)+' \u00B7 '+fd(l.date)+(l.time?' \u00B7 '+l.time:'')+(l.subject?' \u00B7 '+l.subject:'')});
     });
 
-    // Останні комунікації
-    var sComms=(S.comms||[]).filter(function(c){return (c.studentId||c.student_id)===id;})
-      .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,2);
+    // Комунікації за місяць
+    var sComms=(S.comms||[]).filter(function(c){
+      return (c.studentId||c.student_id)===id && (c.date||'')>=monthAgoStr;
+    }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,5);
     sComms.forEach(function(c){
-      var ico={call:'📞',message:'💬',meeting:'🤝',email:'📧'};
-      events.push({date:c.date,text:(ico[c.type]||'📋')+' '+(c.note||c.type||'Комунікація')+' · '+fd(c.date)});
+      var ico={call:'\uD83D\uDCDE',message:'\uD83D\uDCAC',meeting:'\uD83E\uDD1D',email:'\uD83D\uDCE7'};
+      events.push({date:c.date,color:'var(--t2)',text:(ico[c.type]||'\uD83D\uDCCB')+' '+(c.note||c.type||'\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u044F')+' \u00B7 '+fd(c.date)});
     });
 
-    // Сортуємо по даті і беремо 5
     events.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
-    events=events.slice(0,5);
+    events=events.slice(0,20);
 
     tl.innerHTML=events.length
       ? events.map(function(e){
-          return '<div style="font-size:11px;color:var(--t2)">'
-            +'<span style="width:8px;height:8px;border-radius:50%;background:var(--b1);flex-shrink:0;margin-top:3px;margin-left:-16px;border:2px solid var(--adm)"></span>'
-            +e.text+'</div>';
+          return '<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:2px">'
+            +'<span style="width:8px;height:8px;border-radius:50%;background:'+(e.color||'var(--b1)')+';flex-shrink:0;margin-top:3px;margin-left:-14px;border:1.5px solid var(--s2)"></span>'
+            +'<span style="font-size:11px;color:var(--t2)">'+e.text+'</span></div>';
         }).join('')
-      : '\u041f\u043e\u0434\u0456\u0439 \u043f\u043e\u043a\u0438 \u043d\u0435\u043c\u0430\u0454';
+      : '<div style="font-size:11px;color:var(--t3)">\u041F\u043E\u0434\u0456\u0439 \u0437\u0430 \u043E\u0441\u0442\u0430\u043D\u043D\u0456\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u043D\u0435\u043C\u0430\u0454</div>';
   }
 }
 window.renderStudentCard = renderStudentCard;
