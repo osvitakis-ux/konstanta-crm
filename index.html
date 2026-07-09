@@ -41,6 +41,20 @@ if('serviceWorker' in navigator){
 
   --logo-yellow:#d9e021;--logo-blue:#29abe2;--logo-dark:#2e3192;
 }
+
+[data-theme="dark"]{
+  --bg:#0f1117;--s1:#1a1d27;--s2:#22263a;--s3:#2a2e42;
+  --b1:#2e3350;--b2:#3a4060;
+
+  --god:#7b82f0;--god2:#9da3f8;--god-bg:rgba(123,130,240,.12);
+  --dir:#e6c84a;--dir2:#f0d860;--dir-bg:rgba(230,200,74,.12);
+  --adm:#29abe2;--adm2:#3dbff8;--adm-bg:rgba(41,171,226,.12);
+  --tut:#22b573;--tut2:#2ed88a;--tut-bg:rgba(34,181,115,.12);
+
+  --danger:#f87171;--warn:#fb923c;
+  --t1:#e8eaf0;--t2:#9aa0b8;--t3:#5a6080;--t4:#3a4060;
+  --shadow:0 4px 20px rgba(0,0,0,.4);
+}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Karla',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overflow:hidden}
 
@@ -182,9 +196,12 @@ textarea{resize:vertical;min-height:72px}
 .schc{border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);min-height:46px;position:relative;cursor:pointer;transition:.1s}
 .schc:hover{background:rgba(108,143,255,.04)}
 .sche{border-radius:5px;padding:3px 5px;font-size:10px;cursor:pointer;overflow:hidden;z-index:1;margin-bottom:2px}
+.qp-btn:hover{background:var(--s2)!important}
 .ec-done{background:rgba(34,197,94,.18);border-left:3px solid #22c55e;color:#16a34a}
 .ec-miss{background:rgba(239,68,68,.18);border-left:3px solid #ef4444;color:#dc2626}
 .ec-make{background:rgba(245,158,11,.2);border-left:3px solid #f59e0b;color:#d97706}
+.ec-covered{background:rgba(139,92,246,.2);border-left:3px solid #8b5cf6;color:#7c3aed}
+.ec-partial{background:rgba(139,92,246,.1);border-left:3px solid #c4b5fd;color:#7c3aed;border-left-style:dashed}
 .prov-card{transition:border-color .15s,background .15s}
 .prov-card:hover{border-color:var(--adm)!important;background:rgba(41,171,226,.05)}
 .prov-card.sel{border-color:var(--adm)!important;background:rgba(41,171,226,.1);color:var(--adm);font-weight:600}
@@ -194,8 +211,6 @@ textarea{resize:vertical;min-height:72px}
 .tel-toggle-sw::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s}
 .tel-toggle input:checked+.tel-toggle-sw{background:var(--adm)}
 .tel-toggle input:checked+.tel-toggle-sw::after{transform:translateX(18px)}
-.ec-partial{background:rgba(139,92,246,.1);border-left:3px solid #c4b5fd;color:#7c3aed;border-style:dashed}
-.ec-partial{background:rgba(139,92,246,.1);border-left:3px solid #c4b5fd;color:#7c3aed;border-style:dashed}
 .ec-makeplan{background:rgba(148,163,184,.2);border-left:3px solid #94a3b8;color:#64748b}
 .ec-plan{background:rgba(41,171,226,.18);border-left:3px solid var(--adm);color:var(--adm)}
 .ec0{background:rgba(108,143,255,.22);border-left:2.5px solid var(--adm);color:var(--adm)}
@@ -470,8 +485,7 @@ textarea{resize:vertical;min-height:72px}
 
   /* modals: bottom sheet */
   .mo{align-items:flex-end!important}
-  .mdl{width:100%!important;max-width:100%!important;border-radius:18px 18px 0 0!important;
-       max-height:88vh;margin:0}
+  .mdl{width:100vw!important;max-width:100vw!important;border-radius:18px 18px 0 0!important;max-height:88vh;margin:0!important;overflow-y:auto}
 
   /* forms: single column */
   .fg{grid-template-columns:1fr!important}
@@ -530,7 +544,8 @@ textarea{resize:vertical;min-height:72px}
   /* Prevent body scroll when sidebar open */
   body.sb-open{overflow:hidden}
   /* Modal fixes for mobile */
-  .mdl{width:calc(100vw - 16px)!important;margin:8px!important;border-radius:12px!important;max-height:90vh;overflow-y:auto}
+  .mdl{width:100vw!important;max-width:100vw!important;margin:0!important;border-radius:18px 18px 0 0!important;max-height:90vh;overflow-y:auto}
+  .mo{align-items:flex-end!important}
   /* Fix tables on mobile */
   table{font-size:12px}
   td,th{padding:8px 10px!important}
@@ -613,8 +628,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <span id="sync-lbl" style="font-size:11px;color:var(--t3)"></span>
     </div>
     <div class="ptitle" id="ptitle">Дашборд</div>
-      <div class="search"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук..." id="gsearch" oninput="gSearch(this.value)"></div>
+      <div class="search"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук... (Ctrl+K)" id="gsearch" oninput="gSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';gSearch('');}"></div>
       <button class="btn btn-p" id="addbtn" onclick="openAdd()" style="display:none">+ Додати</button>
+      <button onclick="toggleTheme()" id="theme-btn" title="Змінити тему" style="background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;border-radius:8px;color:var(--t2);transition:.15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">🌙</button>
     </div>
     <div class="content" id="content">
 
@@ -743,7 +759,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div class="chip" onclick="sfilt('completed',this)">Завершили</div>
         </div>
         <div class="card">
-          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span></div>
+          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><button class="btn btn-g btn-sm" onclick="exportToExcel('students')" style="margin-left:auto">📊 Excel</button></div>
           <table><thead><tr><th>Ім'я</th><th>Вік/Клас</th><th>Предмет</th><th>Репетитор</th><th>Статус</th><th>Контакт</th><th>Дії</th></tr></thead><tbody id="st-table"></tbody></table>
         </div>
       </div>
@@ -780,8 +796,8 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <select id="sch-tutor-filter" style="display:none;font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1)" onchange="renderSch()">
             <option value="">Усі репетитори</option>
           </select>
-          <!-- Tutor filter (day view) -->
-          <select id="sch-tutor-filter" style="display:none;width:160px;font-size:12px" onchange="renderSch()">
+          <!-- Tutor filter (week view) -->
+          <select id="sch-tutor-filter-2" style="display:none;width:160px;font-size:12px" onchange="renderSch()">
             <option value="">Всі репетитори</option>
           </select>
         </div>
@@ -795,7 +811,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <span class="ct">Заняття</span>
             <select id="lf-student" onchange="renderLessons()" style="width:180px;font-size:12px;padding:5px 8px;margin-right:4px"><option value="">Всі учні</option></select>
             <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="missed">Пропущені</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select>
-          </div>
+            <button class="btn btn-g btn-sm" onclick="exportToExcel('lessons')" style="margin-left:auto">📊 Excel</button>
           <table><thead><tr><th>Учень</th><th>Предмет</th><th>Репетитор</th><th>Дата та час</th><th>Тривалість</th><th id="lt-miss-col" style="display:none">Дата пропуску</th><th id="lt-makeup-col" style="display:none">Відпрацювання</th><th>Нотатки</th><th>Статус</th><th></th></tr></thead><tbody id="lt-table"></tbody></table>
         </div>
       </div>
@@ -1177,7 +1193,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
                   <option value="missed">Пропущені</option>
                 </select>
                 <button class="btn btn-g btn-sm" onclick="renderTelLog()" title="Оновити">↻</button>
-                <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn">⚙ Налаштування</button>
+                <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn" style="display:none">⚙ Налаштування</button>
               </div>
             </div>
             <div id="tel-log-body" style="padding:0 18px 18px">
@@ -1203,7 +1219,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
                   <div class="fgr"><label>Прізвище</label><input id="pr-ln" type="text"></div>
                   <div class="fgr"><label>Телефон</label><input id="pr-phone" type="text"></div>
                   <div class="fgr"><label>Email</label><input id="pr-email" type="email"></div>
-                  <div class="fgr"><label>Предмети</label><input id="pr-subj" placeholder="через кому"></div>
+                  <div class="fgr"><label>Предмети</label><input id="pr-subj2" placeholder="через кому"></div>
                   <div class="fgr full"><label>Фото</label>
                     <div style="display:flex;align-items:center;gap:12px">
                       <div id="pr-photo-preview" style="width:56px;height:56px;border-radius:50%;background:var(--s2);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--t3)">📷</div>
@@ -1225,7 +1241,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
         </div>
       </div>
-    </div>
+      </div>
 
 
 
@@ -1233,7 +1249,19 @@ body.role-tutor .comm-add-btn { display: none !important; }
 </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
-</div><!-- /app -->
+</div><!-- /as -->
+
+<!-- Quick action popup -->
+<div id="quick-popup" style="display:none;position:fixed;z-index:600;background:var(--s1);border:1px solid var(--b1);border-radius:12px;box-shadow:var(--shadow);padding:8px;min-width:180px">
+  <div id="qp-title" style="font-size:12px;font-weight:600;color:var(--t2);padding:4px 8px 8px;border-bottom:1px solid var(--b1);margin-bottom:4px"></div>
+  <button class="qp-btn" onclick="quickSetStatus('done')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--tut)">✅ Проведено</button>
+  <button class="qp-btn" onclick="quickSetStatus('missed')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--danger)">❌ Пропущено</button>
+  <button class="qp-btn" onclick="quickSetStatus('cancelled')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--t3)">🚫 Скасовано</button>
+  <button class="qp-btn" onclick="quickSetStatus('planned')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--adm)">📅 Заплановано</button>
+  <div style="border-top:1px solid var(--b1);margin-top:4px;padding-top:4px">
+    <button class="qp-btn" onclick="quickEdit()" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--t1)">✏️ Редагувати</button>
+  </div>
+</div>
 
 <!-- ═══ MODALS ═══ -->
 
@@ -1326,8 +1354,25 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
 <!-- Student -->
 <div class="mo" id="mo-student">
-  <div class="mdl">
-    <div class="mdlh"><div class="mdlt" id="ms-title">Учень</div><button class="xbtn" onclick="closeM('mo-student')">×</button></div>
+  <div class="mdl" style="max-width:700px">
+    <div class="mdlh"><div class="mdlt" id="ms-title">Учень</div><div style="display:flex;gap:6px"><button class="btn btn-g btn-sm" id="inv-btn" style="display:none" onclick="openInvoiceForStudent()">🧾 Рахунок</button><button class="xbtn" onclick="closeM('mo-student')">×</button></div></div>
+
+    <!-- Картка учня з таймлайном -->
+    <div id="ms-card" style="display:none;background:var(--s2);border-bottom:1px solid var(--b1);max-height:220px;overflow-y:auto">
+      <div style="padding:12px 16px">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div id="ms-av" style="width:40px;height:40px;border-radius:50%;background:var(--adm);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div id="ms-fullname" style="font-size:14px;font-weight:700;margin-bottom:2px"></div>
+            <div id="ms-meta" style="font-size:11px;color:var(--t2);margin-bottom:6px"></div>
+            <div id="ms-tags" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+          </div>
+        </div>
+        <!-- Таймлайн -->
+        <div id="ms-timeline" style="margin-top:10px;border-left:2px solid var(--b1);padding-left:10px;display:flex;flex-direction:column;gap:4px"></div>
+      </div>
+    </div>
+
     <div class="mdlb"><div class="fg">
       <div class="fgr"><label>Ім'я *</label><input id="s-fn"></div>
       <div class="fgr"><label>Прізвище *</label><input id="s-ln"></div>
@@ -1347,7 +1392,12 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div></div>
       <div class="fgr full" style="grid-column:1/-1">
         <label>Репетитор(и)</label>
-        <select id="s-tutor-list" style="width:100%"></select></div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="s-tutor-input" list="s-tutor-datalist" placeholder="Оберіть або введіть ім'я репетитора..." autocomplete="off" style="flex:1">
+          <datalist id="s-tutor-datalist"></datalist>
+          <button type="button" class="btn btn-g btn-sm" onclick="sAddTutor()">+ Додати</button>
+        </div>
+        <div id="s-tutor-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
         <select id="s-tutor" style="display:none"></select>
       </div>
       <div class="fgr"><label>Статус</label><select id="s-status"><option value="active">Активний</option><option value="trial">Пробне</option><option value="paused">Призупинений</option><option value="completed">Завершив</option></select></div>
@@ -1372,8 +1422,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
     <div class="mdlf"><button class="btn btn-g" onclick="closeM('mo-student')">Скасувати</button><button class="btn btn-p" onclick="saveStudent()">💾 Зберегти</button></div>
   </div>
 </div>
-<!-- Tutor -->
-<!-- ═══ USER EDIT MODAL ═══ -->
 <div class="mo" id="mo-user">
   <div class="mdl" style="max-width:440px">
     <div class="mdlh"><div class="mdlt" id="mu-title">Редагувати акаунт</div><button class="xbtn" onclick="closeM('mo-user')">×</button></div>
