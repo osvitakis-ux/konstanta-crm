@@ -950,6 +950,19 @@ function copyInvoiceText(){
   navigator.clipboard?navigator.clipboard.writeText(txt).then(function(){mkToast('Скопійовано ✅');}):mkToast('Скопіюйте вручну','info');
 }
 
+function openInvoiceForStudent(){
+  var sid = S.editId;
+  closeM('mo-student');
+  nav('invoice');
+  var sel = document.getElementById('inv-student');
+  if(sel && sid){
+    sel.value = sid;
+    if(sel._updateSearch) sel._updateSearch();
+    renderInvoicePage();
+  }
+}
+window.openInvoiceForStudent = openInvoiceForStudent;
+
 window.renderInvoicePage=renderInvoicePage;
 window.sendInvoiceViber=sendInvoiceViber;
 window.sendInvoiceTelegram=sendInvoiceTelegram;
@@ -4197,7 +4210,7 @@ function toggleProfileEdit(){
     if(mt){
       var set = function(id,val){ var el=document.getElementById(id); if(el) el.value=val||''; };
       set('pr-fn', mt.fn); set('pr-ln', mt.ln); set('pr-phone', mt.phone);
-      set('pr-email', mt.email); set('pr-subj', mt.subj);
+      set('pr-email', mt.email); set('pr-tsubj', mt.subj);
       set('pr-rate', mt.rate); set('pr-bio', mt.bio);
     }
     form.style.display = 'block';
@@ -4211,7 +4224,7 @@ async function saveProfileEdit(){
   if(!mt){ mkToast('Профіль репетитора не знайдено','error'); return; }
   var get = function(id){ var el=document.getElementById(id); return el?el.value.trim():''; };
   var obj = { fn:get('pr-fn'), ln:get('pr-ln'), phone:get('pr-phone'),
-    email:get('pr-email'), subj:get('pr-subj'), bio:get('pr-bio') };
+    email:get('pr-email'), subj:get('pr-tsubj'), bio:get('pr-bio') };
   if(!obj.fn){ mkToast("Ім'я обов'язкове",'error'); return; }
   try{
     await dbUpdate('tutors', mt.id, obj);
@@ -4547,7 +4560,7 @@ function renderProfile(){
   if(mt){
     var setV = function(id,v){ var el=document.getElementById(id); if(el) el.value=v||''; };
     setV('pr-fn', mt.fn); setV('pr-ln', mt.ln); setV('pr-phone', mt.phone);
-    setV('pr-email', mt.email); setV('pr-subj', mt.subj); setV('pr-bio', mt.bio);
+    setV('pr-email', mt.email); setV('pr-tsubj', mt.subj); setV('pr-bio', mt.bio);
     // Photo preview
     var prev = document.getElementById('pr-photo-preview');
     if(prev && mt.photo) prev.innerHTML = '<img src="'+mt.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
@@ -5726,19 +5739,6 @@ function makeSearchable(selectId){
   sel._updateSearch();
 }
 window.makeSearchable=makeSearchable;
-
-document.addEventListener('DOMContentLoaded', initApp);
-
-// Tutor checkbox visual feedback
-document.addEventListener('change', function(e){
-  if(e.target && e.target.classList.contains('st-tutor-cb')){
-    var lbl = e.target.closest('label');
-    if(lbl){
-      lbl.style.background = e.target.checked ? 'rgba(41,171,226,.15)' : 'var(--s1)';
-      lbl.style.borderColor = e.target.checked ? 'var(--adm)' : 'var(--b1)';
-    }
-  }
-});
 
 
 // Перевіряє чи пропущений урок є відпрацьованим
