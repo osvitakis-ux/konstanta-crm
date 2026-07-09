@@ -5762,38 +5762,26 @@ function isCoveredMissed(l){
   if(l.makeup_date) return true;
 
   var sid = l.studentId||l.student_id;
-  var tid = l.tutorId||l.tutor_id;
   var ldate = l.date;
+  var missedDur = parseFloat(l.dur)||60;
 
-  // Якщо урок є частиною розбитої групи — рахуємо всю групу
-  var groupId = l.split_group_id || l.id;
-
-  // Всі missed-частини цієї групи
-  var missedParts = (S.lessons||[]).filter(function(x){
-    if(x.status!=='missed') return false;
-    if((x.studentId||x.student_id)!==sid) return false;
-    var xGroup = x.split_group_id || x.id;
-    return xGroup===groupId || x.id===groupId || x.split_group_id===l.id || l.split_group_id===x.id || x.id===l.id;
-  });
-  var totalMissedDur = missedParts.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
-  if(!totalMissedDur) totalMissedDur = parseFloat(l.dur)||60;
-
-  // Всі makeup-уроки пов'язані з цією групою
+  // Шукаємо makeup-уроки по кількох критеріях
   var makeups = (S.lessons||[]).filter(function(x){
     if(x.status!=='makeup') return false;
     if((x.studentId||x.student_id)!==sid) return false;
-    if((x.tutorId||x.tutor_id)!==tid) return false;
-    // Прив'язаний по даті або по explicit missed_date
-    return x.missed_date===ldate;
+    // 1. Явне поле missed_date
+    if(x.missed_date===ldate) return true;
+    // 2. Через split_group_id
+    if(l.split_group_id && x.split_group_id===l.split_group_id) return true;
+    if(x.split_group_id===l.id || l.split_group_id===x.id) return true;
+    return false;
   });
 
   if(!makeups.length) return false;
-
   var makeupTotalDur = makeups.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
-  return makeupTotalDur >= totalMissedDur;
+  return makeupTotalDur >= missedDur;
 }
 
-// Get all missed lessons that have NO paired makeup (truly uncovered)
 function getUncoveredMissed(lessons){
   return (lessons||[]).filter(function(l){
     return (l.status==='missed') && !isCoveredMissed(l);
