@@ -41,6 +41,20 @@ if('serviceWorker' in navigator){
 
   --logo-yellow:#d9e021;--logo-blue:#29abe2;--logo-dark:#2e3192;
 }
+
+[data-theme="dark"]{
+  --bg:#0f1117;--s1:#1a1d27;--s2:#22263a;--s3:#2a2e42;
+  --b1:#2e3350;--b2:#3a4060;
+
+  --god:#7b82f0;--god2:#9da3f8;--god-bg:rgba(123,130,240,.12);
+  --dir:#e6c84a;--dir2:#f0d860;--dir-bg:rgba(230,200,74,.12);
+  --adm:#29abe2;--adm2:#3dbff8;--adm-bg:rgba(41,171,226,.12);
+  --tut:#22b573;--tut2:#2ed88a;--tut-bg:rgba(34,181,115,.12);
+
+  --danger:#f87171;--warn:#fb923c;
+  --t1:#e8eaf0;--t2:#9aa0b8;--t3:#5a6080;--t4:#3a4060;
+  --shadow:0 4px 20px rgba(0,0,0,.4);
+}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Karla',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overflow:hidden}
 
@@ -182,6 +196,7 @@ textarea{resize:vertical;min-height:72px}
 .schc{border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);min-height:46px;position:relative;cursor:pointer;transition:.1s}
 .schc:hover{background:rgba(108,143,255,.04)}
 .sche{border-radius:5px;padding:3px 5px;font-size:10px;cursor:pointer;overflow:hidden;z-index:1;margin-bottom:2px}
+.qp-btn:hover{background:var(--s2)!important}
 .ec-done{background:rgba(34,197,94,.18);border-left:3px solid #22c55e;color:#16a34a}
 .ec-miss{background:rgba(239,68,68,.18);border-left:3px solid #ef4444;color:#dc2626}
 .ec-make{background:rgba(245,158,11,.2);border-left:3px solid #f59e0b;color:#d97706}
@@ -613,8 +628,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <span id="sync-lbl" style="font-size:11px;color:var(--t3)"></span>
     </div>
     <div class="ptitle" id="ptitle">Дашборд</div>
-      <div class="search"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук..." id="gsearch" oninput="gSearch(this.value)"></div>
+      <div class="search"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук... (Ctrl+K)" id="gsearch" oninput="gSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';gSearch('');}"></div>
       <button class="btn btn-p" id="addbtn" onclick="openAdd()" style="display:none">+ Додати</button>
+      <button onclick="toggleTheme()" id="theme-btn" title="Змінити тему" style="background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;border-radius:8px;color:var(--t2);transition:.15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">🌙</button>
     </div>
     <div class="content" id="content">
 
@@ -743,7 +759,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div class="chip" onclick="sfilt('completed',this)">Завершили</div>
         </div>
         <div class="card">
-          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span></div>
+          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><button class="btn btn-g btn-sm" onclick="exportToExcel('students')" style="margin-left:auto">📊 Excel</button></div>
           <table><thead><tr><th>Ім'я</th><th>Вік/Клас</th><th>Предмет</th><th>Репетитор</th><th>Статус</th><th>Контакт</th><th>Дії</th></tr></thead><tbody id="st-table"></tbody></table>
         </div>
       </div>
@@ -795,7 +811,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <span class="ct">Заняття</span>
             <select id="lf-student" onchange="renderLessons()" style="width:180px;font-size:12px;padding:5px 8px;margin-right:4px"><option value="">Всі учні</option></select>
             <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="missed">Пропущені</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select>
-          </div>
+            <button class="btn btn-g btn-sm" onclick="exportToExcel('lessons')" style="margin-left:auto">📊 Excel</button>
           <table><thead><tr><th>Учень</th><th>Предмет</th><th>Репетитор</th><th>Дата та час</th><th>Тривалість</th><th id="lt-miss-col" style="display:none">Дата пропуску</th><th id="lt-makeup-col" style="display:none">Відпрацювання</th><th>Нотатки</th><th>Статус</th><th></th></tr></thead><tbody id="lt-table"></tbody></table>
         </div>
       </div>
@@ -1233,6 +1249,18 @@ body.role-tutor .comm-add-btn { display: none !important; }
 </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
+
+<!-- Quick action popup -->
+<div id="quick-popup" style="display:none;position:fixed;z-index:600;background:var(--s1);border:1px solid var(--b1);border-radius:12px;box-shadow:var(--shadow);padding:8px;min-width:180px">
+  <div id="qp-title" style="font-size:12px;font-weight:600;color:var(--t2);padding:4px 8px 8px;border-bottom:1px solid var(--b1);margin-bottom:4px"></div>
+  <button class="qp-btn" onclick="quickSetStatus('done')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--tut)">✅ Проведено</button>
+  <button class="qp-btn" onclick="quickSetStatus('missed')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--danger)">❌ Пропущено</button>
+  <button class="qp-btn" onclick="quickSetStatus('cancelled')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--t3)">🚫 Скасовано</button>
+  <button class="qp-btn" onclick="quickSetStatus('planned')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--adm)">📅 Заплановано</button>
+  <div style="border-top:1px solid var(--b1);margin-top:4px;padding-top:4px">
+    <button class="qp-btn" onclick="quickEdit()" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--t1)">✏️ Редагувати</button>
+  </div>
+</div>
 
 <!-- ═══ MODALS ═══ -->
 
