@@ -2600,6 +2600,7 @@ async function importBackup(input){
 }
 
 async function initApp(){
+  initTheme();
   // ── VIEWER MODE: відкриття резервної копії без Supabase ──
   var _isViewer = window.location.search.includes('viewer=1');
   if(_isViewer){
@@ -3506,6 +3507,125 @@ async function clearData(what){
 // =
 // APP START
 // =
+// ── QUICK ACTION POPUP ──────────────────────
+var _quickLessonId = null;
+
+function showQuickPopup(lessonId, x, y){
+  _quickLessonId = lessonId;
+  var l = (S.lessons||[]).find(function(x){return x.id===lessonId;});
+  if(!l) return;
+  var s = (S.students||[]).find(function(st){return st.id===(l.studentId||l.student_id);});
+  var title = document.getElementById('qp-title');
+  if(title) title.textContent = (s?s.fn+' '+s.ln:'?')+' · '+(l.time||'');
+  var pop = document.getElementById('quick-popup');
+  if(!pop) return;
+  pop.style.display = 'block';
+  // Position near click
+  var pw = 190, ph = 200;
+  var lx = Math.min(x, window.innerWidth - pw - 10);
+  var ly = Math.min(y, window.innerHeight - ph - 10);
+  pop.style.left = lx + 'px';
+  pop.style.top = ly + 'px';
+  // Close on outside click
+  setTimeout(function(){
+    document.addEventListener('click', closeQuickPopup, {once:true});
+  }, 10);
+}
+
+function closeQuickPopup(){
+  var pop = document.getElementById('quick-popup');
+  if(pop) pop.style.display = 'none';
+}
+
+async function quickSetStatus(status){
+  closeQuickPopup();
+  if(!_quickLessonId) return;
+  try{
+    await dbUpdate('lessons', _quickLessonId, {status: status});
+    mkToast(status==='done'?'✅ Проведено':status==='missed'?'❌ Пропущено':status==='cancelled'?'🚫 Скасовано':'📅 Заплановано');
+    if(S.currentPage==='schedule') renderSch();
+    if(S.currentPage==='lessons') renderLessons();
+  }catch(e){ mkToast('Помилка: '+e.message,'error'); }
+}
+
+function quickEdit(){
+  closeQuickPopup();
+  if(_quickLessonId) openLessM(_quickLessonId);
+}
+
+window.showQuickPopup = showQuickPopup;
+window.closeQuickPopup = closeQuickPopup;
+window.quickSetStatus = quickSetStatus;
+window.quickEdit = quickEdit;
+
+// ── CTRL+K GLOBAL SEARCH ────────────────────
+document.addEventListener('keydown', function(e){
+  if((e.ctrlKey||e.metaKey) && e.key==='k'){
+    e.preventDefault();
+    var gs = document.getElementById('gsearch');
+    if(gs){ gs.focus(); gs.select(); }
+  }
+  if(e.key==='Escape'){
+    closeQuickPopup();
+  }
+});
+
+// ── EXCEL EXPORT ────────────────────────────
+function exportToExcel(type){
+  var rows=[], headers=[], data=[];
+
+  if(type==='students'){
+    headers=['Імʼя','Прізвище','Телефон','Предмет','Статус','Клас','Нотатки'];
+    data=(S.students||[]).map(function(s){return [s.fn||'',s.ln||'',s.phone||'',s.subject||'',s.status||'',s.grade||'',s.notes||''];});
+  } else if(type==='lessons'){
+    headers=['Учень','Репетитор','Предмет','Дата','Час','Тривалість','Статус','Ціна'];
+    data=myLessons().map(function(l){
+      var st=(S.students||[]).find(function(s){return s.id===(l.studentId||l.student_id);});
+      var tu=(S.tutors||[]).find(function(t){return t.id===(l.tutorId||l.tutor_id);});
+      return [(st?st.fn+' '+st.ln:''),(tu?tu.fn+' '+tu.ln:''),(l.subject||''),(l.date||''),(l.time||''),(l.dur||60)+' хв',(l.status||''),(l.price||'')];
+    });
+  } else if(type==='payments'){
+    headers=['Учень','Сума','Дата','Статус','Нотатки'];
+    data=(S.payments||[]).map(function(p){
+      var st=(S.students||[]).find(function(s){return s.id===(p.studentId||p.student_id);});
+      return [(st?st.fn+' '+st.ln:''),(p.amount||''),(p.date||''),(p.status||''),(p.notes||'')];
+    });
+  }
+
+  // Build CSV (Excel-compatible UTF-8 BOM)
+  var csv='\uFEFF'+headers.join(';')+'\n';
+  data.forEach(function(row){
+    csv+=row.map(function(cell){
+      var s=String(cell||'').replace(/"/g,'""');
+      return '"'+s+'"';
+    }).join(';')+'\n';
+  });
+
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download='konstanta_'+type+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  mkToast('📊 Експорт завершено');
+}
+window.exportToExcel = exportToExcel;
+
+function toggleTheme(){
+  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  var newTheme=isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',newTheme==='dark'?'dark':'');
+  localStorage.setItem('crm_theme',newTheme);
+  var btn=document.getElementById('theme-btn');
+  if(btn) btn.textContent=newTheme==='dark'?'☀️':'🌙';
+}
+function initTheme(){
+  var saved=localStorage.getItem('crm_theme')||'light';
+  if(saved==='dark') document.documentElement.setAttribute('data-theme','dark');
+  var btn=document.getElementById('theme-btn');
+  if(btn) btn.textContent=saved==='dark'?'☀️':'🌙';
+}
+window.toggleTheme=toggleTheme;
+
 async function startApp(){
   // Inject page visibility CSS
   if(!document.getElementById('__pcss__')){
@@ -4692,7 +4812,7 @@ function renderSchDay(){
           : 'ec-plan';
         var canDel = can('lessons');
         html += '<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;left:2px;right:2px;height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
-          +' onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'          +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'\uD83D\uDD01 ':'')+l.subject+'</div>'
+          +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'          +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'\uD83D\uDD01 ':'')+l.subject+'</div>'
           +(heightPx>28?'<div style="opacity:.75;font-size:9px">'+sn(l.studentId||l.student_id).split(' ')[0]+'</div>':'')
           +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' \u00B7 '+Math.floor(dur/60)+'\u0433'+(dur%60?dur%60+'\u0445\u0432':''):'\u00B7 '+dur+'\u0445\u0432')+'</div>':'')
           +(canDel?'<span onclick="event.stopPropagation();delLesson(\''+l.id+'\')" style="position:absolute;top:2px;right:3px;font-size:10px;opacity:.6;cursor:pointer;line-height:1" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438">\u2715</span>':'')
@@ -4781,7 +4901,7 @@ function renderSchWeek(){
         :'ec-plan';
       var canDel=can('lessons');
       html+='<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;left:2px;right:2px;height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
-        +' onclick="event.stopPropagation();openLessM(\''+l.id+'\')">'
+        +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
         +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'🔁 ':'')+l.subject+'</div>'
         +(heightPx>28?'<div style="opacity:.75;font-size:9px">'+sn(l.studentId||l.student_id).split(' ')[0]+'</div>':'')
         +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' · '+(dur>=60?Math.floor(dur/60)+'г'+(dur%60?dur%60+'хв':''):''):'· '+dur+'хв')+'</div>':'')
