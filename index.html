@@ -1115,7 +1115,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             </div>
             <button class="btn btn-g btn-sm" onclick="document.getElementById('comm-f-student').value='';document.getElementById('comm-f-tutor').value='';document.getElementById('comm-f-type').value='';renderCommsPage()" style="align-self:flex-end;padding:6px 12px;font-size:12px">✕ Скинути</button>
           </div>
-          <div style="overflow-x:auto;overflow-y:visible"><table><thead><tr><th>Дата</th><th>Тип</th><th>Учень</th><th>Репетитор</th><th>Нотатка</th></tr></thead><tbody id="comms-tbody"></tbody></table></div>
+          <div style="overflow-x:auto;overflow-y:visible"><table><thead><tr><th>Дата</th><th>Тип</th><th>Учень</th><th>Репетитор</th><th>Нотатка</th><th></th></tr></thead><tbody id="comms-tbody"></tbody></table></div>
         </div>
       </div>
       <!-- ── MISSED PAGE ── -->
@@ -1168,6 +1168,42 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div id="crm-board"></div>
         </div>
       </div>
+
+      <div class="page" id="pg-profile">
+          <div class="card">
+              <div class="ch">
+                <span class="ct">Мій профіль</span>
+                <button class="btn btn-g btn-sm" onclick="toggleProfileEdit()">✏️ Редагувати</button>
+              </div>
+              <div style="padding:18px" id="pr-info"></div>
+              <div id="pr-edit-form" style="display:none;padding:0 18px 18px">
+                <div class="fg" style="margin-top:0">
+                  <div class="fgr"><label>Ім'я</label><input id="pr-fn" type="text"></div>
+                  <div class="fgr"><label>Прізвище</label><input id="pr-ln" type="text"></div>
+                  <div class="fgr"><label>Телефон</label><input id="pr-phone" type="text"></div>
+                  <div class="fgr"><label>Email</label><input id="pr-email" type="email"></div>
+                  <div class="fgr"><label>Предмети</label><input id="pr-subj2" placeholder="через кому"></div>
+                  <div class="fgr full"><label>Фото</label>
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <div id="pr-photo-preview" style="width:56px;height:56px;border-radius:50%;background:var(--s2);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--t3)">📷</div>
+                      <div>
+                        <input type="file" id="pr-photo-input" accept="image/*" style="display:none" onchange="uploadTutorPhoto(this)">
+                        <button class="btn btn-g btn-sm" onclick="document.getElementById('pr-photo-input').click()">Обрати фото</button>
+                        <div style="font-size:11px;color:var(--t3);margin-top:4px">JPG, PNG до 2 МБ</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="fgr full"><label>Про себе</label><textarea id="pr-bio" rows="3"></textarea></div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                  <button class="btn btn-p" onclick="saveProfileEdit()">💾 Зберегти</button>
+                  <button class="btn btn-g" onclick="toggleProfileEdit()">Скасувати</button>
+                </div>
+              </div>
+            </div>
+
+        </div>
+      </div>
       
       
 
@@ -1205,42 +1241,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div>
       </div>
 
-            <div class="page" id="pg-profile">
-        <div class="tc">
-          <div class="card">
-              <div class="ch">
-                <span class="ct">Мій профіль</span>
-                <button class="btn btn-g btn-sm" onclick="toggleProfileEdit()">✏️ Редагувати</button>
-              </div>
-              <div style="padding:18px" id="pr-info"></div>
-              <div id="pr-edit-form" style="display:none;padding:0 18px 18px">
-                <div class="fg" style="margin-top:0">
-                  <div class="fgr"><label>Ім'я</label><input id="pr-fn" type="text"></div>
-                  <div class="fgr"><label>Прізвище</label><input id="pr-ln" type="text"></div>
-                  <div class="fgr"><label>Телефон</label><input id="pr-phone" type="text"></div>
-                  <div class="fgr"><label>Email</label><input id="pr-email" type="email"></div>
-                  <div class="fgr"><label>Предмети</label><input id="pr-subj2" placeholder="через кому"></div>
-                  <div class="fgr full"><label>Фото</label>
-                    <div style="display:flex;align-items:center;gap:12px">
-                      <div id="pr-photo-preview" style="width:56px;height:56px;border-radius:50%;background:var(--s2);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--t3)">📷</div>
-                      <div>
-                        <input type="file" id="pr-photo-input" accept="image/*" style="display:none" onchange="uploadTutorPhoto(this)">
-                        <button class="btn btn-g btn-sm" onclick="document.getElementById('pr-photo-input').click()">Обрати фото</button>
-                        <div style="font-size:11px;color:var(--t3);margin-top:4px">JPG, PNG до 2 МБ</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="fgr full"><label>Про себе</label><textarea id="pr-bio" rows="3"></textarea></div>
-                </div>
-                <div style="display:flex;gap:8px;margin-top:8px">
-                  <button class="btn btn-p" onclick="saveProfileEdit()">💾 Зберегти</button>
-                  <button class="btn btn-g" onclick="toggleProfileEdit()">Скасувати</button>
-                </div>
-              </div>
-            </div>
-
-        </div>
-      </div>
       </div>
 
 
@@ -1249,7 +1249,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
 </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /layout -->
-</div><!-- /as -->
 
 <!-- Quick action popup -->
 <div id="quick-popup" style="display:none;position:fixed;z-index:600;background:var(--s1);border:1px solid var(--b1);border-radius:12px;box-shadow:var(--shadow);padding:8px;min-width:180px">
