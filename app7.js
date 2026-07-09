@@ -4109,7 +4109,7 @@ function nav(page){
   if(page==='users')renderUsers();
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
-  if(page==='comms') renderCommsPage();
+  if(page==='comms'){try{renderCommsPage();}catch(e){console.error('renderCommsPage:',e);}}
   if(page==='invoice') renderInvoicePage();
   if(page==='invoice-log') renderInvoiceLog();
   if(page==='missed') renderMissedLessons();
