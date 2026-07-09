@@ -1715,34 +1715,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<!-- CRM Lead Modal -->
-<div class="mo" id="mo-crm">
-  <div class="mdl" style="max-width:460px">
-    <div class="mdlh"><span id="crm-modal-title">Лід</span><button class="cls" onclick="closeM('mo-crm')">✕</button></div>
-    <div class="mdlb">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="fg"><label>Ім'я *</label><input id="crm-fn" placeholder="Ім'я"></div>
-        <div class="fg"><label>Прізвище</label><input id="crm-ln" placeholder="Прізвище"></div>
-      </div>
-      <div class="fg"><label>Телефон</label><input id="crm-phone" placeholder="+380..."></div>
-      <div class="fg"><label>Предмет</label><input id="crm-subj" placeholder="Математика..."></div>
-      <div class="fg"><label>Етап</label>
-        <select id="crm-stage">
-          <option value="new">🆕 Новий</option>
-          <option value="contacted">📞 Контакт</option>
-          <option value="trial">🎯 Пробне</option>
-          <option value="active">✅ Активний</option>
-          <option value="rejected">❌ Відмова</option>
-        </select>
-      </div>
-      <div class="fg"><label>Репетитор</label><select id="crm-tutor"></select></div>
-      <div class="fg"><label>Нотатка</label><textarea id="crm-note" rows="2" style="min-height:60px"></textarea></div>
-    </div>
-    <div class="mdlf">
-      <button class="btn btn-p" onclick="saveLeadModal()">💾 Зберегти</button>
-      <button class="btn btn-g" onclick="closeM('mo-crm')">Скасувати</button>
-    </div>
-  </div>
 </div>
 </body>
 </html>
