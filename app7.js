@@ -1,5 +1,4 @@
 window.SupabaseMini = (function(){
-
   function createClient(url, anonKey){
     var _url = url.replace(/\/$/, '');
     var _key = anonKey;
