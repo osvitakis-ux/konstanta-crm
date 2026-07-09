@@ -5026,21 +5026,6 @@ function getCrmStage(s){
   return map[s.status]||'lead';
 }
 
-async function setCrmStage(studentId, stage){
-  var i=(S.students||[]).findIndex(function(s){return s.id===studentId;});
-  var prev=i>=0?(S.students[i].crmStage||S.students[i].crm_stage):null;
-  if(i>=0){S.students[i].crmStage=stage;S.students[i].crm_stage=stage;}
-  renderCrm();
-  try{
-    await dbUpdate('students',studentId,{crm_stage:stage});
-    mkToast('Етап оновлено');
-  }catch(e){
-    if(i>=0){S.students[i].crmStage=prev;S.students[i].crm_stage=prev;}
-    renderCrm();
-    mkToast('Помилка: '+e.message,'error');
-  }
-}
-
 function openAddLead(){
   openStudM(null);
   document.getElementById('ms-title').textContent='\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434';
