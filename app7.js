@@ -152,20 +152,21 @@ window.SupabaseMini = (function(){
 
     // ── Realtime (simplified polling fallback) ────────────
     function channel(name){
+      var _intervalId = null;
       return {
         on: function(type, opts, cb){ this._cb = cb; this._opts = opts; return this; },
         subscribe: function(){
-          // Use polling every 5s as fallback for realtime
+          // Use polling every 30s as fallback for realtime
           if(this._cb){
             var cb = this._cb;
             var opts = this._opts||{};
             var table = opts.table;
-            var lastPoll = Date.now();
             if(table){
-              setInterval(async function(){
+              _intervalId = setInterval(async function(){
                 // Just trigger a refresh - skip if currently saving
                 if(typeof refreshPage === 'function' && !window._saving) refreshPage(table);
               }, 30000);
+              this._intervalId = _intervalId;
             }
           }
           return this;
@@ -173,7 +174,9 @@ window.SupabaseMini = (function(){
       };
     }
 
-    function removeChannel(ch){}
+    function removeChannel(ch){
+      if(ch && ch._intervalId){ clearInterval(ch._intervalId); ch._intervalId = null; }
+    }
 
     // ── RPC ──────────────────────────────────────────────
     function rpc(fn, params){
@@ -2856,6 +2859,9 @@ function normalizePricingRule(r){ return Object.assign({}, r, { subjectMatch:r.s
 // REALTIME
 // =
 function startChannels(){
+  // Захист від подвійного запуску: гарантовано прибираємо
+  // будь-які раніше створені інтервали/канали перед новими.
+  stopChannels();
   var tableMap = {
     students:'students', tutors:'tutors', lessons:'lessons',
     payments:'payments', subjects:'subjects', comms:'comms',
