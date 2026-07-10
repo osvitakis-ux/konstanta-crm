@@ -310,17 +310,20 @@ function renderCommsPage(){
   });
   var ico={call:'📞',message:'💬',meeting:'🤝',email:'📧',other:'📋',msg:'💬',meet:'🤝'};
   if(!comms.length){
-    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">Комунікацій немає</td></tr>';
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">Комунікацій немає</td></tr>';
     return;
   }
   tbody.innerHTML=comms.map(function(c){
     var tutor=(S.tutors||[]).find(function(t){return t.id===(c.tutorId||c.tutor_id);});
     var student=(S.students||[]).find(function(s){return s.id===(c.studentId||c.student_id);});
+    var canDel=can('deleteAny')||(_selfId&&(c.tutorId||c.tutor_id)===_selfId);
+    var delBtn=canDel?'<button onclick="delComm(\''+c.id+'\')" title="Видалити" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;color:var(--danger)">🗑</button>':'';
     return '<tr><td style="font-size:11px;color:var(--t2)">'+fd(c.date)+'</td>'
       +'<td>'+(ico[c.type]||'📋')+' '+(c.type||'—')+'</td>'
       +'<td>'+(student?student.fn+' '+student.ln:'—')+'</td>'
       +'<td>'+(tutor?tutor.fn+' '+tutor.ln:'—')+'</td>'
-      +'<td>'+(c.note||'—')+'</td></tr>';
+      +'<td>'+(c.note||'—')+'</td>'
+      +'<td style="text-align:right">'+delBtn+'</td></tr>';
   }).join('');
 }
 
@@ -3223,8 +3226,13 @@ async function saveComm(){
 }
 
 async function delComm(id){
-  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438?')) return;
-  try{ await dbDelete('comms',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u043A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u044E?')) return;
+  try{
+    await dbDelete('comms',id);
+    S.comms=(S.comms||[]).filter(function(c){return c.id!==id;});
+    if(S.currentPage==='comms') renderCommsPage();
+    mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E');
+  }catch(e){}
 }
 
 async function saveSettings(){
