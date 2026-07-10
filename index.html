@@ -812,9 +812,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <select id="lf-student" onchange="renderLessons()" style="width:180px;font-size:12px;padding:5px 8px;margin-right:4px"><option value="">Всі учні</option></select>
             <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="missed">Пропущені</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select>
             <button class="btn btn-g btn-sm" onclick="exportToExcel('lessons')" style="margin-left:auto">📊 Excel</button>
-          <table><thead><tr><th>Учень</th><th>Предмет</th><th>Репетитор</th><th>Дата та час</th><th>Тривалість</th><th id="lt-miss-col" style="display:none">Дата пропуску</th><th id="lt-makeup-col" style="display:none">Відпрацювання</th><th>Нотатки</th><th>Статус</th><th></th></tr></thead><tbody id="lt-table"></tbody></table>
+          </div>
+          <div style="overflow-x:auto"><table><thead><tr><th>Учень</th><th>Предмет</th><th>Репетитор</th><th>Дата та час</th><th>Тривалість</th><th id="lt-miss-col" style="display:none">Дата пропуску</th><th id="lt-makeup-col" style="display:none">Відпрацювання</th><th>Нотатки</th><th>Статус</th><th></th></tr></thead><tbody id="lt-table"></tbody></table></div>
         </div>
-      </div>
       </div>
 
       <!-- ── PAYMENTS ── -->
