@@ -3052,19 +3052,30 @@ async function delStudent(id){
 // - порожні поля (телефон, клас, предмет тощо) заповнюються з дублікатів
 // - усі заняття, платежі, комунікації та лог рахунків переносяться на основний запис
 // - дублікати видаляються з бази
+// Нормалізація ПІБ: ігнорує регістр, зайві пробіли, порядок "ім'я/прізвище"
+// та латинські літери-двійники (i,o,a,e,c,p,x,y,k,m,t), випадково введені замість кириличних.
+function _normNameKey(s){
+  var raw=((s.fn||'')+' '+(s.ln||'')).toLowerCase();
+  var lookalike={'a':'\u0430','e':'\u0435','i':'\u0456','o':'\u043E','p':'\u0440','c':'\u0441','x':'\u0445','y':'\u0443','k':'\u043A','m':'\u043C','t':'\u0442','b':'\u0432','h':'\u043D','n':'\u043F'};
+  raw=raw.replace(/[a-z]/g,function(ch){return lookalike[ch]||ch;});
+  raw=raw.replace(/['\u2019\u02BC`\u0301-]/g,'').replace(/\s+/g,' ').trim();
+  // сортуємо слова — щоб "Вікторія Мілентьєва" і "Мілентьєва Вікторія" збігались
+  return raw.split(' ').filter(Boolean).sort().join(' ');
+}
+
 async function mergeDuplicateStudents(){
   if(R()!=='god'&&R()!=='director'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0443','error'); return; }
   if(window._viewerMode){ mkToast('\u0420\u0435\u0436\u0438\u043C \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434\u0443 \u2014 \u0437\u043C\u0456\u043D\u0438 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0456','error'); return; }
 
-  // Групуємо за нормалізованим ПІБ (без урахування регістру та зайвих пробілів)
   var groups={};
   (S.students||[]).forEach(function(s){
-    var key=((s.fn||'').trim()+' '+(s.ln||'').trim()).toLowerCase().replace(/\s+/g,' ').trim();
+    var key=_normNameKey(s);
     if(!key) return;
     (groups[key]=groups[key]||[]).push(s);
   });
   var dupKeys=Object.keys(groups).filter(function(k){return groups[k].length>1;});
-  if(!dupKeys.length){ mkToast('\u0414\u0443\u0431\u043B\u0456\u043A\u0430\u0442\u0456\u0432 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E'); return; }
+  console.log('[merge] \u0433\u0440\u0443\u043F \u0432\u0441\u044C\u043E\u0433\u043E:',Object.keys(groups).length,'\u0434\u0443\u0431\u043B\u0456\u043A\u0430\u0442\u0456\u0432:',dupKeys.length,dupKeys.map(function(k){return groups[k].map(function(s){return s.fn+' '+s.ln+' ['+s.id+']';});}));
+  if(!dupKeys.length){ mkToast('\u0414\u0443\u0431\u043B\u0456\u043A\u0430\u0442\u0456\u0432 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E. \u042F\u043A\u0449\u043E \u0432\u043E\u043D\u0438 \u0454 \u2014 \u043F\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044F \u041F\u0406\u0411 (F12 > Console \u2014 \u0434\u0435\u0442\u0430\u043B\u0456)'); return; }
 
   var summary=dupKeys.map(function(k){var g=groups[k];return '\u2022 '+g[0].fn+' '+g[0].ln+' \u2014 '+g.length+' \u0437\u0430\u043F\u0438\u0441\u0438(\u0456\u0432)';}).join('\n');
   if(!confirm('\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E \u0434\u0443\u0431\u043B\u0456\u043A\u0430\u0442\u0438:\n'+summary+'\n\n\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u0442\u0438? \u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438 \u0431\u0443\u0434\u0443\u0442\u044C \u043E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u0456, \u0432\u0441\u0456 \u0437\u0430\u043D\u044F\u0442\u0442\u044F, \u043F\u043B\u0430\u0442\u0435\u0436\u0456 \u0442\u0430 \u043A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0457 \u043F\u0435\u0440\u0435\u043D\u0435\u0441\u0435\u043D\u043E \u043D\u0430 \u043E\u0434\u0438\u043D \u0437\u0430\u043F\u0438\u0441. \u0426\u0435 \u043D\u0435\u0437\u0432\u043E\u0440\u043E\u0442\u043D\u043E.')) return;
@@ -3126,7 +3137,7 @@ async function mergeDuplicateStudents(){
   await loadTableFresh('payments');
   await loadTableFresh('comms');
 
-  if(errors.length) mkToast('\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u043E: '+merged+', \u043F\u043E\u043C\u0438\u043B\u043A\u0438: '+errors[0],'error');
+  if(errors.length){ console.error('[merge] \u043F\u043E\u043C\u0438\u043B\u043A\u0438:',errors); mkToast('\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u043E: '+merged+', \u043F\u043E\u043C\u0438\u043B\u043A\u0438: '+errors[0],'error'); }
   else mkToast('\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u043E \u0433\u0440\u0443\u043F: '+merged);
 }
 
