@@ -557,6 +557,8 @@ textarea{resize:vertical;min-height:72px}
 
 /* Hide financial elements for tutors */
 body.role-tutor .tutor-hidden { display: none !important; }
+.xls-btn { display: none !important; }
+body.role-god .xls-btn, body.role-director .xls-btn { display: inline-flex !important; }
   div.tutor-hidden:not(.card) { display: flex; }
 body.role-tutor .comm-add-btn { display: none !important; }
 </style>
@@ -759,7 +761,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div class="chip" onclick="sfilt('completed',this)">Завершили</div>
         </div>
         <div class="card">
-          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><button class="btn btn-g btn-sm" onclick="exportToExcel('students')" style="margin-left:auto">📊 Excel</button></div>
+          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><button class="btn btn-g btn-sm xls-btn" onclick="exportToExcel('students')" style="margin-left:auto">📊 Excel</button></div>
           <table><thead><tr><th>Ім'я</th><th>Вік/Клас</th><th>Предмет</th><th>Репетитор</th><th>Статус</th><th>Контакт</th><th>Дії</th></tr></thead><tbody id="st-table"></tbody></table>
         </div>
       </div>
@@ -811,7 +813,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <span class="ct">Заняття</span>
             <select id="lf-student" onchange="renderLessons()" style="width:180px;font-size:12px;padding:5px 8px;margin-right:4px"><option value="">Всі учні</option></select>
             <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="missed">Пропущені</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select>
-            <button class="btn btn-g btn-sm" onclick="exportToExcel('lessons')" style="margin-left:auto">📊 Excel</button>
+            <button class="btn btn-g btn-sm xls-btn" onclick="exportToExcel('lessons')" style="margin-left:auto">📊 Excel</button>
           </div>
           <div style="overflow-x:auto"><table><thead><tr><th>Учень</th><th>Предмет</th><th>Репетитор</th><th>Дата та час</th><th>Тривалість</th><th id="lt-miss-col" style="display:none">Дата пропуску</th><th id="lt-makeup-col" style="display:none">Відпрацювання</th><th>Нотатки</th><th>Статус</th><th></th></tr></thead><tbody id="lt-table"></tbody></table></div>
         </div>
