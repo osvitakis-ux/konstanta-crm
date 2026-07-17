@@ -557,8 +557,9 @@ textarea{resize:vertical;min-height:72px}
 
 /* Hide financial elements for tutors */
 body.role-tutor .tutor-hidden { display: none !important; }
-.xls-btn { display: none !important; }
-body.role-god .xls-btn, body.role-director .xls-btn { display: inline-flex !important; }
+.xls-btn, .dir-only { display: none !important; }
+body.role-god .xls-btn, body.role-director .xls-btn,
+body.role-god .dir-only, body.role-director .dir-only { display: inline-flex !important; }
   div.tutor-hidden:not(.card) { display: flex; }
 body.role-tutor .comm-add-btn { display: none !important; }
 </style>
@@ -761,7 +762,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div class="chip" onclick="sfilt('completed',this)">Завершили</div>
         </div>
         <div class="card">
-          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><button class="btn btn-g btn-sm xls-btn" onclick="exportToExcel('students')" style="margin-left:auto">📊 Excel</button></div>
+          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><button class="btn btn-g btn-sm dir-only" onclick="mergeDuplicateStudents()" style="margin-left:auto">🔗 Об'єднати дублікати</button><button class="btn btn-g btn-sm xls-btn" onclick="exportToExcel('students')">📊 Excel</button></div>
           <table><thead><tr><th>Ім'я</th><th>Вік/Клас</th><th>Предмет</th><th>Репетитор</th><th>Статус</th><th>Контакт</th><th>Дії</th></tr></thead><tbody id="st-table"></tbody></table>
         </div>
       </div>
