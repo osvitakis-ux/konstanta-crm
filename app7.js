@@ -500,7 +500,7 @@ async function splitLessonToChunks(chunkMin){
     tutor_id:orig.tutorId||orig.tutor_id,
     subject:orig.subject||'',date:orig.date,
     status:orig.status||'missed',dur:chunkMin,
-    price:Math.round((orig.price||0)/nParts),
+    price:orig.price||0, // ставка за годину лишається незмінною — сума частин збігається через тривалості
     branch_id:orig.branchId||orig.branch_id||null,
     split_group_id:id,split_index:0
   };
@@ -826,10 +826,11 @@ function renderInvoicePage(){
     return true;
   }).sort(function(a,b){return a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'');}):[];
 
+  // Вартість у занятті вказується ЗА ГОДИНУ → сума = тривалість (год) × ставка/год
   function lessonCost(l){
     var dur=(parseFloat(l.dur)||60)/60;
-    if(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price))) return parseFloat(l.price);
-    return Math.round(dur*fallbackPrice*10)/10;
+    var rate=(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price)))?parseFloat(l.price):fallbackPrice;
+    return Math.round(dur*rate*10)/10;
   }
 
   var totalHours=Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
@@ -1038,6 +1039,12 @@ function fd2(l,p){document.getElementById('lu').value=l;document.getElementById(
 function sn(id){const s=S.students.find(x=>x.id===id);return s?s.fn+' '+s.ln:'\u2014';}
 
 function tn(id){const t=S.tutors.find(x=>x.id===id);return t?t.fn+' '+t.ln:'\u2014';}
+// Вартість заняття: l.price — це ставка ЗА ГОДИНУ → сума = (тривалість/60) × ставка
+function lessonTotal(l){
+  var dur=(parseFloat(l.dur)||60)/60;
+  var rate=(l.price!=null&&l.price!==''&&!isNaN(parseFloat(l.price)))?parseFloat(l.price):0;
+  return Math.round(dur*rate*100)/100;
+}
 
 function mkToast(msg,type='success'){
   const e=document.createElement('div');e.className=("toast "+(type));
@@ -1205,7 +1212,7 @@ function renderDashStats(){
   if(P().seeIncome && R()!=='tutor'){
     var inc=monthL.filter(function(l){
       return l.status==='done'||l.status==='completed'||l.status==='makeup';
-    }).reduce(function(a,l){return a+(parseFloat(l.price)||0);},0);
+    }).reduce(function(a,l){return a+lessonTotal(l);},0);
     statsHtml+='<div class="sc yellow">'      +'<div class="slbl">Дохід цього місяця</div>'      +'<div class="sval">'+Math.round(inc).toLocaleString('uk-UA')+'₴</div>'      +'<div class="ssub">Отримано</div><span class="sico">◈</span></div>';
     } else if(R()!=='tutor') {
 
@@ -1697,10 +1704,9 @@ function renderPayments(){
   var invToolbar = document.getElementById('inv-toolbar');
   if(invToolbar) invToolbar.style.display = (R()==='god'||R()==='director') ? 'block' : 'none';
 
-  // Допоміжна функція вартості заняття
+  // Допоміжна функція вартості заняття (ставка за годину × тривалість)
   function lessonAmt(l){
-    if(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price))) return parseFloat(l.price);
-    return 0;
+    return lessonTotal(l);
   }
 
   var myLess = myLessons();
@@ -2380,7 +2386,7 @@ function renderAnalytics(){
 
   var doneH   =h(done), missedH=h(missed), plannedH=h(planned);
   var totalH  =Math.round((doneH+missedH+plannedH+h(cancelled))*10)/10;
-  var income  =done.reduce(function(s,l){return s+(parseFloat(l.price)||0);},0);
+  var income  =done.reduce(function(s,l){return s+lessonTotal(l);},0);
   var activeStudents=students.filter(function(s){return s.status==='active';}).length;
   var pct     =totalH>0?Math.round(doneH/totalH*100):0;
 
@@ -4766,7 +4772,7 @@ function renderReports(){
     var mon = new Date(l.date).getMonth();
     var cost = 0;
     if(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price))){
-      cost = parseFloat(l.price);
+      cost = lessonTotal(l);
     } else {
       // фолбек: поле amount з платежу відповідного заняття
       var pay = (S.payments||[]).find(function(p){return p.lessonId===l.id||p.lesson_id===l.id;});
