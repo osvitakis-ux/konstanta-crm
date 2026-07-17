@@ -809,6 +809,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div class="ch">
             <span class="ct">Заняття</span>
             <select id="lf-student" onchange="renderLessons()" style="width:180px;font-size:12px;padding:5px 8px;margin-right:4px"><option value="">Всі учні</option></select>
+            <select id="lf-tutor" class="tutor-hidden" onchange="renderLessons()" style="width:180px;font-size:12px;padding:5px 8px;margin-right:4px"><option value="">Всі репетитори</option></select>
             <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="missed">Пропущені</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select>
             <button class="btn btn-g btn-sm xls-btn" onclick="exportToExcel('lessons')" style="margin-left:auto">📊 Excel</button>
           </div>
@@ -1692,7 +1693,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=sch1"></script>
+<script src="app7.js?v=comm2"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
