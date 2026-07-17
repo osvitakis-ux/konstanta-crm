@@ -4814,7 +4814,14 @@ function renderSch(){
   const tf   = document.getElementById('sch-tutor-filter');
   if(btnW) btnW.classList.toggle('active-view', view==='week');
   if(btnD) btnD.classList.toggle('active-view', view==='day');
-  if(tf)   tf.style.display = (view==='day' && R()!=='tutor') ? 'block' : 'none';
+  // Фільтр по репетиторах доступний адмінам/директорам/богу в обох режимах (тиждень і день)
+  if(tf){
+    tf.style.display = R()!=='tutor' ? 'block' : 'none';
+    const prev = tf.value;
+    tf.innerHTML = '<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>' +
+      (S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');}).map(t=>('<option value="'+(t.id)+'">'+(t.fn)+' '+(t.ln)+'</option>')).join('');
+    tf.value = prev;
+  }
   // Update prev/next labels
   const prevBtn = document.getElementById('sch-prev');
   const nextBtn = document.getElementById('sch-next');
@@ -4947,8 +4954,10 @@ function renderSchWeek(){
 
   const ROW_H = 48; // px per hour
   const _schStat=(document.getElementById('sch-status-filter')||{value:''}).value;
+  const _schTut=(document.getElementById('sch-tutor-filter')||{value:''}).value;
   const ml=myLessons().filter(function(l){
     if(l.status==='cancelled') return false;
+    if(_schTut && (l.tutorId||l.tutor_id)!==_schTut) return false;
     if(_schStat){
       if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
       if(_schStat==='completed') return l.status==='done'||l.status==='completed'||l.status==='makeup';
