@@ -3046,6 +3046,90 @@ async function delStudent(id){
   try{ await dbDelete('students',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
 }
 
+// ── ОБ'ЄДНАННЯ ДУБЛІКАТІВ УЧНІВ ──────────────────────
+// Знаходить учнів з однаковим ім'ям+прізвищем, зливає їх в один запис:
+// - репетитори обох записів об'єднуються (tutor_ids)
+// - порожні поля (телефон, клас, предмет тощо) заповнюються з дублікатів
+// - усі заняття, платежі, комунікації та лог рахунків переносяться на основний запис
+// - дублікати видаляються з бази
+async function mergeDuplicateStudents(){
+  if(R()!=='god'&&R()!=='director'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0443','error'); return; }
+  if(window._viewerMode){ mkToast('\u0420\u0435\u0436\u0438\u043C \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434\u0443 \u2014 \u0437\u043C\u0456\u043D\u0438 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0456','error'); return; }
+
+  // Групуємо за нормалізованим ПІБ (без урахування регістру та зайвих пробілів)
+  var groups={};
+  (S.students||[]).forEach(function(s){
+    var key=((s.fn||'').trim()+' '+(s.ln||'').trim()).toLowerCase().replace(/\s+/g,' ').trim();
+    if(!key) return;
+    (groups[key]=groups[key]||[]).push(s);
+  });
+  var dupKeys=Object.keys(groups).filter(function(k){return groups[k].length>1;});
+  if(!dupKeys.length){ mkToast('\u0414\u0443\u0431\u043B\u0456\u043A\u0430\u0442\u0456\u0432 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E'); return; }
+
+  var summary=dupKeys.map(function(k){var g=groups[k];return '\u2022 '+g[0].fn+' '+g[0].ln+' \u2014 '+g.length+' \u0437\u0430\u043F\u0438\u0441\u0438(\u0456\u0432)';}).join('\n');
+  if(!confirm('\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E \u0434\u0443\u0431\u043B\u0456\u043A\u0430\u0442\u0438:\n'+summary+'\n\n\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u0442\u0438? \u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438 \u0431\u0443\u0434\u0443\u0442\u044C \u043E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u0456, \u0432\u0441\u0456 \u0437\u0430\u043D\u044F\u0442\u0442\u044F, \u043F\u043B\u0430\u0442\u0435\u0436\u0456 \u0442\u0430 \u043A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0457 \u043F\u0435\u0440\u0435\u043D\u0435\u0441\u0435\u043D\u043E \u043D\u0430 \u043E\u0434\u0438\u043D \u0437\u0430\u043F\u0438\u0441. \u0426\u0435 \u043D\u0435\u0437\u0432\u043E\u0440\u043E\u0442\u043D\u043E.')) return;
+
+  setSaving();
+  var merged=0, errors=[];
+  try{
+    for(var gi=0; gi<dupKeys.length; gi++){
+      var list=groups[dupKeys[gi]].slice().sort(function(a,b){
+        return String(a.created_at||a.createdAt||'').localeCompare(String(b.created_at||b.createdAt||''));
+      });
+      var primary=list[0], dups=list.slice(1);
+
+      // Об'єднуємо репетиторів з усіх записів (без повторів, зі збереженням порядку)
+      var tids=[];
+      list.forEach(function(s){
+        var st=(Array.isArray(s.tutorIds)&&s.tutorIds.length)?s.tutorIds:(s.tutorId?[s.tutorId]:[]);
+        st.forEach(function(t){ if(t&&tids.indexOf(t)<0) tids.push(t); });
+      });
+
+      // Порожні поля основного запису заповнюємо даними з дублікатів
+      var patch={ tutor_ids:tids.join(','), tutor_id:tids[0]||null };
+      var fields=[['phone','phone'],['email','email'],['grade','grade'],['age','age'],['subject','subject'],['notes','notes'],['parent_fn','parentFn'],['parent_phone','parentPhone'],['status','status']];
+      fields.forEach(function(f){
+        var col=f[0], camel=f[1];
+        if(!primary[camel]&&!primary[col]){
+          var d=dups.find(function(x){return x[camel]||x[col];});
+          if(d) patch[col]=d[camel]||d[col];
+        }
+      });
+
+      var ru=await _sb.from('students').update(patch).eq('id',primary.id);
+      if(ru.error && await refreshIfExpired(ru.error)) ru=await _sb.from('students').update(patch).eq('id',primary.id);
+      if(ru.error){ errors.push(primary.fn+' '+primary.ln+': '+ru.error.message); continue; }
+
+      // Переносимо пов'язані записи та видаляємо дублікати
+      var ok=true;
+      for(var di=0; di<dups.length; di++){
+        var dup=dups[di];
+        var tables=['lessons','payments','comms','invoice_log'];
+        for(var ti=0; ti<tables.length; ti++){
+          var up=await _sb.from(tables[ti]).update({student_id:primary.id}).eq('student_id',dup.id);
+          if(up.error && await refreshIfExpired(up.error)) up=await _sb.from(tables[ti]).update({student_id:primary.id}).eq('student_id',dup.id);
+          // invoice_log може бути відсутнім у частині інсталяцій — пропускаємо помилку "таблиці немає"
+          if(up.error && tables[ti]!=='invoice_log'){ errors.push(dup.fn+' '+dup.ln+' ('+tables[ti]+'): '+up.error.message); ok=false; break; }
+        }
+        if(!ok) break;
+        var del=await _sb.from('students').delete().eq('id',dup.id);
+        if(del.error && await refreshIfExpired(del.error)) del=await _sb.from('students').delete().eq('id',dup.id);
+        if(del.error){ errors.push(dup.fn+' '+dup.ln+': '+del.error.message); ok=false; break; }
+      }
+      if(ok) merged++;
+    }
+  }catch(e){ errors.push(e.message||String(e)); }
+
+  // Перезавантажуємо зачеплені таблиці та оновлюємо інтерфейс
+  await loadTableFresh('students');
+  await loadTableFresh('lessons');
+  await loadTableFresh('payments');
+  await loadTableFresh('comms');
+
+  if(errors.length) mkToast('\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u043E: '+merged+', \u043F\u043E\u043C\u0438\u043B\u043A\u0438: '+errors[0],'error');
+  else mkToast('\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u043E \u0433\u0440\u0443\u043F: '+merged);
+}
+
 // \u0411\u0435\u0437\u043f\u0435\u0447\u043d\u0435 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u043b\u0456\u0434\u0430 \u0437 CRM-\u0434\u043e\u0448\u043a\u0438:
 // - \u044f\u043a\u0449\u043e \u0446\u0435 \u0449\u0435 \u043d\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c (\u043d\u0435 status==='active') \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e\u0441\u044f \u0444\u0456\u0437\u0438\u0447\u043d\u043e
 // - \u044f\u043a\u0449\u043e \u0432\u0436\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c \u2014 \u043b\u0438\u0448\u0435 \u043f\u0440\u0438\u0431\u0438\u0440\u0430\u0454\u043c\u043e \u0437 CRM-\u0434\u043e\u0448\u043a\u0438 (\u0441\u0442\u0430\u0432\u0438\u043c\u043e \u0435\u0442\u0430\u043f lost), \u0441\u0430\u043c \u0443\u0447\u0435\u043d\u044c \u0437\u0430\u043b\u0438\u0448\u0430\u0454\u0442\u044c\u0441\u044f
@@ -3720,6 +3804,7 @@ window.nav       = nav;
 window.closeM    = closeM;
 window.openM     = openM;
 window.delStudent = delStudent;
+window.mergeDuplicateStudents = mergeDuplicateStudents;
 window.delTutor  = delTutor;
 window.delLesson = delLesson;
 window.delPay    = delPay;
