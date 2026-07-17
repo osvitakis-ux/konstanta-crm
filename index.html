@@ -1575,7 +1575,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div id="l-makeup-wrap" style="display:none" class="fgr"><label>Дата відпрацювання</label><input id="l-makeup-date" type="date"></div>
       <div id="l-split-wrap" style="display:none" class="fgr full"><div style="background:rgba(245,158,11,.12);border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px"><div style="font-weight:600;font-size:13px">✂️ Розбити на частини</div><div style="font-size:11px;color:var(--t2)">Вкажіть тривалість кожної частини через кому (хв). Сума має дорівнювати загальній тривалості.</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input id="split-parts-input" type="text" placeholder="напр: 30, 60, 60" style="flex:1;min-width:120px;font-size:13px;padding:5px 8px;border:1px solid #f59e0b;border-radius:6px"><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="splitLessonCustom()">✂️ Розбити</button></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('30,30')">30+30</button><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('30,60')">30+60</button><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('60,30')">60+30</button><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('60,60')">60+60</button><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('30,30,30')">30+30+30</button></div><div id="split-preview" style="font-size:11px;color:var(--adm)"></div></div></div>
       <div id="l-merge-wrap" style="display:none" class="fgr full"><div style="background:rgba(139,92,246,.1);border:1px solid #8b5cf6;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px"><div style="font-weight:600;font-size:13px">🔗 Об'єднати з іншим уроком</div><div style="font-size:11px;color:var(--t2)">Оберіть урок того самого учня в той самий день для об'єднання</div><select id="l-merge-select" style="font-size:12px;padding:5px 8px;border:1px solid #8b5cf6;border-radius:6px;background:var(--s1)"><option value="">— оберіть урок —</option></select><div id="l-merge-preview" style="font-size:11px;color:var(--adm)"></div><button type="button" class="btn btn-sm" style="background:#8b5cf6;color:#fff;align-self:flex-start" onclick="mergeLessons()">🔗 Об'єднати</button></div></div>
-      <div class="fgr"><label>Вартість ₴</label>
+      <div class="fgr"><label>Вартість ₴/год</label>
         <div style="display:flex;gap:6px">
           <input id="l-price" type="number" placeholder="0" style="flex:1">
           <button type="button" class="btn btn-g btn-sm" onclick="autoFillPrice()" title="Підібрати ціну за правилами" style="white-space:nowrap">🧮 Авто</button>
@@ -1693,7 +1693,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=comm2"></script>
+<script src="app7.js?v=inv2"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
