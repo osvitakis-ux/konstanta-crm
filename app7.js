@@ -317,13 +317,16 @@ function renderCommsPage(){
     var tutor=(S.tutors||[]).find(function(t){return t.id===(c.tutorId||c.tutor_id);});
     var student=(S.students||[]).find(function(s){return s.id===(c.studentId||c.student_id);});
     var canDel=can('deleteAny')||(_selfId&&(c.tutorId||c.tutor_id)===_selfId);
-    var delBtn=canDel?'<button onclick="delComm(\''+c.id+'\')" title="Видалити" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;color:var(--danger)">🗑</button>':'';
+    var actBtns=canDel
+      ?('<button onclick="openCommM(null,\''+c.id+'\')" title="Редагувати" style="border:none;background:none;cursor:pointer;font-size:13px;padding:4px 6px;border-radius:6px">✏️</button>'
+        +'<button onclick="delComm(\''+c.id+'\')" title="Видалити" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;color:var(--danger)">🗑</button>')
+      :'';
     return '<tr><td style="font-size:11px;color:var(--t2)">'+fd(c.date)+'</td>'
       +'<td>'+(ico[c.type]||'📋')+' '+(c.type||'—')+'</td>'
       +'<td>'+(student?student.fn+' '+student.ln:'—')+'</td>'
       +'<td>'+(tutor?tutor.fn+' '+tutor.ln:'—')+'</td>'
       +'<td>'+(c.note||'—')+'</td>'
-      +'<td style="text-align:right">'+delBtn+'</td></tr>';
+      +'<td style="text-align:right;white-space:nowrap">'+actBtns+'</td></tr>';
   }).join('');
 }
 
@@ -1626,13 +1629,25 @@ function renderStudents(){
 function renderLessons(){
   var stf = document.getElementById('lf-stat');
   var sdf = document.getElementById('lf-student');
+  var ttf = document.getElementById('lf-tutor');
   var sv  = stf ? stf.value : '';
   var sdv = sdf ? sdf.value : '';
+  var tv  = ttf ? ttf.value : '';
 
   if(sdf){
     var cur = sdf.value;
     popSelSearch('lf-student', [{id:'',fn:'Всі учні',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
     if(cur){ sdf.value=cur; if(sdf._updateSearch) sdf._updateSearch(); }
+  }
+  // Фільтр по репетиторах (адміни/директори/бог; для репетиторів прихований через .tutor-hidden)
+  if(ttf && R()!=='tutor'){
+    var curT = ttf.value;
+    popSelSearch('lf-tutor', [{id:'',fn:'Всі репетитори',ln:''}].concat((S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(t){return t.fn+(t.ln?' '+t.ln:'');}, '');
+    if(curT){ ttf.value=curT; if(ttf._updateSearch) ttf._updateSearch(); }
+  }
+  // Якщо селект обгорнутий пошуковим полем — ховаємо/показуємо всю обгортку за роллю
+  if(ttf && ttf.parentElement && ttf.parentElement.classList.contains('srch-wrap')){
+    ttf.parentElement.style.display = R()==='tutor' ? 'none' : '';
   }
 
   var data = [].concat(myLessons()).filter(function(l){
@@ -1643,6 +1658,7 @@ function renderLessons(){
     return new Date(b.date+'T'+(b.time||'00:00'))-new Date(a.date+'T'+(a.time||'00:00'));
   });
   if(sdv) data = data.filter(function(l){return (l.studentId||l.student_id)===sdv;});
+  if(tv)  data = data.filter(function(l){return (l.tutorId||l.tutor_id)===tv;});
   if(sv)  data = data.filter(function(l){
     if(sv==='done') return l.status==='done'||l.status==='completed'||l.status==='makeup';
     if(sv==='missed') return l.status==='missed' && !isCoveredMissed(l);
@@ -3310,15 +3326,26 @@ async function saveComm(){
   if(!tutorId){ mkToast('\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430','error'); return; }
   if(!date)   { mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0434\u0430\u0442\u0443','error'); return; }
   window._saving = true;
+  var obj={ tutor_id:tutorId,
+    student_id:document.getElementById('cm-student')?.value||null,
+    date, type:document.getElementById('cm-type')?.value||'call',
+    note:document.getElementById('cm-note')?.value||'' };
   try{
-    await dbInsert('comms',{ id:uid(), tutor_id:tutorId,
-      student_id:document.getElementById('cm-student')?.value||null,
-      date, type:document.getElementById('cm-type')?.value||'call',
-      note:document.getElementById('cm-note')?.value||'',
-      branch_id:myBranchId()||null });
-    closeM('mo-comm'); mkToast('Записано'); window._saving=false;
+    if(window._editCommId){
+      var _cid=window._editCommId;
+      await dbUpdate('comms',_cid,obj);
+      // Миттєве оновлення локального стану
+      var _lc=(S.comms||[]).find(function(c){return c.id===_cid;});
+      if(_lc) Object.assign(_lc,obj,{tutorId:obj.tutor_id,studentId:obj.student_id});
+      window._editCommId=null;
+      closeM('mo-comm'); mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E'); window._saving=false;
+    } else {
+      await dbInsert('comms',Object.assign({id:uid(),branch_id:myBranchId()||null},obj));
+      closeM('mo-comm'); mkToast('Записано'); window._saving=false;
+    }
     // Add to local S.comms immediately
     if(S.currentPage==='comms') renderCommsPage();
+    if(typeof renderCommLog==='function') renderCommLog();
   }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
 }
 
@@ -4144,10 +4171,17 @@ function openPayM(id=null){
 }
 
 
-function openCommM(tutorId){
+function openCommM(tutorId, commId){
   // Allow all logged-in users to add comms
   var mo=document.getElementById('mo-comm');
   if(!mo){ console.error('mo-comm not found'); return; }
+  // Режим редагування: якщо передано commId — заповнюємо форму наявним записом
+  window._editCommId = commId || null;
+  var editC = commId ? (S.comms||[]).find(function(c){return c.id===commId;}) : null;
+  if(commId && !editC){ mkToast('\u0417\u0430\u043F\u0438\u0441 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error'); window._editCommId=null; return; }
+  if(editC && !tutorId) tutorId = editC.tutorId || editC.tutor_id;
+  var titleEl = mo.querySelector('.mdlt');
+  if(titleEl) titleEl.textContent = editC ? '\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u044E' : '\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u044F';
   // Tutor select - hide for tutor role (pre-select own)
   var tSel=document.getElementById('cm-tutor');
   var tWrap=tSel?tSel.closest('.fgr'):null;
@@ -4171,16 +4205,24 @@ function openCommM(tutorId){
     sSel.innerHTML='<option value="">Учень (необов\'язково)</option>'
       +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
         .map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
+    if(editC) sSel.value = editC.studentId || editC.student_id || '';
   }
   // Apply searchable to tutor+student selects
   if(R()!=='tutor'){ makeSearchable('cm-tutor'); if(document.getElementById('cm-tutor')._updateSearch) document.getElementById('cm-tutor')._updateSearch(); }
   makeSearchable('cm-student'); if(document.getElementById('cm-student')._updateSearch) document.getElementById('cm-student')._updateSearch();
+  // Type field (у старих записах тип може бути message/meeting — мапимо на значення селекта)
+  var typeEl=document.getElementById('cm-type');
+  if(typeEl){
+    var tmap={message:'msg',meeting:'meet'};
+    typeEl.value = editC ? (tmap[editC.type]||editC.type||'call') : 'call';
+  }
   // Note field
   var noteEl=document.getElementById('cm-note');
-  if(noteEl) noteEl.value='';
-  // Date = today
+  if(noteEl) noteEl.value = editC ? (editC.note||'') : '';
+  // Date = existing or today
   var dateEl=document.getElementById('cm-date');
-  if(dateEl) dateEl.value=localDateStr(new Date());
+  if(dateEl) dateEl.value = editC ? String(editC.date||'').slice(0,10) : localDateStr(new Date());
+  if(editC && typeof updateParentInfo==='function') updateParentInfo();
   openM('mo-comm');
 }
 
