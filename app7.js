@@ -1609,11 +1609,13 @@ function renderStudents(){
       ?('<button class="btn btn-g btn-sm" onclick="openStudM(this.dataset.id)" data-id="'+s.id+'">\u270F\uFE0F</button>'
         +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delStudent(this.dataset.id)" data-id="'+s.id+'">\uD83D\uDDD1</button>')
       :'<span style="font-size:10px;color:var(--t3)">\u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434</span>';
+    var _tids=(Array.isArray(s.tutorIds)&&s.tutorIds.length)?s.tutorIds:(s.tutorId?[s.tutorId]:[]);
+    var _tnames=_tids.map(tn).filter(function(n){return n&&n!=='\u2014';});
     return '<tr>'
       +'<td><div style="display:flex;align-items:center;gap:8px">'+mkAv(s.fn,s.ln)+'<div><div style="font-weight:600;font-size:13px">'+s.fn+' '+s.ln+'</div></div></div></td>'
       +'<td style="font-size:12px;color:var(--t2)">'+(s.age||'\u2014')+' / '+(s.grade||'\u2014')+'</td>'
       +'<td>'+(s.subject||'\u2014')+'</td>'
-      +'<td>'+(s.tutorId?tn(s.tutorId):'\u2014')+'</td>'
+      +'<td style="font-size:12px;line-height:1.6">'+(_tnames.length?_tnames.join('<br>'):'\u2014')+'</td>'
       +'<td>'+bst(s.status)+'</td>'
       +'<td style="font-size:12px;color:var(--t2)">'+(s.parentPhone||s.phone||s.email||'\u2014')+'</td>'
       +'<td><div style="display:flex;gap:3px">'+btns+'</div></td>'
@@ -3580,6 +3582,7 @@ document.addEventListener('keydown', function(e){
 
 // ── EXCEL EXPORT ────────────────────────────
 function exportToExcel(type){
+  if(R()!=='god'&&R()!=='director'){ mkToast('\u0415\u043A\u0441\u043F\u043E\u0440\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0438\u0439 \u043B\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0443','error'); return; }
   var rows=[], headers=[], data=[];
 
   if(type==='students'){
