@@ -1428,20 +1428,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fgr"><label>Прізвище та ім'я</label><input id="s-parent-fn" placeholder="Коваленко Олена"></div>
       <div class="fgr"><label>Телефон батьків</label><input id="s-parent-phone" type="tel" placeholder="+380XXXXXXXXX"></div>
       
-      <div class="fgr"><label>Предмет</label><div style="display:flex;gap:6px">
-          <input id="s-subj" list="subj-list-s" placeholder="Оберіть або введіть..." autocomplete="off" style="flex:1">
-          <datalist id="subj-list-s"></datalist>
-        </div></div>
-      <div class="fgr full" style="grid-column:1/-1">
-        <label>Репетитор(и)</label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input id="s-tutor-input" list="s-tutor-datalist" placeholder="Оберіть або введіть ім'я репетитора..." autocomplete="off" style="flex:1">
-          <datalist id="s-tutor-datalist"></datalist>
-          <button type="button" class="btn btn-g btn-sm" onclick="sAddTutor()">+ Додати</button>
-        </div>
-        <div id="s-tutor-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
-        <select id="s-tutor" style="display:none"></select>
-      </div>
+      <datalist id="subj-list-s"></datalist>
+      <datalist id="s-tutor-datalist"></datalist>
+      <select id="s-tutor" style="display:none"></select>
       <div class="fgr"><label>Статус</label><select id="s-status"><option value="active">Активний</option><option value="trial">Пробне</option><option value="paused">Призупинений</option><option value="completed">Завершив</option></select></div>
       <div class="fgr"><label>Джерело</label><select id="s-src"><option value="referral">Рекомендація</option><option value="internet">Інтернет</option><option value="social">Соцмережі</option><option value="other">Інше</option></select></div>
       <div class="fgr full" style="grid-column:1/-1;margin-top:6px;padding-top:10px;border-top:1px solid var(--b1)">
@@ -1763,7 +1752,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=tasks3"></script>
+<script src="app7.js?v=rates3"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
