@@ -1752,7 +1752,7 @@ function renderLessons(){
       +'<td style="font-size:12px">'+(l.tutorId||l.tutor_id?tn(l.tutorId||l.tutor_id):'—')+'</td>'
       +'<td style="font-family:JetBrains Mono,monospace;font-size:11px">'+fd(l.date)+' '+(l.time||'')+'</td>'
       +'<td>'+(l.dur||60)+' хв</td>'+mc2+mk2
-      +'<td style="font-size:11px;color:var(--t2)">'+(l.notes||'—')+'</td>'
+      +'<td style="font-size:11px;color:var(--t2)">'+(l.notes||'—')+(l.games?'<div style="color:var(--adm);margin-top:2px">🎧 '+l.games+'</div>':'')+'</td>'
       +'<td>'+bst(l.status)+'</td>'
       +'<td><div style="display:flex;gap:3px">'+btns+'</div></td></tr>';
   }).join('')
@@ -3306,6 +3306,7 @@ async function saveLesson(){
     missed_date: (_stat==='missed'||_stat==='makeup'||_stat==='makeup_planned') ? (document.getElementById('l-miss-date')?.value||null) : null,
     makeup_date: (_stat==='makeup'||_stat==='makeup_planned') ? (document.getElementById('l-makeup-date')?.value||null) : null,
     hw:          document.getElementById('l-hw')?.value||null,
+    games:       document.getElementById('l-games')?.value||null,
   };
   window._saving = true;
   try{
@@ -4158,7 +4159,7 @@ function openLessM(id, date, time){
 
   // Clear ALL fields first
   ['l-std','l-subj','l-tutor','l-price','l-notes',
-   'l-miss-date','l-makeup-date','l-hw'].forEach(function(f){
+   'l-miss-date','l-makeup-date','l-hw','l-games'].forEach(function(f){
     var el=document.getElementById(f); if(el) el.value='';
   });
   document.getElementById('l-dur').value = 60;
@@ -4196,6 +4197,7 @@ function openLessM(id, date, time){
       document.getElementById('l-stat').value = l.status||'planned';
       var _lp=document.getElementById('l-price'); if(_lp) _lp.value = l.price||'';
       document.getElementById('l-notes').value = l.notes||'';
+      var _lg=document.getElementById('l-games'); if(_lg) _lg.value = l.games||'';
       // Load missed/makeup dates and hw
       var missEl=document.getElementById('l-miss-date');
       var autoMissDate = l.missed_date||'';
