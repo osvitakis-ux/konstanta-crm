@@ -3957,6 +3957,13 @@ function taskAssigneeName(t){
   return u?(u.fn+' '+u.ln):'\u2014';
 }
 
+function taskCreatorName(t){
+  var cid=t.creatorId||t.creator_id;
+  if(!cid) return '\u2014';
+  var u=(S.users||[]).find(function(x){return x.id===cid;});
+  return u?(u.fn+' '+u.ln):'\u2014';
+}
+
 function renderTasks(){
   var tbody=document.getElementById('tasks-tbody');
   if(!tbody) return;
@@ -3988,7 +3995,7 @@ function renderTasks(){
   });
 
   if(!list.length){
-    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">\u0417\u0430\u0432\u0434\u0430\u043D\u044C \u043D\u0435\u043C\u0430\u0454</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">\u0417\u0430\u0432\u0434\u0430\u043D\u044C \u043D\u0435\u043C\u0430\u0454</td></tr>';
     updateTaskAlert();
     return;
   }
@@ -4000,19 +4007,23 @@ function renderTasks(){
       :(over?'<span class="badge br">\u26A0 \u041F\u0440\u043E\u0441\u0442\u0440\u043E\u0447\u0435\u043D\u043E</span>':'<span class="badge bb">\u25CB \u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0435</span>');
     var dl=t.deadline?(fd(t.deadline)+((t.deadlineTime||t.deadline_time)?' '+(t.deadlineTime||t.deadline_time):'')):'\u2014';
     var mine=(t.assigneeId||t.assignee_id)===(CU&&CU.id);
+    var canDel=(R()==='god'||R()==='director');
     var doneBtn=t.status==='done'
       ?'<button onclick="toggleTaskDone(\''+t.id+'\')" title="\u041F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u0438 \u0432 \u0440\u043E\u0431\u043E\u0442\u0443" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px">\u21A9</button>'
       :'<button onclick="toggleTaskDone(\''+t.id+'\')" title="\u041F\u043E\u0437\u043D\u0430\u0447\u0438\u0442\u0438 \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u0438\u043C" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;color:var(--tut)">\u2705</button>';
     return '<tr'+(over?' style="background:rgba(248,113,113,.07)"':'')+'>'
       +'<td><div style="font-weight:600;font-size:13px'+(t.status==='done'?';text-decoration:line-through;opacity:.6':'')+'">'+(t.title||'\u2014')+'</div>'
-        +(t.descr?'<div style="font-size:11px;color:var(--t2);margin-top:2px">'+t.descr+'</div>':'')+'</td>'
+        +(t.descr?'<div style="font-size:11px;color:var(--t2);margin-top:2px">'+t.descr+'</div>':'')
+        +(t.report?'<div style="font-size:11px;color:var(--tut);margin-top:3px">\uD83D\uDCDD '+t.report+'</div>':'')+'</td>'
+      +'<td style="font-size:12px">'+taskCreatorName(t)
+        +(t.created_at||t.createdAt?'<div style="font-size:10px;color:var(--t3)">'+fd(String(t.created_at||t.createdAt).slice(0,10))+'</div>':'')+'</td>'
       +'<td style="font-size:12px'+(mine?';font-weight:700':'')+'">'+taskAssigneeName(t)+(mine?' \uD83D\uDC64':'')+'</td>'
       +'<td style="font-size:12px'+(over?';color:var(--danger);font-weight:700':'')+'">'+dl+'</td>'
       +'<td>'+st+'</td>'
       +'<td style="font-size:11px;color:var(--t3)">'+(t.doneAt||t.done_at?fd(String(t.doneAt||t.done_at).slice(0,10)):'\u2014')+'</td>'
       +'<td style="text-align:right;white-space:nowrap">'+doneBtn
         +'<button onclick="openTaskM(\''+t.id+'\')" title="\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438" style="border:none;background:none;cursor:pointer;font-size:13px;padding:4px 6px">\u270F\uFE0F</button>'
-        +'<button onclick="delTask(\''+t.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;color:var(--danger)">\uD83D\uDDD1</button>'
+        +(canDel?'<button onclick="delTask(\''+t.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;color:var(--danger)">\uD83D\uDDD1</button>':'')
       +'</td></tr>';
   }).join('');
   updateTaskAlert();
@@ -4024,6 +4035,13 @@ function openTaskM(id){
   var t=id?(S.tasks||[]).find(function(x){return x.id===id;}):null;
   var ttl=document.querySelector('#mo-task .mdlt');
   if(ttl) ttl.textContent=t?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F':'\u041D\u043E\u0432\u0435 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F';
+  var cInfo=document.getElementById('tk-creator-info');
+  if(cInfo){
+    if(t&&(t.creatorId||t.creator_id)){
+      cInfo.style.display='block';
+      cInfo.textContent='\uD83D\uDC64 \u041F\u043E\u0441\u0442\u0430\u0432\u0438\u0432: '+taskCreatorName(t)+(t.created_at||t.createdAt?' \u00B7 '+fd(String(t.created_at||t.createdAt).slice(0,10)):'');
+    } else cInfo.style.display='none';
+  }
   var asSel=document.getElementById('tk-assignee');
   if(asSel){
     asSel.innerHTML='<option value="">\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u043B\u044C\u043D\u043E\u0433\u043E</option>'
@@ -4075,18 +4093,42 @@ async function saveTask(){
 async function toggleTaskDone(id){
   var t=(S.tasks||[]).find(function(x){return x.id===id;});
   if(!t) return;
-  var nowDone=t.status!=='done';
-  var patch=nowDone?{status:'done',done_at:new Date().toISOString()}:{status:'open',done_at:null};
+  if(t.status!=='done'){
+    // Позначення виконаним — через модалку з описом виконаної роботи
+    window._doneTaskId=id;
+    var rEl=document.getElementById('tk-report');
+    if(rEl) rEl.value=t.report||'';
+    var tEl=document.getElementById('tk-done-title');
+    if(tEl) tEl.textContent=t.title||'';
+    openM('mo-task-done');
+    return;
+  }
+  // Повернення в роботу — одразу (опис роботи зберігається в історії)
+  try{
+    await dbUpdate('tasks',id,{status:'open',done_at:null});
+    Object.assign(t,{status:'open',done_at:null,doneAt:null});
+    renderTasks();
+    mkToast('\u041F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u043E \u0432 \u0440\u043E\u0431\u043E\u0442\u0443');
+  }catch(e){}
+}
+
+async function confirmTaskDone(){
+  var id=window._doneTaskId;
+  var t=id?(S.tasks||[]).find(function(x){return x.id===id;}):null;
+  if(!t){ closeM('mo-task-done'); return; }
+  var patch={status:'done',done_at:new Date().toISOString(),report:(document.getElementById('tk-report')||{value:''}).value||''};
   try{
     await dbUpdate('tasks',id,patch);
     Object.assign(t,patch,{doneAt:patch.done_at});
+    window._doneTaskId=null;
+    closeM('mo-task-done');
     renderTasks();
-    mkToast(nowDone?'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u043E \u2705':'\u041F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u043E \u0432 \u0440\u043E\u0431\u043E\u0442\u0443');
+    mkToast('\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u043E \u2705');
   }catch(e){}
 }
 
 async function delTask(id){
-  if(!canManageTasks()){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  if(R()!=='god'&&R()!=='director'){ mkToast('\u0412\u0438\u0434\u0430\u043B\u044F\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F \u043C\u043E\u0436\u0443\u0442\u044C \u043B\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440 \u0442\u0430 \u0431\u043E\u0433','error'); return; }
   if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F?')) return;
   try{
     await dbDelete('tasks',id);
@@ -4117,6 +4159,7 @@ window.renderTasks=renderTasks;
 window.openTaskM=openTaskM;
 window.saveTask=saveTask;
 window.toggleTaskDone=toggleTaskDone;
+window.confirmTaskDone=confirmTaskDone;
 window.delTask=delTask;
 window.updateTaskAlert=updateTaskAlert;
 
