@@ -1111,14 +1111,42 @@ function addRateRow(rule){
     +'<button type="button" title="Прибрати" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:14px;padding:2px 6px" onclick="this.parentElement.remove()">✕</button>';
   list.appendChild(row);
 }
+// Похідні дані зі ставок учня: предмети та репетитори (з фолбеком на legacy-поля)
+function studentRatesArr(st){
+  if(!st) return [];
+  try{ var r=typeof st.rates==='string'?JSON.parse(st.rates||'[]'):(Array.isArray(st.rates)?st.rates:[]); return r||[]; }catch(e){ return []; }
+}
+function studentSubjects(st){
+  var out=[];
+  studentRatesArr(st).forEach(function(r){ var s=(r.subject||'').trim(); if(s&&out.indexOf(s)<0) out.push(s); });
+  if(!out.length && st && st.subject) out.push(st.subject);
+  return out;
+}
+function studentTutorIds(st){
+  var out=[];
+  studentRatesArr(st).forEach(function(r){ if(r.tutor_id&&out.indexOf(r.tutor_id)<0) out.push(r.tutor_id); });
+  if(!out.length && st){
+    var legacy=(Array.isArray(st.tutorIds)&&st.tutorIds.length)?st.tutorIds:(st.tutorId?[st.tutorId]:[]);
+    legacy.forEach(function(t){ if(t&&out.indexOf(t)<0) out.push(t); });
+  }
+  return out;
+}
+
 function collectRateRows(){
   return Array.from(document.querySelectorAll('#s-rates-list .s-rate-row')).map(function(row){
+    var rv=parseFloat(row.querySelector('.sr-rate')?.value);
     return {
       subject:(row.querySelector('.sr-subj')?.value||'').trim(),
       tutor_id:row.querySelector('.sr-tutor')?.value||'',
-      rate:parseFloat(row.querySelector('.sr-rate')?.value)
+      rate:(!isNaN(rv)&&rv>0)?rv:null
     };
-  }).filter(function(r){ return !isNaN(r.rate)&&r.rate>0; });
+  }).filter(function(r){ return r.subject||r.tutor_id||r.rate; });
+}
+
+// Розбір правил ставок учня (рядок JSON або масив)
+function studentRateRules(st){
+  if(!st) return [];
+  try{ return typeof st.rates==='string'?JSON.parse(st.rates||'[]'):(Array.isArray(st.rates)?st.rates:[]); }catch(e){ return []; }
 }
 
 function mkToast(msg,type='success'){
@@ -1694,12 +1722,13 @@ function renderStudents(){
       ?('<button class="btn btn-g btn-sm" onclick="openStudM(this.dataset.id)" data-id="'+s.id+'">\u270F\uFE0F</button>'
         +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delStudent(this.dataset.id)" data-id="'+s.id+'">\uD83D\uDDD1</button>')
       :'<span style="font-size:10px;color:var(--t3)">\u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434</span>';
-    var _tids=(Array.isArray(s.tutorIds)&&s.tutorIds.length)?s.tutorIds:(s.tutorId?[s.tutorId]:[]);
+    var _tids=studentTutorIds(s);
     var _tnames=_tids.map(tn).filter(function(n){return n&&n!=='\u2014';});
+    var _subjTxt=studentSubjects(s).join(', ')||s.subject||'';
     return '<tr>'
       +'<td><div style="display:flex;align-items:center;gap:8px">'+mkAv(s.fn,s.ln)+'<div><div style="font-weight:600;font-size:13px">'+s.fn+' '+s.ln+'</div></div></div></td>'
       +'<td style="font-size:12px;color:var(--t2)">'+(s.age||'\u2014')+' / '+(s.grade||'\u2014')+'</td>'
-      +'<td>'+(s.subject||'\u2014')+'</td>'
+      +'<td>'+(_subjTxt||'\u2014')+'</td>'
       +'<td style="font-size:12px;line-height:1.6">'+(_tnames.length?_tnames.join('<br>'):'\u2014')+'</td>'
       +'<td>'+bst(s.status)+'</td>'
       +'<td style="font-size:12px;color:var(--t2)">'+(s.parentPhone||s.phone||s.email||'\u2014')+'</td>'
@@ -3108,9 +3137,10 @@ async function saveStudent(){
     rates: collectRateRows(),
     phone:  document.getElementById('s-phone')?.value||'',
     email:  document.getElementById('s-email')?.value||'',
-    subject:document.getElementById('s-subj')?.value||'',
-    tutor_id:(function(){var tags=document.querySelectorAll('.s-tutor-tag');return tags.length?tags[0].dataset.id:null;})(),
-    tutor_ids:(function(){return Array.from(document.querySelectorAll('.s-tutor-tag')).map(function(t){return t.dataset.id;}).join(',');})(),
+    // Предмет і репетитори виводяться з "Окремих ставок" (legacy-поля лишаються синхронізованими для таблиць/фільтрів/доступів)
+    subject:(function(){var rr=collectRateRows();var ss=[];rr.forEach(function(r){var s=(r.subject||'').trim();if(s&&ss.indexOf(s)<0)ss.push(s);});return ss.join(', ');})(),
+    tutor_id:(function(){var rr=collectRateRows();var f=rr.find(function(r){return r.tutor_id;});return f?f.tutor_id:null;})(),
+    tutor_ids:(function(){var rr=collectRateRows();var tt=[];rr.forEach(function(r){if(r.tutor_id&&tt.indexOf(r.tutor_id)<0)tt.push(r.tutor_id);});return tt.join(',');})(),
     status: document.getElementById('s-status')?.value||'active',
     src:    document.getElementById('s-src')?.value||'referral',
     notes:  document.getElementById('s-notes')?.value||'',
@@ -3123,7 +3153,9 @@ async function saveStudent(){
   // Auto-link to current tutor if none selected
   if(R()==='tutor' && !obj.tutor_id){
     var mt=myTutor();
-    if(mt){ obj.tutor_id=mt.id; obj.tutor_ids=mt.id; }
+    if(mt){ obj.tutor_id=mt.id; obj.tutor_ids=mt.id;
+      if(!(obj.rates||[]).length) obj.rates=[{subject:'',tutor_id:mt.id,rate:0}];
+    }
   }
   window._saving = true;
   try{
@@ -4165,6 +4197,51 @@ window.updateTaskAlert=updateTaskAlert;
 
 window.mergeDuplicateStudents = mergeDuplicateStudents;
 window.addRateRow = addRateRow;
+
+// ── Автозаповнення предмета/репетитора в занятті зі ставок обраного учня ──
+function lessApplyStudentRates(){
+  var sid=document.getElementById('l-std')?.value;
+  var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+  if(!st) return;
+  var rules=studentRateRules(st);
+  var subs=[],tuts=[];
+  rules.forEach(function(r){
+    if(r.subject&&subs.indexOf(r.subject)<0)subs.push(r.subject);
+    if(r.tutor_id&&tuts.indexOf(r.tutor_id)<0)tuts.push(r.tutor_id);
+  });
+  // Фолбек на старі поля, якщо ставки ще не заповнені
+  if(!subs.length&&st.subject) subs=String(st.subject).split(',').map(function(x){return x.trim();}).filter(Boolean);
+  if(!tuts.length){ var lt=(st.tutorIds&&st.tutorIds.length)?st.tutorIds:(st.tutorId?[st.tutorId]:[]); tuts=lt.slice(); }
+  // Підказки предметів: спочатку предмети учня, далі — загальний довідник
+  var dl=document.getElementById('subj-list-l');
+  if(dl&&subs.length){
+    dl.innerHTML=subs.map(function(x){return '<option value="'+x+'">';}).join('')
+      +(S.subjects||[]).filter(function(x){return subs.indexOf(x.name)<0;}).map(function(x){return '<option value="'+x.name+'">';}).join('');
+  }
+  var subjEl=document.getElementById('l-subj');
+  if(subjEl&&!subjEl.value&&subs.length===1) subjEl.value=subs[0];
+  var tEl=document.getElementById('l-tutor');
+  if(tEl&&tuts.length===1){ tEl.value=tuts[0]; if(tEl._updateSearch)tEl._updateSearch(); }
+  lessPickTutorForSubject();
+}
+
+// Коли обрано предмет — підбираємо репетитора за правилом ставок
+function lessPickTutorForSubject(){
+  var sid=document.getElementById('l-std')?.value;
+  var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+  if(!st) return;
+  var subj=(document.getElementById('l-subj')?.value||'').trim().toLowerCase();
+  if(!subj) return;
+  var rules=studentRateRules(st);
+  var match=rules.find(function(r){return (r.subject||'').trim().toLowerCase()===subj&&r.tutor_id;});
+  if(!match) match=rules.find(function(r){return !(r.subject||'').trim()&&r.tutor_id;});
+  if(match){
+    var tEl=document.getElementById('l-tutor');
+    if(tEl){ tEl.value=match.tutor_id; if(tEl._updateSearch)tEl._updateSearch(); }
+  }
+}
+window.lessApplyStudentRates=lessApplyStudentRates;
+window.lessPickTutorForSubject=lessPickTutorForSubject;
 window.delTutor  = delTutor;
 window.delLesson = delLesson;
 window.delPay    = delPay;
@@ -4270,8 +4347,9 @@ function openStudM(id=null){
   }
   const flds=['fn','ln','age','grade','phone','email','notes'];
   const pflds=[];
-  if(id){const s=S.students.find(x=>x.id===id);if(s){flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value=s[f]||'';});document.getElementById('s-subj').value=s.subject||'';
-  // Render tutor tags
+  if(id){const s=S.students.find(x=>x.id===id);if(s){flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value=s[f]||'';});
+  var _sSubjEl=document.getElementById('s-subj'); if(_sSubjEl)_sSubjEl.value=s.subject||'';
+  // Render tutor tags (legacy, if element exists)
   var _tIds=s.tutorIds||(s.tutorId?[s.tutorId]:[]);
   sRenderTutorTags(_tIds);document.getElementById('s-status').value=s.status||'active';document.getElementById('s-src').value=s.src||'referral';
       var crmStEl=document.getElementById('s-crm-stage'); if(crmStEl) crmStEl.value=getCrmStage(s);
@@ -4280,7 +4358,13 @@ function openStudM(id=null){
       var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';
       var rt=document.getElementById('s-rate');if(rt)rt.value=(s.hourly_rate!=null?s.hourly_rate:'');
       var _rl=document.getElementById('s-rates-list');
-      if(_rl){_rl.innerHTML='';var _rr=[];try{_rr=typeof s.rates==='string'?JSON.parse(s.rates||'[]'):(Array.isArray(s.rates)?s.rates:[]);}catch(e){}
+      if(_rl){_rl.innerHTML='';var _rr=studentRateRules(s);
+        if(!_rr.length){
+          // Міграція: у старого учня ставок ще немає — заповнюємо зі старих полів предмет/репетитори
+          var _lt=(s.tutorIds&&s.tutorIds.length)?s.tutorIds:(s.tutorId?[s.tutorId]:[]);
+          if(_lt.length) _rr=_lt.map(function(tid){return {subject:s.subject||'',tutor_id:tid,rate:(s.hourly_rate!=null?s.hourly_rate:null)};});
+          else if(s.subject) _rr=[{subject:s.subject,tutor_id:'',rate:(s.hourly_rate!=null?s.hourly_rate:null)}];
+        }
         _rr.forEach(function(r){addRateRow(r);});}}}
   else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';
     var rtN=document.getElementById('s-rate'); if(rtN) rtN.value='';
@@ -4408,6 +4492,11 @@ function openLessM(id, date, time){
    'l-miss-date','l-makeup-date','l-hw','l-games'].forEach(function(f){
     var el=document.getElementById(f); if(el) el.value='';
   });
+  // Автозаповнення предмета/репетитора зі ставок учня (слухачі вішаються один раз)
+  var _stdEl=document.getElementById('l-std');
+  if(_stdEl&&!_stdEl._ratesWired){ _stdEl._ratesWired=true; _stdEl.addEventListener('change',lessApplyStudentRates); }
+  var _sjEl=document.getElementById('l-subj');
+  if(_sjEl&&!_sjEl._ratesWired){ _sjEl._ratesWired=true; _sjEl.addEventListener('change',lessPickTutorForSubject); }
   document.getElementById('l-dur').value = 60;
   document.getElementById('l-stat').value = 'planned';
   var re2=document.getElementById('l-recur'); if(re2) re2.value='none';
