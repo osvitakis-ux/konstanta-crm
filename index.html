@@ -1190,7 +1190,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             </select>
             <button class="btn btn-p btn-sm" onclick="openTaskM()" style="margin-left:auto">+ Нове завдання</button>
           </div>
-          <div style="overflow-x:auto"><table><thead><tr><th>Завдання</th><th>Відповідальний</th><th>Дедлайн</th><th>Статус</th><th>Виконано</th><th></th></tr></thead><tbody id="tasks-tbody"></tbody></table></div>
+          <div style="overflow-x:auto"><table><thead><tr><th>Завдання</th><th>Поставив</th><th>Відповідальний</th><th>Дедлайн</th><th>Статус</th><th>Виконано</th><th></th></tr></thead><tbody id="tasks-tbody"></tbody></table></div>
         </div>
       </div>
 
@@ -1690,10 +1690,24 @@ body.role-tutor .comm-add-btn { display: none !important; }
 </div>
 
 <!-- Communication modal -->
+<div class="mo" id="mo-task-done">
+  <div class="mdl" style="max-width:440px">
+    <div class="mdlh"><div class="mdlt">✅ Завдання виконано</div><button class="xbtn" onclick="closeM('mo-task-done')">×</button></div>
+    <div class="mdlb"><div class="fg">
+      <div id="tk-done-title" style="font-weight:600;font-size:13px;grid-column:1/-1;margin-bottom:2px"></div>
+      <div class="fgr full"><label>📝 Опис виконаної роботи</label><textarea id="tk-report" rows="4" placeholder="Що зроблено, результати, посилання..."></textarea></div>
+    </div></div>
+    <div class="mdlf">
+      <button class="btn btn-p" onclick="confirmTaskDone()">✅ Підтвердити виконання</button>
+      <button class="btn btn-g" onclick="closeM('mo-task-done')">Скасувати</button>
+    </div>
+  </div>
+</div>
 <div class="mo" id="mo-task">
   <div class="mdl" style="max-width:460px">
     <div class="mdlh"><div class="mdlt">Нове завдання</div><button class="xbtn" onclick="closeM('mo-task')">×</button></div>
     <div class="mdlb"><div class="fg">
+      <div id="tk-creator-info" style="display:none;font-size:12px;color:var(--t2);background:var(--s2);border-radius:8px;padding:6px 10px;margin-bottom:4px;grid-column:1/-1"></div>
       <div class="fgr full"><label>Назва завдання *</label><input id="tk-title" placeholder="Що потрібно зробити"></div>
       <div class="fgr full"><label>Опис</label><textarea id="tk-descr" rows="3" placeholder="Деталі, критерії виконання..."></textarea></div>
       <div class="fgr full"><label>Відповідальний *</label><select id="tk-assignee"></select></div>
@@ -1735,7 +1749,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=tasks1"></script>
+<script src="app7.js?v=tasks3"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
