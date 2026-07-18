@@ -193,28 +193,28 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','tasks','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','tasks','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
   admin: {
     label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','crm','invoice','reports','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','crm','tasks','invoice','reports','telephony'],
     can:{students:true,tutors:true,lessons:true,comms:true,payments:false,users:false,settings:false,danger:false,deleteAny:true},
     seeIncome:false, seeAll:true, canEditUsers:false, showGodBanner:false
   },
   network_admin: {
     label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#5b60d4,#29abe2)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','invoice','reports','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','tasks','invoice','reports','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -238,6 +238,7 @@ var NAV_CFG = [
   {id:'invoice',    ico:'\u25C8',  lbl:'\u0420\u0430\u0445\u0443\u043D\u043E\u043A',  sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'reports',    ico:'\u25E7',  lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'crm',        ico:'\u25A4',  lbl:'CRM',              sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
+  {id:'tasks',      ico:'\u2611',  lbl:'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F',      sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'telephony',  ico:'\u25C9',  lbl:'\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u0456\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
@@ -247,7 +248,7 @@ var NAV_CFG = [
 
 var DEFAULT_NAV_CFG = NAV_CFG;
 
-var PLABELS={dashboard:'Дашборд',students:'Учні',tutors:'Репетитори',schedule:'Розклад',lessons:'Заняття',payments:'Оплата',reports:'Аналітика',users:'Акаунти',settings:'Налаштування',profile:'Мій профіль',crm:'CRM',analytics:'Статистика',comms:'Комунікації',missed:'Пропущені уроки',invoice:'Рахунок',branches:'Філії',telephony:'Телефонія'};
+var PLABELS={dashboard:'Дашборд',students:'Учні',tutors:'Репетитори',schedule:'Розклад',lessons:'Заняття',payments:'Оплата',reports:'Аналітика',users:'Акаунти',settings:'Налаштування',profile:'Мій профіль',crm:'CRM',analytics:'Статистика',comms:'Комунікації',missed:'Пропущені уроки',invoice:'Рахунок',branches:'Філії',telephony:'Телефонія',tasks:'Завдання'};
 
 function localDateStr(d){
   if(typeof d === 'string') return d;
@@ -2717,6 +2718,7 @@ async function initApp(){
     S.branches     = _d.branches     ||[];
     S.subjects     = _d.subjects     ||[];
     S.pricingRules = (_d.pricing_rules||[]).map(normalizePricingRule);
+    S.tasks        = (_d.tasks       ||[]).map(normalizeTask);
     S.settings     = (_d.settings    ||[{}])[0]||{};
     S.users        = _d.profiles     ||[];
     // Мок поточного користувача — God-режим для перегляду всього
@@ -2900,6 +2902,7 @@ async function loadAll(){
     { table:'subjects',      key:'subjects' },
     { table:'comms',         key:'comms',    order:'date' },
     { table:'pricing_rules', key:'pricingRules' },
+    { table:'tasks',         key:'tasks' },
   ];
   const results = await Promise.all(
     tables.map(function(t){
@@ -2925,6 +2928,7 @@ async function loadAll(){
   S.tutors   = S.tutors.map(normalizeTutor);
   S.comms    = S.comms.map(normalizeComm);
   S.pricingRules = S.pricingRules.map(normalizePricingRule);
+  S.tasks = (S.tasks||[]).map(normalizeTask);
 
   setSynced();
 }
@@ -2939,6 +2943,7 @@ function normalizePayment(r){ return Object.assign({}, r, { studentId:r.student_
 function normalizeTutor(r){   return Object.assign({}, r, { accId:r.acc_uid, branchId:r.branch_id }); }
 function normalizeComm(r){    return Object.assign({}, r, { tutorId:r.tutor_id, studentId:r.student_id, branchId:r.branch_id }); }
 function normalizePricingRule(r){ return Object.assign({}, r, { subjectMatch:r.subject_match, tutorId:r.tutor_id, gradeMatch:r.grade_match, durMin:r.dur_min }); }
+function normalizeTask(r){ return Object.assign({}, r, { assigneeId:r.assignee_id, creatorId:r.creator_id, branchId:r.branch_id, deadlineTime:r.deadline_time, doneAt:r.done_at }); }
 
 // =
 // REALTIME
@@ -2947,7 +2952,8 @@ function startChannels(){
   var tableMap = {
     students:'students', tutors:'tutors', lessons:'lessons',
     payments:'payments', subjects:'subjects', comms:'comms',
-    pricing_rules:'pricingRules', branches:'branches', profiles:'users'
+    pricing_rules:'pricingRules', branches:'branches', profiles:'users',
+    tasks:'tasks'
   };
   Object.keys(tableMap).forEach(function(table){
     var key = tableMap[table];
@@ -2974,7 +2980,7 @@ function handleChange(key, table, payload){
   // Normalize
   var norm = { students:normalizeStudent, lessons:normalizeLesson,
     payments:normalizePayment, tutors:normalizeTutor,
-    comms:normalizeComm, pricingRules:normalizePricingRule };
+    comms:normalizeComm, pricingRules:normalizePricingRule, tasks:normalizeTask };
   if(norm[key] && row) row = norm[key](row);
 
   if(ev==='INSERT')      S[key] = (S[key]||[]).concat([row]);
@@ -2985,8 +2991,10 @@ function handleChange(key, table, payload){
 }
 
 function refreshPage(key){
+  try{updateTaskAlert();}catch(e){}
   if(typeof S === 'undefined' || !S.currentPage) return;
   var pg = S.currentPage;
+  if(key==='tasks' && pg==='tasks'){ try{renderTasks();}catch(e){} }
   var map = {
     students:['students','dashboard','profile','crm'],
     tutors:['tutors','dashboard','profile'],
@@ -3022,13 +3030,13 @@ async function loadTableFresh(table){
   var tableMap = {
     students:'students', tutors:'tutors', lessons:'lessons',
     payments:'payments', subjects:'subjects', comms:'comms',
-    pricing_rules:'pricingRules', branches:'branches'
+    pricing_rules:'pricingRules', branches:'branches', tasks:'tasks'
   };
   var key = tableMap[table];
   if(!key) return;
   var norm = {students:normalizeStudent,lessons:normalizeLesson,
     payments:normalizePayment,tutors:normalizeTutor,
-    comms:normalizeComm,pricingRules:normalizePricingRule};
+    comms:normalizeComm,pricingRules:normalizePricingRule,tasks:normalizeTask};
   var res = await _sb.from(table).select('*');
   if(res.error) return;
   var data = res.data || [];
@@ -3930,6 +3938,188 @@ window.nav       = nav;
 window.closeM    = closeM;
 window.openM     = openM;
 window.delStudent = delStudent;
+
+// ══════════ ЗАВДАННЯ (TASKS) ══════════
+// Керівні ролі ставлять завдання з дедлайнами відповідальним адмінам/директорам.
+// Прострочене відкрите завдання підсвічує пункт меню відповідального червоним.
+function taskRoles(){ return ['god','director','admin','network_admin']; }
+function canManageTasks(){ return taskRoles().indexOf(R())>=0; }
+
+function taskIsOverdue(t){
+  if(t.status==='done') return false;
+  if(!t.deadline) return false;
+  var dl=new Date(String(t.deadline).slice(0,10)+'T'+(t.deadlineTime||t.deadline_time||'23:59'));
+  return dl.getTime()<Date.now();
+}
+
+function taskAssigneeName(t){
+  var u=(S.users||[]).find(function(x){return x.id===(t.assigneeId||t.assignee_id);});
+  return u?(u.fn+' '+u.ln):'\u2014';
+}
+
+function renderTasks(){
+  var tbody=document.getElementById('tasks-tbody');
+  if(!tbody) return;
+  var fSt=(document.getElementById('tf-status')||{value:''}).value;
+  var fAs=(document.getElementById('tf-assignee')||{value:''}).value;
+
+  // Фільтр відповідальних
+  var asSel=document.getElementById('tf-assignee');
+  if(asSel){
+    var prev=asSel.value;
+    asSel.innerHTML='<option value="">Всі відповідальні</option>'
+      +(S.users||[]).filter(function(u){return taskRoles().indexOf(u.role)>=0;})
+        .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
+    asSel.value=prev;
+  }
+
+  var list=(S.tasks||[]).slice();
+  if(fAs) list=list.filter(function(t){return (t.assigneeId||t.assignee_id)===fAs;});
+  if(fSt==='open')    list=list.filter(function(t){return t.status!=='done'&&!taskIsOverdue(t);});
+  if(fSt==='overdue') list=list.filter(function(t){return taskIsOverdue(t);});
+  if(fSt==='done')    list=list.filter(function(t){return t.status==='done';});
+
+  // Сортування: прострочені → відкриті за дедлайном → виконані
+  list.sort(function(a,b){
+    var oa=taskIsOverdue(a)?0:(a.status==='done'?2:1);
+    var ob=taskIsOverdue(b)?0:(b.status==='done'?2:1);
+    if(oa!==ob) return oa-ob;
+    return String(a.deadline||'9999').localeCompare(String(b.deadline||'9999'));
+  });
+
+  if(!list.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">\u0417\u0430\u0432\u0434\u0430\u043D\u044C \u043D\u0435\u043C\u0430\u0454</td></tr>';
+    updateTaskAlert();
+    return;
+  }
+
+  tbody.innerHTML=list.map(function(t){
+    var over=taskIsOverdue(t);
+    var st=t.status==='done'
+      ?'<span class="badge bg">\u2713 \u0412\u0438\u043A\u043E\u043D\u0430\u043D\u043E</span>'
+      :(over?'<span class="badge br">\u26A0 \u041F\u0440\u043E\u0441\u0442\u0440\u043E\u0447\u0435\u043D\u043E</span>':'<span class="badge bb">\u25CB \u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0435</span>');
+    var dl=t.deadline?(fd(t.deadline)+((t.deadlineTime||t.deadline_time)?' '+(t.deadlineTime||t.deadline_time):'')):'\u2014';
+    var mine=(t.assigneeId||t.assignee_id)===(CU&&CU.id);
+    var doneBtn=t.status==='done'
+      ?'<button onclick="toggleTaskDone(\''+t.id+'\')" title="\u041F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u0438 \u0432 \u0440\u043E\u0431\u043E\u0442\u0443" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px">\u21A9</button>'
+      :'<button onclick="toggleTaskDone(\''+t.id+'\')" title="\u041F\u043E\u0437\u043D\u0430\u0447\u0438\u0442\u0438 \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u0438\u043C" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;color:var(--tut)">\u2705</button>';
+    return '<tr'+(over?' style="background:rgba(248,113,113,.07)"':'')+'>'
+      +'<td><div style="font-weight:600;font-size:13px'+(t.status==='done'?';text-decoration:line-through;opacity:.6':'')+'">'+(t.title||'\u2014')+'</div>'
+        +(t.descr?'<div style="font-size:11px;color:var(--t2);margin-top:2px">'+t.descr+'</div>':'')+'</td>'
+      +'<td style="font-size:12px'+(mine?';font-weight:700':'')+'">'+taskAssigneeName(t)+(mine?' \uD83D\uDC64':'')+'</td>'
+      +'<td style="font-size:12px'+(over?';color:var(--danger);font-weight:700':'')+'">'+dl+'</td>'
+      +'<td>'+st+'</td>'
+      +'<td style="font-size:11px;color:var(--t3)">'+(t.doneAt||t.done_at?fd(String(t.doneAt||t.done_at).slice(0,10)):'\u2014')+'</td>'
+      +'<td style="text-align:right;white-space:nowrap">'+doneBtn
+        +'<button onclick="openTaskM(\''+t.id+'\')" title="\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438" style="border:none;background:none;cursor:pointer;font-size:13px;padding:4px 6px">\u270F\uFE0F</button>'
+        +'<button onclick="delTask(\''+t.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;color:var(--danger)">\uD83D\uDDD1</button>'
+      +'</td></tr>';
+  }).join('');
+  updateTaskAlert();
+}
+
+function openTaskM(id){
+  if(!canManageTasks()){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  window._editTaskId=id||null;
+  var t=id?(S.tasks||[]).find(function(x){return x.id===id;}):null;
+  var ttl=document.querySelector('#mo-task .mdlt');
+  if(ttl) ttl.textContent=t?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F':'\u041D\u043E\u0432\u0435 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F';
+  var asSel=document.getElementById('tk-assignee');
+  if(asSel){
+    asSel.innerHTML='<option value="">\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u043B\u044C\u043D\u043E\u0433\u043E</option>'
+      +(S.users||[]).filter(function(u){return taskRoles().indexOf(u.role)>=0;})
+        .map(function(u){var rl=(ROLES[u.role]||{}).label||u.role;return '<option value="'+u.id+'">'+u.fn+' '+u.ln+' ('+rl+')</option>';}).join('');
+    asSel.value=t?(t.assigneeId||t.assignee_id||''):'';
+  }
+  document.getElementById('tk-title').value=t?(t.title||''):'';
+  document.getElementById('tk-descr').value=t?(t.descr||''):'';
+  document.getElementById('tk-deadline').value=t?String(t.deadline||'').slice(0,10):localDateStr(new Date());
+  document.getElementById('tk-time').value=t?((t.deadlineTime||t.deadline_time)||''):'';
+  openM('mo-task');
+}
+
+async function saveTask(){
+  if(!canManageTasks()){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  var title=(document.getElementById('tk-title')||{value:''}).value.trim();
+  var assignee=(document.getElementById('tk-assignee')||{value:''}).value;
+  var deadline=(document.getElementById('tk-deadline')||{value:''}).value;
+  if(!title){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F','error'); return; }
+  if(!assignee){ mkToast('\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u043B\u044C\u043D\u043E\u0433\u043E','error'); return; }
+  if(!deadline){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0434\u0435\u0434\u043B\u0430\u0439\u043D','error'); return; }
+  var obj={
+    title:title,
+    descr:(document.getElementById('tk-descr')||{value:''}).value||'',
+    assignee_id:assignee,
+    deadline:deadline,
+    deadline_time:(document.getElementById('tk-time')||{value:''}).value||null,
+    branch_id:myBranchId()||null
+  };
+  window._saving=true;
+  try{
+    if(window._editTaskId){
+      var _tid=window._editTaskId;
+      await dbUpdate('tasks',_tid,obj);
+      var _lt=(S.tasks||[]).find(function(x){return x.id===_tid;});
+      if(_lt) Object.assign(_lt,obj,normalizeTask(obj));
+      window._editTaskId=null;
+    } else {
+      var _new=Object.assign({id:uid(),status:'open',creator_id:CU?CU.id:null,created_at:new Date().toISOString()},obj);
+      await dbInsert('tasks',_new);
+      if(!(S.tasks||[]).some(function(x){return x.id===_new.id;})) S.tasks=(S.tasks||[]).concat([normalizeTask(_new)]);
+    }
+    closeM('mo-task'); mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E'); window._saving=false;
+    renderTasks();
+  }catch(e){ window._saving=false; mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error'); }
+}
+
+async function toggleTaskDone(id){
+  var t=(S.tasks||[]).find(function(x){return x.id===id;});
+  if(!t) return;
+  var nowDone=t.status!=='done';
+  var patch=nowDone?{status:'done',done_at:new Date().toISOString()}:{status:'open',done_at:null};
+  try{
+    await dbUpdate('tasks',id,patch);
+    Object.assign(t,patch,{doneAt:patch.done_at});
+    renderTasks();
+    mkToast(nowDone?'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u043E \u2705':'\u041F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u043E \u0432 \u0440\u043E\u0431\u043E\u0442\u0443');
+  }catch(e){}
+}
+
+async function delTask(id){
+  if(!canManageTasks()){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F?')) return;
+  try{
+    await dbDelete('tasks',id);
+    S.tasks=(S.tasks||[]).filter(function(x){return x.id!==id;});
+    renderTasks();
+    mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E');
+  }catch(e){}
+}
+
+// Червона підсвітка пункту меню відповідального, поки є прострочені завдання
+function updateTaskAlert(){
+  var nel=document.getElementById('ni-tasks');
+  if(!nel) return;
+  var myOver=(S.tasks||[]).filter(function(t){return taskIsOverdue(t)&&(t.assigneeId||t.assignee_id)===(CU&&CU.id);}).length;
+  var badge=nel.querySelector('.task-nbadge');
+  if(myOver>0){
+    nel.classList.add('ni-task-alert');
+    if(!badge){ badge=document.createElement('span'); badge.className='task-nbadge'; nel.appendChild(badge); }
+    badge.textContent=myOver;
+  } else {
+    nel.classList.remove('ni-task-alert');
+    if(badge) badge.remove();
+  }
+}
+setInterval(function(){ try{updateTaskAlert(); if(S&&S.currentPage==='tasks')renderTasks();}catch(e){} }, 60000);
+
+window.renderTasks=renderTasks;
+window.openTaskM=openTaskM;
+window.saveTask=saveTask;
+window.toggleTaskDone=toggleTaskDone;
+window.delTask=delTask;
+window.updateTaskAlert=updateTaskAlert;
+
 window.mergeDuplicateStudents = mergeDuplicateStudents;
 window.addRateRow = addRateRow;
 window.delTutor  = delTutor;
@@ -4358,12 +4548,14 @@ function nav(page){
   if(page==='invoice') renderInvoicePage();
   if(page==='invoice-log') renderInvoiceLog();
   if(page==='missed') renderMissedLessons();
+  if(page==='tasks'){try{renderTasks();}catch(e){console.error('renderTasks:',e);}}
   if(page==='invoice') renderInvoicePage();
   if(page==='invoice-log') renderInvoiceLog();
   var _crmEl=document.getElementById('pg-crm');
   if(page==='crm'){if(_crmEl)_crmEl.style.display='flex';renderCrm();}
   else{if(_crmEl)_crmEl.style.display='none';}
     if(isCustomPage)renderCustomPage(page);
+  try{updateTaskAlert();}catch(e){}
   if(window.innerWidth<=768)closeSidebar();
 }
 
