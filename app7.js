@@ -916,11 +916,24 @@ function renderInvoicePage(){
     + '</div>'
     + '</div>';
 
+  // Редагований текст: якщо користувач правив, а параметри не змінились — зберігаємо його правки
+  var _esc=function(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');};
+  var prevGen=window._invGenText||'';
+  var keepEdit=(window._invEdited && window._invText!=null && invText===prevGen);
+  var showText=keepEdit?window._invText:invText;
+  if(!keepEdit) window._invEdited=false;
+  window._invGenText=invText;
+
   var rightCol = '<div>'
-    + '<div style="background:var(--s2);border-radius:10px;padding:14px;font-family:JetBrains Mono,monospace;font-size:12px;white-space:pre-wrap;line-height:1.6;min-height:200px;border:1px solid var(--b1)">'
-    + (invText||(!sid?'<span style="color:var(--t3)">\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f \u0449\u043e\u0431 \u043f\u043e\u0431\u0430\u0447\u0438\u0442\u0438 \u0440\u0430\u0445\u0443\u043d\u043e\u043a</span>':'<span style="color:var(--t3)">\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u0445 \u0437\u0430\u043d\u044f\u0442\u044c \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434</span>'))
+    + '<textarea id="inv-text" oninput="window._invText=this.value;window._invEdited=true;" '
+    + 'placeholder="'+(!sid?'Оберіть учня щоб побачити рахунок':'Немає запланованих занять за цей період')+'" '
+    + 'style="width:100%;box-sizing:border-box;background:var(--s2);border-radius:10px;padding:14px;font-family:JetBrains Mono,monospace;font-size:12px;white-space:pre-wrap;line-height:1.6;min-height:260px;border:1px solid var(--b1);color:var(--t1);resize:vertical">'
+    + _esc(showText)
+    + '</textarea>'
+    + '<div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
+    + '<div style="font-size:12px;color:var(--t2)">Занять: '+lessons.length+' | Репетиторів: '+groupOrder.length+' | Годин: '+totalHours+' | Сума: <b>'+total+'₴</b></div>'
+    + '<button class="btn btn-g btn-sm" onclick="window._invEdited=false;renderInvoicePage();" title="Повернути автоматичний текст">↺ Скинути</button>'
     + '</div>'
-    + '<div style="margin-top:8px;font-size:12px;color:var(--t2)">\u0417\u0430\u043d\u044f\u0442\u044c: '+lessons.length+' | \u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432: '+groupOrder.length+' | \u0413\u043e\u0434\u0438\u043d: '+totalHours+' | \u0421\u0443\u043c\u0430: <b>'+total+'\u20b4</b></div>'
     + '</div>';
 
   invEl.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'+leftCol+rightCol+'</div>';
@@ -933,7 +946,7 @@ function renderInvoicePage(){
     if(bid) brSel2.value=bid;
   }
 
-  window._invText=invText;
+  window._invText=showText;
   window._invPhone=phone;
 }
 
