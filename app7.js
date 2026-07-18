@@ -1056,6 +1056,39 @@ function fd(d){if(!d)return '\u2014';return new Date(d).toLocaleDateString('uk-U
 function fd2(l,p){document.getElementById('lu').value=l;document.getElementById('lp').value=p;}
 
 function sn(id){const s=S.students.find(x=>x.id===id);return s?s.fn+' '+s.ln:'\u2014';}
+// Прізвище та ініціал: "Мілентьєва В."
+function snShort(id){const s=S.students.find(x=>x.id===id);return s?((s.ln||'')+(s.fn?' '+s.fn[0]+'.':'')).trim()||'\u2014':'\u2014';}
+// Розкладання уроків дня по вертикальних смугах: уроки, що перетинаються в часі,
+// діляться по ширині клітинки. Повертає Map(lessonId -> {lane, count}).
+function schAssignLanes(dayLessons){
+  var evs=dayLessons.map(function(l){
+    var p=(l.time||'08:00').split(':');
+    var st=(parseInt(p[0])||8)*60+(parseInt(p[1])||0);
+    return {l:l, s:st, e:st+(parseFloat(l.dur)||60)};
+  }).sort(function(a,b){return a.s-b.s||a.e-b.e;});
+  var out=new Map();
+  var cluster=[], clusterEnd=-1;
+  function flush(){
+    if(!cluster.length) return;
+    var lanes=[];
+    cluster.forEach(function(ev){
+      var lane=-1;
+      for(var i=0;i<lanes.length;i++){ if(lanes[i]<=ev.s){ lane=i; break; } }
+      if(lane<0){ lane=lanes.length; lanes.push(0); }
+      lanes[lane]=ev.e;
+      ev.lane=lane;
+    });
+    cluster.forEach(function(ev){ out.set(ev.l.id,{lane:ev.lane,count:lanes.length}); });
+    cluster=[];
+  }
+  evs.forEach(function(ev){
+    if(cluster.length && ev.s>=clusterEnd){ flush(); clusterEnd=-1; }
+    cluster.push(ev);
+    clusterEnd=Math.max(clusterEnd,ev.e);
+  });
+  flush();
+  return out;
+}
 
 function tn(id){const t=S.tutors.find(x=>x.id===id);return t?t.fn+' '+t.ln:'\u2014';}
 // Вартість заняття: ставка ЗА ГОДИНУ × (тривалість/60).
@@ -5369,6 +5402,7 @@ function renderSchDay(){
         var slotOnclick = 'openLessM(null,\''+ds+'\',\''+String(hh).padStart(2,'0')+':00\')';
         html += '<div onclick="'+slotOnclick+'" style="position:absolute;top:'+((hh-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer"></div>';
       }
+      var laneMapD=schAssignLanes(dayLessons);
       dayLessons.forEach(function(l){
         const parts = (l.time||'08:00').split(':');
         const lh = parseInt(parts[0])||8;
@@ -5378,7 +5412,8 @@ function renderSchDay(){
         const heightPx = Math.max((dur/60)*ROW_H, 18);
         if(lh<START_H||lh>=END_H) return;
         var _isCov = l.status==='missed' && isCoveredMissed(l);
-        var _isPartial = !_isCov && l.status==='missed' && uncoveredMissedHours(l)*60 < (parseFloat(l.dur)||60);
+        var _unHrs = l.status==='missed'?uncoveredMissedHours(l):0;
+        var _isPartial = !_isCov && l.status==='missed' && _unHrs*60 < (parseFloat(l.dur)||60);
         var ecl = _isCov ? 'ec-covered'
           : _isPartial ? 'ec-partial'
           : l.status==='missed'  ? 'ec-miss'
@@ -5386,11 +5421,16 @@ function renderSchDay(){
           : l.status==='makeup_planned' ? 'ec-makeplan'
           : (l.status==='completed'||l.status==='done') ? 'ec-done'
           : 'ec-plan';
+        var liD=laneMapD.get(l.id)||{lane:0,count:1};
+        var wPctD=100/liD.count;
+        var posCssD='left:calc('+(liD.lane*wPctD)+'% + 2px);width:calc('+wPctD+'% - 4px);';
         var canDel = can('lessons');
-        html += '<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;left:2px;right:2px;height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
-          +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'          +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'\uD83D\uDD01 ':'')+l.subject+'</div>'
-          +(heightPx>28?'<div style="opacity:.75;font-size:9px">'+sn(l.studentId||l.student_id).split(' ')[0]+'</div>':'')
+        html += '<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCssD+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
+          +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
+          +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'\uD83D\uDD01 ':'')+snShort(l.studentId||l.student_id)+'</div>'
+          +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
           +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' \u00B7 '+Math.floor(dur/60)+'\u0433'+(dur%60?dur%60+'\u0445\u0432':''):'\u00B7 '+dur+'\u0445\u0432')+'</div>':'')
+          +(_isPartial&&heightPx>52?'<div style="font-size:9px;font-weight:700">\u26A0 \u0437\u0430\u043B\u0438\u0448\u0438\u043B\u043E\u0441\u044C '+_unHrs+'\u0433</div>':'')
           +(canDel?'<span onclick="event.stopPropagation();delLesson(\''+l.id+'\')" style="position:absolute;top:2px;right:3px;font-size:10px;opacity:.6;cursor:pointer;line-height:1" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438">\u2715</span>':'')
           +'</div>';
       });
@@ -5459,7 +5499,8 @@ function renderSchWeek(){
       var slotOnclick='openLessM(null,\''+ds+'\',\''+String(h).padStart(2,'0')+':00\')';
       html+='<div onclick="'+slotOnclick+'" style="position:absolute;top:'+((h-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer"></div>';
     }
-    // Lessons
+    // Lessons — уроки, що перетинаються в часі, ділять клітинку по вертикалі
+    var laneMap=schAssignLanes(dayLessons);
     dayLessons.forEach(function(l){
       const parts=(l.time||'08:00').split(':');
       const lh=parseInt(parts[0])||8;
@@ -5469,7 +5510,8 @@ function renderSchWeek(){
       const heightPx=Math.max((dur/60)*ROW_H, 18);
       if(lh<START_H||lh>=END_H) return;
       var _isCov=l.status==='missed'&&isCoveredMissed(l);
-      var _isPartial=!_isCov&&l.status==='missed'&&uncoveredMissedHours(l)*60<(parseFloat(l.dur)||60);
+      var _unHrs=l.status==='missed'?uncoveredMissedHours(l):0;
+      var _isPartial=!_isCov&&l.status==='missed'&&_unHrs*60<(parseFloat(l.dur)||60);
       var ecl=_isCov?'ec-covered'
         :_isPartial?'ec-partial'
         :l.status==='missed'?'ec-miss'
@@ -5477,12 +5519,16 @@ function renderSchWeek(){
         :l.status==='makeup_planned'?'ec-makeplan'
         :(l.status==='completed'||l.status==='done')?'ec-done'
         :'ec-plan';
+      var li=laneMap.get(l.id)||{lane:0,count:1};
+      var wPct=100/li.count;
+      var posCss='left:calc('+(li.lane*wPct)+'% + 2px);width:calc('+wPct+'% - 4px);';
       var canDel=can('lessons');
-      html+='<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;left:2px;right:2px;height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
+      html+='<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCss+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
         +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
-        +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'🔁 ':'')+l.subject+'</div>'
-        +(heightPx>28?'<div style="opacity:.75;font-size:9px">'+sn(l.studentId||l.student_id).split(' ')[0]+'</div>':'')
-        +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' · '+(dur>=60?Math.floor(dur/60)+'г'+(dur%60?dur%60+'хв':''):''):'· '+dur+'хв')+'</div>':'')
+        +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'🔁 ':'')+snShort(l.studentId||l.student_id)+'</div>'
+        +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
+        +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' · '+Math.floor(dur/60)+'г'+(dur%60?dur%60+'хв':''):' · '+dur+'хв')+'</div>':'')
+        +(_isPartial&&heightPx>52?'<div style="font-size:9px;font-weight:700">⚠ залишилось '+_unHrs+'г</div>':'')
         +(canDel?'<span onclick="event.stopPropagation();delLesson(\''+l.id+'\')" style="position:absolute;top:2px;right:3px;font-size:10px;opacity:.6;cursor:pointer;line-height:1" title="Видалити">✕</span>':'')
         +'</div>';
     });
@@ -6335,29 +6381,31 @@ function isMakeupForMissed(l){
   });
 }
 
-function isCoveredMissed(l){
-  if(l.status!=='missed') return false;
-  if(l.makeup_date) return true;
-
+// Сума хвилин ПРОВЕДЕНИХ відпрацювань, пов'язаних із цим пропущеним уроком
+function coveredMissedMinutes(l){
   var sid = l.studentId||l.student_id;
   var ldate = l.date;
-  var missedDur = parseFloat(l.dur)||60;
-
-  // Шукаємо makeup-уроки по кількох критеріях
   var makeups = (S.lessons||[]).filter(function(x){
-    if(x.status!=='makeup') return false;
+    if(x.status!=='makeup') return false; // рахуються лише ПРОВЕДЕНІ відпрацювання
     if((x.studentId||x.student_id)!==sid) return false;
-    // 1. Явне поле missed_date
+    // 1. Явне поле missed_date у відпрацювання
     if(x.missed_date===ldate) return true;
-    // 2. Через split_group_id
+    // 2. Пропущений урок вказує на дату відпрацювання
+    if(l.makeup_date && x.date===l.makeup_date) return true;
+    // 3. Через split_group_id
     if(l.split_group_id && x.split_group_id===l.split_group_id) return true;
     if(x.split_group_id===l.id || l.split_group_id===x.id) return true;
     return false;
   });
+  return makeups.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
+}
 
-  if(!makeups.length) return false;
-  var makeupTotalDur = makeups.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
-  return makeupTotalDur >= missedDur;
+// Пропуск вважається покритим ЛИШЕ коли сума годин відпрацювань >= пропущених годин.
+// (Раніше makeup_date давав "покрито" без порівняння тривалостей — 2 пропущені години
+//  "закривались" 1 годиною відпрацювання.)
+function isCoveredMissed(l){
+  if(l.status!=='missed') return false;
+  return coveredMissedMinutes(l) >= (parseFloat(l.dur)||60);
 }
 
 function getUncoveredMissed(lessons){
@@ -6370,19 +6418,7 @@ function getUncoveredMissed(lessons){
 // Повертає непокриту тривалість пропущеного уроку в годинах
 function uncoveredMissedHours(l){
   if(l.status!=='missed') return 0;
-  var missedDur = parseFloat(l.dur)||60;
-  var sid = l.studentId||l.student_id;
-  var tid = l.tutorId||l.tutor_id;
-  var ldate = l.date;
-  // Знаходимо пов'язані makeup-уроки по даті пропуску
-  var makeups=(S.lessons||[]).filter(function(x){
-    if(x.status!=='makeup') return false;
-    if((x.studentId||x.student_id)!==sid) return false;
-    if((x.tutorId||x.tutor_id)!==tid) return false;
-    return x.missed_date===ldate;
-  });
-  var makeupDur=makeups.reduce(function(s,x){return s+(parseFloat(x.dur)||60);},0);
-  var uncovered=Math.max(0, missedDur-makeupDur);
+  var uncovered=Math.max(0,(parseFloat(l.dur)||60)-coveredMissedMinutes(l));
   return Math.round(uncovered/60*10)/10;
 }
 
