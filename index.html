@@ -560,6 +560,10 @@ body.role-tutor .tutor-hidden { display: none !important; }
 .xls-btn, .dir-only { display: none !important; }
 body.role-god .xls-btn, body.role-director .xls-btn,
 body.role-god .dir-only, body.role-director .dir-only { display: inline-flex !important; }
+/* Червона підсвітка пункту "Завдання" у відповідального з простроченими завданнями */
+.ni-task-alert { background: rgba(248,113,113,.16) !important; color: var(--danger) !important; animation: taskpulse 1.3s ease-in-out infinite; }
+@keyframes taskpulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(248,113,113,.45);} 50%{ box-shadow: 0 0 0 5px rgba(248,113,113,0);} }
+.task-nbadge { background: var(--danger); color:#fff; font-size:10px; font-weight:700; border-radius:9px; padding:1px 6px; margin-left:auto; }
   div.tutor-hidden:not(.card) { display: flex; }
 body.role-tutor .comm-add-btn { display: none !important; }
 </style>
@@ -1170,6 +1174,26 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div>
       </div>
 
+      <!-- ── TASKS ── -->
+      <div class="page" id="pg-tasks">
+        <div class="card">
+          <div class="ch">
+            <span class="ct">☑ Завдання</span>
+            <select id="tf-status" onchange="renderTasks()" style="width:150px;font-size:12px;padding:5px 8px;margin-left:12px">
+              <option value="">Всі статуси</option>
+              <option value="open">Відкриті</option>
+              <option value="overdue">Прострочені</option>
+              <option value="done">Виконані</option>
+            </select>
+            <select id="tf-assignee" onchange="renderTasks()" style="width:180px;font-size:12px;padding:5px 8px;margin-left:6px">
+              <option value="">Всі відповідальні</option>
+            </select>
+            <button class="btn btn-p btn-sm" onclick="openTaskM()" style="margin-left:auto">+ Нове завдання</button>
+          </div>
+          <div style="overflow-x:auto"><table><thead><tr><th>Завдання</th><th>Відповідальний</th><th>Дедлайн</th><th>Статус</th><th>Виконано</th><th></th></tr></thead><tbody id="tasks-tbody"></tbody></table></div>
+        </div>
+      </div>
+
       <div class="page" id="pg-profile">
           <div class="card">
               <div class="ch">
@@ -1666,6 +1690,22 @@ body.role-tutor .comm-add-btn { display: none !important; }
 </div>
 
 <!-- Communication modal -->
+<div class="mo" id="mo-task">
+  <div class="mdl" style="max-width:460px">
+    <div class="mdlh"><div class="mdlt">Нове завдання</div><button class="xbtn" onclick="closeM('mo-task')">×</button></div>
+    <div class="mdlb"><div class="fg">
+      <div class="fgr full"><label>Назва завдання *</label><input id="tk-title" placeholder="Що потрібно зробити"></div>
+      <div class="fgr full"><label>Опис</label><textarea id="tk-descr" rows="3" placeholder="Деталі, критерії виконання..."></textarea></div>
+      <div class="fgr full"><label>Відповідальний *</label><select id="tk-assignee"></select></div>
+      <div class="fgr"><label>Дедлайн *</label><input id="tk-deadline" type="date"></div>
+      <div class="fgr"><label>Час (необов'язково)</label><input id="tk-time" type="time"></div>
+    </div></div>
+    <div class="mdlf">
+      <button class="btn btn-p" onclick="saveTask()">💾 Зберегти</button>
+      <button class="btn btn-g" onclick="closeM('mo-task')">Скасувати</button>
+    </div>
+  </div>
+</div>
 <div class="mo" id="mo-comm">
   <div class="mdl" style="max-width:440px">
     <div class="mdlh"><div class="mdlt">Комунікація</div><button class="xbtn" onclick="closeM('mo-comm')">×</button></div>
@@ -1695,7 +1735,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=invedit1"></script>
+<script src="app7.js?v=tasks1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
