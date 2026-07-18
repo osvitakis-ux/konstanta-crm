@@ -826,10 +826,15 @@ function renderInvoicePage(){
     return true;
   }).sort(function(a,b){return a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'');}):[];
 
-  // Вартість у занятті вказується ЗА ГОДИНУ → сума = тривалість (год) × ставка/год
+  // Вартість: знімок у занятті → ставка учня за правилами (предмет/репетитор) → резервна "Ціна за годину"
   function lessonCost(l){
     var dur=(parseFloat(l.dur)||60)/60;
-    var rate=(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price)))?parseFloat(l.price):fallbackPrice;
+    var rate;
+    if(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price)) && parseFloat(l.price)>0) rate=parseFloat(l.price);
+    else{
+      var sr=studentRate(student, l.subject, l.tutorId||l.tutor_id);
+      rate=sr>0?sr:fallbackPrice;
+    }
     return Math.round(dur*rate*10)/10;
   }
 
@@ -1039,11 +1044,67 @@ function fd2(l,p){document.getElementById('lu').value=l;document.getElementById(
 function sn(id){const s=S.students.find(x=>x.id===id);return s?s.fn+' '+s.ln:'\u2014';}
 
 function tn(id){const t=S.tutors.find(x=>x.id===id);return t?t.fn+' '+t.ln:'\u2014';}
-// Вартість заняття: l.price — це ставка ЗА ГОДИНУ → сума = (тривалість/60) × ставка
+// Вартість заняття: ставка ЗА ГОДИНУ × (тривалість/60).
+// Ставка: знімок у занятті (l.price) → якщо нема, ставка з картки учня за правилами.
 function lessonTotal(l){
   var dur=(parseFloat(l.dur)||60)/60;
-  var rate=(l.price!=null&&l.price!==''&&!isNaN(parseFloat(l.price)))?parseFloat(l.price):0;
+  var rate=(l.price!=null&&l.price!==''&&!isNaN(parseFloat(l.price))&&parseFloat(l.price)>0)?parseFloat(l.price):(function(){
+    var sid=l.studentId||l.student_id;
+    var st=sid?(S.students||[]).find(function(s){return s.id===sid;}):null;
+    return studentRate(st, l.subject, l.tutorId||l.tutor_id);
+  })();
   return Math.round(dur*rate*100)/100;
+}
+
+// Ставка учня для конкретного предмета/репетитора.
+// Правила в st.rates: [{subject:'', tutor_id:'', rate:N}], порожнє поле = будь-який.
+// Пріоритет: предмет+репетитор (3) → предмет (2) → репетитор (1) → базова hourly_rate.
+function studentRate(st, subject, tutorId){
+  if(!st) return 0;
+  var rules=[];
+  try{ rules=typeof st.rates==='string'?JSON.parse(st.rates||'[]'):(Array.isArray(st.rates)?st.rates:[]); }catch(e){ rules=[]; }
+  var subjN=(subject||'').trim().toLowerCase();
+  var best=null, bestScore=-1;
+  rules.forEach(function(r){
+    if(isNaN(parseFloat(r.rate))) return;
+    var rs=(r.subject||'').trim().toLowerCase();
+    if(rs && rs!==subjN) return;          // предмет вказано і не збігся
+    if(r.tutor_id && r.tutor_id!==tutorId) return; // репетитора вказано і не збігся
+    var score=(rs?2:0)+(r.tutor_id?1:0);
+    if(score>bestScore){ bestScore=score; best=r; }
+  });
+  if(best) return parseFloat(best.rate);
+  var b=parseFloat(st.hourly_rate);
+  return isNaN(b)?0:b;
+}
+
+// ── UI рядків ставок у картці учня ──
+function addRateRow(rule){
+  rule=rule||{};
+  var list=document.getElementById('s-rates-list');
+  if(!list) return;
+  var row=document.createElement('div');
+  row.className='s-rate-row';
+  row.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+  row.innerHTML=
+    '<input class="sr-subj" list="subj-list-s" placeholder="Предмет (будь-який)" value="'+String(rule.subject||'').replace(/"/g,'&quot;')+'" style="flex:2;min-width:110px;font-size:12px;padding:5px 8px">'
+    +'<select class="sr-tutor" style="flex:2;min-width:110px;font-size:12px;padding:5px 8px">'
+      +'<option value="">Будь-який репетитор</option>'
+      +(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(t){return '<option value="'+t.id+'"'+(t.id===(rule.tutor_id||'')?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';}).join('')
+    +'</select>'
+    +'<input class="sr-rate" type="number" placeholder="₴/год" value="'+(rule.rate!=null?rule.rate:'')+'" style="width:80px;font-size:12px;padding:5px 8px">'
+    +'<button type="button" title="Прибрати" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:14px;padding:2px 6px" onclick="this.parentElement.remove()">✕</button>';
+  list.appendChild(row);
+}
+function collectRateRows(){
+  return Array.from(document.querySelectorAll('#s-rates-list .s-rate-row')).map(function(row){
+    return {
+      subject:(row.querySelector('.sr-subj')?.value||'').trim(),
+      tutor_id:row.querySelector('.sr-tutor')?.value||'',
+      rate:parseFloat(row.querySelector('.sr-rate')?.value)
+    };
+  }).filter(function(r){ return !isNaN(r.rate)&&r.rate>0; });
 }
 
 function mkToast(msg,type='success'){
@@ -3022,6 +3083,8 @@ async function saveStudent(){
     fn, ln,
     age:    document.getElementById('s-age')?.value||null,
     grade:  document.getElementById('s-grade')?.value||'',
+    hourly_rate: (function(){var v=parseFloat(document.getElementById('s-rate')?.value);return isNaN(v)?null:v;})(),
+    rates: collectRateRows(),
     phone:  document.getElementById('s-phone')?.value||'',
     email:  document.getElementById('s-email')?.value||'',
     subject:document.getElementById('s-subj')?.value||'',
@@ -3231,7 +3294,12 @@ async function saveLesson(){
     date:       date,
     time:       document.getElementById('l-time')?.value||'',
     dur:        parseInt(document.getElementById('l-dur')?.value)||60,
-    price:      parseFloat(document.getElementById('l-price')?.value)||0,
+    price:      (function(){
+      // Ставка з картки учня за правилами (предмет/репетитор) на момент збереження — знімок
+      var _sid=document.getElementById('l-std')?.value;
+      var _st=_sid?(S.students||[]).find(function(s){return s.id===_sid;}):null;
+      return studentRate(_st, document.getElementById('l-subj')?.value||'', document.getElementById('l-tutor')?.value||'');
+    })(),
     status:     _stat,
     notes:      document.getElementById('l-notes')?.value||'',
     branch_id:  myBranchId()||null,
@@ -3849,6 +3917,7 @@ window.closeM    = closeM;
 window.openM     = openM;
 window.delStudent = delStudent;
 window.mergeDuplicateStudents = mergeDuplicateStudents;
+window.addRateRow = addRateRow;
 window.delTutor  = delTutor;
 window.delLesson = delLesson;
 window.delPay    = delPay;
@@ -3961,8 +4030,14 @@ function openStudM(id=null){
       var crmStEl=document.getElementById('s-crm-stage'); if(crmStEl) crmStEl.value=getCrmStage(s);
       var crmRespEl=document.getElementById('s-crm-resp'); if(crmRespEl) crmRespEl.value=s.crmResponsible||'';
       var pf=document.getElementById('s-parent-fn');if(pf)pf.value=s.parentFn||'';
-      var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';}}
+      var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';
+      var rt=document.getElementById('s-rate');if(rt)rt.value=(s.hourly_rate!=null?s.hourly_rate:'');
+      var _rl=document.getElementById('s-rates-list');
+      if(_rl){_rl.innerHTML='';var _rr=[];try{_rr=typeof s.rates==='string'?JSON.parse(s.rates||'[]'):(Array.isArray(s.rates)?s.rates:[]);}catch(e){}
+        _rr.forEach(function(r){addRateRow(r);});}}}
   else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';
+    var rtN=document.getElementById('s-rate'); if(rtN) rtN.value='';
+    var _rlN=document.getElementById('s-rates-list'); if(_rlN) _rlN.innerHTML='';
     var crmStEl2=document.getElementById('s-crm-stage'); if(crmStEl2) crmStEl2.value='lead';
     var crmRespEl2=document.getElementById('s-crm-resp'); if(crmRespEl2) crmRespEl2.value='';
   }
@@ -4119,7 +4194,7 @@ function openLessM(id, date, time){
       document.getElementById('l-time').value = l.time||'10:00';
       document.getElementById('l-dur').value = l.dur||60;
       document.getElementById('l-stat').value = l.status||'planned';
-      document.getElementById('l-price').value = l.price||'';
+      var _lp=document.getElementById('l-price'); if(_lp) _lp.value = l.price||'';
       document.getElementById('l-notes').value = l.notes||'';
       // Load missed/makeup dates and hw
       var missEl=document.getElementById('l-miss-date');
