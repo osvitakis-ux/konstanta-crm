@@ -18,8 +18,22 @@
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('./sw.js', {scope: './'})
-      .then(function(){ console.log('SW registered'); })
+      .then(function(reg){
+        console.log('SW registered');
+        // Перевіряємо оновлення одразу і кожні 15 хвилин (для довго відкритих вкладок)
+        reg.update();
+        setInterval(function(){ reg.update(); }, 15*60*1000);
+      })
       .catch(function(e){ console.warn('SW error:', e); });
+
+    // Коли новий воркер перебрав контроль — один раз перезавантажуємо сторінку,
+    // щоб користувач одразу отримав нову версію без ручного оновлення
+    var _reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if(_reloaded) return;
+      _reloaded = true;
+      window.location.reload();
+    });
   });
 }
 </script>
