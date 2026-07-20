@@ -221,7 +221,7 @@ var ROLES = {
   tutor: {
     label:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440', icon:'\uD83D\uDCDA', color:'var(--tut)',
     avatarBg:'linear-gradient(135deg,#22b573,#7ac943)',
-    nav:['dashboard','students','schedule','lessons','comms','profile'],
+    nav:['dashboard','students','schedule','lessons','comms','tasks','profile'],
     can:{students:true,tutors:false,lessons:true,comms:true,payments:false,users:false,settings:false,danger:false,deleteAny:false},
     seeIncome:false, seeAll:false, canEditUsers:false, showGodBanner:false
   },
@@ -3054,6 +3054,7 @@ async function loadAll(){
   S.pricingRules = S.pricingRules.map(normalizePricingRule);
   S.tasks = (S.tasks||[]).map(normalizeTask);
   S.payrollItems = (S.payrollItems||[]).map(normalizePayrollItem);
+  try{ updateTaskAlert(); checkNewTaskNotifications(); }catch(e){}
 
   setSynced();
 }
@@ -3120,6 +3121,7 @@ function refreshPage(key){
   try{updateTaskAlert();}catch(e){}
   if(typeof S === 'undefined' || !S.currentPage) return;
   var pg = S.currentPage;
+  if(key==='tasks'){ try{updateTaskAlert(); checkNewTaskNotifications();}catch(e){} }
   if(key==='tasks' && pg==='tasks'){ try{renderTasks();}catch(e){} }
   if(key==='payrollItems' && pg==='payroll'){ try{renderPayroll();}catch(e){} }
   var map = {
@@ -4202,20 +4204,28 @@ function taskCreatorName(t){
 function renderTasks(){
   var tbody=document.getElementById('tasks-tbody');
   if(!tbody) return;
+  var isMgr=canManageTasks();
   var fSt=(document.getElementById('tf-status')||{value:''}).value;
   var fAs=(document.getElementById('tf-assignee')||{value:''}).value;
 
-  // Фільтр відповідальних
+  // Керівники ставлять завдання й фільтрують по відповідальному; репетитори — лише свої, без цих контролів
   var asSel=document.getElementById('tf-assignee');
+  var addBtn=document.getElementById('task-add-btn');
+  if(addBtn) addBtn.style.display=isMgr?'inline-flex':'none';
   if(asSel){
-    var prev=asSel.value;
-    asSel.innerHTML='<option value="">Всі відповідальні</option>'
-      +(S.users||[]).filter(function(u){return taskRoles().indexOf(u.role)>=0;})
-        .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
-    asSel.value=prev;
+    asSel.style.display=isMgr?'':'none';
+    if(isMgr){
+      var prev=asSel.value;
+      asSel.innerHTML='<option value="">Всі відповідальні</option>'
+        +(S.users||[]).filter(function(u){return taskRoles().indexOf(u.role)>=0;})
+          .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
+      asSel.value=prev;
+    }
   }
 
   var list=(S.tasks||[]).slice();
+  // Репетитор (і будь-хто без прав керування) бачить ЛИШЕ призначені йому завдання
+  if(!isMgr) list=list.filter(function(t){return (t.assigneeId||t.assignee_id)===(CU&&CU.id);});
   if(fAs) list=list.filter(function(t){return (t.assigneeId||t.assignee_id)===fAs;});
   if(fSt==='open')    list=list.filter(function(t){return t.status!=='done'&&!taskIsOverdue(t);});
   if(fSt==='overdue') list=list.filter(function(t){return taskIsOverdue(t);});
@@ -4374,21 +4384,67 @@ async function delTask(id){
 }
 
 // Червона підсвітка пункту меню відповідального, поки є прострочені завдання
+// Тристановий індикатор пункту "Завдання":
+// нема моїх завдань → без змін; є відкриті → жовто-синя пульсація; є прострочені → червона.
 function updateTaskAlert(){
   var nel=document.getElementById('ni-tasks');
   if(!nel) return;
-  var myOver=(S.tasks||[]).filter(function(t){return taskIsOverdue(t)&&(t.assigneeId||t.assignee_id)===(CU&&CU.id);}).length;
+  var myId=CU&&CU.id;
+  var mine=(S.tasks||[]).filter(function(t){return (t.assigneeId||t.assignee_id)===myId;});
+  var myOpen=mine.filter(function(t){return t.status!=='done'&&!taskIsOverdue(t);}).length;
+  var myOver=mine.filter(function(t){return taskIsOverdue(t);}).length;
+
+  nel.classList.remove('ni-task-open','ni-task-alert');
   var badge=nel.querySelector('.task-nbadge');
+  var activeCount=myOver+myOpen;
   if(myOver>0){
-    nel.classList.add('ni-task-alert');
-    if(!badge){ badge=document.createElement('span'); badge.className='task-nbadge'; nel.appendChild(badge); }
-    badge.textContent=myOver;
-  } else {
-    nel.classList.remove('ni-task-alert');
-    if(badge) badge.remove();
+    nel.classList.add('ni-task-alert');       // червона пульсація (пропущені)
+  } else if(myOpen>0){
+    nel.classList.add('ni-task-open');         // жовто-синя пульсація (є відкриті)
   }
+  if(activeCount>0){
+    if(!badge){ badge=document.createElement('span'); badge.className='task-nbadge'; nel.appendChild(badge); }
+    badge.textContent=activeCount;
+    badge.style.background = myOver>0 ? 'var(--danger)' : 'var(--adm)';
+  } else if(badge){ badge.remove(); }
 }
-setInterval(function(){ try{updateTaskAlert(); if(S&&S.currentPage==='tasks')renderTasks();}catch(e){} }, 60000);
+
+// Push + тост про нові призначені мені завдання (порівнюємо з тим, що бачили раніше)
+function checkNewTaskNotifications(){
+  try{
+    var myId=CU&&CU.id; if(!myId) return;
+    var seen=window._seenTaskIds||null;
+    var mineNow=(S.tasks||[]).filter(function(t){return (t.assigneeId||t.assignee_id)===myId && t.status!=='done';});
+    var idsNow=mineNow.map(function(t){return t.id;});
+    if(seen===null){ window._seenTaskIds=idsNow; return; } // перший прохід — просто запам'ятати
+    var fresh=mineNow.filter(function(t){return seen.indexOf(t.id)<0;});
+    window._seenTaskIds=idsNow;
+    fresh.forEach(function(t){ notifyNewTask(t); });
+  }catch(e){}
+}
+
+function notifyNewTask(t){
+  var creator=(S.users||[]).find(function(u){return u.id===(t.creatorId||t.creator_id);});
+  var body=(t.title||'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F')
+    +(t.deadline?'\n\u0414\u0435\u0434\u043B\u0430\u0439\u043D: '+fd(t.deadline)+((t.deadlineTime||t.deadline_time)?' '+(t.deadlineTime||t.deadline_time):''):'')
+    +(creator?'\n\u0412\u0456\u0434: '+creator.fn+' '+creator.ln:'');
+  // Тост завжди
+  mkToast('\ud83d\udccb \u041D\u043E\u0432\u0435 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F: '+(t.title||''));
+  // Системний push, якщо дозволено
+  try{
+    if('Notification' in window){
+      if(Notification.permission==='granted'){
+        new Notification('\ud83d\udccb \u041D\u043E\u0432\u0435 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F', {body:body, tag:'task-'+t.id});
+      } else if(Notification.permission!=='denied'){
+        Notification.requestPermission().then(function(p){
+          if(p==='granted') new Notification('\ud83d\udccb \u041D\u043E\u0432\u0435 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F', {body:body, tag:'task-'+t.id});
+        });
+      }
+    }
+  }catch(e){}
+}
+
+setInterval(function(){ try{updateTaskAlert(); checkNewTaskNotifications(); if(S&&S.currentPage==='tasks')renderTasks();}catch(e){} }, 60000);
 
 window.renderTasks=renderTasks;
 window.openTaskM=openTaskM;
