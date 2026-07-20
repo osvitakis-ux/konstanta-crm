@@ -4180,6 +4180,8 @@ window.delStudent = delStudent;
 // Керівні ролі ставлять завдання з дедлайнами відповідальним адмінам/директорам.
 // Прострочене відкрите завдання підсвічує пункт меню відповідального червоним.
 function taskRoles(){ return ['god','director','admin','network_admin']; }
+// Хто може БУТИ відповідальним (отримувати завдання): керівники + репетитори
+function taskAssigneeRoles(){ return ['god','director','admin','network_admin','tutor']; }
 function canManageTasks(){ return taskRoles().indexOf(R())>=0; }
 
 function taskIsOverdue(t){
@@ -4217,7 +4219,8 @@ function renderTasks(){
     if(isMgr){
       var prev=asSel.value;
       asSel.innerHTML='<option value="">Всі відповідальні</option>'
-        +(S.users||[]).filter(function(u){return taskRoles().indexOf(u.role)>=0;})
+        +(S.users||[]).filter(function(u){return taskAssigneeRoles().indexOf(u.role)>=0;})
+          .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
           .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
       asSel.value=prev;
     }
@@ -4289,9 +4292,22 @@ function openTaskM(id){
   }
   var asSel=document.getElementById('tk-assignee');
   if(asSel){
-    asSel.innerHTML='<option value="">\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u043B\u044C\u043D\u043E\u0433\u043E</option>'
-      +(S.users||[]).filter(function(u){return taskRoles().indexOf(u.role)>=0;})
-        .map(function(u){var rl=(ROLES[u.role]||{}).label||u.role;return '<option value="'+u.id+'">'+u.fn+' '+u.ln+' ('+rl+')</option>';}).join('');
+    var _mgrs=(S.users||[]).filter(function(u){return taskRoles().indexOf(u.role)>=0;})
+      .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+    var _tuts=(S.users||[]).filter(function(u){return u.role==='tutor';})
+      .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+    var html='<option value="">\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u043B\u044C\u043D\u043E\u0433\u043E</option>';
+    if(_mgrs.length){
+      html+='<optgroup label="\u041A\u0435\u0440\u0456\u0432\u043D\u0438\u0446\u0442\u0432\u043E / \u0430\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0446\u0456\u044F">'
+        +_mgrs.map(function(u){var rl=(ROLES[u.role]||{}).label||u.role;return '<option value="'+u.id+'">'+u.fn+' '+u.ln+' ('+rl+')</option>';}).join('')
+        +'</optgroup>';
+    }
+    if(_tuts.length){
+      html+='<optgroup label="\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438">'
+        +_tuts.map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('')
+        +'</optgroup>';
+    }
+    asSel.innerHTML=html;
     asSel.value=t?(t.assigneeId||t.assignee_id||''):'';
   }
   document.getElementById('tk-title').value=t?(t.title||''):'';
@@ -6054,8 +6070,12 @@ function renderSchDay(){
   }
 
   const g = document.getElementById('schg');
-  g.style.gridTemplateColumns = '52px repeat('+cols+',1fr)';
+  // При багатьох репетиторах даємо колонкам фіксовану мін. ширину і вмикаємо горизонтальний скрол,
+  // інакше 1fr стискає всіх у ширину екрана і підписи/уроки не влазять.
+  var colW = cols>=4 ? '150px' : '1fr';
+  g.style.gridTemplateColumns = '52px repeat('+cols+','+colW+')';
   g.style.gridTemplateRows    = 'auto '+(totalHrs*ROW_H)+'px';
+  g.style.minWidth = cols>=4 ? (52 + cols*150) + 'px' : '';
   g.innerHTML = html;
 }
 
