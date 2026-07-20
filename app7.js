@@ -739,15 +739,16 @@ async function updateAllTutorRatings(){
 }
 
 async function logInvoice(channel,recipient,studentId,from,to,lessonsCount,total){
-  if(!CU||!_sb) return;
+  if(!CU||!_sb||window._viewerMode) return;
   try{
-    await _sb.from('invoice_log').insert({
+    var r=await _sb.from('invoice_log').insert({
       sent_by:CU.id,student_id:studentId||null,
       period_from:from||null,period_to:to||null,
       lessons_count:lessonsCount||0,total_amount:total||0,
       channel:channel,recipient:recipient||'',branch_id:myBranchId()||null
     });
-  }catch(e){}
+    if(r&&r.error) console.warn('[invoice_log] insert error:', r.error.message);
+  }catch(e){ console.warn('[invoice_log] insert exception:', e&&e.message); }
 }
 
 async function renderInvoiceLog(){
@@ -3181,12 +3182,13 @@ async function auditLog(action, table, id, data){
   try{
     if(!CU||!_sb||window._viewerMode) return;
     if(table==='audit_log') return; // без рекурсії
-    await _sb.from('audit_log').insert({
+    var r=await _sb.from('audit_log').insert({
       user_id:CU.id, user_name:((CU.fn||'')+' '+(CU.ln||'')).trim(), user_role:CU.role||'',
       action:action, table_name:table, record_id:(id!=null?String(id):null),
       descr:auditDescribe(table,data,id), branch_id:myBranchId()||null
     });
-  }catch(e){}
+    if(r&&r.error) console.warn('[audit_log] insert error:', r.error.message);
+  }catch(e){ console.warn('[audit_log] insert exception:', e&&e.message); }
 }
 
 async function dbInsert(table, data){
