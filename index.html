@@ -952,34 +952,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
               <button class="btn btn-p btn-sm" onclick="addBranch()">+ Додати</button>
             </div>
           </div>
-          <div class="card">
-          <div class="ch">
-            <span class="ct">💰 Правила ціноутворення</span>
-            <span style="font-size:11px;color:var(--t2)">Автоматичний підбір ціни за предметом, репетитором, класом</span>
-          </div>
-          <!-- Rules list -->
-          <div style="padding:8px 18px 0" id="pricing-rules-list"></div>
-          <!-- Add/edit rule form -->
-          <div style="padding:14px 18px;border-top:1px solid var(--b1);display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div class="fgr full" style="grid-column:1/-1">
-              <label style="font-size:11px;color:var(--t2);font-weight:700;text-transform:uppercase;letter-spacing:.3px">Нове правило</label>
-            </div>
-            <div class="fgr"><label>Назва *</label><input id="pr-name" placeholder="напр. Математика 10-11 кл."></div>
-            <div class="fgr"><label>Ціна ₴/урок *</label><input id="pr-price" type="number" placeholder="450"></div>
-            <div class="fgr"><label>Предмет (або частина назви)</label><input id="pr-subj" placeholder="Математика"></div>
-            <div class="fgr"><label>Репетитор</label><select id="pr-tutor"></select></div>
-            <div class="fgr"><label>Клас (або частина)</label><input id="pr-grade" placeholder="10" title="напр. '10' спрацює для '10 клас', '10-11'"></div>
-            <div class="fgr"><label>Мін. тривалість (хв)</label><input id="pr-dur" type="number" placeholder="60"></div>
-            <input type="hidden" id="pr-edit-id">
-            <div class="fgr full" style="grid-column:1/-1">
-              <button class="btn btn-p" id="pr-save-btn" onclick="savePriceRule()">+ Додати правило</button>
-            </div>
-          </div>
-          <div style="padding:8px 18px 12px;font-size:11px;color:var(--t3)">
-            💡 Залиште поля порожніми — правило спрацює для всіх. Заповніть кілька — правило спрацює тільки якщо всі умови збігаються. Якщо підходять кілька правил — перемагає найбільш специфічне.
-          </div>
-        </div>
-        
+
           <div class="card" id="backup-card">
             <div class="ch"><span class="ct">💾 Резервна копія</span></div>
             <div style="padding:16px 18px">
@@ -1001,11 +974,11 @@ body.role-tutor .comm-add-btn { display: none !important; }
             </div>
           </div>
 
-        <div class="card"><div class="ch"><span class="ct">Предмети та ціни</span></div>
+        <div class="card"><div class="ch"><span class="ct">Предмети</span></div>
             <div style="padding:14px 18px" id="set-subj-list"></div>
             <div style="padding:0 18px 18px;display:flex;gap:8px">
-              <input id="ns-name" placeholder="Предмет" style="flex:1"><input id="ns-price" type="number" placeholder="₴/год" style="width:80px">
-              <button class="btn btn-p btn-sm" onclick="addSubj()">+</button>
+              <input id="ns-name" placeholder="Назва предмета" style="flex:1">
+              <button class="btn btn-p btn-sm" onclick="addSubj()">+ Додати</button>
             </div>
           </div>
         </div>
@@ -1846,7 +1819,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=taskday1"></script>
+<script src="app7.js?v=nopricing1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
