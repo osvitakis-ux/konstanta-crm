@@ -193,14 +193,14 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','tasks','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','crm','tasks','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','tasks','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','crm','tasks','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -235,6 +235,7 @@ var NAV_CFG = [
   {id:'lessons',    ico:'\u25C9',  lbl:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',      sec:'\u041D\u0430\u0432\u0447\u0430\u043D\u043D\u044F'},
   {id:'comms',      ico:'\u25CE',  lbl:'\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0457', sec:'\u041D\u0430\u0432\u0447\u0430\u043D\u043D\u044F'},
   {id:'payments',   ico:'\u25C8',  lbl:'\u041E\u043F\u043B\u0430\u0442\u0430',       sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
+  {id:'payroll',    ico:'\u20B4',  lbl:'\u0417\u0430\u0440\u043F\u043B\u0430\u0442\u0438',     sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'invoice',    ico:'\u25C8',  lbl:'\u0420\u0430\u0445\u0443\u043D\u043E\u043A',  sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'reports',    ico:'\u25E7',  lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'crm',        ico:'\u25A4',  lbl:'CRM',              sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
@@ -248,7 +249,7 @@ var NAV_CFG = [
 
 var DEFAULT_NAV_CFG = NAV_CFG;
 
-var PLABELS={dashboard:'Дашборд',students:'Учні',tutors:'Репетитори',schedule:'Розклад',lessons:'Заняття',payments:'Оплата',reports:'Аналітика',users:'Акаунти',settings:'Налаштування',profile:'Мій профіль',crm:'CRM',analytics:'Статистика',comms:'Комунікації',missed:'Пропущені уроки',invoice:'Рахунок',branches:'Філії',telephony:'Телефонія',tasks:'Завдання'};
+var PLABELS={dashboard:'Дашборд',students:'Учні',tutors:'Репетитори',schedule:'Розклад',lessons:'Заняття',payments:'Оплата',reports:'Аналітика',users:'Акаунти',settings:'Налаштування',profile:'Мій профіль',crm:'CRM',analytics:'Статистика',comms:'Комунікації',missed:'Пропущені уроки',invoice:'Рахунок',branches:'Філії',telephony:'Телефонія',tasks:'Завдання',payroll:'Зарплати'};
 
 function localDateStr(d){
   if(typeof d === 'string') return d;
@@ -2784,6 +2785,7 @@ async function initApp(){
     S.subjects     = _d.subjects     ||[];
     S.pricingRules = (_d.pricing_rules||[]).map(normalizePricingRule);
     S.tasks        = (_d.tasks       ||[]).map(normalizeTask);
+    S.payrollItems = (_d.payroll_items||[]).map(normalizePayrollItem);
     S.settings     = (_d.settings    ||[{}])[0]||{};
     S.users        = _d.profiles     ||[];
     // Мок поточного користувача — God-режим для перегляду всього
@@ -2968,6 +2970,7 @@ async function loadAll(){
     { table:'comms',         key:'comms',    order:'date' },
     { table:'pricing_rules', key:'pricingRules' },
     { table:'tasks',         key:'tasks' },
+    { table:'payroll_items', key:'payrollItems' },
   ];
   const results = await Promise.all(
     tables.map(function(t){
@@ -2994,6 +2997,7 @@ async function loadAll(){
   S.comms    = S.comms.map(normalizeComm);
   S.pricingRules = S.pricingRules.map(normalizePricingRule);
   S.tasks = (S.tasks||[]).map(normalizeTask);
+  S.payrollItems = (S.payrollItems||[]).map(normalizePayrollItem);
 
   setSynced();
 }
@@ -3009,6 +3013,7 @@ function normalizeTutor(r){   return Object.assign({}, r, { accId:r.acc_uid, bra
 function normalizeComm(r){    return Object.assign({}, r, { tutorId:r.tutor_id, studentId:r.student_id, branchId:r.branch_id }); }
 function normalizePricingRule(r){ return Object.assign({}, r, { subjectMatch:r.subject_match, tutorId:r.tutor_id, gradeMatch:r.grade_match, durMin:r.dur_min }); }
 function normalizeTask(r){ return Object.assign({}, r, { assigneeId:r.assignee_id, creatorId:r.creator_id, branchId:r.branch_id, deadlineTime:r.deadline_time, doneAt:r.done_at }); }
+function normalizePayrollItem(r){ return Object.assign({}, r, { tutorId:r.tutor_id, createdBy:r.created_by }); }
 
 // =
 // REALTIME
@@ -3018,7 +3023,7 @@ function startChannels(){
     students:'students', tutors:'tutors', lessons:'lessons',
     payments:'payments', subjects:'subjects', comms:'comms',
     pricing_rules:'pricingRules', branches:'branches', profiles:'users',
-    tasks:'tasks'
+    tasks:'tasks', payroll_items:'payrollItems'
   };
   Object.keys(tableMap).forEach(function(table){
     var key = tableMap[table];
@@ -3045,7 +3050,7 @@ function handleChange(key, table, payload){
   // Normalize
   var norm = { students:normalizeStudent, lessons:normalizeLesson,
     payments:normalizePayment, tutors:normalizeTutor,
-    comms:normalizeComm, pricingRules:normalizePricingRule, tasks:normalizeTask };
+    comms:normalizeComm, pricingRules:normalizePricingRule, tasks:normalizeTask, payrollItems:normalizePayrollItem };
   if(norm[key] && row) row = norm[key](row);
 
   if(ev==='INSERT')      S[key] = (S[key]||[]).concat([row]);
@@ -3060,6 +3065,7 @@ function refreshPage(key){
   if(typeof S === 'undefined' || !S.currentPage) return;
   var pg = S.currentPage;
   if(key==='tasks' && pg==='tasks'){ try{renderTasks();}catch(e){} }
+  if(key==='payrollItems' && pg==='payroll'){ try{renderPayroll();}catch(e){} }
   var map = {
     students:['students','dashboard','profile','crm'],
     tutors:['tutors','dashboard','profile'],
@@ -3095,13 +3101,13 @@ async function loadTableFresh(table){
   var tableMap = {
     students:'students', tutors:'tutors', lessons:'lessons',
     payments:'payments', subjects:'subjects', comms:'comms',
-    pricing_rules:'pricingRules', branches:'branches', tasks:'tasks'
+    pricing_rules:'pricingRules', branches:'branches', tasks:'tasks', payroll_items:'payrollItems'
   };
   var key = tableMap[table];
   if(!key) return;
   var norm = {students:normalizeStudent,lessons:normalizeLesson,
     payments:normalizePayment,tutors:normalizeTutor,
-    comms:normalizeComm,pricingRules:normalizePricingRule,tasks:normalizeTask};
+    comms:normalizeComm,pricingRules:normalizePricingRule,tasks:normalizeTask,payrollItems:normalizePayrollItem};
   var res = await _sb.from(table).select('*');
   if(res.error) return;
   var data = res.data || [];
@@ -4231,6 +4237,225 @@ window.confirmTaskDone=confirmTaskDone;
 window.delTask=delTask;
 window.updateTaskAlert=updateTaskAlert;
 
+// ══════════ ЗАРПЛАТИ РЕПЕТИТОРІВ ══════════
+// База = вартість проведених уроків (done/completed) + відпрацювань (makeup) за місяць,
+// помножена на коефіцієнт 0.4. Ручні пункти: сума ₴ (±) або % від бази.
+var PAYROLL_COEF_DEFAULT = 0.4;
+// Поточний коефіцієнт: з поля на сторінці → зі збереженого → 0.4 за замовчуванням
+function payrollCoef(){
+  var el=document.getElementById('pr-coef');
+  var v=el&&el.value!==''?parseFloat(el.value):NaN;
+  if(isNaN(v)){ try{ v=parseFloat(localStorage.getItem('payroll_coef')); }catch(e){} }
+  if(isNaN(v)||v<=0||v>1) v=PAYROLL_COEF_DEFAULT;
+  return v;
+}
+function prSetCoef(){
+  var el=document.getElementById('pr-coef');
+  if(el){ var v=parseFloat(el.value); if(!isNaN(v)&&v>0&&v<=1){ try{ localStorage.setItem('payroll_coef', String(v)); }catch(e){} } }
+  renderPayroll();
+}
+
+function canPayroll(){ return R()==='god'||R()==='director'; }
+
+function payrollPeriod(){
+  var el=document.getElementById('pr-period');
+  if(el&&el.value) return el.value;
+  var n=new Date();
+  return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
+}
+
+// Проведені уроки та відпрацювання репетитора за місяць period='YYYY-MM'
+function payrollBase(tutorId, period){
+  var done=[], makeup=[];
+  (S.lessons||[]).forEach(function(l){
+    if((l.tutorId||l.tutor_id)!==tutorId) return;
+    if(String(l.date||'').slice(0,7)!==period) return;
+    if(l.status==='done'||l.status==='completed') done.push(l);
+    else if(l.status==='makeup') makeup.push(l);
+  });
+  function hrs(a){ return Math.round(a.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
+  function sum(a){ return Math.round(a.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100; }
+  var revenue=sum(done)+sum(makeup);
+  return {
+    doneCount:done.length, doneHours:hrs(done), doneSum:sum(done),
+    makeupCount:makeup.length, makeupHours:hrs(makeup), makeupSum:sum(makeup),
+    revenue:revenue,
+    base:Math.round(revenue*payrollCoef()*100)/100
+  };
+}
+
+function payrollItemsFor(tutorId, period){
+  return (S.payrollItems||[]).filter(function(i){
+    return (i.tutorId||i.tutor_id)===tutorId && i.period===period;
+  });
+}
+
+function payrollItemAmount(item, base){
+  if(item.percent!=null&&item.percent!==''&&!isNaN(parseFloat(item.percent)))
+    return Math.round(base*parseFloat(item.percent)/100*100)/100;
+  return Math.round((parseFloat(item.amount)||0)*100)/100;
+}
+
+function payrollTotal(tutorId, period){
+  var b=payrollBase(tutorId, period);
+  var extra=payrollItemsFor(tutorId, period).reduce(function(s,i){return s+payrollItemAmount(i,b.base);},0);
+  return { base:b, extra:Math.round(extra*100)/100, total:Math.round((b.base+extra)*100)/100 };
+}
+
+function renderPayroll(){
+  var wrap=document.getElementById('payroll-body');
+  if(!wrap) return;
+  if(!canPayroll()){ wrap.innerHTML='<div style="padding:20px;color:var(--t3)">\u0414\u043E\u0441\u0442\u0443\u043F \u043B\u0438\u0448\u0435 \u0434\u043B\u044F \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0430</div>'; return; }
+  var per=payrollPeriod();
+  var perEl=document.getElementById('pr-period');
+  if(perEl&&!perEl.value) perEl.value=per;
+  var coefEl=document.getElementById('pr-coef');
+  if(coefEl&&coefEl.value==='') coefEl.value=payrollCoef();
+  var fT=(document.getElementById('pr-tutor-filter')||{value:''}).value;
+
+  var tSel=document.getElementById('pr-tutor-filter');
+  if(tSel){
+    var prev=tSel.value;
+    tSel.innerHTML='<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>'
+      +(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+    tSel.value=prev;
+  }
+
+  var tutors=(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+  if(fT) tutors=tutors.filter(function(t){return t.id===fT;});
+
+  var grand=0, html='';
+  tutors.forEach(function(t){
+    var pt=payrollTotal(t.id, per);
+    var b=pt.base;
+    if(!b.doneCount&&!b.makeupCount&&!payrollItemsFor(t.id,per).length&&fT==='') return; // порожніх не показуємо у загальному списку
+    grand+=pt.total;
+    var items=payrollItemsFor(t.id, per);
+    var itemsHtml=items.map(function(i){
+      var amt=payrollItemAmount(i,b.base);
+      return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;border-bottom:1px dashed var(--b1)">'
+        +'<span>'+(i.label||'\u2014')+(i.percent!=null&&i.percent!==''?' ('+i.percent+'%)':'')+'</span>'
+        +'<span style="white-space:nowrap;font-weight:600;color:'+(amt<0?'var(--danger)':'var(--tut)')+'">'+(amt>=0?'+':'')+amt+'\u20B4'
+        +' <button onclick="delPayrollItem(\''+i.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px">\u2715</button></span>'
+        +'</div>';
+    }).join('');
+    html+='<div class="card" style="margin-bottom:12px">'
+      +'<div class="ch"><span class="ct">'+t.fn+' '+t.ln+'</span>'
+      +'<span style="margin-left:auto;font-size:15px;font-weight:700;color:var(--tut)">'+pt.total+'\u20B4</span>'
+      +'<button class="btn btn-g btn-sm" style="margin-left:10px" onclick="printPayroll(\''+t.id+'\')">\uD83D\uDDA8 \u0414\u0440\u0443\u043A</button></div>'
+      +'<div style="padding:0 14px 12px">'
+      +'<table style="width:100%;font-size:12px"><tbody>'
+      +'<tr><td>\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432</td><td style="text-align:right">'+b.doneCount+' ('+b.doneHours+'\u0433) \u2014 '+b.doneSum+'\u20B4</td></tr>'
+      +'<tr><td>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E</td><td style="text-align:right">'+b.makeupCount+' ('+b.makeupHours+'\u0433) \u2014 '+b.makeupSum+'\u20B4</td></tr>'
+      +'<tr><td>\u0411\u0430\u0437\u0430 ('+b.revenue+'\u20B4 \u00D7 '+payrollCoef()+')</td><td style="text-align:right;font-weight:700">'+b.base+'\u20B4</td></tr>'
+      +'</tbody></table>'
+      +(itemsHtml?'<div style="margin-top:6px">'+itemsHtml+'</div>':'')
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'
+      +'<button class="btn btn-g btn-sm" onclick="openPayrollItemM(\''+t.id+'\')">+ \u0414\u043E\u0434\u0430\u0442\u0438 \u043F\u0443\u043D\u043A\u0442</button>'
+      +'<div style="font-size:13px;font-weight:700">\u0420\u0430\u0437\u043E\u043C: '+pt.total+'\u20B4</div>'
+      +'</div></div></div>';
+  });
+  if(!html) html='<div style="padding:24px;text-align:center;color:var(--t3)">\u0417\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u043D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C</div>';
+  else html+='<div style="text-align:right;font-size:15px;font-weight:800;padding:6px 4px">\u0412\u0421\u042C\u041E\u0413\u041E \u0424\u041E\u041D\u0414: '+Math.round(grand*100)/100+'\u20B4</div>';
+  wrap.innerHTML=html;
+}
+
+function openPayrollItemM(tutorId){
+  if(!canPayroll()) return;
+  window._prItemTutor=tutorId;
+  var t=(S.tutors||[]).find(function(x){return x.id===tutorId;});
+  var nEl=document.getElementById('pri-tutor-name');
+  if(nEl) nEl.textContent=t?(t.fn+' '+t.ln+' \u00B7 '+payrollPeriod()):'';
+  document.getElementById('pri-label').value='';
+  document.getElementById('pri-amount').value='';
+  document.getElementById('pri-percent').value='';
+  openM('mo-payroll-item');
+}
+
+async function savePayrollItem(){
+  if(!canPayroll()) return;
+  var label=(document.getElementById('pri-label')||{value:''}).value.trim();
+  var amount=(document.getElementById('pri-amount')||{value:''}).value;
+  var percent=(document.getElementById('pri-percent')||{value:''}).value;
+  if(!label){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u043F\u043E\u044F\u0441\u043D\u0435\u043D\u043D\u044F','error'); return; }
+  if(!amount&&!percent){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0441\u0443\u043C\u0443 \u0430\u0431\u043E \u0432\u0456\u0434\u0441\u043E\u0442\u043E\u043A','error'); return; }
+  var obj={ id:uid(), tutor_id:window._prItemTutor, period:payrollPeriod(),
+    label:label,
+    amount:amount!==''?parseFloat(amount):null,
+    percent:percent!==''?parseFloat(percent):null,
+    created_by:CU?CU.id:null, created_at:new Date().toISOString() };
+  try{
+    await dbInsert('payroll_items',obj);
+    if(!(S.payrollItems||[]).some(function(x){return x.id===obj.id;}))
+      S.payrollItems=(S.payrollItems||[]).concat([normalizePayrollItem(obj)]);
+    closeM('mo-payroll-item'); mkToast('\u0414\u043E\u0434\u0430\u043D\u043E');
+    renderPayroll();
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error'); }
+}
+
+async function delPayrollItem(id){
+  if(!canPayroll()) return;
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u043F\u0443\u043D\u043A\u0442?')) return;
+  try{
+    await dbDelete('payroll_items',id);
+    S.payrollItems=(S.payrollItems||[]).filter(function(x){return x.id!==id;});
+    renderPayroll();
+  }catch(e){}
+}
+
+// Друк відомості: tutorId — один репетитор, null — усі разом
+function printPayroll(tutorId){
+  if(!canPayroll()) return;
+  var per=payrollPeriod();
+  var perLbl=(function(){ var p=per.split('-'); var m=['\u0441\u0456\u0447\u0435\u043D\u044C','\u043B\u044E\u0442\u0438\u0439','\u0431\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u043A\u0432\u0456\u0442\u0435\u043D\u044C','\u0442\u0440\u0430\u0432\u0435\u043D\u044C','\u0447\u0435\u0440\u0432\u0435\u043D\u044C','\u043B\u0438\u043F\u0435\u043D\u044C','\u0441\u0435\u0440\u043F\u0435\u043D\u044C','\u0432\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0436\u043E\u0432\u0442\u0435\u043D\u044C','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0433\u0440\u0443\u0434\u0435\u043D\u044C'][parseInt(p[1])-1]; return m+' '+p[0]; })();
+  var tutors=tutorId?(S.tutors||[]).filter(function(t){return t.id===tutorId;})
+    :(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+  var grand=0, body='';
+  tutors.forEach(function(t){
+    var pt=payrollTotal(t.id, per), b=pt.base;
+    if(!tutorId&&!b.doneCount&&!b.makeupCount&&!payrollItemsFor(t.id,per).length) return;
+    grand+=pt.total;
+    var rows='<tr><td>\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432: '+b.doneCount+' ('+b.doneHours+' \u0433\u043E\u0434)</td><td class="r">'+b.doneSum+' \u20B4</td></tr>'
+      +'<tr><td>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E: '+b.makeupCount+' ('+b.makeupHours+' \u0433\u043E\u0434)</td><td class="r">'+b.makeupSum+' \u20B4</td></tr>'
+      +'<tr class="sub"><td>\u0411\u0430\u0437\u0430 \u043D\u0430\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F ('+b.revenue+' \u20B4 \u00D7 '+payrollCoef()+')</td><td class="r"><b>'+b.base+' \u20B4</b></td></tr>';
+    payrollItemsFor(t.id,per).forEach(function(i){
+      var amt=payrollItemAmount(i,b.base);
+      rows+='<tr><td>'+(i.label||'')+(i.percent!=null&&i.percent!==''?' ('+i.percent+'%)':'')+'</td><td class="r">'+(amt>=0?'+':'')+amt+' \u20B4</td></tr>';
+    });
+    rows+='<tr class="tot"><td><b>\u0420\u0430\u0437\u043E\u043C \u0434\u043E \u0432\u0438\u043F\u043B\u0430\u0442\u0438</b></td><td class="r"><b>'+pt.total+' \u20B4</b></td></tr>';
+    body+='<h3>'+t.fn+' '+t.ln+'</h3><table>'+rows+'</table>'
+      +'<div class="sign">\u041F\u0456\u0434\u043F\u0438\u0441 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430: ______________________</div>';
+  });
+  if(!tutorId&&tutors.length>1) body+='<h2 class="grand">\u0412\u0421\u042C\u041E\u0413\u041E \u0424\u041E\u041D\u0414 \u041E\u041F\u041B\u0410\u0422\u0418: '+Math.round(grand*100)/100+' \u20B4</h2>';
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</title>'
+    +'<style>body{font-family:Arial,sans-serif;max-width:640px;margin:24px auto;color:#111}'
+    +'h1{font-size:18px;margin-bottom:2px} .per{color:#666;font-size:13px;margin-bottom:18px}'
+    +'h3{margin:18px 0 6px;font-size:15px;border-bottom:2px solid #111;padding-bottom:3px}'
+    +'table{width:100%;border-collapse:collapse;font-size:13px}'
+    +'td{padding:4px 2px;border-bottom:1px solid #ddd} .r{text-align:right;white-space:nowrap}'
+    +'.sub td{border-top:1.5px solid #999} .tot td{border-top:2px solid #111;border-bottom:none;font-size:14px}'
+    +'.sign{margin:14px 0 22px;font-size:12px;color:#444}'
+    +'.grand{margin-top:24px;font-size:16px;border-top:3px double #111;padding-top:10px;text-align:right}'
+    +'@media print{.noprint{display:none}}</style></head><body>'
+    +'<h1>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u043D\u0430\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</h1>'
+    +'<div class="per">\u041F\u0435\u0440\u0456\u043E\u0434: '+perLbl+' \u00B7 \u0421\u0444\u043E\u0440\u043C\u043E\u0432\u0430\u043D\u043E: '+new Date().toLocaleDateString('uk-UA')+'</div>'
+    +body
+    +'<button class="noprint" onclick="window.print()" style="margin-top:16px;padding:8px 18px;font-size:14px;cursor:pointer">\uD83D\uDDA8 \u0414\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438</button>'
+    +'</body></html>');
+  w.document.close();
+  setTimeout(function(){ try{w.print();}catch(e){} }, 400);
+}
+
+window.renderPayroll=renderPayroll;
+window.openPayrollItemM=openPayrollItemM;
+window.savePayrollItem=savePayrollItem;
+window.delPayrollItem=delPayrollItem;
+window.printPayroll=printPayroll;
+window.prSetCoef=prSetCoef;
+
+
 window.mergeDuplicateStudents = mergeDuplicateStudents;
 window.addRateRow = addRateRow;
 
@@ -4780,6 +5005,7 @@ function nav(page){
   if(page==='invoice-log') renderInvoiceLog();
   if(page==='missed') renderMissedLessons();
   if(page==='tasks'){try{renderTasks();}catch(e){console.error('renderTasks:',e);}}
+  if(page==='payroll'){try{renderPayroll();}catch(e){console.error('renderPayroll:',e);}}
   if(page==='invoice') renderInvoicePage();
   if(page==='invoice-log') renderInvoiceLog();
   var _crmEl=document.getElementById('pg-crm');
