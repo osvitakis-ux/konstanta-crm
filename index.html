@@ -1188,6 +1188,25 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div>
       </div>
 
+      <!-- ── PAYROLL ── -->
+      <div class="page" id="pg-payroll">
+        <div class="card" style="margin-bottom:14px">
+          <div class="ch">
+            <span class="ct">₴ Зарплати репетиторів</span>
+            <input type="month" id="pr-period" onchange="renderPayroll()" style="font-size:12px;padding:5px 8px;margin-left:12px">
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);margin-left:6px">Коеф.
+              <input type="number" id="pr-coef" onchange="prSetCoef()" step="0.05" min="0.05" max="1" style="width:62px;font-size:12px;padding:5px 6px" title="Коефіцієнт бази (за замовчуванням 0.4)">
+            </label>
+            <select id="pr-tutor-filter" onchange="renderPayroll()" style="width:190px;font-size:12px;padding:5px 8px;margin-left:6px">
+              <option value="">Всі репетитори</option>
+            </select>
+            <button class="btn btn-p btn-sm" onclick="printPayroll(null)" style="margin-left:auto">🖨 Друк відомості (всі)</button>
+          </div>
+          <div style="padding:6px 14px 10px;font-size:11px;color:var(--t3)">На коефіцієнт (за замовчуванням 0.4) множиться <b>лише</b> вартість проведених уроків і відпрацювань (база). Усі додаткові пункти — премії, аванси, утримання — додаються до бази як є, без множення. % рахується від бази.</div>
+        </div>
+        <div id="payroll-body"></div>
+      </div>
+
       <!-- ── TASKS ── -->
       <div class="page" id="pg-tasks">
         <div class="card">
@@ -1693,6 +1712,21 @@ body.role-tutor .comm-add-btn { display: none !important; }
 </div>
 
 <!-- Communication modal -->
+<div class="mo" id="mo-payroll-item">
+  <div class="mdl" style="max-width:420px">
+    <div class="mdlh"><div class="mdlt">Пункт зарплати</div><button class="xbtn" onclick="closeM('mo-payroll-item')">×</button></div>
+    <div class="mdlb"><div class="fg">
+      <div id="pri-tutor-name" style="font-weight:600;font-size:13px;grid-column:1/-1;color:var(--t2)"></div>
+      <div class="fgr full"><label>Пояснення *</label><input id="pri-label" placeholder="Премія, аванс, утримання..."></div>
+      <div class="fgr"><label>Сума ₴, як є (± для авансу/утримання)</label><input id="pri-amount" type="number" step="0.01" placeholder="1000 або -500"></div>
+      <div class="fgr"><label>або % від бази (після ×0.4)</label><input id="pri-percent" type="number" step="0.1" placeholder="10"></div>
+    </div></div>
+    <div class="mdlf">
+      <button class="btn btn-p" onclick="savePayrollItem()">💾 Додати</button>
+      <button class="btn btn-g" onclick="closeM('mo-payroll-item')">Скасувати</button>
+    </div>
+  </div>
+</div>
 <div class="mo" id="mo-task-done">
   <div class="mdl" style="max-width:440px">
     <div class="mdlh"><div class="mdlt">✅ Завдання виконано</div><button class="xbtn" onclick="closeM('mo-task-done')">×</button></div>
@@ -1752,7 +1786,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=subj1"></script>
+<script src="app7.js?v=payroll3"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
