@@ -193,7 +193,7 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','crm','tasks','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','crm','tasks','audit','invoice-log','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
@@ -240,6 +240,7 @@ var NAV_CFG = [
   {id:'reports',    ico:'\u25E7',  lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'crm',        ico:'\u25A4',  lbl:'CRM',              sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'tasks',      ico:'\u2611',  lbl:'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F',      sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
+  {id:'audit',      ico:'\uD83D\uDD0D',  lbl:'\u0406\u0441\u0442\u043E\u0440\u0456\u044F \u0437\u043C\u0456\u043D',   sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'telephony',  ico:'\u25C9',  lbl:'\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u0456\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
@@ -249,7 +250,7 @@ var NAV_CFG = [
 
 var DEFAULT_NAV_CFG = NAV_CFG;
 
-var PLABELS={dashboard:'Дашборд',students:'Учні',tutors:'Репетитори',schedule:'Розклад',lessons:'Заняття',payments:'Оплата',reports:'Аналітика',users:'Акаунти',settings:'Налаштування',profile:'Мій профіль',crm:'CRM',analytics:'Статистика',comms:'Комунікації',missed:'Пропущені уроки',invoice:'Рахунок',branches:'Філії',telephony:'Телефонія',tasks:'Завдання',payroll:'Зарплати'};
+var PLABELS={dashboard:'Дашборд',students:'Учні',tutors:'Репетитори',schedule:'Розклад',lessons:'Заняття',payments:'Оплата',reports:'Аналітика',users:'Акаунти',settings:'Налаштування',profile:'Мій профіль',crm:'CRM',analytics:'Статистика',comms:'Комунікації',missed:'Пропущені уроки',invoice:'Рахунок',branches:'Філії',telephony:'Телефонія',tasks:'Завдання',payroll:'Зарплати',audit:'Історія змін'};
 
 function localDateStr(d){
   if(typeof d === 'string') return d;
@@ -752,8 +753,20 @@ async function logInvoice(channel,recipient,studentId,from,to,lessonsCount,total
 async function renderInvoiceLog(){
   var tbody=document.getElementById('inv-log-tbody');
   if(!tbody)return;
+  // Фільтр по відправнику
+  var uSel=document.getElementById('ilf-user');
+  if(uSel){
+    var prev=uSel.value;
+    uSel.innerHTML='<option value="">\u0412\u0441\u0456 \u0432\u0456\u0434\u043F\u0440\u0430\u0432\u043D\u0438\u043A\u0438</option>'
+      +(S.users||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
+    uSel.value=prev;
+  }
+  var fUser=(uSel||{value:''}).value;
   try{
-    var res=await _sb.from('invoice_log').select('*').order('sent_at',{ascending:false}).limit(200);
+    var q=_sb.from('invoice_log').select('*').order('sent_at',{ascending:false}).limit(200);
+    if(fUser) q=q.eq('sent_by',fUser);
+    var res=await q;
     if(res.error)throw res.error;
     var rows=res.data||[];
     if(!rows.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">Рахунків немає</td></tr>';return;}
@@ -950,12 +963,18 @@ function renderInvoicePage(){
 
   window._invText=showText;
   window._invPhone=phone;
+  window._invMeta={ studentId:sid||null, from:(document.getElementById('inv-from')||{}).value||dateFrom, to:(document.getElementById('inv-to')||{}).value||dateTo, lessons:lessons.length, total:total };
 }
 
+function _logInvoiceSend(channel, recipient){
+  var m=window._invMeta||{};
+  try{ logInvoice(channel, recipient, m.studentId, m.from, m.to, m.lessons, m.total); }catch(e){}
+}
 function sendInvoiceViber(){
   var phone=(window._invPhone||'').replace(/\D/g,'');
   var text=encodeURIComponent(window._invText||'');
   if(!phone){mkToast('Немає телефону','error');return;}
+  _logInvoiceSend('viber', phone);
   window.open('viber://chat?number='+phone+'&text='+text);
 }
 
@@ -964,6 +983,7 @@ function sendInvoiceTelegram(){
   var text=encodeURIComponent(window._invText||'');
   if(!phone){mkToast('Немає телефону','error');return;}
   // Try to open Telegram with phone
+  _logInvoiceSend('telegram', phone);
   window.open('tg://resolve?phone='+phone+'&text='+text);
   // Fallback: copy to clipboard
   navigator.clipboard&&navigator.clipboard.writeText(window._invText||'').then(function(){
@@ -974,6 +994,7 @@ function sendInvoiceTelegram(){
 function copyInvoiceText(){
   var txt=window._invText||'';
   if(!txt){mkToast('Немає рахунку','error');return;}
+  _logInvoiceSend('copy', (window._invMeta&&window._invMeta.studentId)?'—':'');
   navigator.clipboard?navigator.clipboard.writeText(txt).then(function(){mkToast('Скопійовано ✅');}):mkToast('Скопіюйте вручну','info');
 }
 
@@ -3129,6 +3150,45 @@ async function refreshIfExpired(error){
   return false;
 }
 
+
+// ══════════ ЖУРНАЛ ЗМІН (AUDIT LOG) ══════════
+var AUDIT_TABLE_LABELS = {
+  students:'\u0423\u0447\u043D\u0456', lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F', payments:'\u041F\u043B\u0430\u0442\u0435\u0436\u0456',
+  comms:'\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0457', tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438', subjects:'\u041F\u0440\u0435\u0434\u043C\u0435\u0442\u0438',
+  tasks:'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F', payroll_items:'\u0417\u0430\u0440\u043F\u043B\u0430\u0442\u0438', pricing_rules:'\u0426\u0456\u043D\u0438',
+  branches:'\u0424\u0456\u043B\u0456\u0457', profiles:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438'
+};
+var AUDIT_ACTION_LABELS = { insert:'\u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E', update:'\u0437\u043C\u0456\u043D\u0435\u043D\u043E', delete:'\u0432\u0438\u0434\u0430\u043B\u0435\u043D\u043E' };
+
+// Короткий опис запису для журналу (щоб бачити ЩО саме змінили)
+function auditDescribe(table, data, id){
+  try{
+    if(!data) return id||'';
+    if(table==='students'||table==='tutors'||table==='profiles') return ((data.fn||'')+' '+(data.ln||'')).trim()||id||'';
+    if(table==='lessons'){ var st=(S.students||[]).find(function(s){return s.id===(data.student_id||data.studentId);}); return (data.subject||'')+(st?' \u2014 '+st.fn+' '+st.ln:''); }
+    if(table==='payments'){ return (data.amount!=null?data.amount+'\u20B4':'')+(data.method?' ('+data.method+')':''); }
+    if(table==='comms'){ return data.type||''; }
+    if(table==='subjects'){ return data.name||''; }
+    if(table==='tasks'){ return data.title||''; }
+    if(table==='payroll_items'){ return (data.label||'')+(data.amount!=null?' '+data.amount+'\u20B4':'')+(data.percent!=null?' '+data.percent+'%':''); }
+    if(table==='branches'){ return data.name||''; }
+    return data.name||data.title||data.label||id||'';
+  }catch(e){ return id||''; }
+}
+
+// Запис у журнал (не блокує основну дію, тихо ковтає помилки)
+async function auditLog(action, table, id, data){
+  try{
+    if(!CU||!_sb||window._viewerMode) return;
+    if(table==='audit_log') return; // без рекурсії
+    await _sb.from('audit_log').insert({
+      user_id:CU.id, user_name:((CU.fn||'')+' '+(CU.ln||'')).trim(), user_role:CU.role||'',
+      action:action, table_name:table, record_id:(id!=null?String(id):null),
+      descr:auditDescribe(table,data,id), branch_id:myBranchId()||null
+    });
+  }catch(e){}
+}
+
 async function dbInsert(table, data){
   if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   setSaving();
@@ -3137,6 +3197,7 @@ async function dbInsert(table, data){
     _ri = await _sb.from(table).insert(data); error = _ri.error;
   }
   if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
+  auditLog('insert', table, (data&&data.id)||null, data);
   setTimeout(function(){ loadTableFresh(table); }, 800);
 }
 async function dbUpdate(table, id, data){
@@ -3152,6 +3213,7 @@ async function dbUpdate(table, id, data){
     _ru = await _sb.from(table).update(updateData).eq('id', id); error = _ru.error;
   }
   if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
+  auditLog('update', table, id, data);
   setTimeout(function(){ loadTableFresh(table); }, 800);
 }
 async function dbDelete(table, id){
@@ -3162,6 +3224,7 @@ async function dbDelete(table, id){
     _rd = await _sb.from(table).delete().eq('id',id); error = _rd.error;
   }
   if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
+  auditLog('delete', table, id, (S[({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'}[table])||'']||[]).find(function(x){return x.id===id;}));
   setTimeout(function(){ loadTableFresh(table); }, 500);
 }
 
@@ -4455,6 +4518,53 @@ function printPayroll(tutorId){
 }
 
 window.renderPayroll=renderPayroll;
+// ══════════ РЕНДЕР ЖУРНАЛУ ЗМІН ══════════
+async function renderAudit(){
+  var tbody=document.getElementById('audit-tbody');
+  if(!tbody) return;
+  if(R()!=='god'){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0431\u043E\u0433\u0443</td></tr>'; return; }
+
+  // Фільтр по користувачу
+  var uSel=document.getElementById('af-user');
+  if(uSel){
+    var prev=uSel.value;
+    uSel.innerHTML='<option value="">\u0412\u0441\u0456 \u043A\u043E\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447\u0456</option>'
+      +(S.users||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(u){var rl=(ROLES[u.role]||{}).label||u.role||'';return '<option value="'+u.id+'">'+u.fn+' '+u.ln+' ('+rl+')</option>';}).join('');
+    uSel.value=prev;
+  }
+  var fUser=(uSel||{value:''}).value;
+  var fAction=(document.getElementById('af-action')||{value:''}).value;
+
+  tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--t3)">\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F...</td></tr>';
+  try{
+    var q=_sb.from('audit_log').select('*').order('created_at',{ascending:false}).limit(500);
+    if(fUser) q=q.eq('user_id',fUser);
+    if(fAction) q=q.eq('action',fAction);
+    var res=await q;
+    if(res.error) throw res.error;
+    var rows=res.data||[];
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">\u0417\u0430\u043F\u0438\u0441\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</td></tr>'; return; }
+    tbody.innerHTML=rows.map(function(r){
+      var when=r.created_at?new Date(r.created_at).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'\u2014';
+      var actLbl=AUDIT_ACTION_LABELS[r.action]||r.action||'';
+      var actColor=r.action==='delete'?'var(--danger)':r.action==='insert'?'var(--tut)':'var(--adm)';
+      var tblLbl=AUDIT_TABLE_LABELS[r.table_name]||r.table_name||'';
+      var rl=(ROLES[r.user_role]||{}).label||r.user_role||'';
+      return '<tr>'
+        +'<td style="font-size:11px;color:var(--t2);white-space:nowrap">'+when+'</td>'
+        +'<td style="font-size:12px"><b>'+(r.user_name||'\u2014')+'</b><div style="font-size:10px;color:var(--t3)">'+rl+'</div></td>'
+        +'<td><span style="font-size:11px;font-weight:700;color:'+actColor+'">'+actLbl+'</span> <span style="font-size:11px;color:var(--t2)">'+tblLbl+'</span></td>'
+        +'<td style="font-size:12px">'+(r.descr||'\u2014')+'</td>'
+        +'<td style="font-size:10px;color:var(--t3)">'+(r.record_id||'')+'</td>'
+        +'</tr>';
+    }).join('');
+  }catch(e){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--danger)">\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e)+'</td></tr>';
+  }
+}
+window.renderAudit=renderAudit;
+
 window.openPayrollItemM=openPayrollItemM;
 window.savePayrollItem=savePayrollItem;
 window.delPayrollItem=delPayrollItem;
@@ -5012,6 +5122,7 @@ function nav(page){
   if(page==='missed') renderMissedLessons();
   if(page==='tasks'){try{renderTasks();}catch(e){console.error('renderTasks:',e);}}
   if(page==='payroll'){try{renderPayroll();}catch(e){console.error('renderPayroll:',e);}}
+  if(page==='audit'){try{renderAudit();}catch(e){console.error('renderAudit:',e);}}
   if(page==='invoice') renderInvoicePage();
   if(page==='invoice-log') renderInvoiceLog();
   var _crmEl=document.getElementById('pg-crm');
