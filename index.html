@@ -580,6 +580,13 @@ body.role-god .dir-only, body.role-director .dir-only { display: inline-flex !im
 /* Червона підсвітка пункту "Завдання" у відповідального з простроченими завданнями */
 .ni-task-alert { background: rgba(248,113,113,.16) !important; color: var(--danger) !important; animation: taskpulse 1.3s ease-in-out infinite; }
 @keyframes taskpulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(248,113,113,.45);} 50%{ box-shadow: 0 0 0 5px rgba(248,113,113,0);} }
+/* Жовто-синя пульсація: є відкриті (не прострочені) завдання */
+.ni-task-open { animation: taskpulseYB 1.6s ease-in-out infinite; }
+@keyframes taskpulseYB {
+  0%   { background: rgba(245,158,11,.20) !important; color:#d97706 !important; box-shadow: 0 0 0 0 rgba(245,158,11,.4); }
+  50%  { background: rgba(41,171,226,.20) !important; color: var(--adm) !important; box-shadow: 0 0 0 5px rgba(41,171,226,0); }
+  100% { background: rgba(245,158,11,.20) !important; color:#d97706 !important; box-shadow: 0 0 0 0 rgba(245,158,11,.4); }
+}
 .task-nbadge { background: var(--danger); color:#fff; font-size:10px; font-weight:700; border-radius:9px; padding:1px 6px; margin-left:auto; }
   div.tutor-hidden:not(.card) { display: flex; }
 body.role-tutor .comm-add-btn { display: none !important; }
@@ -1249,7 +1256,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <select id="tf-assignee" onchange="renderTasks()" style="width:180px;font-size:12px;padding:5px 8px;margin-left:6px">
               <option value="">Всі відповідальні</option>
             </select>
-            <button class="btn btn-p btn-sm" onclick="openTaskM()" style="margin-left:auto">+ Нове завдання</button>
+            <button class="btn btn-p btn-sm" id="task-add-btn" onclick="openTaskM()" style="margin-left:auto">+ Нове завдання</button>
           </div>
           <div style="overflow-x:auto"><table><thead><tr><th>Завдання</th><th>Поставив</th><th>Відповідальний</th><th>Дедлайн</th><th>Статус</th><th>Виконано</th><th></th></tr></thead><tbody id="tasks-tbody"></tbody></table></div>
         </div>
@@ -1839,7 +1846,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=invlog1"></script>
+<script src="app7.js?v=tasksall1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
