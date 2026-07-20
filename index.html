@@ -1150,7 +1150,25 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <!-- ── INVOICE ── -->
       <div class="page" id="pg-invoice"><div class="card"><div class="ch"><span class="ct">💳 Рахунок</span><div style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">Учень:</label><select id="inv-student" onchange="renderInvoicePage()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="">— оберіть учня —</option></select></div></div><div style="padding:16px" id="invoice-content"><div style="color:var(--t3);text-align:center;padding:40px">Оберіть учня</div></div></div></div>
       <!-- ── INVOICE LOG ── -->
-      <div class="page" id="pg-invoice-log"><div class="card"><div class="ch"><span class="ct">📋 Лог рахунків</span></div><div style="overflow-x:auto"><table><thead><tr><th>Дата</th><th>Учень</th><th>Період</th><th>Уроки/Сума</th><th>Канал</th><th>Отримувач</th><th>Відправив</th></tr></thead><tbody id="inv-log-tbody"></tbody></table></div></div></div>
+      <div class="page" id="pg-invoice-log"><div class="card"><div class="ch"><span class="ct">📋 Лог рахунків</span><select id="ilf-user" onchange="renderInvoiceLog()" style="width:200px;font-size:12px;padding:5px 8px;margin-left:auto"><option value="">Всі відправники</option></select></div><div style="overflow-x:auto"><table><thead><tr><th>Дата</th><th>Учень</th><th>Період</th><th>Уроки/Сума</th><th>Канал</th><th>Отримувач</th><th>Відправив</th></tr></thead><tbody id="inv-log-tbody"></tbody></table></div></div></div>
+
+      <!-- ── AUDIT LOG ── -->
+      <div class="page" id="pg-audit">
+        <div class="card">
+          <div class="ch">
+            <span class="ct">🔍 Історія змін</span>
+            <select id="af-user" onchange="renderAudit()" style="width:210px;font-size:12px;padding:5px 8px;margin-left:12px"><option value="">Всі користувачі</option></select>
+            <select id="af-action" onchange="renderAudit()" style="width:150px;font-size:12px;padding:5px 8px;margin-left:6px">
+              <option value="">Всі дії</option>
+              <option value="insert">Створення</option>
+              <option value="update">Зміни</option>
+              <option value="delete">Видалення</option>
+            </select>
+            <button class="btn btn-g btn-sm" onclick="renderAudit()" style="margin-left:auto">↻ Оновити</button>
+          </div>
+          <div style="overflow-x:auto"><table><thead><tr><th>Коли</th><th>Хто</th><th>Дія</th><th>Що</th><th>ID</th></tr></thead><tbody id="audit-tbody"></tbody></table></div>
+        </div>
+      </div>
 
       <!-- ── CRM ── -->
       <div class="page" id="pg-crm">
@@ -1786,7 +1804,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=subj2"></script>
+<script src="app7.js?v=audit1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
