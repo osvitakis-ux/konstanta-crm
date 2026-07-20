@@ -1143,6 +1143,9 @@ function addRateRow(rule){
     +'<input class="sr-rate" type="number" placeholder="₴/год" value="'+(rule.rate!=null?rule.rate:'')+'" style="width:80px;font-size:12px;padding:5px 8px">'
     +'<button type="button" title="Прибрати" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:14px;padding:2px 6px" onclick="this.parentElement.remove()">✕</button>';
   list.appendChild(row);
+  // Підказки предметів у рядку ставки (працюють і на телефонах)
+  var _si=row.querySelector('.sr-subj');
+  if(_si){ _si.id=_si.id||('sr-subj-'+Math.random().toString(36).slice(2,8)); makeSuggest(_si.id, allKnownSubjects); }
 }
 // Похідні дані зі ставок учня: предмети та репетитори (з фолбеком на legacy-поля)
 function studentRatesArr(st){
@@ -4273,6 +4276,58 @@ function lessPickTutorForSubject(){
     if(tEl){ tEl.value=match.tutor_id; if(tEl._updateSearch)tEl._updateSearch(); }
   }
 }
+// Усі відомі предмети: довідник + ставки учнів + наявні заняття
+function allKnownSubjects(){
+  var set=[];
+  function add(v){ v=(v||'').trim(); if(v&&set.indexOf(v)<0) set.push(v); }
+  (S.subjects||[]).forEach(function(x){ add(x&&x.name); });
+  (S.students||[]).forEach(function(st){ studentRateRules(st).forEach(function(r){ add(r.subject); }); });
+  (S.lessons||[]).forEach(function(l){ add(l.subject); });
+  return set.sort(function(a,b){return a.localeCompare(b,'uk');});
+}
+
+// Кастомний дропдаун підказок для текстового інпута (працює і на телефонах,
+// на відміну від нативного <datalist>). getOptions() повертає масив рядків.
+function makeSuggest(inputId, getOptions){
+  var inp=document.getElementById(inputId);
+  if(!inp||inp.dataset.suggest==='1') return;
+  inp.dataset.suggest='1';
+  // Прибираємо нативний datalist — щоб порожній браузерний попап не перекривав кастомний
+  inp.removeAttribute('list');
+  var wrap=document.createElement('div');
+  wrap.style.cssText='position:relative;display:block;width:100%;flex:1;min-width:0';
+  inp.parentNode.insertBefore(wrap,inp);
+  wrap.appendChild(inp);
+  var drop=document.createElement('div');
+  drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.18)';
+  wrap.appendChild(drop);
+  function render(q){
+    var opts=getOptions()||[];
+    var f=q?opts.filter(function(o){return o.toLowerCase().includes(q.toLowerCase());}):opts;
+    if(!f.length){ drop.style.display='none'; return; }
+    drop.innerHTML='';
+    f.slice(0,40).forEach(function(o){
+      var it=document.createElement('div');
+      it.textContent=o;
+      it.style.cssText='padding:8px 12px;cursor:pointer;font-size:13px;color:var(--t1)';
+      it.addEventListener('mouseenter',function(){it.style.background='var(--s2)';});
+      it.addEventListener('mouseleave',function(){it.style.background='';});
+      it.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        inp.value=o;
+        drop.style.display='none';
+        inp.dispatchEvent(new Event('change'));
+      });
+      drop.appendChild(it);
+    });
+    drop.style.display='block';
+  }
+  inp.addEventListener('focus',function(){ render(''); });
+  inp.addEventListener('input',function(){ render(inp.value); });
+  inp.addEventListener('blur',function(){ setTimeout(function(){ drop.style.display='none'; },200); });
+}
+window.makeSuggest=makeSuggest;
+window.allKnownSubjects=allKnownSubjects;
 window.lessApplyStudentRates=lessApplyStudentRates;
 window.lessPickTutorForSubject=lessPickTutorForSubject;
 window.delTutor  = delTutor;
@@ -4546,7 +4601,18 @@ function openLessM(id, date, time){
   makeSearchable('l-std');
   if(document.getElementById('l-std')._updateSearch) document.getElementById('l-std')._updateSearch();
   var dl_l = document.getElementById('subj-list-l');
-  if(dl_l) dl_l.innerHTML = (S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');
+  if(dl_l) dl_l.innerHTML = allKnownSubjects().map(function(x){return '<option value="'+x+'">';}).join('');
+  // Кастомний дропдаун (надійний на телефонах): предмети обраного учня першими, далі всі відомі
+  makeSuggest('l-subj', function(){
+    var sid=document.getElementById('l-std')?.value;
+    var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+    var mine=[];
+    if(st){
+      studentRateRules(st).forEach(function(r){ var v=(r.subject||'').trim(); if(v&&mine.indexOf(v)<0) mine.push(v); });
+      if(!mine.length&&st.subject) mine=String(st.subject).split(',').map(function(x){return x.trim();}).filter(Boolean);
+    }
+    return mine.concat(allKnownSubjects().filter(function(x){return mine.indexOf(x)<0;}));
+  });
   popSel('l-tutor', S.tutors, 'id', function(t){return t.fn+' '+t.ln;}, 'Викладач');
   makeSearchable('l-tutor'); if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
   if(typeof toggleRecurOpts === 'function') toggleRecurOpts();
