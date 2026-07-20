@@ -3705,12 +3705,11 @@ async function saveSettings(){
 }
 
 async function addSubj(){
-  var name=(document.getElementById('ns-name')?.value||'').trim(), price=document.getElementById('ns-price')?.value;
+  var name=(document.getElementById('ns-name')?.value||'').trim();
   if(!name){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443','error'); return; }
   try{
-    await dbInsert('subjects',{id:uid(),name,price:price||null,branch_id:myBranchId()||null});
+    await dbInsert('subjects',{id:uid(),name:name,branch_id:myBranchId()||null});
     document.getElementById('ns-name').value='';
-    document.getElementById('ns-price').value='';
     mkToast('\u0414\u043E\u0434\u0430\u043D\u043E');
   }catch(e){}
 }
@@ -6968,7 +6967,7 @@ function renderSettings(){
   var gcWrap = document.getElementById('god-constructor-wrap');
   if(gcWrap) gcWrap.style.display = (R()==='god') ? 'block' : 'none';
   var setNameEl=document.getElementById('set-name'); if(setNameEl) setNameEl.value=S.settings.name||'';
-  var setSubjEl=document.getElementById('set-subj-list'); if(setSubjEl) setSubjEl.innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><span class="msv">'+(s.price)+'\u20B4/\u0433\u043E\u0434</span><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj(\''+(s.id)+'\')">\u00D7</button></div></div>')).join('');
+  var setSubjEl=document.getElementById('set-subj-list'); if(setSubjEl) setSubjEl.innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj(\''+(s.id)+'\')">\u00D7</button></div></div>')).join('');
   // God-only sections
   const isGod=R()==='god';
   var gbEl=document.getElementById('god-banner-settings'); if(gbEl) gbEl.style.display=isGod?'flex':'none';
@@ -6984,8 +6983,6 @@ function renderSettings(){
     document.getElementById('rights-table').innerHTML=rt;
   }
   renderBranches();
-  renderPricingRules();
-  popSel('pr-tutor',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438');
 }
 
 
