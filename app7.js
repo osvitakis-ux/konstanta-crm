@@ -4531,7 +4531,7 @@ window.renderPayroll=renderPayroll;
 async function renderAudit(){
   var tbody=document.getElementById('audit-tbody');
   if(!tbody) return;
-  if(R()!=='god'){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0431\u043E\u0433\u0443</td></tr>'; return; }
+  if(R()!=='god'){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0431\u043E\u0433\u0443</td></tr>'; return; }
 
   // Фільтр по користувачу
   var uSel=document.getElementById('af-user');
@@ -4545,7 +4545,7 @@ async function renderAudit(){
   var fUser=(uSel||{value:''}).value;
   var fAction=(document.getElementById('af-action')||{value:''}).value;
 
-  tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--t3)">\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F...</td></tr>';
+  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--t3)">\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F...</td></tr>';
   try{
     var q=_sb.from('audit_log').select('*').order('created_at',{ascending:false}).limit(500);
     if(fUser) q=q.eq('user_id',fUser);
@@ -4553,7 +4553,7 @@ async function renderAudit(){
     var res=await q;
     if(res.error) throw res.error;
     var rows=res.data||[];
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--t3)">\u0417\u0430\u043F\u0438\u0441\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</td></tr>'; return; }
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">\u0417\u0430\u043F\u0438\u0441\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</td></tr>'; return; }
     tbody.innerHTML=rows.map(function(r){
       var when=r.created_at?new Date(r.created_at).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'\u2014';
       var actLbl=AUDIT_ACTION_LABELS[r.action]||r.action||'';
@@ -4566,13 +4566,53 @@ async function renderAudit(){
         +'<td><span style="font-size:11px;font-weight:700;color:'+actColor+'">'+actLbl+'</span> <span style="font-size:11px;color:var(--t2)">'+tblLbl+'</span></td>'
         +'<td style="font-size:12px">'+(r.descr||'\u2014')+'</td>'
         +'<td style="font-size:10px;color:var(--t3)">'+(r.record_id||'')+'</td>'
+        +'<td style="text-align:right"><button onclick="delAuditRow(\''+r.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0437\u0430\u043F\u0438\u0441" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:13px;padding:2px 6px">\uD83D\uDDD1</button></td>'
         +'</tr>';
     }).join('');
   }catch(e){
-    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--danger)">\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e)+'</td></tr>';
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--danger)">\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e)+'</td></tr>';
   }
 }
 window.renderAudit=renderAudit;
+
+async function delAuditRow(id){
+  if(R()!=='god'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0431\u043E\u0433\u0443','error'); return; }
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0446\u0435\u0439 \u0437\u0430\u043F\u0438\u0441 \u0436\u0443\u0440\u043D\u0430\u043B\u0443?')) return;
+  try{
+    var r=await _sb.from('audit_log').delete().eq('id',id);
+    if(r.error && await refreshIfExpired(r.error)) r=await _sb.from('audit_log').delete().eq('id',id);
+    if(r.error){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+r.error.message,'error'); return; }
+    renderAudit();
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error'); }
+}
+
+async function clearAuditLog(){
+  if(R()!=='god'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0431\u043E\u0433\u0443','error'); return; }
+  // Очищення враховує активні фільтри — щоб можна було чистити вибірково
+  var fUser=(document.getElementById('af-user')||{value:''}).value;
+  var fAction=(document.getElementById('af-action')||{value:''}).value;
+  var scope=(fUser||fAction)?'\u0432\u0456\u0434\u0444\u0456\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u043D\u0456 \u0437\u0430\u043F\u0438\u0441\u0438':'\u0412\u0421\u042E \u0456\u0441\u0442\u043E\u0440\u0456\u044E \u0437\u043C\u0456\u043D';
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 '+scope+'? \u0426\u0435 \u043D\u0435\u0437\u0432\u043E\u0440\u043E\u0442\u043D\u043E.')) return;
+  try{
+    var q=_sb.from('audit_log').delete();
+    if(fUser) q=q.eq('user_id',fUser);
+    if(fAction) q=q.eq('action',fAction);
+    if(!fUser && !fAction) q=q.neq('id','00000000-0000-0000-0000-000000000000'); // видалити все
+    var r=await q;
+    if(r.error && await refreshIfExpired(r.error)){
+      q=_sb.from('audit_log').delete();
+      if(fUser) q=q.eq('user_id',fUser);
+      if(fAction) q=q.eq('action',fAction);
+      if(!fUser && !fAction) q=q.neq('id','00000000-0000-0000-0000-000000000000');
+      r=await q;
+    }
+    if(r.error){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+r.error.message,'error'); return; }
+    mkToast('\u0416\u0443\u0440\u043D\u0430\u043B \u043E\u0447\u0438\u0449\u0435\u043D\u043E');
+    renderAudit();
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error'); }
+}
+window.delAuditRow=delAuditRow;
+window.clearAuditLog=clearAuditLog;
 
 window.openPayrollItemM=openPayrollItemM;
 window.savePayrollItem=savePayrollItem;
@@ -5930,15 +5970,35 @@ async function availToggleCell(dowMon1, hour){
   renderSch();
   try{ await dbUpdate('tutors', t.id, {availability:JSON.stringify(a)}); }catch(e){}
 }
-async function availQuickFill(){
+function openAvailFillM(){
   var t=availTargetTutor();
   if(!t){ mkToast('Оберіть репетитора','error'); return; }
-  if(!confirm('Заповнити Пн–Пт 9:00–18:00 як робочі? (поточні години будуть замінені)')) return;
-  var a={};
-  for(var dw=1;dw<=5;dw++){ a[String(dw)]=[]; for(var hh=9;hh<18;hh++) a[String(dw)].push(hh); }
-  t.availability=a; renderSch();
+  openM('mo-avail-fill');
+}
+async function availApplyFill(){
+  var t=availTargetTutor();
+  if(!t){ mkToast('Оберіть репетитора','error'); return; }
+  var days=Array.from(document.querySelectorAll('#af-days input:checked')).map(function(c){return c.value;});
+  if(!days.length){ mkToast('Оберіть хоча б один день','error'); return; }
+  var from=parseInt((document.getElementById('af-from')||{value:'9'}).value);
+  var to=parseInt((document.getElementById('af-to')||{value:'18'}).value);
+  if(isNaN(from)||isNaN(to)||from>=to){ mkToast('Некоректний діапазон годин','error'); return; }
+  var replace=(document.getElementById('af-replace')||{checked:true}).checked;
+  var a=replace?{}:JSON.parse(JSON.stringify(tutorAvail(t)||{}));
+  days.forEach(function(dw){
+    var arr=replace?[]:(a[dw]||[]);
+    for(var h=from;h<to;h++){ if(arr.indexOf(h)<0) arr.push(h); }
+    arr.sort(function(x,y){return x-y;});
+    a[dw]=arr;
+  });
+  t.availability=a;
+  closeM('mo-avail-fill');
+  renderSch();
+  mkToast('Робочі години оновлено');
   try{ await dbUpdate('tutors', t.id, {availability:JSON.stringify(a)}); }catch(e){}
 }
+window.openAvailFillM=openAvailFillM;
+window.availApplyFill=availApplyFill;
 async function availClear(){
   var t=availTargetTutor();
   if(!t){ mkToast('Оберіть репетитора','error'); return; }
@@ -5948,7 +6008,6 @@ async function availClear(){
 }
 window.toggleAvailMode=toggleAvailMode;
 window.availToggleCell=availToggleCell;
-window.availQuickFill=availQuickFill;
 window.availClear=availClear;
 
 function renderSchWeek(){
@@ -6901,6 +6960,39 @@ function isMakeupForMissed(l){
 function coveredMissedMinutes(l){
   var sid = l.studentId||l.student_id;
   var ldate = l.date;
+  var lgroup = l.split_group_id;
+
+  // Якщо пропуск — частина split-групи, покриття розподіляється МІЖ частинами послідовно,
+  // а не роздається кожній повністю. Рахуємо на рівні всієї групи.
+  if(lgroup){
+    // Усі missed-частини групи, впорядковані (split_index, потім час)
+    var parts = (S.lessons||[]).filter(function(x){
+      return x.status==='missed' && (x.split_group_id===lgroup) && ((x.studentId||x.student_id)===sid);
+    }).sort(function(a,b){
+      var ai=(a.split_index!=null?a.split_index:999), bi=(b.split_index!=null?b.split_index:999);
+      if(ai!==bi) return ai-bi;
+      return String(a.time||'').localeCompare(String(b.time||''));
+    });
+    // Усі проведені відпрацювання, пов'язані з групою (по split_group_id або missed_date будь-якої частини)
+    var partDates = parts.map(function(p){return p.date;});
+    var makeupsG = (S.lessons||[]).filter(function(x){
+      if(x.status!=='makeup') return false;
+      if((x.studentId||x.student_id)!==sid) return false;
+      if(x.split_group_id===lgroup) return true;
+      if(x.missed_date && partDates.indexOf(x.missed_date)>=0) return true;
+      return false;
+    });
+    var pool = makeupsG.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
+    // Розподіляємо пул хвилин по частинах по порядку; для нашої частини повертаємо її долю
+    for(var i=0;i<parts.length;i++){
+      var need = parseFloat(parts[i].dur)||60;
+      var give = Math.min(pool, need);
+      pool -= give;
+      if(parts[i].id===l.id) return give; // скільки хвилин дісталось саме цій частині
+    }
+    // Якщо не знайшли себе серед частин — падаємо у загальну гілку нижче
+  }
+
   var makeups = (S.lessons||[]).filter(function(x){
     if(x.status!=='makeup') return false; // рахуються лише ПРОВЕДЕНІ відпрацювання
     if((x.studentId||x.student_id)!==sid) return false;
@@ -6908,9 +7000,6 @@ function coveredMissedMinutes(l){
     if(x.missed_date===ldate) return true;
     // 2. Пропущений урок вказує на дату відпрацювання
     if(l.makeup_date && x.date===l.makeup_date) return true;
-    // 3. Через split_group_id
-    if(l.split_group_id && x.split_group_id===l.split_group_id) return true;
-    if(x.split_group_id===l.id || l.split_group_id===x.id) return true;
     return false;
   });
   return makeups.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
