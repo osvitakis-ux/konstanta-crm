@@ -3559,7 +3559,12 @@ async function addSubj(){
 
 async function delSubj(id){
   if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u043F\u0440\u0435\u0434\u043C\u0435\u0442?')) return;
-  try{ await dbDelete('subjects',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+  try{
+    await dbDelete('subjects',id);
+    S.subjects=(S.subjects||[]).filter(function(s){return s.id!==id;});
+    if(typeof renderSettings==='function'&&S.currentPage==='settings') renderSettings();
+    mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E');
+  }catch(e){}
 }
 
 async function addBranch(){
@@ -6526,7 +6531,7 @@ function renderSettings(){
   var gcWrap = document.getElementById('god-constructor-wrap');
   if(gcWrap) gcWrap.style.display = (R()==='god') ? 'block' : 'none';
   var setNameEl=document.getElementById('set-name'); if(setNameEl) setNameEl.value=S.settings.name||'';
-  var setSubjEl=document.getElementById('set-subj-list'); if(setSubjEl) setSubjEl.innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><span class="msv">'+(s.price)+'\u20B4/\u0433\u043E\u0434</span><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj('+(i)+')">\u00D7</button></div></div>')).join('');
+  var setSubjEl=document.getElementById('set-subj-list'); if(setSubjEl) setSubjEl.innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><span class="msv">'+(s.price)+'\u20B4/\u0433\u043E\u0434</span><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj(\''+(s.id)+'\')">\u00D7</button></div></div>')).join('');
   // God-only sections
   const isGod=R()==='god';
   var gbEl=document.getElementById('god-banner-settings'); if(gbEl) gbEl.style.display=isGod?'flex':'none';
