@@ -4276,11 +4276,14 @@ function payrollBase(tutorId, period){
   function hrs(a){ return Math.round(a.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
   function sum(a){ return Math.round(a.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100; }
   var revenue=sum(done)+sum(makeup);
+  var k=payrollCoef();
+  var doneSalary=Math.round(sum(done)*k*100)/100;
+  var makeupSalary=Math.round(sum(makeup)*k*100)/100;
   return {
-    doneCount:done.length, doneHours:hrs(done), doneSum:sum(done),
-    makeupCount:makeup.length, makeupHours:hrs(makeup), makeupSum:sum(makeup),
+    doneCount:done.length, doneHours:hrs(done), doneSum:sum(done), doneSalary:doneSalary,
+    makeupCount:makeup.length, makeupHours:hrs(makeup), makeupSum:sum(makeup), makeupSalary:makeupSalary,
     revenue:revenue,
-    base:Math.round(revenue*payrollCoef()*100)/100
+    base:Math.round((doneSalary+makeupSalary)*100)/100
   };
 }
 
@@ -4346,9 +4349,8 @@ function renderPayroll(){
       +'<button class="btn btn-g btn-sm" style="margin-left:10px" onclick="printPayroll(\''+t.id+'\')">\uD83D\uDDA8 \u0414\u0440\u0443\u043A</button></div>'
       +'<div style="padding:0 14px 12px">'
       +'<table style="width:100%;font-size:12px"><tbody>'
-      +'<tr><td>\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432</td><td style="text-align:right">'+b.doneCount+' ('+b.doneHours+'\u0433) \u2014 '+b.doneSum+'\u20B4</td></tr>'
-      +'<tr><td>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E</td><td style="text-align:right">'+b.makeupCount+' ('+b.makeupHours+'\u0433) \u2014 '+b.makeupSum+'\u20B4</td></tr>'
-      +'<tr><td>\u0411\u0430\u0437\u0430 ('+b.revenue+'\u20B4 \u00D7 '+payrollCoef()+')</td><td style="text-align:right;font-weight:700">'+b.base+'\u20B4</td></tr>'
+      +'<tr><td>\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432 (\u00D7'+payrollCoef()+')</td><td style="text-align:right;font-weight:600">'+b.doneCount+' ('+b.doneHours+'\u0433) \u2014 '+b.doneSalary+'\u20B4</td></tr>'
+      +'<tr><td>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E (\u00D7'+payrollCoef()+')</td><td style="text-align:right;font-weight:600">'+b.makeupCount+' ('+b.makeupHours+'\u0433) \u2014 '+b.makeupSalary+'\u20B4</td></tr>'
       +'</tbody></table>'
       +(itemsHtml?'<div style="margin-top:6px">'+itemsHtml+'</div>':'')
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'
@@ -4416,9 +4418,8 @@ function printPayroll(tutorId){
     var pt=payrollTotal(t.id, per), b=pt.base;
     if(!tutorId&&!b.doneCount&&!b.makeupCount&&!payrollItemsFor(t.id,per).length) return;
     grand+=pt.total;
-    var rows='<tr><td>\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432: '+b.doneCount+' ('+b.doneHours+' \u0433\u043E\u0434)</td><td class="r">'+b.doneSum+' \u20B4</td></tr>'
-      +'<tr><td>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E: '+b.makeupCount+' ('+b.makeupHours+' \u0433\u043E\u0434)</td><td class="r">'+b.makeupSum+' \u20B4</td></tr>'
-      +'<tr class="sub"><td>\u0411\u0430\u0437\u0430 \u043D\u0430\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F ('+b.revenue+' \u20B4 \u00D7 '+payrollCoef()+')</td><td class="r"><b>'+b.base+' \u20B4</b></td></tr>';
+    var rows='<tr><td>\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432: '+b.doneCount+' ('+b.doneHours+' \u0433\u043E\u0434) \u00D7 '+payrollCoef()+'</td><td class="r"><b>'+b.doneSalary+' \u20B4</b></td></tr>'
+      +'<tr><td>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E: '+b.makeupCount+' ('+b.makeupHours+' \u0433\u043E\u0434) \u00D7 '+payrollCoef()+'</td><td class="r"><b>'+b.makeupSalary+' \u20B4</b></td></tr>';
     payrollItemsFor(t.id,per).forEach(function(i){
       var amt=payrollItemAmount(i,b.base);
       rows+='<tr><td>'+(i.label||'')+(i.percent!=null&&i.percent!==''?' ('+i.percent+'%)':'')+'</td><td class="r">'+(amt>=0?'+':'')+amt+' \u20B4</td></tr>';
