@@ -241,6 +241,7 @@ var NAV_CFG = [
   {id:'crm',        ico:'\u25A4',  lbl:'CRM',              sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'tasks',      ico:'\u2611',  lbl:'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F',      sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'audit',      ico:'\uD83D\uDD0D',  lbl:'\u0406\u0441\u0442\u043E\u0440\u0456\u044F \u0437\u043C\u0456\u043D',   sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
+  {id:'invoice-log',ico:'\uD83D\uDCCB',  lbl:'\u041B\u043E\u0433 \u0440\u0430\u0445\u0443\u043D\u043A\u0456\u0432', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'telephony',  ico:'\u25C9',  lbl:'\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u0456\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
@@ -770,7 +771,15 @@ async function renderInvoiceLog(){
     var res=await q;
     if(res.error)throw res.error;
     var rows=res.data||[];
-    if(!rows.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">Рахунків немає</td></tr>';return;}
+    console.log('[invoice_log] rows returned:', rows.length);
+    if(!rows.length){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">'
+        +'\u0429\u0435 \u043D\u0435\u043C\u0430\u0454 \u0432\u0456\u0434\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0445 \u0440\u0430\u0445\u0443\u043D\u043A\u0456\u0432.<br>'
+        +'<span style="font-size:11px">\u0417\u0430\u043F\u0438\u0441 \u0437\u2019\u044F\u0432\u043B\u044F\u0454\u0442\u044C\u0441\u044F \u043F\u0456\u0441\u043B\u044F \u0432\u0456\u0434\u043F\u0440\u0430\u0432\u043A\u0438 \u0440\u0430\u0445\u0443\u043D\u043A\u0443 \u0447\u0435\u0440\u0435\u0437 Viber / Telegram \u0430\u0431\u043E \u043A\u043E\u043F\u0456\u044E\u0432\u0430\u043D\u043D\u044F.</span><br>'
+        +'<button class="btn btn-g btn-sm" style="margin-top:8px" onclick="invoiceLogSelfTest()">\ud83e\uddea \u041F\u0435\u0440\u0435\u0432\u0456\u0440\u0438\u0442\u0438 \u0437\u0430\u043F\u0438\u0441 \u0443 \u0431\u0430\u0437\u0443</button>'
+        +'</td></tr>';
+      return;
+    }
     tbody.innerHTML=rows.map(function(r){
       var student=(S.students||[]).find(function(s){return s.id===r.student_id;});
       var sender=(S.users||[]).find(function(u){return u.id===r.sent_by;});
@@ -787,9 +796,34 @@ async function renderInvoiceLog(){
         +'</tr>';
     }).join('');
   }catch(e){
-    tbody.innerHTML='<tr><td colspan="7" style="color:var(--danger)">Помилка: '+e.message+'</td></tr>';
+    console.error('[invoice_log] read error:', e);
+    tbody.innerHTML='<tr><td colspan="7" style="color:var(--danger);padding:16px;text-align:center">'
+      +'\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0447\u0438\u0442\u0430\u043D\u043D\u044F \u0437 \u0431\u0430\u0437\u0438: '+(e.message||e)+'<br>'
+      +'<span style="font-size:11px;color:var(--t2)">\u0406\u043C\u043E\u0432\u0456\u0440\u043D\u043E \u0432\u0456\u0434\u0441\u0443\u0442\u043D\u044F \u0442\u0430\u0431\u043B\u0438\u0446\u044F invoice_log \u0430\u0431\u043E RLS-\u043F\u043E\u043B\u0456\u0442\u0438\u043A\u0430 SELECT. \u0414\u0438\u0432. \u0456\u043D\u0441\u0442\u0440\u0443\u043A\u0446\u0456\u044E.</span>'
+      +'</td></tr>';
   }
 }
+
+// Самотест: пише тестовий запис у invoice_log і одразу читає назад — показує точну причину
+async function invoiceLogSelfTest(){
+  if(!_sb){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u0437\u2019\u0454\u0434\u043D\u0430\u043D\u043D\u044F','error'); return; }
+  if(window._viewerMode){ mkToast('\u0420\u0435\u0436\u0438\u043C \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434\u0443 \u2014 \u0437\u0430\u043F\u0438\u0441 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0438\u0439','error'); return; }
+  mkToast('\u0422\u0435\u0441\u0442\u0443\u0454\u043C\u043E\u2026');
+  try{
+    var ins=await _sb.from('invoice_log').insert({
+      sent_by:CU?CU.id:null, student_id:null, channel:'test',
+      recipient:'\u0441\u0430\u043C\u043E\u0442\u0435\u0441\u0442', lessons_count:0, total_amount:0,
+      branch_id:myBranchId()||null
+    });
+    if(ins.error){ alert('\u274C \u0417\u0410\u041F\u0418\u0421 \u0417\u0410\u0411\u041B\u041E\u041A\u041E\u0412\u0410\u041D\u041E:\n\n'+ins.error.message+'\n\n\u0426\u0435 \u043E\u0437\u043D\u0430\u0447\u0430\u0454, \u0449\u043E RLS-\u043F\u043E\u043B\u0456\u0442\u0438\u043A\u0430 INSERT \u0432\u0456\u0434\u0441\u0443\u0442\u043D\u044F \u0430\u0431\u043E \u0442\u0430\u0431\u043B\u0438\u0446\u0456 \u043D\u0435\u043C\u0430\u0454.'); return; }
+    var sel=await _sb.from('invoice_log').select('*').eq('channel','test').limit(5);
+    if(sel.error){ alert('\u26A0 \u0417\u0430\u043F\u0438\u0441 \u041F\u0420\u041E\u0419\u0428\u041E\u0412, \u0430\u043B\u0435 \u0427\u0418\u0422\u0410\u041D\u041D\u042F \u0417\u0410\u0411\u041B\u041E\u041A\u041E\u0412\u0410\u041D\u041E:\n\n'+sel.error.message+'\n\n\u041F\u043E\u0442\u0440\u0456\u0431\u043D\u0430 RLS-\u043F\u043E\u043B\u0456\u0442\u0438\u043A\u0430 SELECT.'); return; }
+    alert('\u2705 \u0411\u0430\u0437\u0430 \u043F\u0440\u0430\u0446\u044E\u0454! \u0417\u0430\u043F\u0438\u0441 \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E \u0456 \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043D\u043E ('+(sel.data?sel.data.length:0)+' \u0442\u0435\u0441\u0442. \u0437\u0430\u043F\u0438\u0441\u0456\u0432).\n\n\u041E\u0442\u0436\u0435, \u043F\u0440\u043E\u0431\u043B\u0435\u043C\u0430 \u0431\u0443\u043B\u0430 \u0432 \u0442\u043E\u043C\u0443, \u0449\u043E \u0440\u0430\u0445\u0443\u043D\u043A\u0438 \u043D\u0435 \u0432\u0456\u0434\u043F\u0440\u0430\u0432\u043B\u044F\u043B\u0438\u0441\u044C \u043F\u0456\u0441\u043B\u044F \u043E\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u044F. \u0412\u0456\u0434\u043F\u0440\u0430\u0432\u0442\u0435 \u0440\u0430\u0445\u0443\u043D\u043E\u043A \u2014 \u0456 \u0432\u0456\u043D \u0437\u2019\u044F\u0432\u0438\u0442\u044C\u0441\u044F \u0442\u0443\u0442.');
+    renderInvoiceLog();
+  }catch(e){ alert('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e)); }
+}
+window.invoiceLogSelfTest=invoiceLogSelfTest;
+window.renderInvoiceLog=renderInvoiceLog;
 
 function renderInvoicePage(){
   var pg=document.getElementById('pg-invoice');
