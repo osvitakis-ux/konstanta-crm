@@ -3443,6 +3443,15 @@ async function saveLesson(){
   var studentId=stdEl?stdEl.value:''; 
   var date=dateEl?dateEl.value:'';
   if(!studentId||!date){ mkToast("\u0423\u0447\u0435\u043D\u044C \u0442\u0430 \u0434\u0430\u0442\u0430 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
+  // Попередження про неробочий час (не блокує)
+  var _wt=(S.tutors||[]).find(function(t){return t.id===(document.getElementById('l-tutor')?document.getElementById('l-tutor').value:null);});
+  var _wtime=document.getElementById('l-time')?document.getElementById('l-time').value:'';
+  if(_wt && _wtime && typeof tutorAvail==='function' && tutorAvail(_wt)){
+    var _wh=parseInt(_wtime.split(':')[0]);
+    if(!isNaN(_wh) && !isWorkingHour(_wt, dowMon1FromDate(date), _wh)){
+      if(!confirm('\u26A0 '+_wt.fn+' '+_wt.ln+' \u043F\u043E\u0437\u043D\u0430\u0447\u0438\u0432(\u043B\u0430) \u0446\u0435\u0439 \u0447\u0430\u0441 \u044F\u043A \u043D\u0435\u0440\u043E\u0431\u043E\u0447\u0438\u0439. \u0412\u0441\u0435 \u043E\u0434\u043D\u043E \u043F\u043E\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0443\u0440\u043E\u043A?')) return;
+    }
+  }
   var recurType = document.getElementById('l-recur')?.value||'none';
   var _stat = document.getElementById('l-stat')?.value||'planned';
   var obj={
@@ -5734,6 +5743,23 @@ function renderSch(){
 
   if(view === 'week') renderSchWeek();
   else                renderSchDay();
+
+  var _at=document.getElementById('avail-toggle-btn');
+  var _att=(typeof availTargetTutor==='function')?availTargetTutor():null;
+  var _fill=document.getElementById('avail-fill-btn'), _clr=document.getElementById('avail-clear-btn'), _hint=document.getElementById('avail-hint');
+  if(_at){
+    if(view!=='week' && S._availMode){ S._availMode=false; }
+    _at.style.display = view==='week' ? 'inline-flex' : 'none';
+    _at.classList.toggle('btn-p', !!S._availMode);
+    _at.textContent = S._availMode ? '\u2713 \u0413\u043E\u0442\u043E\u0432\u043E' : '\uD83D\uDD52 \u0420\u043E\u0431\u043E\u0447\u0456 \u0433\u043E\u0434\u0438\u043D\u0438';
+    var _editing = S._availMode && _att;
+    if(_fill) _fill.style.display = _editing ? 'inline-flex':'none';
+    if(_clr)  _clr.style.display  = _editing ? 'inline-flex':'none';
+    if(_hint){
+      _hint.style.display = S._availMode ? 'inline':'none';
+      _hint.textContent = _att ? ('\u041A\u043B\u0456\u043A\u0430\u0439\u0442\u0435 \u043F\u043E \u043A\u043B\u0456\u0442\u0438\u043D\u043A\u0430\u0445: '+_att.fn+' '+_att.ln) : '\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430 \u0443 \u0444\u0456\u043B\u044C\u0442\u0440\u0456';
+    }
+  }
 }
 
 
@@ -5855,6 +5881,76 @@ function renderSchDay(){
 
 
 
+
+// ══════════ ДОСТУПНІСТЬ РЕПЕТИТОРІВ (робочі години) ══════════
+function tutorAvail(t){
+  if(!t) return null;
+  var a=t.availability;
+  if(a==null||a==='') return null;
+  try{ a=(typeof a==='string')?JSON.parse(a):a; }catch(e){ return null; }
+  if(!a||typeof a!=='object') return null;
+  var any=Object.keys(a).some(function(k){return Array.isArray(a[k])&&a[k].length;});
+  return any?a:null;
+}
+function isWorkingHour(t, dowMon1, hour){
+  var a=tutorAvail(t);
+  if(!a) return true;
+  var arr=a[String(dowMon1)]||[];
+  return arr.indexOf(hour)>=0;
+}
+function dowMon1FromDate(ds){
+  var d=new Date(ds+'T00:00:00'); var g=d.getDay(); return g===0?7:g;
+}
+function availTargetTutor(){
+  var _sf=document.getElementById('sch-tutor-filter');
+  var _schTut=_sf?_sf.value:'';
+  if(R()==='tutor'){ var mt=myTutor(); return mt||null; }
+  if(_schTut) return (S.tutors||[]).find(function(t){return t.id===_schTut;})||null;
+  return null;
+}
+function toggleAvailMode(){
+  if(!S._availMode){
+    var tgt=availTargetTutor();
+    if(!tgt){ mkToast('Спочатку оберіть репетитора у фільтрі','error'); return; }
+  }
+  S._availMode=!S._availMode;
+  renderSch();
+}
+async function availToggleCell(dowMon1, hour){
+  var t=availTargetTutor();
+  if(!t) return;
+  var a=tutorAvail(t)||{};
+  a=JSON.parse(JSON.stringify(a));
+  var key=String(dowMon1);
+  a[key]=a[key]||[];
+  var idx=a[key].indexOf(hour);
+  if(idx>=0) a[key].splice(idx,1); else a[key].push(hour);
+  a[key].sort(function(x,y){return x-y;});
+  t.availability=a;
+  renderSch();
+  try{ await dbUpdate('tutors', t.id, {availability:JSON.stringify(a)}); }catch(e){}
+}
+async function availQuickFill(){
+  var t=availTargetTutor();
+  if(!t){ mkToast('Оберіть репетитора','error'); return; }
+  if(!confirm('Заповнити Пн–Пт 9:00–18:00 як робочі? (поточні години будуть замінені)')) return;
+  var a={};
+  for(var dw=1;dw<=5;dw++){ a[String(dw)]=[]; for(var hh=9;hh<18;hh++) a[String(dw)].push(hh); }
+  t.availability=a; renderSch();
+  try{ await dbUpdate('tutors', t.id, {availability:JSON.stringify(a)}); }catch(e){}
+}
+async function availClear(){
+  var t=availTargetTutor();
+  if(!t){ mkToast('Оберіть репетитора','error'); return; }
+  if(!confirm('Очистити всі робочі години?')) return;
+  t.availability=null; renderSch();
+  try{ await dbUpdate('tutors', t.id, {availability:null}); }catch(e){}
+}
+window.toggleAvailMode=toggleAvailMode;
+window.availToggleCell=availToggleCell;
+window.availQuickFill=availQuickFill;
+window.availClear=availClear;
+
 function renderSchWeek(){
   const now=new Date(), sow=new Date(now);
   const dy=now.getDay()===0?6:now.getDay()-1;
@@ -5899,14 +5995,25 @@ function renderSchWeek(){
   html += '</div>';
 
   // Day columns
+  var _availTut = availTargetTutor();
+  var _availMode = S._availMode && !!_availTut;
   days.forEach(function(d){
     const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const dow=dowMon1FromDate(ds);
     const dayLessons=ml.filter(function(l){return l.date===ds;});
     html+='<div style="position:relative;height:'+(totalHrs*ROW_H)+'px;border-right:1px solid var(--b1)">';
     // Hour grid lines
     for(var h=START_H;h<END_H;h++){
-      var slotOnclick='openLessM(null,\''+ds+'\',\''+String(h).padStart(2,'0')+':00\')';
-      html+='<div onclick="'+slotOnclick+'" style="position:absolute;top:'+((h-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer"></div>';
+      var _working = _availTut ? isWorkingHour(_availTut, dow, h) : true;
+      var _offBg = (_availTut && !_working)
+        ? 'background:repeating-linear-gradient(45deg,rgba(148,163,184,.14),rgba(148,163,184,.14) 6px,rgba(148,163,184,.05) 6px,rgba(148,163,184,.05) 12px);'
+        : (_availTut && _working ? 'background:rgba(34,197,94,.07);' : '');
+      var _cellClick = _availMode
+        ? ('availToggleCell('+dow+','+h+')')
+        : ('openLessM(null,\''+ds+'\',\''+String(h).padStart(2,'0')+':00\')');
+      html+='<div class="'+(_availMode?'avail-cell':'')+'" onclick="event.stopPropagation();'+_cellClick+'" style="position:absolute;top:'+((h-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer;'+_offBg+'">'
+        +(_availMode&&_working?'<span style="position:absolute;top:2px;left:3px;font-size:9px;color:#16a34a;opacity:.7">\u2713</span>':'')
+        +'</div>';
     }
     // Lessons — уроки, що перетинаються в часі, ділять клітинку по вертикалі
     var laneMap=schAssignLanes(dayLessons);
