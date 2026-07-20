@@ -215,6 +215,7 @@ textarea{resize:vertical;min-height:72px}
 .ec-miss{background:rgba(239,68,68,.18);border-left:3px solid #ef4444;color:#dc2626}
 .ec-make{background:rgba(245,158,11,.2);border-left:3px solid #f59e0b;color:#d97706}
 .ec-covered{background:rgba(139,92,246,.2);border-left:3px solid #8b5cf6;color:#7c3aed}
+.avail-cell:hover{outline:2px solid var(--adm);outline-offset:-2px;background:rgba(41,171,226,.15)!important}
 .ec-partial{background:rgba(139,92,246,.1);border-left:3px solid #c4b5fd;color:#7c3aed;border-left-style:dashed}
 .prov-card{transition:border-color .15s,background .15s}
 .prov-card:hover{border-color:var(--adm)!important;background:rgba(41,171,226,.05)}
@@ -817,6 +818,12 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <select id="sch-tutor-filter" style="display:none;font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1)" onchange="renderSch()">
             <option value="">Усі репетитори</option>
           </select>
+          <div id="avail-toolbar" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:8px">
+            <button class="btn btn-g btn-sm" id="avail-toggle-btn" onclick="toggleAvailMode()" title="Позначити робочі/неробочі години">🕒 Робочі години</button>
+            <button class="btn btn-g btn-sm" id="avail-fill-btn" onclick="availQuickFill()" style="display:none">Пн–Пт 9–18</button>
+            <button class="btn btn-g btn-sm" id="avail-clear-btn" onclick="availClear()" style="display:none">Очистити</button>
+            <span id="avail-hint" style="display:none;font-size:11px;color:var(--adm)"></span>
+          </div>
         </div>
         <div class="card" style="overflow-x:auto"><div class="schg" id="schg"></div></div>
       </div>
@@ -1804,7 +1811,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=audit1"></script>
+<script src="app7.js?v=avail1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
