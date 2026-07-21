@@ -766,9 +766,9 @@ async function renderInvoiceLog(){
   }
   var fUser=(uSel||{value:''}).value;
   try{
-    var q=_sb.from('invoice_log').select('*').order('sent_at',{ascending:false}).limit(200);
-    if(fUser) q=q.eq('sent_by',fUser);
-    var res=await q;
+    function buildQ(){ var q=_sb.from('invoice_log').select('*').order('sent_at',{ascending:false}).limit(200); if(fUser) q=q.eq('sent_by',fUser); return q; }
+    var res=await buildQ();
+    if(res.error && await refreshIfExpired(res.error)) res=await buildQ();
     if(res.error)throw res.error;
     var rows=res.data||[];
     console.log('[invoice_log] rows returned:', rows.length);
@@ -957,11 +957,13 @@ function renderInvoicePage(){
     + '<div class="fgr" style="margin-bottom:10px"><label>\u0426\u0456\u043d\u0430 \u0437\u0430 \u0433\u043e\u0434\u0438\u043d\u0443 \u20b4 (\u044f\u043a\u0449\u043e \u0432 \u0437\u0430\u043d\u044f\u0442\u0442\u0456 \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u0430)</label><input type="number" id="inv-price" value="'+fallbackPrice+'" onchange="renderInvoicePage()" style="font-size:12px" placeholder="400"></div>'
     + '<div style="font-size:11px;color:var(--t3);margin-bottom:10px">\uD83D\uDCA1 \u0420\u0430\u0445\u0443\u043d\u043e\u043a \u0444\u043e\u0440\u043c\u0443\u0454\u0442\u044c\u0441\u044f \u0442\u0456\u043b\u044c\u043a\u0438 \u0456\u0437 \u0417\u0410\u041f\u041b\u0410\u041d\u041e\u0412\u0410\u041d\u0418\u0425 \u0437\u0430\u043d\u044f\u0442\u044c (\u043f\u0435\u0440\u0435\u0434\u043e\u043f\u043b\u0430\u0442\u0430). \u042f\u043a\u0449\u043e \u0432 \u0437\u0430\u043d\u044f\u0442\u0442\u0456 \u0432\u043a\u0430\u0437\u0430\u043d\u0430 \u0432\u043b\u0430\u0441\u043d\u0430 \u0446\u0456\u043d\u0430 \u2014 \u0432\u043e\u043d\u0430 \u043c\u0430\u0454 \u043f\u0440\u0456\u043e\u0440\u0438\u0442\u0435\u0442. \u0420\u0430\u0445\u0443\u043d\u043e\u043a \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u043e\u0431\u2019\u0454\u0434\u043d\u0443\u0454 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0432\u0441\u0456\u0445 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432 \u0442\u0430 \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u0456\u0432.</div>'
     + (student
-      ? (phone?'<div style="font-size:12px;color:var(--t2);margin-bottom:12px">\uD83D\uDCF1 \u0422\u0435\u043b\u0435\u0444\u043e\u043d: <b>'+phone+'</b></div>':'<div style="color:var(--danger);font-size:12px;margin-bottom:12px">\u26A0\uFE0F \u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e</div>')
+      ? (phone?'<div style="font-size:12px;color:var(--t2);margin-bottom:6px">\uD83D\uDCF1 \u0422\u0435\u043b\u0435\u0444\u043e\u043d: <b>'+phone+'</b></div>':'<div style="color:var(--danger);font-size:12px;margin-bottom:6px">\u26A0\uFE0F \u0422\u0435\u043b\u0435\u0444\u043e\u043d \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e</div>')
       : '<div style="font-size:12px;color:var(--t3);margin-bottom:12px">\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f \u0449\u043e\u0431 \u0441\u0444\u043e\u0440\u043c\u0443\u0432\u0430\u0442\u0438 \u0440\u0430\u0445\u0443\u043d\u043e\u043a</div>')
+    + (student ? ((student.email||student.parent_email)?'<div style="font-size:12px;color:var(--t2);margin-bottom:12px">\u2709\uFE0F Email: <b>'+(student.email||student.parent_email)+'</b></div>':'<div style="color:var(--warn);font-size:12px;margin-bottom:12px">\u2709\uFE0F Email \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e (\u0434\u043e\u0434\u0430\u0439\u0442\u0435 \u0432 \u043a\u0430\u0440\u0442\u0446\u0456 \u0443\u0447\u043d\u044f)</div>') : '')
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
     + (phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceViber()" style="background:#7360f2">\uD83D\uDFE3 Viber</button>':'')
     + (phone?'<button class="btn btn-p btn-sm" onclick="sendInvoiceTelegram()" style="background:#2196f3">\u2708\uFE0F Telegram</button>':'')
+    + (student?'<button class="btn btn-p btn-sm" onclick="sendInvoiceEmail()" style="background:#ea4335">\u2709\uFE0F Email</button>':'')
     + '<button class="btn btn-g btn-sm" onclick="copyInvoiceText()">\uD83D\uDCCB \u041a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438</button>'
     + '</div>'
     + '</div>';
@@ -1004,6 +1006,8 @@ function renderInvoicePage(){
 function _logInvoiceSend(channel, recipient){
   var m=window._invMeta||{};
   try{ logInvoice(channel, recipient, m.studentId, m.from, m.to, m.lessons, m.total); }catch(e){}
+  // Оновити панель статусу з невеликою затримкою (щоб запис устиг зберегтись)
+  setTimeout(function(){ try{ if(typeof renderInvoiceStatus==='function' && document.getElementById('inv-status-body')) renderInvoiceStatus(); }catch(e){} }, 1200);
 }
 function sendInvoiceViber(){
   var phone=(window._invPhone||'').replace(/\D/g,'');
@@ -1037,6 +1041,112 @@ window.renderInvoicePage=renderInvoicePage;
 window.sendInvoiceViber=sendInvoiceViber;
 window.sendInvoiceTelegram=sendInvoiceTelegram;
 window.copyInvoiceText=copyInvoiceText;
+
+// ══════════ СТАТУС РОЗСИЛКИ РАХУНКІВ ══════════
+// Показує всіх учнів із запланованими заняттями за місяць і чи надіслано їм рахунок.
+async function renderInvoiceStatus(){
+  var body=document.getElementById('inv-status-body');
+  if(!body) return;
+  var perEl=document.getElementById('ivs-period');
+  if(perEl && !perEl.value){ var n=new Date(); perEl.value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); }
+  var per=(perEl&&perEl.value)||'';
+  var filter=(document.getElementById('ivs-filter')||{value:''}).value;
+  if(!per){ body.innerHTML=''; return; }
+
+  // Хто має заплановані заняття цього місяця (їм потрібен рахунок = передоплата)
+  var need={};
+  (S.lessons||[]).forEach(function(l){
+    if(String(l.date||'').slice(0,7)!==per) return;
+    if(!(l.status==='planned'||l.status==='scheduled'||!l.status)) return;
+    var sid=l.studentId||l.student_id; if(!sid) return;
+    if(!need[sid]) need[sid]={count:0};
+    need[sid].count++;
+  });
+
+  // Витягуємо лог відправлень за цей місяць
+  var sentMap={};
+  try{
+    var from=per+'-01';
+    var toM=new Date(parseInt(per.split('-')[0]), parseInt(per.split('-')[1]), 0);
+    var to=per+'-'+String(toM.getDate()).padStart(2,'0');
+    function buildQ(){ return _sb.from('invoice_log').select('*').gte('period_from',from).lte('period_from',to+'T23:59:59').limit(1000); }
+    var res=await buildQ();
+    if(res.error && typeof refreshIfExpired==='function' && await refreshIfExpired(res.error)) res=await buildQ();
+    // Простіший і надійніший варіант: тягнемо останні 500 і фільтруємо за датою відправлення в періоді
+    if(res.error){
+      res=await _sb.from('invoice_log').select('*').order('sent_at',{ascending:false}).limit(500);
+    }
+    (res.data||[]).forEach(function(r){
+      var when=String(r.sent_at||'').slice(0,7);
+      // Рахуємо рахунок «за цей місяць», якщо його період або дата відправлення потрапляють у місяць
+      var pf=String(r.period_from||'').slice(0,7);
+      if(r.student_id && (pf===per || when===per)){
+        if(!sentMap[r.student_id]) sentMap[r.student_id]=[];
+        sentMap[r.student_id].push(r);
+      }
+    });
+  }catch(e){ console.warn('[inv-status] read error', e); }
+
+  // Формуємо список: усі учні, кому потрібен рахунок
+  var ids=Object.keys(need);
+  var rows=ids.map(function(sid){
+    var st=(S.students||[]).find(function(x){return x.id===sid;});
+    var sent=sentMap[sid]||[];
+    return { st:st, sid:sid, count:need[sid].count, sent:sent };
+  }).filter(function(r){ return r.st; });
+
+  if(filter==='sent') rows=rows.filter(function(r){return r.sent.length;});
+  if(filter==='notsent') rows=rows.filter(function(r){return !r.sent.length;});
+
+  rows.sort(function(a,b){
+    // не відіслані зверху, далі за іменем
+    var sa=a.sent.length?1:0, sb=b.sent.length?1:0;
+    if(sa!==sb) return sa-sb;
+    return ((a.st.fn||'')+(a.st.ln||'')).localeCompare((b.st.fn||'')+(b.st.ln||''),'uk');
+  });
+
+  var sentCount=rows.filter(function(r){return r.sent.length;}).length;
+  var total=Object.keys(need).length;
+
+  var CH={viber:'\uD83D\uDFE3 Viber',telegram:'\u2708\uFE0F Telegram',email:'\u2709\uFE0F Email',copy:'\uD83D\uDCCB \u041a\u043e\u043f\u0456\u044f'};
+
+  var head='<div style="display:flex;gap:16px;padding:8px 14px 12px;flex-wrap:wrap">'
+    +'<div style="font-size:13px"><b style="font-size:20px;color:var(--tut)">'+sentCount+'</b> / '+total+' \u0432\u0456\u0434\u0456\u0441\u043b\u0430\u043d\u043e</div>'
+    +'<div style="flex:1;min-width:120px;align-self:center"><div style="height:8px;background:var(--s3);border-radius:10px;overflow:hidden"><div style="height:100%;width:'+(total?Math.round(sentCount/total*100):0)+'%;background:var(--tut);transition:width .4s"></div></div></div>'
+    +'</div>';
+
+  if(!rows.length){ body.innerHTML=head+'<div style="padding:20px;text-align:center;color:var(--t3)">\u041d\u0435\u043c\u0430\u0454 \u0443\u0447\u043d\u0456\u0432 \u0456\u0437 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u043c\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f\u043c\u0438 \u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f</div>'; return; }
+
+  var list=rows.map(function(r){
+    var isSent=r.sent.length>0;
+    var last=isSent?r.sent.slice().sort(function(a,b){return String(b.sent_at).localeCompare(String(a.sent_at));})[0]:null;
+    var av=isSent?'var(--tut)':'var(--warn)';
+    var badge=isSent
+      ? '<span style="background:rgba(34,181,115,.14);color:var(--tut);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">\u2705 \u0412\u0456\u0434\u0456\u0441\u043b\u0430\u043d\u043e</span>'
+      : '<span style="background:rgba(230,126,34,.14);color:var(--warn);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">\u23f3 \u041d\u0435 \u0432\u0456\u0434\u0456\u0441\u043b\u0430\u043d\u043e</span>';
+    var detail=isSent && last
+      ? '<div style="font-size:11px;color:var(--t3)">'+(CH[last.channel]||last.channel||'')+' \u00b7 '+(last.sent_at?new Date(last.sent_at).toLocaleDateString('uk-UA'):'')+(r.sent.length>1?' \u00b7 \u0432\u0441\u044c\u043e\u0433\u043e '+r.sent.length:'')+'</div>'
+      : '<div style="font-size:11px;color:var(--t3)">'+r.count+' \u0437\u0430\u043f\u043b. \u0437\u0430\u043d\u044f\u0442\u044c</div>';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--s3)">'
+      +'<div style="width:34px;height:34px;border-radius:10px;background:'+av+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">'+((r.st.fn||' ')[0]+(r.st.ln||' ')[0]).toUpperCase()+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">'+r.st.fn+' '+r.st.ln+'</div>'+detail+'</div>'
+      +badge
+      +'<button class="btn btn-g btn-sm" onclick="invStatusPick(\''+r.sid+'\')" title="\u0421\u0444\u043e\u0440\u043c\u0443\u0432\u0430\u0442\u0438 \u0440\u0430\u0445\u0443\u043d\u043e\u043a">\u2192</button>'
+      +'</div>';
+  }).join('');
+
+  body.innerHTML=head+list;
+}
+// Клік по «→» у статусі — обираємо учня у формі рахунку
+function invStatusPick(sid){
+  var sel=document.getElementById('inv-student');
+  if(sel){ sel.value=sid; renderInvoicePage(); }
+  var card=document.getElementById('pg-invoice');
+  if(card) card.scrollIntoView({behavior:'smooth',block:'start'});
+}
+window.renderInvoiceStatus=renderInvoiceStatus;
+window.invStatusPick=invStatusPick;
+window.sendInvoiceEmail=sendInvoiceEmail;
 
 function R(){return CU?.role||'tutor';}
 
@@ -3016,6 +3126,7 @@ function setSynced(){
 // =
 async function loadAll(){
   setSaving();
+  await ensureFreshSession(); // оновити токен завчасно, якщо він майже протермінований
   const tables = [
     { table:'branches',      key:'branches' },
     { table:'tutors',        key:'tutors' },
@@ -3028,13 +3139,19 @@ async function loadAll(){
     { table:'tasks',         key:'tasks' },
     { table:'payroll_items', key:'payrollItems' },
   ];
-  const results = await Promise.all(
-    tables.map(function(t){
+  function fetchAll(){
+    return Promise.all(tables.map(function(t){
       var q = _sb.from(t.table).select('*');
       if(t.order) q = q.order(t.order, { ascending:false });
       return q;
-    })
-  );
+    }));
+  }
+  var results = await fetchAll();
+  // Якщо будь-який запит впав через протермінований токен — оновлюємо сесію і повторюємо весь батч
+  var jwtErr = results.find(function(r){ return r && r.error && (String((r.error.message||'')+(r.error.code||'')).includes('JWT')||String((r.error.message||'')).includes('expired')||r.error.status===401); });
+  if(jwtErr && await refreshIfExpired(jwtErr.error)){
+    results = await fetchAll();
+  }
   tables.forEach(function(t, i){ if(results[i] && !results[i].error && Array.isArray(results[i].data)) S[t.key] = results[i].data; });
 
   // Settings
@@ -3167,6 +3284,9 @@ async function loadTableFresh(table){
     payments:normalizePayment,tutors:normalizeTutor,
     comms:normalizeComm,pricingRules:normalizePricingRule,tasks:normalizeTask,payrollItems:normalizePayrollItem};
   var res = await _sb.from(table).select('*');
+  if(res.error && await refreshIfExpired(res.error)){
+    res = await _sb.from(table).select('*'); // повтор після оновлення сесії
+  }
   if(res.error) return;
   var data = res.data || [];
   S[key] = norm[key] ? data.map(norm[key]) : data;
@@ -3177,15 +3297,47 @@ async function loadTableFresh(table){
 // Автоматично оновлює сесію якщо JWT протермінований
 async function refreshIfExpired(error){
   if(!error) return false;
-  if(error.message && (error.message.includes('JWT expired') || error.message.includes('No API key') || error.status === 401)){
+  var msg = (error.message||'') + ' ' + (error.code||'') + ' ' + (error.hint||'');
+  if(msg.includes('JWT expired') || msg.includes('token is expired') || msg.includes('No API key') || msg.includes('PGRST301') || error.status === 401){
     try{
       var r = await _sb.auth.refreshSession();
-      if(r.error){ mkToast('\u0421\u0435\u0441\u0456\u044f \u0437\u0430\u043a\u0456\u043d\u0447\u0438\u043b\u0430\u0441\u044c. \u0041\u0074\u006f\u006c\u006f\u0067\u0074\u0065\u0020\u0437\u043d\u043e\u0432\u0443.','error'); return false; }
+      if(r.error){
+        // Не вдалось оновити — пробуємо м'яко перезайти з наявною сесією
+        var s = await _sb.auth.getSession();
+        if(s.data && s.data.session) return true;
+        mkToast('\u0421\u0435\u0441\u0456\u044f \u0437\u0430\u043a\u0456\u043d\u0447\u0438\u043b\u0430\u0441\u044c. \u0423\u0432\u0456\u0439\u0434\u0456\u0442\u044c \u0437\u043d\u043e\u0432\u0443.','error');
+        return false;
+      }
       return true; // успішно оновлено
     }catch(e){ return false; }
   }
   return false;
 }
+
+// Читання з бази з автоповтором при протермінованому токені.
+// buildQuery — функція, що будує запит: (from)=>from('table').select('*')...
+async function sbSelect(buildQuery){
+  var res = await buildQuery(_sb.from.bind(_sb));
+  if(res && res.error && await refreshIfExpired(res.error)){
+    res = await buildQuery(_sb.from.bind(_sb)); // повтор після оновлення сесії
+  }
+  return res;
+}
+
+// Проактивне оновлення токена: якщо до закінчення < 5 хв — оновлюємо завчасно.
+// Викликається перед завантаженням даних і періодично, щоб не ловити "JWT expired".
+async function ensureFreshSession(){
+  try{
+    var s = await _sb.auth.getSession();
+    var sess = s.data && s.data.session;
+    if(!sess) return;
+    var expAt = sess.expires_at ? sess.expires_at*1000 : 0; // сек → мс
+    if(expAt && (expAt - Date.now() < 5*60*1000)){
+      await _sb.auth.refreshSession();
+    }
+  }catch(e){}
+}
+window.ensureFreshSession = ensureFreshSession;
 
 
 // ══════════ ЖУРНАЛ ЗМІН (AUDIT LOG) ══════════
@@ -4092,6 +4244,17 @@ function initTheme(){
 window.toggleTheme=toggleTheme;
 
 async function startApp(){
+  // Проактивне оновлення токена: періодично та при поверненні на вкладку/у застосунок.
+  // Це головний захист від "JWT expired" після сну ноутбука чи згорнутого PWA.
+  if(!window._sessTimersSet){
+    window._sessTimersSet=true;
+    setInterval(function(){ try{ ensureFreshSession(); }catch(e){} }, 4*60*1000); // кожні 4 хв
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState==='visible'){ try{ ensureFreshSession(); }catch(e){} }
+    });
+    window.addEventListener('focus', function(){ try{ ensureFreshSession(); }catch(e){} });
+    window.addEventListener('online', function(){ try{ ensureFreshSession(); }catch(e){} });
+  }
   // Inject page visibility CSS
   if(!document.getElementById('__pcss__')){
     var _st=document.createElement('style');
@@ -4761,10 +4924,9 @@ async function renderAudit(){
 
   tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--t3)">\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F...</td></tr>';
   try{
-    var q=_sb.from('audit_log').select('*').order('created_at',{ascending:false}).limit(500);
-    if(fUser) q=q.eq('user_id',fUser);
-    if(fAction) q=q.eq('action',fAction);
-    var res=await q;
+    function buildAQ(){ var q=_sb.from('audit_log').select('*').order('created_at',{ascending:false}).limit(500); if(fUser) q=q.eq('user_id',fUser); if(fAction) q=q.eq('action',fAction); return q; }
+    var res=await buildAQ();
+    if(res.error && await refreshIfExpired(res.error)) res=await buildAQ();
     if(res.error) throw res.error;
     var rows=res.data||[];
     if(!rows.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">\u0417\u0430\u043F\u0438\u0441\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</td></tr>'; return; }
@@ -5380,13 +5542,13 @@ function nav(page){
   if(page==='settings')renderSettings();
   if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
   if(page==='comms'){try{renderCommsPage();}catch(e){console.error('renderCommsPage:',e);}}
-  if(page==='invoice') renderInvoicePage();
+  if(page==='invoice'){ renderInvoicePage(); try{renderInvoiceStatus();}catch(e){} }
   if(page==='invoice-log') renderInvoiceLog();
   if(page==='missed') renderMissedLessons();
   if(page==='tasks'){try{renderTasks();}catch(e){console.error('renderTasks:',e);}}
   if(page==='payroll'){try{renderPayroll();}catch(e){console.error('renderPayroll:',e);}}
   if(page==='audit'){try{renderAudit();}catch(e){console.error('renderAudit:',e);}}
-  if(page==='invoice') renderInvoicePage();
+  if(page==='invoice'){ renderInvoicePage(); try{renderInvoiceStatus();}catch(e){} }
   if(page==='invoice-log') renderInvoiceLog();
   var _crmEl=document.getElementById('pg-crm');
   if(page==='crm'){if(_crmEl)_crmEl.style.display='flex';renderCrm();}
@@ -6812,153 +6974,25 @@ function calcInvoiceLessons(){
 }
 
 function sendInvoiceEmail(){
-  var selEl = document.getElementById('inv-student');
-  var sid   = selEl ? selEl.value : (S._invoiceStudentId||'');
-  var s     = (S.students||[]).find(function(x){ return x.id===sid; });
-  if(!s) return;
-
-  var from    = document.getElementById('inv-date-from').value;
-  var to      = document.getElementById('inv-date-to').value;
-  var price   = parseFloat(document.getElementById('inv-price').value)||0;
-  var email   = document.getElementById('inv-email').value.trim();
-  var notes   = document.getElementById('inv-notes').value.trim();
-  var payment = document.getElementById('inv-payment').value.trim();
-  var cfg     = S.settings||{};
-
-  var lessons = (S.lessons||[]).filter(function(l){
-    return (l.studentId===sid||l.student_id===sid)
-      && (l.status==='planned'||l.status==='scheduled')
-      && l.date >= from && l.date <= to;
-  }).sort(function(a,b){ return (a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||'')); });
-
-  if(!lessons.length){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u0445 \u0443\u0440\u043e\u043a\u0456\u0432 \u0437\u0430 \u043f\u0435\u0440\u0456\u043e\u0434','error'); return; }
-  if(!email){ mkToast('\u0412\u043a\u0430\u0436\u0456\u0442\u044c email \u043e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447\u0430','error'); return; }
-
-  var totalHours2 = Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
-  var total   = Math.round(totalHours2 * price * 10)/10;
-  var center  = cfg.name  || '\u041a\u043e\u043d\u0441\u0442\u0430\u043d\u0442\u0430';
-  var cPhone  = cfg.phone || '';
-  var cEmail  = cfg.email || '';
-  var num     = 'INV-'+Date.now().toString().slice(-6);
-  var today   = fd(localDateStr(new Date()));
-
-  var subject = '\u0420\u0430\u0445\u0443\u043d\u043e\u043a-\u0444\u0430\u043a\u0442\u0443\u0440\u0430 \u2116'+num+' \u2014 '+s.fn+' '+s.ln;
-
-  var body = center+'\n';
-  if(cPhone) body += '\u0422\u0435\u043b: '+cPhone+'\n';
-  if(cEmail) body += 'Email: '+cEmail+'\n';
-  body += '\n\u0420\u0410\u0425\u0423\u041d\u041e\u041a-\u0424\u0410\u041a\u0422\u0423\u0420\u0410 \u2116'+num+'\n';
-  body += '\u0414\u0430\u0442\u0430: '+today+'\n';
-  body += '\u041f\u0435\u0440\u0456\u043e\u0434: '+fd(from)+' \u2014 '+fd(to)+'\n\n';
-  body += '\u041e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447: '+s.fn+' '+s.ln+'\n\n';
-  body += '\u0417\u0410\u041f\u041b\u0410\u041d\u041e\u0412\u0410\u041d\u0406 \u0423\u0420\u041e\u041a\u0418:\n';
-  body += '\u2500'.repeat(40)+'\n';
-  lessons.forEach(function(l, i){
-    var tutor = l.tutorId ? (S.tutors||[]).find(function(t){return t.id===l.tutorId;}) : null;
-    body += (i+1)+'. '+fd(l.date)+(l.time?' \u043e '+l.time:'')+' | '+(l.subject||'')+(tutor?' (\u0440\u0435\u043f. '+tutor.fn+' '+tutor.ln+')':'')+'\n';
-  });
-  body += '\u2500'.repeat(40)+'\n';
-  body += '\u041a\u0456\u043b\u044c\u043a\u0456\u0441\u0442\u044c \u0443\u0440\u043e\u043a\u0456\u0432: '+lessons.length+'\n';
-  if(price){ body += '\u0426\u0456\u043d\u0430 \u0437\u0430 \u0443\u0440\u043e\u043a: '+price+' \u0433\u0440\u043d\n'; }
-  if(price){ body += '\u0421\u0423\u041c\u0410 \u0414\u041e \u041e\u041f\u041b\u0410\u0422\u0418: '+total+' \u0433\u0440\u043d\n'; }
-  if(payment){ body += '\n\u0420\u0415\u041a\u0412\u0406\u0417\u0418\u0422\u0418 \u0414\u041b\u042f \u041e\u041f\u041b\u0410\u0422\u0418:\n'+payment+'\n'; }
-  if(notes){ body += '\n\u041f\u0440\u0438\u043c\u0456\u0442\u043a\u0430: '+notes+'\n'; }
-
-  // Short body for mailto (browsers limit URL length to ~2000 chars)
-  var shortBody = center+'\n'
-    +(cPhone?'Тел: '+cPhone+'\n':'')
-    +(cEmail?'Email: '+cEmail+'\n':'')
-    +'\nРАХУНОК-ФАКТУРА №'+num+'\n'
-    +'Період: '+fd(from)+' — '+fd(to)+'\n'
-    +'Отримувач: '+s.fn+' '+s.ln+'\n'
-    +'Кількість уроків: '+lessons.length+'\n'
-    +(price?'СУМА: '+total+' грн\n':'')
-    +(payment?'\nРЕКВІЗИТИ:\n'+payment+'\n':'')
-    +(notes?'\nПримітка: '+notes:'');
-
-  var mailto = 'mailto:'+encodeURIComponent(email)
-    +'?subject='+encodeURIComponent(subject)
-    +'&body='+encodeURIComponent(shortBody);
-
-  // Show popup
-  var oldPop = document.getElementById('inv-popup');
-  if(oldPop) oldPop.remove();
-
-  var copyText = 'Тема: '+subject+'\nОтримувач: '+email+'\n\n'+body;
-
-  var pop = document.createElement('div');
-  pop.id = 'inv-popup';
-  pop.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 22px;box-shadow:0 8px 32px rgba(0,0,0,.3);z-index:9999;min-width:300px;text-align:center';
-
-  var t = document.createElement('div');
-  t.style.cssText = 'font-weight:700;font-size:15px;margin-bottom:6px';
-  t.textContent = 'Рахунок готовий';
-  pop.appendChild(t);
-
-  var s = document.createElement('div');
-  s.style.cssText = 'font-size:12px;color:var(--t2);margin-bottom:14px';
-  s.innerHTML = 'Отримувач: <b>'+email+'</b>';
-  pop.appendChild(s);
-
-  var row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap';
-
-  var aLink = document.createElement('a');
-  aLink.href = mailto;
-  aLink.textContent = 'Відкрити пошту';
-  aLink.style.cssText = 'background:var(--adm);color:#fff;padding:8px 16px;border-radius:9px;text-decoration:none;font-size:13px;font-weight:700;cursor:pointer';
-  aLink.addEventListener('click', function(e){
-    e.preventDefault();
-    pop.remove();
-    // Try multiple methods
-    try{ window.location.href = mailto; } catch(e1){}
-    setTimeout(function(){
-      try{ window.open(mailto,'_self'); } catch(e2){}
-    }, 100);
-  });
-  row.appendChild(aLink);
-
-  var cpBtn = document.createElement('button');
-  cpBtn.textContent = 'Скопіювати текст';
-  cpBtn.style.cssText = 'background:var(--s2);border:1px solid var(--b1);padding:8px 16px;border-radius:9px;font-size:13px;cursor:pointer';
-  cpBtn.addEventListener('click', function(){
-    navigator.clipboard.writeText(copyText).then(function(){
-      cpBtn.textContent = 'Скопійовано ✔';
-      cpBtn.style.background = 'var(--tut)';
-      cpBtn.style.color = '#fff';
-    }).catch(function(){
-      prompt('Копіюйте:', copyText);
-    });
-  });
-  row.appendChild(cpBtn);
-
-  var clBtn = document.createElement('button');
-  clBtn.textContent = 'Закрити';
-  clBtn.style.cssText = 'background:var(--s2);border:1px solid var(--b1);padding:8px 16px;border-radius:9px;font-size:13px;cursor:pointer';
-  clBtn.addEventListener('click', function(){ pop.remove(); });
-  row.appendChild(clBtn);
-
-  // Viber button (if student has phone)
-  // Priority: parent phone for invoices
-  var phoneEl = document.getElementById('inv-phone');
-  var studPhone = (phoneEl && phoneEl.value) || s.parentPhone || s.parent_phone || s.phone || '';
-  if(studPhone){
-    var vBtn = document.createElement('button');
-    vBtn.textContent = '⚫ Viber';
-    vBtn.style.cssText = 'background:#7360f2;color:#fff;border:none;padding:8px 16px;border-radius:9px;font-size:13px;cursor:pointer;font-weight:700';
-    vBtn.addEventListener('click', function(){
-      var phone = studPhone.replace(/[^0-9]/g,'');
-      if(phone.charAt(0)==='0') phone = '38'+phone;
-      var vText = subject+'\n\n'+shortBody;
-      var vLink = 'viber://chat?number='+phone+'&text='+encodeURIComponent(vText);
-      window.location.href = vLink;
-      pop.remove();
-    });
-    row.appendChild(vBtn);
+  var m = window._invMeta || {};
+  var s = m.studentId ? (S.students||[]).find(function(x){return x.id===m.studentId;}) : null;
+  if(!s){ mkToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f','error'); return; }
+  var email = (s.email||s.parent_email||'').trim();
+  if(!email){
+    email = prompt('Email \u043e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447\u0430 (\u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e \u0432 \u043a\u0430\u0440\u0442\u0446\u0456):', '');
+    if(!email) return;
   }
-
-  pop.appendChild(row);
-  document.body.appendChild(pop);
+  var cfg = S.settings||{};
+  var subj = '\u0420\u0430\u0445\u0443\u043d\u043e\u043a \u043d\u0430 \u043e\u043f\u043b\u0430\u0442\u0443'
+    + (cfg.name?' \u2014 '+cfg.name:'')
+    + (m.from||m.to?' ('+(m.from?fd(m.from)+' \u2013 ':'')+(m.to?fd(m.to):'')+')':'');
+  var body = window._invText || '';
+  _logInvoiceSend('email', email);
+  var href = 'mailto:'+encodeURIComponent(email)
+    + '?subject='+encodeURIComponent(subj)
+    + '&body='+encodeURIComponent(body);
+  window.location.href = href;
+  mkToast('\u0412\u0456\u0434\u043a\u0440\u0438\u0432\u0430\u0454\u043c\u043e \u043f\u043e\u0448\u0442\u043e\u0432\u0438\u0439 \u043a\u043b\u0456\u0454\u043d\u0442\u2026');
 }
 
 window.calcInvoiceLessons = calcInvoiceLessons;
