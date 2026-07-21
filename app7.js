@@ -4560,39 +4560,98 @@ function renderPayroll(){
   var tutors=(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
   if(fT) tutors=tutors.filter(function(t){return t.id===fT;});
 
-  var grand=0, html='';
+  // Кольори-акценти для аватарів (циклічно)
+  var AV=['#29abe2','#22b573','#f59e0b','#8b5cf6','#ec4899','#0ea5e9','#14b8a6','#f97316'];
+  function initials(t){ return ((t.fn||' ')[0]+(t.ln||' ')[0]).toUpperCase(); }
+  function money(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA'); }
+
+  // Спершу рахуємо все, щоб зробити зведення
+  var rows=[], grand=0, sumDone=0, sumMakeup=0, sumExtra=0, activeCount=0;
   tutors.forEach(function(t){
-    var pt=payrollTotal(t.id, per);
-    var b=pt.base;
-    if(!b.doneCount&&!b.makeupCount&&!payrollItemsFor(t.id,per).length&&fT==='') return; // порожніх не показуємо у загальному списку
-    grand+=pt.total;
+    var pt=payrollTotal(t.id, per), b=pt.base;
+    var hasData=b.doneCount||b.makeupCount||payrollItemsFor(t.id,per).length;
+    if(!hasData && fT==='') return;
+    grand+=pt.total; sumDone+=b.doneSalary; sumMakeup+=b.makeupSalary; sumExtra+=pt.extra;
+    if(hasData) activeCount++;
+    rows.push({t:t, pt:pt, b:b});
+  });
+
+  var html='';
+
+  // ── Зведена панель ──
+  if(rows.length){
+    var maxBar=Math.max(sumDone+sumMakeup, 1);
+    html+='<div class="pr-summary">'
+      +'<div class="pr-sum-main">'
+        +'<div class="pr-sum-label">\u0424\u043E\u043D\u0434 \u043E\u043F\u043B\u0430\u0442\u0438 \u0437\u0430 '+prMonthName(per)+'</div>'
+        +'<div class="pr-sum-grand">'+money(grand)+'<span class="pr-cur">\u20B4</span></div>'
+        +'<div class="pr-sum-sub">'+activeCount+' '+prPlural(activeCount,'\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440','\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438','\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432')+' \u00B7 \u043A\u043E\u0435\u0444. '+payrollCoef()+'</div>'
+      +'</div>'
+      +'<div class="pr-sum-break">'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#22b573"></span><span class="pr-break-lbl">\u0423\u0440\u043E\u043A\u0438</span><span class="pr-break-val">'+money(sumDone)+'\u20B4</span></div>'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#f59e0b"></span><span class="pr-break-lbl">\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F</span><span class="pr-break-val">'+money(sumMakeup)+'\u20B4</span></div>'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#8b5cf6"></span><span class="pr-break-lbl">\u0414\u043E\u0434\u0430\u0442\u043A\u043E\u0432\u0435</span><span class="pr-break-val" style="color:'+(sumExtra<0?'var(--danger)':'inherit')+'">'+(sumExtra>=0?'+':'')+money(sumExtra)+'\u20B4</span></div>'
+      +'</div>'
+    +'</div>';
+  }
+
+  // ── Картки репетиторів ──
+  html+='<div class="pr-grid">';
+  rows.forEach(function(r, idx){
+    var t=r.t, pt=r.pt, b=r.b;
+    var av=AV[idx % AV.length];
     var items=payrollItemsFor(t.id, per);
     var itemsHtml=items.map(function(i){
       var amt=payrollItemAmount(i,b.base);
-      return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;border-bottom:1px dashed var(--b1)">'
-        +'<span>'+(i.label||'\u2014')+(i.percent!=null&&i.percent!==''?' ('+i.percent+'%)':'')+'</span>'
-        +'<span style="white-space:nowrap;font-weight:600;color:'+(amt<0?'var(--danger)':'var(--tut)')+'">'+(amt>=0?'+':'')+amt+'\u20B4'
-        +' <button onclick="delPayrollItem(\''+i.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px">\u2715</button></span>'
-        +'</div>';
+      var neg=amt<0;
+      return '<div class="pr-item">'
+        +'<span class="pr-item-lbl">'+(i.label||'\u2014')+(i.percent!=null&&i.percent!==''?' <span style="color:var(--t3)">('+i.percent+'%)</span>':'')+'</span>'
+        +'<span class="pr-item-amt '+(neg?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+'\u20B4'
+        +'<button onclick="delPayrollItem(\''+i.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" class="pr-item-del">\u2715</button></span>'
+      +'</div>';
     }).join('');
-    html+='<div class="card" style="margin-bottom:12px">'
-      +'<div class="ch"><span class="ct">'+t.fn+' '+t.ln+'</span>'
-      +'<span style="margin-left:auto;font-size:15px;font-weight:700;color:var(--tut)">'+pt.total+'\u20B4</span>'
-      +'<button class="btn btn-g btn-sm" style="margin-left:10px" onclick="printPayroll(\''+t.id+'\')">\uD83D\uDDA8 \u0414\u0440\u0443\u043A</button></div>'
-      +'<div style="padding:0 14px 12px">'
-      +'<table style="width:100%;font-size:12px"><tbody>'
-      +'<tr><td>\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432 (\u00D7'+payrollCoef()+')</td><td style="text-align:right;font-weight:600">'+b.doneCount+' ('+b.doneHours+'\u0433) \u2014 '+b.doneSalary+'\u20B4</td></tr>'
-      +'<tr><td>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E (\u00D7'+payrollCoef()+')</td><td style="text-align:right;font-weight:600">'+b.makeupCount+' ('+b.makeupHours+'\u0433) \u2014 '+b.makeupSalary+'\u20B4</td></tr>'
-      +'</tbody></table>'
-      +(itemsHtml?'<div style="margin-top:6px">'+itemsHtml+'</div>':'')
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'
-      +'<button class="btn btn-g btn-sm" onclick="openPayrollItemM(\''+t.id+'\')">+ \u0414\u043E\u0434\u0430\u0442\u0438 \u043F\u0443\u043D\u043A\u0442</button>'
-      +'<div style="font-size:13px;font-weight:700">\u0420\u0430\u0437\u043E\u043C: '+pt.total+'\u20B4</div>'
-      +'</div></div></div>';
+
+    // Прогрес-бар: частка уроків vs відпрацювань у базі
+    var baseSum=b.doneSalary+b.makeupSalary;
+    var donePct=baseSum>0?Math.round(b.doneSalary/baseSum*100):0;
+
+    html+='<div class="pr-card" style="--av:'+av+'">'
+      +'<div class="pr-card-head">'
+        +'<div class="pr-avatar" style="background:'+av+'">'+initials(t)+'</div>'
+        +'<div class="pr-name-wrap"><div class="pr-name">'+t.fn+' '+t.ln+'</div>'
+          +'<div class="pr-meta">'+b.doneCount+' \u0443\u0440\u043E\u043A\u0456\u0432 \u00B7 '+b.makeupCount+' \u0432\u0456\u0434\u043F\u0440.</div></div>'
+        +'<div class="pr-total-badge">'+money(pt.total)+'\u20B4</div>'
+      +'</div>'
+      +'<div class="pr-body">'
+        +'<div class="pr-line"><span class="pr-line-ico" style="color:#22b573">\u25CF</span><span class="pr-line-lbl">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432 <span class="pr-hrs">'+b.doneCount+' / '+b.doneHours+'\u0433 \u00D7'+payrollCoef()+'</span></span><span class="pr-line-val">'+money(b.doneSalary)+'\u20B4</span></div>'
+        +'<div class="pr-line"><span class="pr-line-ico" style="color:#f59e0b">\u25CF</span><span class="pr-line-lbl">\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E <span class="pr-hrs">'+b.makeupCount+' / '+b.makeupHours+'\u0433 \u00D7'+payrollCoef()+'</span></span><span class="pr-line-val">'+money(b.makeupSalary)+'\u20B4</span></div>'
+        +(baseSum>0?'<div class="pr-bar"><div class="pr-bar-done" style="width:'+donePct+'%"></div><div class="pr-bar-make" style="width:'+(100-donePct)+'%"></div></div>':'')
+        +(itemsHtml?'<div class="pr-items">'+itemsHtml+'</div>':'')
+      +'</div>'
+      +'<div class="pr-card-foot">'
+        +'<button class="btn btn-g btn-sm" onclick="openPayrollItemM(\''+t.id+'\')">+ \u041F\u0443\u043D\u043A\u0442</button>'
+        +'<button class="btn btn-g btn-sm" onclick="printPayroll(\''+t.id+'\')">\uD83D\uDDA8 \u0414\u0440\u0443\u043A</button>'
+        +'<div class="pr-foot-total">\u0420\u0430\u0437\u043E\u043C <b>'+money(pt.total)+'\u20B4</b></div>'
+      +'</div>'
+    +'</div>';
   });
-  if(!html) html='<div style="padding:24px;text-align:center;color:var(--t3)">\u0417\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u043D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C</div>';
-  else html+='<div style="text-align:right;font-size:15px;font-weight:800;padding:6px 4px">\u0412\u0421\u042C\u041E\u0413\u041E \u0424\u041E\u041D\u0414: '+Math.round(grand*100)/100+'\u20B4</div>';
+  html+='</div>';
+
+  if(!rows.length) html='<div class="pr-empty"><div style="font-size:38px;margin-bottom:8px">\uD83D\uDCB0</div>\u0417\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u043D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C</div>';
   wrap.innerHTML=html;
+}
+
+// Місяць прописом для періоду 'YYYY-MM'
+function prMonthName(per){
+  var p=String(per||'').split('-');
+  var m=['\u0441\u0456\u0447\u0435\u043D\u044C','\u043B\u044E\u0442\u0438\u0439','\u0431\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u043A\u0432\u0456\u0442\u0435\u043D\u044C','\u0442\u0440\u0430\u0432\u0435\u043D\u044C','\u0447\u0435\u0440\u0432\u0435\u043D\u044C','\u043B\u0438\u043F\u0435\u043D\u044C','\u0441\u0435\u0440\u043F\u0435\u043D\u044C','\u0432\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0436\u043E\u0432\u0442\u0435\u043D\u044C','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0433\u0440\u0443\u0434\u0435\u043D\u044C'][(parseInt(p[1])||1)-1];
+  return (m||'')+' '+(p[0]||'');
+}
+function prPlural(n, one, few, many){
+  var n10=n%10, n100=n%100;
+  if(n10===1&&n100!==11) return one;
+  if(n10>=2&&n10<=4&&(n100<10||n100>=20)) return few;
+  return many;
 }
 
 function openPayrollItemM(tutorId){
