@@ -1181,7 +1181,20 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div>
       </div>
       <!-- ── INVOICE ── -->
-      <div class="page" id="pg-invoice"><div class="card"><div class="ch"><span class="ct">💳 Рахунок</span><div style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">Учень:</label><select id="inv-student" onchange="renderInvoicePage()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="">— оберіть учня —</option></select></div></div><div style="padding:16px" id="invoice-content"><div style="color:var(--t3);text-align:center;padding:40px">Оберіть учня</div></div></div></div>
+      <div class="page" id="pg-invoice"><div class="card"><div class="ch"><span class="ct">💳 Рахунок</span><div style="display:flex;gap:8px;align-items:center"><label style="font-size:12px">Учень:</label><select id="inv-student" onchange="renderInvoicePage()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)"><option value="">— оберіть учня —</option></select></div></div><div style="padding:16px" id="invoice-content"><div style="color:var(--t3);text-align:center;padding:40px">Оберіть учня</div></div></div>
+        <div class="card" id="inv-status-card" style="margin-top:14px">
+          <div class="ch"><span class="ct">📤 Статус розсилки за період</span>
+            <input type="month" id="ivs-period" onchange="renderInvoiceStatus()" style="font-size:12px;padding:5px 8px;margin-left:12px">
+            <select id="ivs-filter" onchange="renderInvoiceStatus()" style="font-size:12px;padding:5px 8px;margin-left:6px">
+              <option value="">Усі учні</option>
+              <option value="sent">✅ Відіслано</option>
+              <option value="notsent">⏳ Не відіслано</option>
+            </select>
+            <button class="btn btn-g btn-sm" onclick="renderInvoiceStatus()" style="margin-left:auto">↻ Оновити</button>
+          </div>
+          <div id="inv-status-body" style="padding:8px 4px"></div>
+        </div>
+      </div>
       <!-- ── INVOICE LOG ── -->
       <div class="page" id="pg-invoice-log"><div class="card"><div class="ch"><span class="ct">📋 Лог рахунків</span><select id="ilf-user" onchange="renderInvoiceLog()" style="width:200px;font-size:12px;padding:5px 8px;margin-left:auto"><option value="">Всі відправники</option></select></div><div style="overflow-x:auto"><table><thead><tr><th>Дата</th><th>Учень</th><th>Період</th><th>Уроки/Сума</th><th>Канал</th><th>Отримувач</th><th>Відправив</th></tr></thead><tbody id="inv-log-tbody"></tbody></table></div></div></div>
 
@@ -1863,7 +1876,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=payrollui1"></script>
+<script src="app7.js?v=invemail1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
