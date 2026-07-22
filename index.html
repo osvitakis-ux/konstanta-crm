@@ -6,14 +6,20 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <!-- v202606151511 -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Репетиторський центр "Константа"</title>
 <meta name="theme-color" content="#29abe2">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="КРМ Константа">
+<meta name="apple-mobile-web-app-title" content="Константа">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
@@ -502,7 +508,7 @@ textarea{resize:vertical;min-height:72px}
 
   /* modals: bottom sheet */
   .mo{align-items:flex-end!important}
-  .mdl{width:100vw!important;max-width:100vw!important;border-radius:18px 18px 0 0!important;max-height:88vh;margin:0!important;overflow-y:auto}
+  .mdl{width:100vw!important;max-width:100vw!important;min-width:0!important;border-radius:18px 18px 0 0!important;max-height:88vh;margin:0!important;overflow-y:auto;box-sizing:border-box!important}
 
   /* forms: single column */
   .fg{grid-template-columns:1fr!important}
@@ -561,7 +567,7 @@ textarea{resize:vertical;min-height:72px}
   /* Prevent body scroll when sidebar open */
   body.sb-open{overflow:hidden}
   /* Modal fixes for mobile */
-  .mdl{width:100vw!important;max-width:100vw!important;margin:0!important;border-radius:18px 18px 0 0!important;max-height:90vh;overflow-y:auto}
+  .mdl{width:100vw!important;max-width:100vw!important;min-width:0!important;margin:0!important;border-radius:18px 18px 0 0!important;max-height:90vh;overflow-y:auto;box-sizing:border-box!important}
   .mo{align-items:flex-end!important}
   /* Fix tables on mobile */
   table{font-size:12px}
@@ -1897,7 +1903,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=acts1"></script>
+<script src="app7.js?v=mobilefix1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
