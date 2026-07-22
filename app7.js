@@ -193,14 +193,14 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','crm','tasks','audit','invoice-log','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','acts','crm','tasks','audit','invoice-log','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','crm','tasks','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','acts','crm','tasks','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -242,6 +242,7 @@ var NAV_CFG = [
   {id:'tasks',      ico:'\u2611',  lbl:'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F',      sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'audit',      ico:'\uD83D\uDD0D',  lbl:'\u0406\u0441\u0442\u043E\u0440\u0456\u044F \u0437\u043C\u0456\u043D',   sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'invoice-log',ico:'\uD83D\uDCCB',  lbl:'\u041B\u043E\u0433 \u0440\u0430\u0445\u0443\u043D\u043A\u0456\u0432', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
+  {id:'acts',       ico:'\uD83D\uDCC4',  lbl:'\u0410\u043A\u0442\u0438 \u0440\u043E\u0431\u0456\u0442',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'users',      ico:'\u25CE',  lbl:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438',      sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'branches',   ico:'\uD83C\uDFE2',  lbl:'\u0424\u0456\u043B\u0456\u0457',         sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'telephony',  ico:'\u25C9',  lbl:'\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u0456\u044F', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
@@ -251,7 +252,7 @@ var NAV_CFG = [
 
 var DEFAULT_NAV_CFG = NAV_CFG;
 
-var PLABELS={dashboard:'Дашборд',students:'Учні',tutors:'Репетитори',schedule:'Розклад',lessons:'Заняття',payments:'Оплата',reports:'Аналітика',users:'Акаунти',settings:'Налаштування',profile:'Мій профіль',crm:'CRM',analytics:'Статистика',comms:'Комунікації',missed:'Пропущені уроки',invoice:'Рахунок',branches:'Філії',telephony:'Телефонія',tasks:'Завдання',payroll:'Зарплати',audit:'Історія змін'};
+var PLABELS={dashboard:'Дашборд',students:'Учні',tutors:'Репетитори',schedule:'Розклад',lessons:'Заняття',payments:'Оплата',reports:'Аналітика',users:'Акаунти',settings:'Налаштування',profile:'Мій профіль',crm:'CRM',analytics:'Статистика',comms:'Комунікації',missed:'Пропущені уроки',invoice:'Рахунок',branches:'Філії',telephony:'Телефонія',tasks:'Завдання',payroll:'Зарплати',audit:'Історія змін',acts:'Акти робіт'};
 
 function localDateStr(d){
   if(typeof d === 'string') return d;
@@ -456,8 +457,8 @@ function openBranchM(id){
     var el=document.getElementById('br-'+f);
     if(el) el.value=b?(b[f]||b[f.replace('addr','address')]||''):'';
   });
-  ['pay_recipient','pay_card','pay_bank','pay_edrpou','pay_purpose'].forEach(function(f){
-    var el=document.getElementById('br-'+f.replace('_','-'));
+  ['pay_recipient','pay_address','pay_card','pay_bank','pay_edrpou','pay_purpose'].forEach(function(f){
+    var el=document.getElementById('br-'+f.replace(/_/g,'-'));
     if(el) el.value=b?(b[f]||''):'';
   });
   S.editId=id||null;
@@ -473,6 +474,7 @@ async function saveBranchModal(){
     phone:(document.getElementById('br-phone')||{value:''}).value,
     email:(document.getElementById('br-email')||{value:''}).value,
     pay_recipient:(document.getElementById('br-pay-recipient')||{value:''}).value,
+    pay_address:(document.getElementById('br-pay-address')||{value:''}).value,
     pay_card:(document.getElementById('br-pay-card')||{value:''}).value,
     pay_bank:(document.getElementById('br-pay-bank')||{value:''}).value,
     pay_edrpou:(document.getElementById('br-pay-edrpou')||{value:''}).value,
@@ -1147,6 +1149,212 @@ function invStatusPick(sid){
 window.renderInvoiceStatus=renderInvoiceStatus;
 window.invStatusPick=invStatusPick;
 window.sendInvoiceEmail=sendInvoiceEmail;
+
+// ══════════ АКТИ ВИКОНАНИХ РОБІТ ══════════
+// Доступно лише богу та директору. Формується по учню за період на основі
+// ПРОВЕДЕНИХ занять (done/completed/makeup) — тобто фактично наданих послуг.
+// Технічне зауваження: точна юридична форма акта залежить від договору
+// з клієнтом і системи оподаткування — узгодьте шаблон з бухгалтером
+// перед першою розсилкою. Тут закладені обов'язкові реквізити первинного
+// документа (назва, дата, сторони, зміст/обсяг послуг, підписи) за
+// орієнтиром ст.9 Закону "Про бухгалтерський облік".
+function canActs(){ return R()==='god'||R()==='director'; }
+
+function actPeriod(){
+  var el=document.getElementById('act-period');
+  if(el&&el.value) return el.value;
+  var n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
+}
+
+// Проведені послуги учня за період (done/completed/makeup — те, що реально надано)
+function actLessonsFor(sid, period){
+  return (S.lessons||[]).filter(function(l){
+    if((l.studentId||l.student_id)!==sid) return false;
+    if(String(l.date||'').slice(0,7)!==period) return false;
+    return l.status==='done'||l.status==='completed'||l.status==='makeup';
+  }).sort(function(a,b){return String(a.date).localeCompare(String(b.date));});
+}
+
+function actLogFor(sid, period){
+  return (S.actLog||[]).filter(function(r){return (r.studentId||r.student_id)===sid && r.period===period;});
+}
+
+function renderActsPage(){
+  var wrap=document.getElementById('acts-body');
+  if(!wrap) return;
+  if(!canActs()){ wrap.innerHTML='<div style="padding:20px;color:var(--t3)">\u0414\u043E\u0441\u0442\u0443\u043F \u043B\u0438\u0448\u0435 \u0434\u043B\u044F \u0431\u043E\u0433\u0430 \u0442\u0430 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0430</div>'; return; }
+  var per=actPeriod();
+  var perEl=document.getElementById('act-period');
+  if(perEl&&!perEl.value) perEl.value=per;
+  var filter=(document.getElementById('act-filter')||{value:''}).value;
+
+  var students=(S.students||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+  var rows=[];
+  students.forEach(function(s){
+    var lessons=actLessonsFor(s.id, per);
+    if(!lessons.length) return;
+    var log=actLogFor(s.id, per);
+    var signed=log.some(function(r){return r.status==='signed';});
+    var sent=log.length>0;
+    rows.push({s:s, lessons:lessons, log:log, signed:signed, sent:sent});
+  });
+  if(filter==='sent') rows=rows.filter(function(r){return r.sent;});
+  if(filter==='notsent') rows=rows.filter(function(r){return !r.sent;});
+  if(filter==='signed') rows=rows.filter(function(r){return r.signed;});
+
+  rows.sort(function(a,b){
+    var wa=a.signed?2:(a.sent?1:0), wb=b.signed?2:(b.sent?1:0);
+    if(wa!==wb) return wa-wb;
+    return (a.s.fn+a.s.ln).localeCompare(b.s.fn+b.s.ln,'uk');
+  });
+
+  var signedCount=rows.filter(function(r){return r.signed;}).length;
+  var sentCount=rows.filter(function(r){return r.sent;}).length;
+  var total=rows.length;
+
+  var head='<div style="display:flex;gap:16px;padding:8px 4px 14px;flex-wrap:wrap;align-items:center">'
+    +'<div style="font-size:13px"><b style="font-size:20px;color:var(--tut)">'+signedCount+'</b> / '+total+' \u043f\u0456\u0434\u043f\u0438\u0441\u0430\u043D\u043E \u00B7 '+sentCount+' \u043D\u0430\u0434\u0456\u0441\u043B\u0430\u043D\u043E</div>'
+    +'<div style="flex:1;min-width:120px"><div style="height:8px;background:var(--s3);border-radius:10px;overflow:hidden"><div style="height:100%;width:'+(total?Math.round(signedCount/total*100):0)+'%;background:var(--tut);transition:width .4s"></div></div></div>'
+    +'</div>';
+
+  if(!rows.length){ wrap.innerHTML=head+'<div style="padding:24px;text-align:center;color:var(--t3)">\u0417\u0430 \u0446\u0435\u0439 \u043F\u0435\u0440\u0456\u043E\u0434 \u043D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C</div>'; return; }
+
+  var list=rows.map(function(r){
+    var hours=Math.round(r.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    var sum=Math.round(r.lessons.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100;
+    var badge=r.signed
+      ? '<span style="background:rgba(34,181,115,.14);color:var(--tut);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">\u2713 \u041F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u043E</span>'
+      : (r.sent
+        ? '<span style="background:rgba(230,126,34,.14);color:var(--warn);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">\u2709 \u041D\u0430\u0434\u0456\u0441\u043B\u0430\u043D\u043E</span>'
+        : '<span style="background:rgba(148,163,184,.16);color:var(--t3);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">\u25CB \u041D\u0435 \u0441\u0444\u043E\u0440\u043C\u043E\u0432\u0430\u043D\u043E</span>');
+    return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--s3)">'
+      +'<div style="width:34px;height:34px;border-radius:10px;background:var(--adm);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">'+((r.s.fn||' ')[0]+(r.s.ln||' ')[0]).toUpperCase()+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">'+r.s.fn+' '+r.s.ln+'</div>'
+        +'<div style="font-size:11px;color:var(--t3)">'+r.lessons.length+' \u043F\u043E\u0441\u043B\u0443\u0433 \u00B7 '+hours+'\u0433 \u00B7 '+sum+'\u20B4</div></div>'
+      +badge
+      +'<button class="btn btn-g btn-sm" onclick="printAct(\''+r.s.id+'\')" title="\u0421\u0444\u043E\u0440\u043C\u0443\u0432\u0430\u0442\u0438/\u0434\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438">\uD83D\uDDA8 \u0410\u043A\u0442</button>'
+      +(!r.signed?'<button class="btn btn-g btn-sm" onclick="markActSigned(\''+r.s.id+'\')" title="\u041F\u043E\u0437\u043D\u0430\u0447\u0438\u0442\u0438 \u043F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u0438\u043C \u0432\u0440\u0443\u0447\u043D\u0443">\u2713 \u041F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u043E</button>':'')
+      +'</div>';
+  }).join('');
+
+  wrap.innerHTML=head+list;
+}
+
+// Позначити акт підписаним вручну (коли клієнт повернув підписаний документ)
+async function markActSigned(sid){
+  if(!canActs()) return;
+  var per=actPeriod();
+  var obj={ id:uid(), student_id:sid, period:per, status:'signed', channel:'manual',
+    sent_by:CU?CU.id:null, sent_at:new Date().toISOString(), signed_at:new Date().toISOString() };
+  try{
+    await dbInsert('act_log', obj);
+    S.actLog=(S.actLog||[]).concat([Object.assign({},obj,{studentId:sid,sentBy:obj.sent_by,signedAt:obj.signed_at})]);
+    mkToast('\u041F\u043E\u0437\u043D\u0430\u0447\u0435\u043D\u043E \u044F\u043A \u043F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u0438\u0439 \u2705');
+    renderActsPage();
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error'); }
+}
+
+// Друк акта: генерує документ із реквізитами, переліком послуг і двома підписами
+function printAct(sid){
+  if(!canActs()) return;
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  if(!s){ mkToast('\u0423\u0447\u0435\u043D\u044C \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error'); return; }
+  var per=actPeriod();
+  var lessons=actLessonsFor(sid, per);
+  if(!lessons.length){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C \u0437\u0430 \u0446\u0435\u0439 \u043F\u0435\u0440\u0456\u043E\u0434','error'); return; }
+
+  var bid=myBranchId();
+  var branch=(S.branches||[]).find(function(b){return b.id===bid;}) || (S.branches||[])[0];
+  var cfg=S.settings||{};
+
+  // Групуємо за предметом+репетитором — рядки акта як послуги
+  var groups={}, order=[];
+  lessons.forEach(function(l){
+    var tid=l.tutorId||l.tutor_id;
+    var t=tid?(S.tutors||[]).find(function(x){return x.id===tid;}):null;
+    var key=(tid||'')+'|'+(l.subject||'');
+    if(!groups[key]){ groups[key]={tutor:t, subj:l.subject||'\u0406\u043D\u0448\u0435', lessons:[]}; order.push(key); }
+    groups[key].lessons.push(l);
+  });
+
+  var totalHours=Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var totalSum=Math.round(lessons.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100;
+
+  var actNo=(s.id||'').slice(0,6).toUpperCase()+'-'+per.replace('-','');
+  var perLbl=(function(){ var p=per.split('-'); var m=['\u0441\u0456\u0447\u0435\u043D\u044C','\u043B\u044E\u0442\u0438\u0439','\u0431\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u043A\u0432\u0456\u0442\u0435\u043D\u044C','\u0442\u0440\u0430\u0432\u0435\u043D\u044C','\u0447\u0435\u0440\u0432\u0435\u043D\u044C','\u043B\u0438\u043F\u0435\u043D\u044C','\u0441\u0435\u0440\u043F\u0435\u043D\u044C','\u0432\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0436\u043E\u0432\u0442\u0435\u043D\u044C','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0433\u0440\u0443\u0434\u0435\u043D\u044C'][parseInt(p[1])-1]; return m+' '+p[0]; })();
+
+  var rowsHtml='';
+  var idx=1;
+  order.forEach(function(key){
+    var g=groups[key];
+    var gHours=Math.round(g.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    var gSum=Math.round(g.lessons.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100;
+    rowsHtml+='<tr><td>'+(idx++)+'</td><td>\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0441\u044C\u043A\u0456 \u043F\u043E\u0441\u043B\u0443\u0433\u0438: '+g.subj+(g.tutor?' ('+g.tutor.fn+' '+g.tutor.ln+')':'')+'</td><td class="c">\u0433\u043E\u0434.</td><td class="c">'+gHours+'</td><td class="r">'+gSum+'</td></tr>';
+  });
+
+  var executor=branch?(branch.pay_recipient||cfg.name||'\u2014'):(cfg.name||'\u2014');
+  var execAddr=branch?(branch.pay_address||branch.address||''):'';
+  var execEdrpou=branch?(branch.pay_edrpou||''):'';
+  var execBank=branch?((branch.pay_bank||'')+(branch.pay_card?', '+branch.pay_card:'')):'';
+
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0410\u043A\u0442 \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u0438\u0445 \u0440\u043E\u0431\u0456\u0442</title>'
+    +'<style>body{font-family:Arial,sans-serif;max-width:720px;margin:24px auto;color:#111;font-size:13px;line-height:1.5}'
+    +'h1{font-size:16px;text-align:center;margin-bottom:2px}'
+    +'.sub{text-align:center;color:#555;font-size:12px;margin-bottom:20px}'
+    +'.parties{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;font-size:12.5px}'
+    +'.parties b{display:block;margin-bottom:4px;font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:#555}'
+    +'table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}'
+    +'th,td{border:1px solid #999;padding:6px 8px;text-align:left} th{background:#f2f2f2;font-size:11.5px}'
+    +'.c{text-align:center} .r{text-align:right}'
+    +'.tot td{font-weight:700;background:#f7f7f7}'
+    +'.sumtext{margin:14px 0;font-size:13px}'
+    +'.sign-wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:44px}'
+    +'.sign-line{border-top:1px solid #111;margin-top:46px;padding-top:4px;font-size:11.5px;color:#333}'
+    +'.legal-note{margin-top:26px;font-size:10.5px;color:#888;border-top:1px dashed #ccc;padding-top:8px}'
+    +'@media print{.noprint{display:none}}</style></head><body>'
+    +'<h1>\u0410\u041A\u0422 \u2116 '+actNo+'</h1>'
+    +'<div class="sub">\u043D\u0430\u0434\u0430\u043D\u043D\u044F \u043E\u0441\u0432\u0456\u0442\u043D\u0456\u0445 \u043F\u043E\u0441\u043B\u0443\u0433 \u0437\u0430 '+perLbl+'<br>\u0432\u0456\u0434 '+new Date().toLocaleDateString('uk-UA')+'</div>'
+    +'<div class="parties">'
+      +'<div><b>\u0412\u0438\u043A\u043E\u043D\u0430\u0432\u0435\u0446\u044C</b>'+executor
+        +(execEdrpou?'<br>\u0406\u041F\u041D/\u0404\u0414\u0420\u041F\u041E\u0423: '+execEdrpou:'')
+        +(execAddr?'<br>'+execAddr:'')
+        +(execBank?'<br>'+execBank:'')
+      +'</div>'
+      +'<div><b>\u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A</b>'+s.fn+' '+s.ln
+        +((s.parentPhone||s.phone)?'<br>'+(s.parentPhone||s.phone):'')
+        +((s.address)?'<br>'+s.address:'')
+      +'</div>'
+    +'</div>'
+    +'<p>\u0426\u0438\u043C \u0430\u043A\u0442\u043E\u043C \u043F\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E \u0412\u0438\u043A\u043E\u043D\u0430\u0432\u0435\u0446\u044C \u043D\u0430\u0434\u0430\u0432 \u043D\u0438\u0436\u0447\u0435\u043D\u0430\u0432\u0435\u0434\u0435\u043D\u0456 \u043F\u043E\u0441\u043B\u0443\u0433\u0438, \u0430 \u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A \u043F\u0440\u0438\u0439\u043D\u044F\u0432 \u0457\u0445 \u0443 \u043F\u043E\u0432\u043D\u043E\u043C\u0443 \u043E\u0431\u0441\u044F\u0437\u0456 \u0431\u0435\u0437 \u0437\u0430\u0443\u0432\u0430\u0436\u0435\u043D\u044C \u0449\u043E\u0434\u043E \u044F\u043A\u043E\u0441\u0442\u0456:</p>'
+    +'<table><thead><tr><th>\u2116</th><th>\u041D\u0430\u0439\u043C\u0435\u043D\u0443\u0432\u0430\u043D\u043D\u044F \u043F\u043E\u0441\u043B\u0443\u0433\u0438</th><th class="c">\u041E\u0434.\u0432\u0438\u043C.</th><th class="c">\u041A\u0456\u043B\u044C\u043A\u0456\u0441\u0442\u044C</th><th class="r">\u0421\u0443\u043C\u0430, \u20B4</th></tr></thead><tbody>'
+    +rowsHtml
+    +'<tr class="tot"><td colspan="3"></td><td class="c">'+totalHours+'</td><td class="r">'+totalSum+'</td></tr>'
+    +'</tbody></table>'
+    +'<div class="sumtext">\u0420\u0430\u0437\u043E\u043C \u043D\u0430\u0434\u0430\u043D\u043E \u043F\u043E\u0441\u043B\u0443\u0433 \u043D\u0430 \u0441\u0443\u043C\u0443 <b>'+totalSum+' \u0433\u0440\u043D.</b> \u041F\u0440\u0435\u0442\u0435\u043D\u0437\u0456\u0439 \u0443 \u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A\u0430 \u0449\u043E\u0434\u043E \u044F\u043A\u043E\u0441\u0442\u0456, \u043E\u0431\u0441\u044F\u0433\u0443 \u0442\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0456\u0432 \u043D\u0430\u0434\u0430\u043D\u043D\u044F \u043F\u043E\u0441\u043B\u0443\u0433 \u043D\u0435 \u043C\u0430\u0454.</div>'
+    +'<div class="sign-wrap">'
+      +'<div>\u0412\u0438\u043A\u043E\u043D\u0430\u0432\u0435\u0446\u044C:<div class="sign-line">'+executor+' \u00A0\u00A0\u00A0\u00A0 \u041F\u0456\u0434\u043F\u0438\u0441: ______________</div></div>'
+      +'<div>\u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A:<div class="sign-line">'+s.fn+' '+s.ln+' \u00A0\u00A0\u00A0\u00A0 \u041F\u0456\u0434\u043F\u0438\u0441: ______________</div></div>'
+    +'</div>'
+    +'<div class="legal-note">\u0424\u043E\u0440\u043C\u0430 \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430 \u043E\u0440\u0456\u0454\u043D\u0442\u043E\u0432\u0430\u043D\u0430 \u043D\u0430 \u043E\u0431\u043E\u0432\u2019\u044F\u0437\u043A\u043E\u0432\u0456 \u0440\u0435\u043A\u0432\u0456\u0437\u0438\u0442\u0438 \u043F\u0435\u0440\u0432\u0438\u043D\u043D\u043E\u0433\u043E \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430 (\u0441\u0442.9 \u0417\u0430\u043A\u043E\u043D\u0443 \u00AB\u041F\u0440\u043E \u0431\u0443\u0445\u0433\u0430\u043B\u0442\u0435\u0440\u0441\u044C\u043A\u0438\u0439 \u043E\u0431\u043B\u0456\u043A\u00BB). \u041F\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u043D\u0456\u0441\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 \u0432\u0430\u0448\u043E\u043C\u0443 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0443 \u0442\u0430 \u0441\u0438\u0441\u0442\u0435\u043C\u0456 \u043E\u043F\u043E\u0434\u0430\u0442\u043A\u0443\u0432\u0430\u043D\u043D\u044F \u0437 \u0431\u0443\u0445\u0433\u0430\u043B\u0442\u0435\u0440\u043E\u043C.</div>'
+    +'<button class="noprint" onclick="window.print()" style="margin-top:20px;padding:8px 18px;font-size:14px;cursor:pointer">\uD83D\uDDA8 \u0414\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438 / \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u044F\u043A PDF</button>'
+    +'</body></html>');
+  w.document.close();
+  setTimeout(function(){ try{w.focus();}catch(e){} }, 300);
+
+  // Логуємо факт формування (не підпис!)
+  var obj={ id:uid(), student_id:sid, period:per, status:'sent', channel:'print',
+    sent_by:CU?CU.id:null, sent_at:new Date().toISOString(), signed_at:null };
+  dbInsert('act_log', obj).then(function(){
+    if(!(S.actLog||[]).some(function(x){return x.id===obj.id;}))
+      S.actLog=(S.actLog||[]).concat([Object.assign({},obj,{studentId:sid,sentBy:obj.sent_by})]);
+    renderActsPage();
+  }).catch(function(){});
+}
+
+window.renderActsPage=renderActsPage;
+window.printAct=printAct;
+window.markActSigned=markActSigned;
 
 function R(){return CU?.role||'tutor';}
 
@@ -3138,6 +3346,7 @@ async function loadAll(){
     { table:'pricing_rules', key:'pricingRules' },
     { table:'tasks',         key:'tasks' },
     { table:'payroll_items', key:'payrollItems' },
+    { table:'act_log',       key:'actLog' },
   ];
   function fetchAll(){
     return Promise.all(tables.map(function(t){
@@ -3171,6 +3380,7 @@ async function loadAll(){
   S.pricingRules = S.pricingRules.map(normalizePricingRule);
   S.tasks = (S.tasks||[]).map(normalizeTask);
   S.payrollItems = (S.payrollItems||[]).map(normalizePayrollItem);
+  S.actLog = (S.actLog||[]).map(function(r){return Object.assign({},r,{studentId:r.student_id,sentBy:r.sent_by,signedAt:r.signed_at});});
   try{ updateTaskAlert(); checkNewTaskNotifications(); }catch(e){}
 
   setSynced();
@@ -5548,6 +5758,7 @@ function nav(page){
   if(page==='tasks'){try{renderTasks();}catch(e){console.error('renderTasks:',e);}}
   if(page==='payroll'){try{renderPayroll();}catch(e){console.error('renderPayroll:',e);}}
   if(page==='audit'){try{renderAudit();}catch(e){console.error('renderAudit:',e);}}
+  if(page==='acts'){try{renderActsPage();}catch(e){console.error('renderActsPage:',e);}}
   if(page==='invoice'){ renderInvoicePage(); try{renderInvoiceStatus();}catch(e){} }
   if(page==='invoice-log') renderInvoiceLog();
   var _crmEl=document.getElementById('pg-crm');
