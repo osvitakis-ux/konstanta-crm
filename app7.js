@@ -5319,32 +5319,73 @@ function makeSuggest(inputId, getOptions){
   inp.parentNode.insertBefore(wrap,inp);
   wrap.appendChild(inp);
   var drop=document.createElement('div');
-  drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.18)';
   wrap.appendChild(drop);
+  var backdrop=null;
+
+  function isMobile(){ return window.innerWidth<=640; }
+
+  function ensureBackdrop(){
+    if(backdrop) return;
+    backdrop=document.createElement('div');
+    backdrop.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:none';
+    backdrop.addEventListener('mousedown',function(e){ e.preventDefault(); closeDrop(); });
+    document.body.appendChild(backdrop);
+  }
+
+  function positionDrop(){
+    if(isMobile()){
+      ensureBackdrop();
+      // На мобільному — на весь екран знизу (bottom sheet), як нативний піквер репетиторів
+      drop.style.cssText='position:fixed;left:0;right:0;bottom:0;top:auto;max-height:65vh;min-height:200px;'
+        +'background:var(--s1);border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.25);'
+        +'z-index:10000;overflow-y:auto;display:none;padding:8px 0 max(8px,env(safe-area-inset-bottom))';
+    } else {
+      drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.18)';
+    }
+  }
+  function closeDrop(){
+    drop.style.display='none';
+    if(backdrop) backdrop.style.display='none';
+  }
+  positionDrop();
+
   function render(q){
     var opts=getOptions()||[];
     var f=q?opts.filter(function(o){return o.toLowerCase().includes(q.toLowerCase());}):opts;
-    if(!f.length){ drop.style.display='none'; return; }
+    if(!f.length){ closeDrop(); return; }
+    var mob=isMobile();
     drop.innerHTML='';
+    if(mob){
+      var handle=document.createElement('div');
+      handle.style.cssText='width:36px;height:4px;background:var(--b2);border-radius:4px;margin:2px auto 8px';
+      drop.appendChild(handle);
+    }
     f.slice(0,40).forEach(function(o){
       var it=document.createElement('div');
       it.textContent=o;
-      it.style.cssText='padding:8px 12px;cursor:pointer;font-size:13px;color:var(--t1)';
+      it.style.cssText=mob
+        ? 'padding:14px 18px;cursor:pointer;font-size:15px;color:var(--t1);border-bottom:1px solid var(--s3)'
+        : 'padding:8px 12px;cursor:pointer;font-size:13px;color:var(--t1)';
       it.addEventListener('mouseenter',function(){it.style.background='var(--s2)';});
       it.addEventListener('mouseleave',function(){it.style.background='';});
       it.addEventListener('mousedown',function(e){
         e.preventDefault();
         inp.value=o;
-        drop.style.display='none';
+        closeDrop();
         inp.dispatchEvent(new Event('change'));
       });
       drop.appendChild(it);
     });
+    if(backdrop) backdrop.style.display='block';
     drop.style.display='block';
   }
-  inp.addEventListener('focus',function(){ render(''); });
+  inp.addEventListener('focus',function(){ positionDrop(); render(inp.value); });
   inp.addEventListener('input',function(){ render(inp.value); });
-  inp.addEventListener('blur',function(){ setTimeout(function(){ drop.style.display='none'; },200); });
+  inp.addEventListener('blur',function(){
+    if(isMobile()) return; // на мобільному закриває лише вибір пункту або тап по фону
+    setTimeout(function(){ drop.style.display='none'; },200);
+  });
+  window.addEventListener('resize', positionDrop);
 }
 window.makeSuggest=makeSuggest;
 window.allKnownSubjects=allKnownSubjects;
