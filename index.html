@@ -1272,6 +1272,27 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <div id="payroll-body"></div>
       </div>
 
+      <!-- ── АКТИ ВИКОНАНИХ РОБІТ ── -->
+      <div class="page" id="pg-acts">
+        <div class="card">
+          <div class="ch">
+            <span class="ct">📄 Акти виконаних робіт</span>
+            <input type="month" id="act-period" onchange="renderActsPage()" style="font-size:12px;padding:5px 8px;margin-left:12px">
+            <select id="act-filter" onchange="renderActsPage()" style="font-size:12px;padding:5px 8px;margin-left:6px">
+              <option value="">Усі учні</option>
+              <option value="signed">✓ Підписані</option>
+              <option value="sent">✉ Надіслані</option>
+              <option value="notsent">○ Не сформовано</option>
+            </select>
+            <button class="btn btn-g btn-sm" onclick="renderActsPage()" style="margin-left:auto">↻ Оновити</button>
+          </div>
+          <div style="padding:8px 14px;font-size:11px;color:var(--t3);border-bottom:1px solid var(--b1)">
+            💡 Акт формується з ПРОВЕДЕНИХ занять і відпрацювань за обраний місяць. Кнопка «Акт» відкриває друковану версію з реквізитами та місцем для підписів — збережіть як PDF через діалог друку. Потребує підпису замовника; позначте «✓ Підписано» вручну, коли отримаєте підписаний документ.
+          </div>
+          <div id="acts-body"></div>
+        </div>
+      </div>
+
       <!-- ── TASKS ── -->
       <div class="page" id="pg-tasks">
         <div class="card">
@@ -1876,7 +1897,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=invemail1"></script>
+<script src="app7.js?v=acts1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
@@ -1889,9 +1910,10 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fg"><label>Email</label><input id="br-email" placeholder="email@..."></div>
       <div class="fg" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--b1)"><label style="color:var(--adm)">💳 Реквізити для оплати</label></div>
       <div class="fg"><label>Отримувач (ФОП/ТОВ/ПІБ)</label><input id="br-pay-recipient" placeholder="ФОП Іваненко І.І."></div>
+      <div class="fg"><label>Адреса реєстрації (для актів)</label><input id="br-pay-address" placeholder="м. Одеса, вул. ..."></div>
       <div class="fg"><label>IBAN</label><input id="br-pay-card" placeholder="UA..."></div>
       <div class="fg"><label>Банк</label><input id="br-pay-bank" placeholder="ПриватБанк, monobank..."></div>
-      <div class="fg"><label>ЄДРПОУ / ІПН</label><input id="br-pay-edrpou" placeholder="12345678"></div>
+      <div class="fg"><label>ЄДРПОУ / ІПН (РНОКПП)</label><input id="br-pay-edrpou" placeholder="12345678"></div>
       <div class="fg"><label>Призначення платежу (шаблон)</label><input id="br-pay-purpose" placeholder="Оплата за навчання"></div>
     </div>
     <div class="mdlf">
