@@ -5332,18 +5332,24 @@ function makeSuggest(inputId, getOptions){
     document.body.appendChild(backdrop);
   }
 
+  var isOpen=false;
+
   function positionDrop(){
     if(isMobile()){
       ensureBackdrop();
       // На мобільному — на весь екран знизу (bottom sheet), як нативний піквер репетиторів
       drop.style.cssText='position:fixed;left:0;right:0;bottom:0;top:auto;max-height:65vh;min-height:200px;'
         +'background:var(--s1);border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.25);'
-        +'z-index:10000;overflow-y:auto;display:none;padding:8px 0 max(8px,env(safe-area-inset-bottom))';
+        +'z-index:10000;overflow-y:auto;padding:8px 0 max(8px,env(safe-area-inset-bottom))';
     } else {
-      drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.18)';
+      drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.18)';
     }
+    // Позиціонування не має чіпати видимість — інакше resize від появи клавіатури ховає щойно відкритий список
+    drop.style.display=isOpen?'block':'none';
+    if(backdrop) backdrop.style.display=isOpen?'block':'none';
   }
   function closeDrop(){
+    isOpen=false;
     drop.style.display='none';
     if(backdrop) backdrop.style.display='none';
   }
@@ -5376,15 +5382,18 @@ function makeSuggest(inputId, getOptions){
       });
       drop.appendChild(it);
     });
-    if(backdrop) backdrop.style.display='block';
+    isOpen=true;
     drop.style.display='block';
+    if(backdrop) backdrop.style.display='block';
   }
   inp.addEventListener('focus',function(){ positionDrop(); render(inp.value); });
   inp.addEventListener('input',function(){ render(inp.value); });
   inp.addEventListener('blur',function(){
     if(isMobile()) return; // на мобільному закриває лише вибір пункту або тап по фону
-    setTimeout(function(){ drop.style.display='none'; },200);
+    setTimeout(function(){ closeDrop(); },200);
   });
+  // На resize перебудовуємо лише розміри/позицію (fixed/absolute), не видимість —
+  // це головний фікс: відкриття клавіатури на мобільному теж генерує resize.
   window.addEventListener('resize', positionDrop);
 }
 window.makeSuggest=makeSuggest;
