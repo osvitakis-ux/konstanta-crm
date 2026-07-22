@@ -49,8 +49,16 @@ window.SupabaseMini = (function(){
             u += sep + this._filters.join('&');
           }
           if(this._isSingle) this._h['Accept'] = 'application/vnd.pgrst.object+json';
-          var opts = { method: this._method, headers: this._h };
+          // keepalive: дозволяє запиту завершитись навіть якщо iOS Safari
+          // згортає вкладку/PWA одразу після натискання "Зберегти" —
+          // без цього iOS може обірвати fetch і зміна ніколи не долетить до бази.
+          var opts = { method: this._method, headers: this._h, keepalive: true };
           if(this._body) opts.body = JSON.stringify(this._body);
+          // keepalive у браузерах обмежує розмір тіла запиту (~64KB) — для великих
+          // payload (масові операції) вимикаємо keepalive, щоб не зрізати запит.
+          try{
+            if(opts.body && opts.body.length > 60000) opts.keepalive = false;
+          }catch(e){}
           try {
             var res = await fetch(u, opts);
             var text = await res.text();
@@ -3317,16 +3325,36 @@ function uid(){ return crypto.randomUUID ? crypto.randomUUID() : Date.now().toSt
 // SYNC INDICATOR
 // =
 function setSaving(){
+  window._pendingWrites = (window._pendingWrites||0) + 1;
   var dot=document.getElementById('syncdot'), lbl=document.getElementById('sync-lbl');
   if(dot) dot.className='sync-dot saving';
   if(lbl){ lbl.textContent='\u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043D\u044F\u2026'; lbl.style.color='var(--warn)'; }
+  // Запобіжник: якщо через якийсь неврахований шлях setSynced не викличеться,
+  // не блокуємо закриття вкладки назавжди — знімаємо прапорець через 15с.
+  clearTimeout(window._pendingWritesSafety);
+  window._pendingWritesSafety = setTimeout(function(){ window._pendingWrites = 0; }, 15000);
 }
 function setSynced(){
+  window._pendingWrites = Math.max(0, (window._pendingWrites||1) - 1);
   clearTimeout(_syncTimer);
   var dot=document.getElementById('syncdot'), lbl=document.getElementById('sync-lbl');
   if(dot) dot.className='sync-dot ok';
   if(lbl){ lbl.textContent='\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0456\u0437\u043E\u0432\u0430\u043D\u043E'; lbl.style.color='var(--tut)'; }
   _syncTimer = setTimeout(function(){ if(lbl){lbl.textContent='\u043E\u043D\u043B\u0430\u0439\u043D';lbl.style.color='var(--t3)';} }, 2500);
+}
+// Захист від втрати даних на iOS: якщо користувач намагається закрити вкладку
+// чи перезавантажити сторінку ПОКИ запис ще летить до бази — попереджаємо.
+// Це головний захист від "не зберігається на iPhone" — коли людина тисне
+// Зберегти і одразу згортає Safari/PWA, не чекаючи підтвердження.
+if(!window._unloadGuardSet){
+  window._unloadGuardSet = true;
+  window.addEventListener('beforeunload', function(e){
+    if(window._pendingWrites > 0){
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
 }
 
 // =
@@ -3334,6 +3362,7 @@ function setSynced(){
 // =
 async function loadAll(){
   setSaving();
+  try{
   await ensureFreshSession(); // оновити токен завчасно, якщо він майже протермінований
   const tables = [
     { table:'branches',      key:'branches' },
@@ -3383,7 +3412,9 @@ async function loadAll(){
   S.actLog = (S.actLog||[]).map(function(r){return Object.assign({},r,{studentId:r.student_id,sentBy:r.sent_by,signedAt:r.signed_at});});
   try{ updateTaskAlert(); checkNewTaskNotifications(); }catch(e){}
 
-  setSynced();
+  } finally {
+    setSynced();
+  }
 }
 
 // Normalize DB rows to match UI field names
@@ -3639,41 +3670,53 @@ async function auditLog(action, table, id, data, diffText){
 async function dbInsert(table, data){
   if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   setSaving();
-  var _ri = await _sb.from(table).insert(data); var error = _ri.error;
-  if(error && await refreshIfExpired(error)){
-    _ri = await _sb.from(table).insert(data); error = _ri.error;
+  try{
+    var _ri = await _sb.from(table).insert(data); var error = _ri.error;
+    if(error && await refreshIfExpired(error)){
+      _ri = await _sb.from(table).insert(data); error = _ri.error;
+    }
+    if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
+    auditLog('insert', table, (data&&data.id)||null, data);
+    setTimeout(function(){ loadTableFresh(table); }, 800);
+  } finally {
+    setSynced();
   }
-  if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
-  auditLog('insert', table, (data&&data.id)||null, data);
-  setTimeout(function(){ loadTableFresh(table); }, 800);
 }
 async function dbUpdate(table, id, data){
   if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   var _diff = auditDiff(table, id, data); // рахуємо до апдейту, поки старий запис у стані
   setSaving();
-  // profiles table has no updated_at column
-  var noTimestamp = ['profiles'];
-  var updateData = noTimestamp.indexOf(table) >= 0 
-    ? Object.assign({}, data)
-    : Object.assign({}, data, {updated_at: new Date().toISOString()});
-  var _ru = await _sb.from(table).update(updateData).eq('id', id); var error = _ru.error;
-  if(error && await refreshIfExpired(error)){
-    _ru = await _sb.from(table).update(updateData).eq('id', id); error = _ru.error;
+  try{
+    // profiles table has no updated_at column
+    var noTimestamp = ['profiles'];
+    var updateData = noTimestamp.indexOf(table) >= 0 
+      ? Object.assign({}, data)
+      : Object.assign({}, data, {updated_at: new Date().toISOString()});
+    var _ru = await _sb.from(table).update(updateData).eq('id', id); var error = _ru.error;
+    if(error && await refreshIfExpired(error)){
+      _ru = await _sb.from(table).update(updateData).eq('id', id); error = _ru.error;
+    }
+    if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
+    auditLog('update', table, id, data, _diff);
+    setTimeout(function(){ loadTableFresh(table); }, 800);
+  } finally {
+    setSynced();
   }
-  if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
-  auditLog('update', table, id, data, _diff);
-  setTimeout(function(){ loadTableFresh(table); }, 800);
 }
 async function dbDelete(table, id){
   if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   setSaving();
-  var _rd = await _sb.from(table).delete().eq('id',id); var error = _rd.error;
-  if(error && await refreshIfExpired(error)){
-    _rd = await _sb.from(table).delete().eq('id',id); error = _rd.error;
+  try{
+    var _rd = await _sb.from(table).delete().eq('id',id); var error = _rd.error;
+    if(error && await refreshIfExpired(error)){
+      _rd = await _sb.from(table).delete().eq('id',id); error = _rd.error;
+    }
+    if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
+    auditLog('delete', table, id, (S[({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'}[table])||'']||[]).find(function(x){return x.id===id;}));
+    setTimeout(function(){ loadTableFresh(table); }, 500);
+  } finally {
+    setSynced();
   }
-  if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
-  auditLog('delete', table, id, (S[({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'}[table])||'']||[]).find(function(x){return x.id===id;}));
-  setTimeout(function(){ loadTableFresh(table); }, 500);
 }
 
 // =
@@ -3830,6 +3873,7 @@ async function mergeDuplicateStudents(){
 
   if(errors.length){ console.error('[merge] \u043F\u043E\u043C\u0438\u043B\u043A\u0438:',errors); mkToast('\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u043E: '+merged+', \u043F\u043E\u043C\u0438\u043B\u043A\u0438: '+errors[0],'error'); }
   else mkToast('\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u043E \u0433\u0440\u0443\u043F: '+merged);
+  setSynced();
 }
 
 // \u0411\u0435\u0437\u043f\u0435\u0447\u043d\u0435 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u043b\u0456\u0434\u0430 \u0437 CRM-\u0434\u043e\u0448\u043a\u0438:
@@ -3851,9 +3895,9 @@ async function delLead(id){
     var idx=(S.students||[]).findIndex(function(x){return x.id===id;});
     if(idx>=0){ S.students[idx].crmStage='removed'; S.students[idx].crm_stage='removed'; }
     if(S.currentPage==='crm') renderCrm();
-    setSynced();
     mkToast('\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e \u0437 CRM (\u0443\u0447\u0435\u043d\u044c \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e)');
   }catch(e){ console.error('delLead exception:', e); mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+  finally{ setSynced(); }
 }
 window.delLead = delLead;
 
