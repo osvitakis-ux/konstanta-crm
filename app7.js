@@ -3729,7 +3729,6 @@ async function saveStudent(){
     fn, ln,
     age:    document.getElementById('s-age')?.value||null,
     grade:  document.getElementById('s-grade')?.value||'',
-    hourly_rate: (function(){var v=parseFloat(document.getElementById('s-rate')?.value);return isNaN(v)?null:v;})(),
     rates: collectRateRows(),
     phone:  document.getElementById('s-phone')?.value||'',
     email:  document.getElementById('s-email')?.value||'',
@@ -5301,8 +5300,6 @@ function allKnownSubjects(){
   var set=[];
   function add(v){ v=(v||'').trim(); if(v&&set.indexOf(v)<0) set.push(v); }
   (S.subjects||[]).forEach(function(x){ add(x&&x.name); });
-  (S.students||[]).forEach(function(st){ studentRateRules(st).forEach(function(r){ add(r.subject); }); });
-  (S.lessons||[]).forEach(function(l){ add(l.subject); });
   return set.sort(function(a,b){return a.localeCompare(b,'uk');});
 }
 
@@ -5514,7 +5511,6 @@ function openStudM(id=null){
       var crmRespEl=document.getElementById('s-crm-resp'); if(crmRespEl) crmRespEl.value=s.crmResponsible||'';
       var pf=document.getElementById('s-parent-fn');if(pf)pf.value=s.parentFn||'';
       var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';
-      var rt=document.getElementById('s-rate');if(rt)rt.value=(s.hourly_rate!=null?s.hourly_rate:'');
       var _rl=document.getElementById('s-rates-list');
       if(_rl){_rl.innerHTML='';var _rr=studentRateRules(s);
         if(!_rr.length){
@@ -5525,7 +5521,6 @@ function openStudM(id=null){
         }
         _rr.forEach(function(r){addRateRow(r);});}}}
   else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';
-    var rtN=document.getElementById('s-rate'); if(rtN) rtN.value='';
     var _rlN=document.getElementById('s-rates-list'); if(_rlN) _rlN.innerHTML='';
     var crmStEl2=document.getElementById('s-crm-stage'); if(crmStEl2) crmStEl2.value='lead';
     var crmRespEl2=document.getElementById('s-crm-resp'); if(crmRespEl2) crmRespEl2.value='';
