@@ -3975,12 +3975,23 @@ async function saveLesson(){
       var interval = parseInt(document.getElementById('l-recur-interval')?.value)||1;
       var dates    = genRecurDates(date, recurType, endDate, count, interval);
       var recurId  = uid();
+      var newLessons=[];
       for(var i=0;i<dates.length;i++){
-        await dbInsert('lessons',Object.assign({id:uid()},obj,{date:dates[i],recur_id:recurId,recur_type:recurType,recur_index:i}));
+        var _lo=Object.assign({id:uid()},obj,{date:dates[i],recur_id:recurId,recur_type:recurType,recur_index:i});
+        await dbInsert('lessons',_lo);
+        newLessons.push(normalizeLesson(_lo));
       }
+      // Одразу додаємо в локальний стан і перемальовуємо — не чекаємо фонового loadTableFresh
+      S.lessons=(S.lessons||[]).concat(newLessons);
       mkToast('\u0414\u043E\u0434\u0430\u043D\u043E '+dates.length+' \u0437\u0430\u043D\u044F\u0442\u044C'); closeM('mo-lesson');
+      refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
     } else {
-      await dbInsert('lessons',Object.assign({id:uid()},obj)); mkToast('\u0417\u0430\u043D\u044F\u0442\u0442\u044F \u0434\u043E\u0434\u0430\u043D\u043E'); closeM('mo-lesson');
+      var _newLesson=Object.assign({id:uid()},obj);
+      await dbInsert('lessons',_newLesson);
+      // Одразу додаємо в локальний стан і перемальовуємо — не чекаємо фонового loadTableFresh
+      S.lessons=(S.lessons||[]).concat([normalizeLesson(_newLesson)]);
+      mkToast('\u0417\u0430\u043D\u044F\u0442\u0442\u044F \u0434\u043E\u0434\u0430\u043D\u043E'); closeM('mo-lesson');
+      refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
     }
     S.editId=null;
   }catch(e){}
@@ -5316,7 +5327,10 @@ function makeSuggest(inputId, getOptions){
   inp.parentNode.insertBefore(wrap,inp);
   wrap.appendChild(inp);
   var drop=document.createElement('div');
-  wrap.appendChild(drop);
+  // Кладемо в body, а не у wrap: модалка (.mdl) має CSS-анімацію з transform,
+  // яка створює containing block для position:fixed — через це bottom-sheet
+  // обрізався і не скролився через overflow:hidden модалки. У body такої проблеми немає.
+  document.body.appendChild(drop);
   var backdrop=null;
 
   function isMobile(){ return window.innerWidth<=640; }
@@ -5339,7 +5353,11 @@ function makeSuggest(inputId, getOptions){
         +'background:var(--s1);border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.25);'
         +'z-index:10000;overflow-y:auto;padding:8px 0 max(8px,env(safe-area-inset-bottom))';
     } else {
-      drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.18)';
+      var r=inp.getBoundingClientRect();
+      drop.style.cssText='position:fixed;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.18)';
+      drop.style.top=(r.bottom)+'px';
+      drop.style.left=(r.left)+'px';
+      drop.style.width=(r.width)+'px';
     }
     // Позиціонування не має чіпати видимість — інакше resize від появи клавіатури ховає щойно відкритий список
     drop.style.display=isOpen?'block':'none';
@@ -7434,8 +7452,20 @@ function makeSearchable(selectId){
   wrap.insertBefore(inp,sel);
 
   var drop=document.createElement('div');
-  drop.style.cssText='position:absolute;top:100%;left:0;right:0;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:220px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.18)';
-  wrap.appendChild(drop);
+  // У body, не у wrap: інакше overflow:hidden модалки (.mdl) обрізає й блокує скрол списку,
+  // бо CSS-анімація модалки з transform створює containing block для position:fixed/absolute нащадків.
+  document.body.appendChild(drop);
+  function positionSearchDrop(){
+    var r=inp.getBoundingClientRect();
+    drop.style.position='fixed';
+    drop.style.top=r.bottom+'px';
+    drop.style.left=r.left+'px';
+    drop.style.width=r.width+'px';
+  }
+  drop.style.cssText='background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:220px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.18)';
+  positionSearchDrop();
+  window.addEventListener('resize', function(){ if(drop.style.display!=='none') positionSearchDrop(); });
+  window.addEventListener('scroll', function(){ if(drop.style.display!=='none') positionSearchDrop(); }, true);
 
   function renderDrop(q){
     drop.innerHTML='';
@@ -7462,7 +7492,7 @@ function makeSearchable(selectId){
     drop.style.display='block';
   }
 
-  inp.addEventListener('focus',function(){ inp.select(); renderDrop(''); });
+  inp.addEventListener('focus',function(){ inp.select(); positionSearchDrop(); renderDrop(''); });
   inp.addEventListener('input',function(){ sel.value=''; renderDrop(inp.value); });
   inp.addEventListener('blur',function(){ setTimeout(function(){ drop.style.display='none'; },200); });
 
