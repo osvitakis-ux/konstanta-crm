@@ -3530,7 +3530,14 @@ async function loadTableFresh(table){
   }
   if(res.error) return;
   var data = res.data || [];
-  S[key] = norm[key] ? data.map(norm[key]) : data;
+  var fresh = norm[key] ? data.map(norm[key]) : data;
+  // Об'єднуємо замість повної заміни: якщо щойно збережений запис ще не встиг
+  // "доїхати" до цього select (мережева затримка/кешування), не втрачаємо його —
+  // інакше він на мить з'являється (з локального оптимістичного оновлення)
+  // і одразу зникає, коли ця фонова синхронізація перезаписує масив без нього.
+  var freshIds={}; fresh.forEach(function(r){ if(r&&r.id!=null) freshIds[r.id]=true; });
+  var kept=(S[key]||[]).filter(function(r){ return r&&r.id!=null && !freshIds[r.id]; });
+  S[key] = fresh.concat(kept);
   setSynced();
   refreshPage(key);
 }
@@ -3707,12 +3714,18 @@ async function dbDelete(table, id){
   if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   setSaving();
   try{
+    var _delKey=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table]||'';
     var _rd = await _sb.from(table).delete().eq('id',id); var error = _rd.error;
     if(error && await refreshIfExpired(error)){
       _rd = await _sb.from(table).delete().eq('id',id); error = _rd.error;
     }
     if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
-    auditLog('delete', table, id, (S[({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'}[table])||'']||[]).find(function(x){return x.id===id;}));
+    auditLog('delete', table, id, (S[_delKey]||[]).find(function(x){return x.id===id;}));
+    // Прибираємо з локального стану ОДРАЗУ — інакше фонове злиття в loadTableFresh
+    // (яке зберігає локальні записи, відсутні у свіжій відповіді, щоб не губити щойно
+    // додані через затримку мережі) помилково "воскресить" щойно видалений запис.
+    if(_delKey) S[_delKey]=(S[_delKey]||[]).filter(function(x){return x.id!==id;});
+    refreshPage(_delKey);
     setTimeout(function(){ loadTableFresh(table); }, 500);
   } finally {
     setSynced();
