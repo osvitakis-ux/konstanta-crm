@@ -398,11 +398,12 @@ function renderMissedLessons(){
       +'<td style="font-size:11px">'+makeupDateStr+'</td></tr>';
   }).join('');
 }
-function deleteLessonFromModal(){
+async function deleteLessonFromModal(){
   if(!S.editId)return;
   if(!confirm('Видалити цей урок?'))return;
-  dbDelete('lessons',S.editId);
+  var _id=S.editId;
   closeM('mo-lesson');
+  try{ await dbDelete('lessons',_id); }catch(e){}
 }
 
 async function deleteLessonSeriesFromModal(){
@@ -411,10 +412,12 @@ async function deleteLessonSeriesFromModal(){
   if(!l||!l.recurId){mkToast('Немає серії','error');return;}
   var series=S.lessons.filter(function(x){return x.recurId===l.recurId;});
   if(!confirm('Видалити всю серію? ('+series.length+' уроків)'))return;
+  closeM('mo-lesson');
   try{
-    for(var i=0;i<series.length;i++) await _sb.from('lessons').delete().eq('id',series[i].id);
-    S.lessons=S.lessons.filter(function(x){return x.recurId!==l.recurId;});
-    mkToast('Серію видалено'); closeM('mo-lesson'); renderSch();
+    // Через dbDelete (не напряму _sb) — щоб зберегти запис в Історії змін,
+    // повтор при протермінованому токені й захист від закриття вкладки під час видалення
+    for(var i=0;i<series.length;i++) await dbDelete('lessons',series[i].id);
+    mkToast('Серію видалено'); if(S.currentPage==='schedule') renderSch();
   }catch(e){mkToast('Помилка: '+e.message,'error');}
 }
 
@@ -520,15 +523,20 @@ async function splitLessonToChunks(chunkMin){
   };
   try{
     await dbUpdate('lessons',id,{dur:chunkMin,price:base.price,split_group_id:id,split_index:0});
+    // Оновлюємо локально одразу — щоб розклад/список занять показали розбиття без затримки
+    Object.assign(orig,{dur:chunkMin,price:base.price,split_group_id:id,split_index:0});
     for(var p=1;p<nParts;p++){
       var totalMins=lm0+chunkMin*p;
       var newH=lh0+Math.floor(totalMins/60);
       var newM=totalMins%60;
       var newTime=String(newH).padStart(2,'0')+':'+String(newM).padStart(2,'0');
-      await dbInsert('lessons',Object.assign({},base,{id:uid(),time:newTime,split_index:p}));
+      var _chunk=Object.assign({},base,{id:uid(),time:newTime,split_index:p});
+      await dbInsert('lessons',_chunk);
+      S.lessons.push(normalizeLesson(_chunk));
     }
     mkToast('Розбито на '+nParts+' × '+chunkMin+' хв');
     closeM('mo-lesson');
+    refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
   }catch(e){mkToast('Помилка: '+e.message,'error');}
 }
 function splitLessonTo30(){ return splitLessonToChunks(30); }
@@ -578,22 +586,27 @@ async function splitLessonCustom(){
     student_id:orig.studentId||orig.student_id,
     tutor_id:orig.tutorId||orig.tutor_id,
     subject:orig.subject||'',date:orig.date,
-    status:orig.status||'missed',price:null,
+    status:orig.status||'missed',
+    price:orig.price||0, // зберігаємо оригінальну погодинну ставку — інакше частини перерахуються за поточним правилом студента, що може відрізнятись від фактичної ціни цього заняття
     branch_id:orig.branchId||orig.branch_id||null,
     split_group_id:id
   };
   try{
     await dbUpdate('lessons',id,{dur:parts[0],split_group_id:id,split_index:0});
+    Object.assign(orig,{dur:parts[0],split_group_id:id,split_index:0});
     var offset=lm0+parts[0];
     for(var i=1;i<parts.length;i++){
       var nh=lh0+Math.floor(offset/60);
       var nm=offset%60;
       var t=String(nh).padStart(2,'0')+':'+String(nm).padStart(2,'0');
-      await dbInsert('lessons',Object.assign({},base,{id:uid(),time:t,dur:parts[i],split_index:i}));
+      var _chunk=Object.assign({},base,{id:uid(),time:t,dur:parts[i],split_index:i});
+      await dbInsert('lessons',_chunk);
+      S.lessons.push(normalizeLesson(_chunk));
       offset+=parts[i];
     }
     mkToast('\u0420\u043e\u0437\u0431\u0438\u0442\u043e: '+parts.join(' + ')+' \u0445\u0432');
     closeM('mo-lesson');
+    refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
   }catch(e){mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');}
 }
 
@@ -660,10 +673,12 @@ async function mergeLessons(){
       split_group_id:null,
       split_index:null
     });
+    Object.assign(keep,{dur:totalDur,split_group_id:null,split_index:null,splitGroupId:null,splitIndex:null});
     // Видаляємо другий урок
     await dbDelete('lessons',remove.id);
     mkToast('\u0423\u0440\u043e\u043a\u0438 \u043e\u0431\u2019\u0454\u0434\u043d\u0430\u043d\u043e: '+totalDur+' \u0445\u0432');
     closeM('mo-lesson');
+    refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
   }catch(e){mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');}
 }
 
@@ -3513,6 +3528,18 @@ function refreshPage(key){
 // DB HELPERS
 // =
 
+// Дебаунс фонового оновлення таблиці: якщо кілька insert/update/delete
+// по одній таблиці відбуваються швидко поспіль (напр. видалення серії
+// занять), замість N окремих мережевих запитів робимо один.
+var _refreshTimers={};
+function scheduleTableRefresh(table, delay){
+  if(_refreshTimers[table]) clearTimeout(_refreshTimers[table]);
+  _refreshTimers[table]=setTimeout(function(){
+    delete _refreshTimers[table];
+    loadTableFresh(table);
+  }, delay);
+}
+
 async function loadTableFresh(table){
   var tableMap = {
     students:'students', tutors:'tutors', lessons:'lessons',
@@ -3684,7 +3711,7 @@ async function dbInsert(table, data){
     }
     if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
     auditLog('insert', table, (data&&data.id)||null, data);
-    setTimeout(function(){ loadTableFresh(table); }, 800);
+    scheduleTableRefresh(table, 800);
   } finally {
     setSynced();
   }
@@ -3705,7 +3732,19 @@ async function dbUpdate(table, id, data){
     }
     if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
     auditLog('update', table, id, data, _diff);
-    setTimeout(function(){ loadTableFresh(table); }, 800);
+    // Патчимо локальний стан ОДРАЗУ — інакше редагування (заняття, учні, платежі тощо)
+    // не показувалось миттєво і чекало на фонове (дебаунсоване) оновлення за 800мс.
+    var _updKey=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table]||'';
+    var _normFns={students:normalizeStudent,lessons:normalizeLesson,payments:normalizePayment,tutors:normalizeTutor,comms:normalizeComm,tasks:normalizeTask,payroll_items:normalizePayrollItem};
+    if(_updKey){
+      var _entry=(S[_updKey]||[]).find(function(x){return x.id===id;});
+      if(_entry){
+        Object.assign(_entry, updateData);
+        if(_normFns[table]) Object.assign(_entry, _normFns[table](_entry));
+      }
+      refreshPage(_updKey);
+    }
+    scheduleTableRefresh(table, 800);
   } finally {
     setSynced();
   }
@@ -3726,7 +3765,7 @@ async function dbDelete(table, id){
     // додані через затримку мережі) помилково "воскресить" щойно видалений запис.
     if(_delKey) S[_delKey]=(S[_delKey]||[]).filter(function(x){return x.id!==id;});
     refreshPage(_delKey);
-    setTimeout(function(){ loadTableFresh(table); }, 500);
+    scheduleTableRefresh(table, 500);
   } finally {
     setSynced();
   }
@@ -3969,7 +4008,15 @@ async function saveLesson(){
       // Ставка з картки учня за правилами (предмет/репетитор) на момент збереження — знімок
       var _sid=document.getElementById('l-std')?.value;
       var _st=_sid?(S.students||[]).find(function(s){return s.id===_sid;}):null;
-      return studentRate(_st, document.getElementById('l-subj')?.value||'', document.getElementById('l-tutor')?.value||'');
+      var _computed=studentRate(_st, document.getElementById('l-subj')?.value||'', document.getElementById('l-tutor')?.value||'');
+      if(_computed>0) return _computed;
+      // Немає підходящого правила ставки (0) — при РЕДАГУВАННІ не затираємо вже існуючу
+      // коректну ціну заняття (напр. якщо міняли лише час/нотатки, а не предмет/репетитора).
+      if(S.editId){
+        var _existing=(S.lessons||[]).find(function(x){return x.id===S.editId;});
+        if(_existing && parseFloat(_existing.price)>0) return parseFloat(_existing.price);
+      }
+      return 0;
     })(),
     status:     _stat,
     notes:      document.getElementById('l-notes')?.value||'',
@@ -3997,6 +4044,7 @@ async function saveLesson(){
       // Одразу додаємо в локальний стан і перемальовуємо — не чекаємо фонового loadTableFresh
       S.lessons=(S.lessons||[]).concat(newLessons);
       mkToast('\u0414\u043E\u0434\u0430\u043D\u043E '+dates.length+' \u0437\u0430\u043D\u044F\u0442\u044C'); closeM('mo-lesson');
+      window._saving=false;
       refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
     } else {
       var _newLesson=Object.assign({id:uid()},obj);
@@ -4004,10 +4052,11 @@ async function saveLesson(){
       // Одразу додаємо в локальний стан і перемальовуємо — не чекаємо фонового loadTableFresh
       S.lessons=(S.lessons||[]).concat([normalizeLesson(_newLesson)]);
       mkToast('\u0417\u0430\u043D\u044F\u0442\u0442\u044F \u0434\u043E\u0434\u0430\u043D\u043E'); closeM('mo-lesson');
+      window._saving=false;
       refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
     }
     S.editId=null;
-  }catch(e){}
+  }catch(e){ window._saving=false; }
 }
 
 async function delLesson(id){
