@@ -5952,6 +5952,7 @@ function openAdd(){
 function chWk(d){
   const view=S.schView||'week';
   if(view==='day'){if(d===0)S.dayOffset=0;else S.dayOffset=(S.dayOffset||0)+d;}
+  else if(view==='month'){if(d===0)S.monthOffset=0;else S.monthOffset=(S.monthOffset||0)+d;}
   else{if(d===0)S.weekOffset=0;else S.weekOffset=(S.weekOffset||0)+d;}
   renderSch();
 }
@@ -5960,6 +5961,7 @@ function chWk(d){
 function schSetView(v){
   S.schView = v;
   if(v === 'week') S.weekOffset = S.weekOffset || 0;
+  else if(v === 'month') S.monthOffset = S.monthOffset || 0;
   else             S.dayOffset  = S.dayOffset  || 0;
   renderSch();
 }
@@ -6520,9 +6522,11 @@ function renderSch(){
   // Update UI
   const btnW = document.getElementById('sch-btn-week');
   const btnD = document.getElementById('sch-btn-day');
+  const btnM = document.getElementById('sch-btn-month');
   const tf   = document.getElementById('sch-tutor-filter');
   if(btnW) btnW.classList.toggle('active-view', view==='week');
   if(btnD) btnD.classList.toggle('active-view', view==='day');
+  if(btnM) btnM.classList.toggle('active-view', view==='month');
   // Фільтр по репетиторах доступний адмінам/директорам/богу в обох режимах (тиждень і день)
   if(tf){
     tf.style.display = R()!=='tutor' ? 'block' : 'none';
@@ -6534,11 +6538,20 @@ function renderSch(){
   // Update prev/next labels
   const prevBtn = document.getElementById('sch-prev');
   const nextBtn = document.getElementById('sch-next');
-  if(prevBtn) prevBtn.textContent = view==='day' ? '\u2190 \u0412\u0447\u043E\u0440\u0430' : '\u2190 \u041F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439';
-  if(nextBtn) nextBtn.textContent = view==='day' ? '\u0417\u0430\u0432\u0442\u0440\u0430 \u2192' : '\u041D\u0430\u0441\u0442\u0443\u043F\u043D\u0438\u0439 \u2192';
+  if(prevBtn) prevBtn.textContent = view==='day' ? '\u2190 \u0412\u0447\u043E\u0440\u0430' : view==='month' ? '\u2190 \u041F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043C\u0456\u0441\u044F\u0446\u044C' : '\u2190 \u041F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439';
+  if(nextBtn) nextBtn.textContent = view==='day' ? '\u0417\u0430\u0432\u0442\u0440\u0430 \u2192' : view==='month' ? '\u041D\u0430\u0441\u0442\u0443\u043F\u043D\u0438\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u2192' : '\u041D\u0430\u0441\u0442\u0443\u043F\u043D\u0438\u0439 \u2192';
 
-  if(view === 'week') renderSchWeek();
-  else                renderSchDay();
+  var schgEl=document.getElementById('schg'), schmEl=document.getElementById('schm');
+  if(view === 'month'){
+    if(schgEl) schgEl.style.display='none';
+    if(schmEl) schmEl.style.display='block';
+    renderSchMonth();
+  } else {
+    if(schmEl) schmEl.style.display='none';
+    if(schgEl) schgEl.style.display='grid';
+    if(view === 'week') renderSchWeek();
+    else                renderSchDay();
+  }
 
   var _at=document.getElementById('avail-toggle-btn');
   var _att=(typeof availTargetTutor==='function')?availTargetTutor():null;
@@ -6559,6 +6572,78 @@ function renderSch(){
 }
 
 
+
+function renderSchMonth(){
+  const now=new Date();
+  const offset=S.monthOffset||0;
+  const first=new Date(now.getFullYear(), now.getMonth()+offset, 1);
+  const monthNames=['\u0421\u0456\u0447\u0435\u043D\u044C','\u041B\u044E\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u041A\u0432\u0456\u0442\u0435\u043D\u044C','\u0422\u0440\u0430\u0432\u0435\u043D\u044C','\u0427\u0435\u0440\u0432\u0435\u043D\u044C','\u041B\u0438\u043F\u0435\u043D\u044C','\u0421\u0435\u0440\u043F\u0435\u043D\u044C','\u0412\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0416\u043E\u0432\u0442\u0435\u043D\u044C','\u041B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043D\u044C'];
+  const lblEl=document.getElementById('wklbl');
+  if(lblEl) lblEl.textContent=monthNames[first.getMonth()]+' '+first.getFullYear();
+
+  // Сітка з понеділка: скільки днів попереднього місяця показати перед 1-м числом
+  const firstDow=(first.getDay()===0?7:first.getDay()); // 1=Пн..7=Нд
+  const gridStart=new Date(first);
+  gridStart.setDate(first.getDate()-(firstDow-1));
+  const daysInGrid=42; // 6 тижнів — стабільна висота сітки для будь-якого місяця
+
+  const _schStat=(document.getElementById('sch-status-filter')||{value:''}).value;
+  const _schTut=(document.getElementById('sch-tutor-filter')||{value:''}).value;
+  const ml=myLessons().filter(function(l){
+    if(_schTut && (l.tutorId||l.tutor_id)!==_schTut) return false;
+    if(_schStat){
+      if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
+      if(_schStat==='completed') return l.status==='done'||l.status==='completed'||l.status==='makeup';
+      return l.status===_schStat;
+    }
+    return l.status!=='cancelled';
+  });
+  const byDate={};
+  ml.forEach(function(l){ (byDate[l.date]=byDate[l.date]||[]).push(l); });
+
+  const dnames=['\u041F\u043D','\u0412\u0442','\u0421\u0440','\u0427\u0442','\u041F\u0442','\u0421\u0431','\u041D\u0434'];
+  let html='<div class="schm-grid">';
+  dnames.forEach(function(dn){ html+='<div class="schm-head">'+dn+'</div>'; });
+
+  for(let i=0;i<daysInGrid;i++){
+    const d=new Date(gridStart); d.setDate(gridStart.getDate()+i);
+    const ds=localDateStr(d);
+    const isOther=d.getMonth()!==first.getMonth();
+    const isToday=d.toDateString()===now.toDateString();
+    const dayLessons=(byDate[ds]||[]).slice().sort(function(a,b){return (a.time||'').localeCompare(b.time||'');});
+    let evHtml='';
+    const MAX_SHOW=3;
+    dayLessons.slice(0,MAX_SHOW).forEach(function(l){
+      const isCov=l.status==='missed'&&isCoveredMissed(l);
+      const isPart=!isCov&&l.status==='missed'&&uncoveredMissedHours(l)*60<(parseFloat(l.dur)||60);
+      const ecl=isCov?'ec-covered':isPart?'ec-partial':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':l.status==='makeup_planned'?'ec-makeplan':(l.status==='completed'||l.status==='done')?'ec-done':'ec-plan';
+      evHtml+='<div class="schm-ev '+ecl+'" onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)" title="'+(l.time||'')+' '+snShort(l.studentId||l.student_id)+' '+(l.subject||'')+'">'
+        +'<b>'+(l.time||'')+'</b> '+snShort(l.studentId||l.student_id)+'</div>';
+    });
+    if(dayLessons.length>MAX_SHOW){
+      evHtml+='<div class="schm-more">+'+(dayLessons.length-MAX_SHOW)+' \u0449\u0435</div>';
+    }
+    html+='<div class="schm-cell'+(isOther?' other-month':'')+(isToday?' is-today':'')+'" onclick="schGoToDay(\''+ds+'\')">'
+      +'<div class="schm-daynum">'+d.getDate()+'</div>'
+      +evHtml
+      +'</div>';
+  }
+  html+='</div>';
+  var el=document.getElementById('schm');
+  if(el) el.innerHTML=html;
+}
+
+// Клік по клітинці місяця — переходимо в денний вигляд саме на цю дату
+function schGoToDay(ds){
+  var now=new Date(); now.setHours(0,0,0,0);
+  var target=new Date(ds+'T00:00:00');
+  var diffDays=Math.round((target-now)/86400000);
+  S.dayOffset=diffDays;
+  S.schView='day';
+  renderSch();
+}
+window.schGoToDay=schGoToDay;
+window.renderSchMonth=renderSchMonth;
 
 function renderSchDay(){
   const now    = new Date();
