@@ -1647,7 +1647,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fgr"><label>Телефон</label><input id="t-phone"></div>
       <div class="fgr"><label>Email</label><input id="t-email" type="email"></div>
       <div class="fgr"><label>Предмети</label><input id="t-subj" placeholder="через кому"></div>
-      <div class="fgr admin-only"><label>🏢 Філія</label><select id="t-branch"><option value="">— не вказано —</option></select></div>
+      <div class="fgr full admin-only"><label>🏢 Філії (репетитор може працювати в кількох)</label>
+        <div id="t-branch-list" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
       <div class="fgr full"><label>🔗 Акаунт в системі</label>
         <select id="t-acc" style="width:100%">
           <option value="">— не прив'язано —</option>
@@ -1965,7 +1967,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=emailmove1"></script>
+<script src="app7.js?v=tutmultibranch1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
