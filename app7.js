@@ -5325,37 +5325,77 @@ function printPayroll(tutorId){
   var perLbl=(function(){ var p=per.split('-'); var m=['\u0441\u0456\u0447\u0435\u043D\u044C','\u043B\u044E\u0442\u0438\u0439','\u0431\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u043A\u0432\u0456\u0442\u0435\u043D\u044C','\u0442\u0440\u0430\u0432\u0435\u043D\u044C','\u0447\u0435\u0440\u0432\u0435\u043D\u044C','\u043B\u0438\u043F\u0435\u043D\u044C','\u0441\u0435\u0440\u043F\u0435\u043D\u044C','\u0432\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0436\u043E\u0432\u0442\u0435\u043D\u044C','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0433\u0440\u0443\u0434\u0435\u043D\u044C'][parseInt(p[1])-1]; return m+' '+p[0]; })();
   var tutors=tutorId?(S.tutors||[]).filter(function(t){return t.id===tutorId;})
     :(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
-  var grand=0, body='';
-  tutors.forEach(function(t){
+  var AV=['#29abe2','#22b573','#f59e0b','#8b5cf6','#ec4899','#0ea5e9','#14b8a6','#f97316'];
+  function initials(t){ return ((t.fn||' ')[0]+(t.ln||' ')[0]).toUpperCase(); }
+  function money(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA'); }
+  var grand=0, cards='', activeCount=0;
+  tutors.forEach(function(t,idx){
     var pt=payrollTotal(t.id, per), b=pt.base;
     if(!tutorId&&!b.doneCount&&!b.makeupCount&&!payrollItemsFor(t.id,per).length) return;
-    grand+=pt.total;
-    var rows='<tr><td>\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432: '+b.doneCount+' ('+b.doneHours+' \u0433\u043E\u0434) \u00D7 '+payrollCoef()+'</td><td class="r"><b>'+b.doneSalary+' \u20B4</b></td></tr>'
-      +'<tr><td>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E: '+b.makeupCount+' ('+b.makeupHours+' \u0433\u043E\u0434) \u00D7 '+payrollCoef()+'</td><td class="r"><b>'+b.makeupSalary+' \u20B4</b></td></tr>';
-    payrollItemsFor(t.id,per).forEach(function(i){
+    grand+=pt.total; activeCount++;
+    var av=AV[idx % AV.length];
+    var baseSum=b.doneSalary+b.makeupSalary;
+    var donePct=baseSum>0?Math.round(b.doneSalary/baseSum*100):0;
+    var itemsHtml=payrollItemsFor(t.id,per).map(function(i){
       var amt=payrollItemAmount(i,b.base);
-      rows+='<tr><td>'+(i.label||'')+(i.percent!=null&&i.percent!==''?' ('+i.percent+'%)':'')+'</td><td class="r">'+(amt>=0?'+':'')+amt+' \u20B4</td></tr>';
-    });
-    rows+='<tr class="tot"><td><b>\u0420\u0430\u0437\u043E\u043C \u0434\u043E \u0432\u0438\u043F\u043B\u0430\u0442\u0438</b></td><td class="r"><b>'+pt.total+' \u20B4</b></td></tr>';
-    body+='<h3>'+t.fn+' '+t.ln+'</h3><table>'+rows+'</table>'
-      +'<div class="sign">\u041F\u0456\u0434\u043F\u0438\u0441 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430: ______________________</div>';
+      return '<tr><td class="ilbl">'+(i.label||'')+(i.percent!=null&&i.percent!==''?' <span class="muted">('+i.percent+'%)</span>':'')+'</td>'
+        +'<td class="r '+(amt<0?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+' \u20B4</td></tr>';
+    }).join('');
+    cards+='<div class="card" style="--av:'+av+'">'
+      +'<div class="chead">'
+        +'<div class="avatar">'+initials(t)+'</div>'
+        +'<div class="cname"><b>'+t.fn+' '+t.ln+'</b><span class="cmeta">'+b.doneCount+' \u0443\u0440\u043E\u043A\u0456\u0432 \u00B7 '+b.makeupCount+' \u0432\u0456\u0434\u043F\u0440.</span></div>'
+        +'<div class="ctotal">'+money(pt.total)+' \u20B4</div>'
+      +'</div>'
+      +'<table class="rows">'
+        +'<tr><td class="ilbl">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432 <span class="muted">'+b.doneCount+' / '+b.doneHours+'\u0433 \u00D7'+payrollCoef()+'</span></td><td class="r pos">'+money(b.doneSalary)+' \u20B4</td></tr>'
+        +'<tr><td class="ilbl">\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E <span class="muted">'+b.makeupCount+' / '+b.makeupHours+'\u0433 \u00D7'+payrollCoef()+'</span></td><td class="r pos">'+money(b.makeupSalary)+' \u20B4</td></tr>'
+        +itemsHtml
+      +'</table>'
+      +(baseSum>0?'<div class="bar"><div class="bar-done" style="width:'+donePct+'%"></div><div class="bar-make" style="width:'+(100-donePct)+'%"></div></div>':'')
+      +'<div class="cfoot"><span>\u0420\u0430\u0437\u043E\u043C \u0434\u043E \u0432\u0438\u043F\u043B\u0430\u0442\u0438</span><b>'+money(pt.total)+' \u20B4</b></div>'
+      +'<div class="sign">\u041F\u0456\u0434\u043F\u0438\u0441 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430: ______________________</div>'
+    +'</div>';
   });
-  if(!tutorId&&tutors.length>1) body+='<h2 class="grand">\u0412\u0421\u042C\u041E\u0413\u041E \u0424\u041E\u041D\u0414 \u041E\u041F\u041B\u0410\u0422\u0418: '+Math.round(grand*100)/100+' \u20B4</h2>';
+
   var w=window.open('','_blank');
   w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</title>'
-    +'<style>body{font-family:Arial,sans-serif;max-width:640px;margin:24px auto;color:#111}'
-    +'h1{font-size:18px;margin-bottom:2px} .per{color:#666;font-size:13px;margin-bottom:18px}'
-    +'h3{margin:18px 0 6px;font-size:15px;border-bottom:2px solid #111;padding-bottom:3px}'
-    +'table{width:100%;border-collapse:collapse;font-size:13px}'
-    +'td{padding:4px 2px;border-bottom:1px solid #ddd} .r{text-align:right;white-space:nowrap}'
-    +'.sub td{border-top:1.5px solid #999} .tot td{border-top:2px solid #111;border-bottom:none;font-size:14px}'
-    +'.sign{margin:14px 0 22px;font-size:12px;color:#444}'
-    +'.grand{margin-top:24px;font-size:16px;border-top:3px double #111;padding-top:10px;text-align:right}'
-    +'@media print{.noprint{display:none}}</style></head><body>'
-    +'<h1>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u043D\u0430\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</h1>'
-    +'<div class="per">\u041F\u0435\u0440\u0456\u043E\u0434: '+perLbl+' \u00B7 \u0421\u0444\u043E\u0440\u043C\u043E\u0432\u0430\u043D\u043E: '+new Date().toLocaleDateString('uk-UA')+'</div>'
-    +body
-    +'<button class="noprint" onclick="window.print()" style="margin-top:16px;padding:8px 18px;font-size:14px;cursor:pointer">\uD83D\uDDA8 \u0414\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438</button>'
+    +'<style>'
+    +'*{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;max-width:900px;margin:20px auto;color:#1a1a2e;background:#fff}'
+    +'.head{background:linear-gradient(135deg,#2e3192,#5b60d4);border-radius:16px;padding:22px 26px;color:#fff;margin-bottom:20px}'
+    +'.head h1{font-size:15px;margin:0 0 4px;font-weight:600;letter-spacing:.3px;opacity:.9;text-transform:uppercase}'
+    +'.head .sum{font-size:34px;font-weight:800;letter-spacing:-1px}'
+    +'.head .per{font-size:12px;opacity:.85;margin-top:2px}'
+    +'.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}'
+    +'.card{border:1px solid #e2e2ea;border-radius:14px;padding:0;overflow:hidden;position:relative;break-inside:avoid;page-break-inside:avoid}'
+    +'.card::before{content:"";position:absolute;top:0;left:0;bottom:0;width:4px;background:var(--av)}'
+    +'.chead{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}'
+    +'.avatar{width:36px;height:36px;border-radius:10px;background:var(--av);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}'
+    +'.cname{flex:1;display:flex;flex-direction:column;font-size:13px}'
+    +'.cname b{font-size:14px}'
+    +'.cmeta{font-size:10.5px;color:#888;margin-top:1px}'
+    +'.ctotal{font-weight:800;font-size:16px;color:var(--av);white-space:nowrap}'
+    +'table.rows{width:100%;border-collapse:collapse;font-size:11.5px;padding:0 16px}'
+    +'table.rows td{padding:4px 16px;border-bottom:1px solid #f0f0f5}'
+    +'.ilbl{color:#333} .muted{color:#999;font-size:10px}'
+    +'.r{text-align:right;white-space:nowrap;font-weight:700}'
+    +'.r.pos{color:#22b573} .r.neg{color:#e74c3c}'
+    +'.bar{display:flex;height:5px;margin:8px 16px 0;border-radius:10px;overflow:hidden;background:#eee}'
+    +'.bar-done{background:#22b573} .bar-make{background:#f59e0b}'
+    +'.cfoot{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;margin-top:8px;background:#f7f7fb;font-size:12px;color:#555}'
+    +'.cfoot b{font-size:14px;color:#1a1a2e}'
+    +'.sign{padding:8px 16px 14px;font-size:10.5px;color:#888}'
+    +'.grand{margin-top:22px;font-size:18px;font-weight:800;text-align:right;border-top:3px double #1a1a2e;padding-top:12px}'
+    +'@media print{.noprint{display:none} .card{box-shadow:none}}'
+    +'@media(max-width:600px){.grid{grid-template-columns:1fr}}'
+    +'</style></head><body>'
+    +'<div class="head"><h1>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u043D\u0430\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</h1>'
+      +'<div class="sum">'+money(grand)+' \u20B4</div>'
+      +'<div class="per">'+perLbl+' \u00B7 '+activeCount+' '+(activeCount===1?'\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440':'\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432')+' \u00B7 \u0421\u0444\u043E\u0440\u043C\u043E\u0432\u0430\u043D\u043E: '+new Date().toLocaleDateString('uk-UA')+'</div>'
+    +'</div>'
+    +'<div class="grid">'+cards+'</div>'
+    +(!tutorId&&tutors.length>1?'<div class="grand">\u0412\u0421\u042C\u041E\u0413\u041E \u0424\u041E\u041D\u0414 \u041E\u041F\u041B\u0410\u0422\u0418: '+money(grand)+' \u20B4</div>':'')
+    +'<button class="noprint" onclick="window.print()" style="margin-top:20px;padding:10px 20px;font-size:14px;cursor:pointer;border-radius:8px;border:none;background:#2e3192;color:#fff">\uD83D\uDDA8 \u0414\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438</button>'
     +'</body></html>');
   w.document.close();
   setTimeout(function(){ try{w.print();}catch(e){} }, 400);
