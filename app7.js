@@ -1309,7 +1309,7 @@ function openActEditM(sid){
   if(who) who.textContent=s.fn+' '+s.ln+' \u00B7 '+actPeriod();
   var noteEl=document.getElementById('act-edit-note');
   if(noteEl) noteEl.value='';
-  var cName=document.getElementById('act-edit-client-name'); if(cName) cName.value=s.fn+' '+s.ln;
+  var cName=document.getElementById('act-edit-client-name'); if(cName) cName.value=s.parentFn||(s.fn+' '+s.ln);
   var cPhone=document.getElementById('act-edit-client-phone'); if(cPhone) cPhone.value=s.parentPhone||s.phone||'';
   var cAddr=document.getElementById('act-edit-client-addr'); if(cAddr) cAddr.value=s.address||'';
   renderActEditRows(rows);
@@ -1417,7 +1417,8 @@ function printAct(sid, per, editedRows, editedNote, clientInfo){
   var execBank=branch?((branch.pay_bank||'')+(branch.pay_card?', '+branch.pay_card:'')):'';
 
   // Реквізити замовника: якщо редаговані в модалці — беремо їх, інакше з картки учня
-  var clientName=(clientInfo&&clientInfo.name)?clientInfo.name:(s.fn+' '+s.ln);
+  // (пріоритет — ПІБ батьків/опікуна, бо саме вони юридична сторона договору)
+  var clientName=(clientInfo&&clientInfo.name)?clientInfo.name:(s.parentFn||(s.fn+' '+s.ln));
   var clientPhone=(clientInfo&&clientInfo.phone!=null)?clientInfo.phone:(s.parentPhone||s.phone||'');
   var clientAddr=(clientInfo&&clientInfo.addr!=null)?clientInfo.addr:(s.address||'');
 
