@@ -7124,8 +7124,12 @@ function renderTutors(){
     var cnt=S.students.filter(function(s){
       return (s.tutorId===t.id||s.tutor_id===t.id||(s.tutorIds&&s.tutorIds.indexOf(t.id)>=0))&&s.status==='active';
     }).length;
-    var branchBadge=isSuperAdmin()&&!currentBranch()
-      ?('<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px">'+branchName(t.branchId||t.branch_id)+'</span>'):'';
+    var canSeeBranches=isSuperAdmin()||R()==='director'||R()==='admin';
+    var branchBadge=canSeeBranches
+      ?((t.branchIds&&t.branchIds.length)
+        ? t.branchIds.map(function(bid){return '<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px;margin:1px 3px 1px 0;display:inline-block">'+branchName(bid)+'</span>';}).join('')
+        : (t.branchId||t.branch_id ? '<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px">'+branchName(t.branchId||t.branch_id)+'</span>' : ''))
+      :'';
     var editBtns=isAdmin
       ?('<div style="display:inline-flex;gap:4px;margin-left:8px">'
         +'<button class="btn btn-g btn-sm" onclick="openTutM(\'' +t.id+ '\')" title="\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438">\u270f\ufe0f</button>'
@@ -7143,10 +7147,11 @@ function renderTutors(){
       +'<td><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,36,t.photo)
       +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
       +(t.subj?'<div style="font-size:11px;color:var(--t2)">'+t.subj+'</div>':'')
+      +(branchBadge?'<div style="margin-top:3px">'+branchBadge+'</div>':'')
       +'</div></div></td>'
       +'<td>'+accHtml+'</td>'
       +'<td style="text-align:center"><span class="badge bb">'+cnt+'</span></td>'
-      +'<td style="text-align:right">'+branchBadge+editBtns+'</td>'
+      +'<td style="text-align:right">'+editBtns+'</td>'
       +'</tr>';
   });
   document.getElementById('tt-table').innerHTML=rows||
