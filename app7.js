@@ -3594,7 +3594,7 @@ function normalizeTutor(r){
 function normalizeComm(r){    return Object.assign({}, r, { tutorId:r.tutor_id, studentId:r.student_id, branchId:r.branch_id }); }
 function normalizePricingRule(r){ return Object.assign({}, r, { subjectMatch:r.subject_match, tutorId:r.tutor_id, gradeMatch:r.grade_match, durMin:r.dur_min }); }
 function normalizeTask(r){ return Object.assign({}, r, { assigneeId:r.assignee_id, creatorId:r.creator_id, branchId:r.branch_id, deadlineTime:r.deadline_time, doneAt:r.done_at }); }
-function normalizePayrollItem(r){ return Object.assign({}, r, { tutorId:r.tutor_id, createdBy:r.created_by }); }
+function normalizePayrollItem(r){ return Object.assign({}, r, { tutorId:r.tutor_id, adminId:r.admin_id, createdBy:r.created_by }); }
 
 // =
 // REALTIME
@@ -5195,8 +5195,21 @@ function payrollBase(tutorId, period){
 
 function payrollItemsFor(tutorId, period){
   return (S.payrollItems||[]).filter(function(i){
-    return (i.tutorId||i.tutor_id)===tutorId && i.period===period;
+    return (i.tutorId||i.tutor_id)===tutorId && !( i.adminId||i.admin_id ) && i.period===period;
   });
+}
+
+// Пункти зарплати адміністратора — на адмінів НЕ поширюється коефіцієнт ×0.4,
+// у них немає "бази" з уроків, лише ручні пункти (сума як є).
+function payrollItemsForAdmin(adminId, period){
+  return (S.payrollItems||[]).filter(function(i){
+    return (i.adminId||i.admin_id)===adminId && i.period===period;
+  });
+}
+function payrollTotalAdmin(adminId, period){
+  var items=payrollItemsForAdmin(adminId, period);
+  var total=items.reduce(function(s,i){return s+payrollItemAmount(i);},0);
+  return { items:items, total:Math.round(total*100)/100 };
 }
 
 function payrollItemAmount(item, base){
@@ -5248,10 +5261,21 @@ function renderPayroll(){
     rows.push({t:t, pt:pt, b:b});
   });
 
+  // Рахуємо адмінів ЗАЗДАЛЕГІДЬ (до зведеної панелі), щоб фонд угорі теж їх враховував
+  var _adminsPre=(S.users||[]).filter(function(u){return u.role==='admin';});
+  var _adminGrandPre=0, _adminActiveCount=0;
+  _adminsPre.forEach(function(a){
+    var pt=payrollTotalAdmin(a.id, per);
+    if(!pt.items.length && fT!=='') return;
+    _adminGrandPre+=pt.total;
+    if(pt.items.length) _adminActiveCount++;
+  });
+  grand+=_adminGrandPre;
+
   var html='';
 
   // ── Зведена панель ──
-  if(rows.length){
+  if(rows.length || _adminsPre.length){
     var maxBar=Math.max(sumDone+sumMakeup, 1);
     html+='<div class="pr-summary">'
       +'<div class="pr-sum-main">'
@@ -5309,7 +5333,52 @@ function renderPayroll(){
   });
   html+='</div>';
 
-  if(!rows.length) html='<div class="pr-empty"><div style="font-size:38px;margin-bottom:8px">\uD83D\uDCB0</div>\u0417\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u043D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C</div>';
+  // ── Зарплати адміністраторів (без бази з уроків, без коефіцієнта ×0.4) ──
+  var admins=(S.users||[]).filter(function(u){return u.role==='admin';})
+    .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+  var adminRows=[];
+  if(admins.length){
+    var adminGrand=0;
+    admins.forEach(function(a,idx){
+      var pt=payrollTotalAdmin(a.id, per);
+      if(!pt.items.length && fT!=='') return;
+      adminGrand+=pt.total;
+      adminRows.push({a:a, pt:pt, av:AV[idx % AV.length]});
+    });
+    html+='<div style="margin:22px 0 10px;font-size:13px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px">\uD83D\uDC64 \u0417\u0430\u0440\u043F\u043B\u0430\u0442\u0438 \u0430\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0456\u0432 <span style="font-weight:400;color:var(--t3);text-transform:none">(\u0431\u0435\u0437 \u043A\u043E\u0435\u0444. \u00D70.4 \u2014 \u043B\u0438\u0448\u0435 \u0432\u0440\u0443\u0447\u043D\u0456 \u043F\u0443\u043D\u043A\u0442\u0438)</span></div>';
+    html+='<div class="pr-grid">';
+    adminRows.forEach(function(r){
+      var a=r.a, pt=r.pt, av=r.av;
+      var itemsHtml=pt.items.map(function(i){
+        var amt=payrollItemAmount(i);
+        var neg=amt<0;
+        return '<div class="pr-item">'
+          +'<span class="pr-item-lbl">'+(i.label||'\u2014')+'</span>'
+          +'<span class="pr-item-amt '+(neg?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+'\u20B4'
+          +'<button onclick="delPayrollItem(\''+i.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" class="pr-item-del">\u2715</button></span>'
+        +'</div>';
+      }).join('');
+      html+='<div class="pr-card" style="--av:'+av+'">'
+        +'<div class="pr-card-head">'
+          +'<div class="pr-avatar" style="background:'+av+'">'+initials(a)+'</div>'
+          +'<div class="pr-name-wrap"><div class="pr-name">'+a.fn+' '+a.ln+'</div>'
+            +'<div class="pr-meta">\uD83D\uDC64 \u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440</div></div>'
+          +'<div class="pr-total-badge">'+money(pt.total)+'\u20B4</div>'
+        +'</div>'
+        +'<div class="pr-body">'
+          +(itemsHtml?'<div class="pr-items">'+itemsHtml+'</div>':'<div style="font-size:12px;color:var(--t3);padding:4px 0">\u041D\u0435\u043C\u0430\u0454 \u043F\u0443\u043D\u043A\u0442\u0456\u0432 \u0437\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C</div>')
+        +'</div>'
+        +'<div class="pr-card-foot">'
+          +'<button class="btn btn-g btn-sm" onclick="openPayrollItemM(\''+a.id+'\',\'admin\')">+ \u041F\u0443\u043D\u043A\u0442</button>'
+          +'<button class="btn btn-g btn-sm" onclick="printPayroll(\''+a.id+'\',\'admin\')">\uD83D\uDDA8 \u0414\u0440\u0443\u043A</button>'
+          +'<div class="pr-foot-total">\u0420\u0430\u0437\u043E\u043C <b>'+money(pt.total)+'\u20B4</b></div>'
+        +'</div>'
+      +'</div>';
+    });
+    html+='</div>';
+  }
+
+  if(!rows.length && !adminRows.length) html='<div class="pr-empty"><div style="font-size:38px;margin-bottom:8px">\uD83D\uDCB0</div>\u0417\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u043D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C</div>';
   wrap.innerHTML=html;
 }
 
@@ -5326,12 +5395,15 @@ function prPlural(n, one, few, many){
   return many;
 }
 
-function openPayrollItemM(tutorId){
+function openPayrollItemM(id, type){
   if(!canPayroll()) return;
-  window._prItemTutor=tutorId;
-  var t=(S.tutors||[]).find(function(x){return x.id===tutorId;});
+  type=type||'tutor';
+  window._prItemType=type;
+  window._prItemTutor=type==='tutor'?id:null;
+  window._prItemAdmin=type==='admin'?id:null;
+  var person=type==='admin'?(S.users||[]).find(function(x){return x.id===id;}):(S.tutors||[]).find(function(x){return x.id===id;});
   var nEl=document.getElementById('pri-tutor-name');
-  if(nEl) nEl.textContent=t?(t.fn+' '+t.ln+' \u00B7 '+payrollPeriod()):'';
+  if(nEl) nEl.textContent=person?(person.fn+' '+person.ln+' \u00B7 '+payrollPeriod()):'';
   document.getElementById('pri-label').value='';
   document.getElementById('pri-amount').value='';
   openM('mo-payroll-item');
@@ -5343,7 +5415,7 @@ async function savePayrollItem(){
   var amount=(document.getElementById('pri-amount')||{value:''}).value;
   if(!label){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u043F\u043E\u044F\u0441\u043D\u0435\u043D\u043D\u044F','error'); return; }
   if(!amount){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0441\u0443\u043C\u0443','error'); return; }
-  var obj={ id:uid(), tutor_id:window._prItemTutor, period:payrollPeriod(),
+  var obj={ id:uid(), tutor_id:window._prItemTutor||null, admin_id:window._prItemAdmin||null, period:payrollPeriod(),
     label:label,
     amount:amount!==''?parseFloat(amount):null,
     created_by:CU?CU.id:null, created_at:new Date().toISOString() };
@@ -5367,15 +5439,58 @@ async function delPayrollItem(id){
 }
 
 // Друк відомості: tutorId — один репетитор, null — усі разом
-function printPayroll(tutorId){
+function printPayroll(recipientId, type){
   if(!canPayroll()) return;
   var per=payrollPeriod();
   var perLbl=(function(){ var p=per.split('-'); var m=['\u0441\u0456\u0447\u0435\u043D\u044C','\u043B\u044E\u0442\u0438\u0439','\u0431\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u043A\u0432\u0456\u0442\u0435\u043D\u044C','\u0442\u0440\u0430\u0432\u0435\u043D\u044C','\u0447\u0435\u0440\u0432\u0435\u043D\u044C','\u043B\u0438\u043F\u0435\u043D\u044C','\u0441\u0435\u0440\u043F\u0435\u043D\u044C','\u0432\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0436\u043E\u0432\u0442\u0435\u043D\u044C','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0433\u0440\u0443\u0434\u0435\u043D\u044C'][parseInt(p[1])-1]; return m+' '+p[0]; })();
-  var tutors=tutorId?(S.tutors||[]).filter(function(t){return t.id===tutorId;})
-    :(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
   var AV=['#29abe2','#22b573','#f59e0b','#8b5cf6','#ec4899','#0ea5e9','#14b8a6','#f97316'];
   function initials(t){ return ((t.fn||' ')[0]+(t.ln||' ')[0]).toUpperCase(); }
   function money(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA'); }
+
+  // Друк одного адміністратора: лише ручні пункти, без бази й коефіцієнта ×0.4
+  if(type==='admin'){
+    var admin=(S.users||[]).find(function(x){return x.id===recipientId;});
+    if(!admin){ mkToast('\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error'); return; }
+    var ptA=payrollTotalAdmin(recipientId, per);
+    var rowsA=ptA.items.map(function(i){
+      var amt=payrollItemAmount(i);
+      return '<tr><td class="ilbl">'+(i.label||'')+'</td><td class="r '+(amt<0?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+' \u20B4</td></tr>';
+    }).join('');
+    var w=window.open('','_blank');
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</title>'
+      +'<style>*{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:20px auto;color:#1a1a2e}'
+      +'.head{background:linear-gradient(135deg,#2e3192,#5b60d4);border-radius:16px;padding:22px 26px;color:#fff;margin-bottom:20px}'
+      +'.head h1{font-size:15px;margin:0 0 4px;font-weight:600;letter-spacing:.3px;opacity:.9;text-transform:uppercase}'
+      +'.head .sum{font-size:34px;font-weight:800;letter-spacing:-1px}'
+      +'.head .per{font-size:12px;opacity:.85;margin-top:2px}'
+      +'.card{border:1px solid #e2e2ea;border-radius:14px;overflow:hidden;position:relative}'
+      +'.card::before{content:"";position:absolute;top:0;left:0;bottom:0;width:4px;background:'+AV[0]+'}'
+      +'.chead{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}'
+      +'.avatar{width:36px;height:36px;border-radius:10px;background:'+AV[0]+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}'
+      +'.cname{flex:1;font-size:14px;font-weight:700}'
+      +'table.rows{width:100%;border-collapse:collapse;font-size:12px}'
+      +'table.rows td{padding:5px 16px;border-bottom:1px solid #f0f0f5}'
+      +'.r{text-align:right;white-space:nowrap;font-weight:700} .r.pos{color:#22b573} .r.neg{color:#e74c3c}'
+      +'.cfoot{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;margin-top:8px;background:#f7f7fb;font-size:12px;color:#555}'
+      +'.cfoot b{font-size:14px;color:#1a1a2e}'
+      +'.sign{padding:8px 16px 14px;font-size:10.5px;color:#888}'
+      +'@media print{.noprint{display:none}}</style></head><body>'
+      +'<div class="head"><h1>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u043D\u0430\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</h1><div class="sum">'+money(ptA.total)+' \u20B4</div>'
+        +'<div class="per">'+perLbl+' \u00B7 \u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440 \u00B7 \u0421\u0444\u043E\u0440\u043C\u043E\u0432\u0430\u043D\u043E: '+new Date().toLocaleDateString('uk-UA')+'</div></div>'
+      +'<div class="card"><div class="chead"><div class="avatar">'+initials(admin)+'</div><div class="cname">'+admin.fn+' '+admin.ln+'</div></div>'
+      +'<table class="rows">'+(rowsA||'<tr><td class="ilbl" style="color:#999">\u041D\u0435\u043C\u0430\u0454 \u043F\u0443\u043D\u043A\u0442\u0456\u0432</td><td></td></tr>')+'</table>'
+      +'<div class="cfoot"><span>\u0420\u0430\u0437\u043E\u043C \u0434\u043E \u0432\u0438\u043F\u043B\u0430\u0442\u0438</span><b>'+money(ptA.total)+' \u20B4</b></div>'
+      +'<div class="sign">\u041F\u0456\u0434\u043F\u0438\u0441 \u0430\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430: ______________________</div></div>'
+      +'<button class="noprint" onclick="window.print()" style="margin-top:20px;padding:10px 20px;font-size:14px;cursor:pointer;border-radius:8px;border:none;background:#2e3192;color:#fff">\uD83D\uDDA8 \u0414\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438</button>'
+      +'</body></html>');
+    w.document.close();
+    setTimeout(function(){ try{w.print();}catch(e){} }, 400);
+    return;
+  }
+
+  var tutorId=recipientId;
+  var tutors=tutorId?(S.tutors||[]).filter(function(t){return t.id===tutorId;})
+    :(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
   var grand=0, cards='', activeCount=0;
   tutors.forEach(function(t,idx){
     var pt=payrollTotal(t.id, per), b=pt.base;
