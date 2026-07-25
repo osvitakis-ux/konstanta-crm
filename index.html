@@ -857,6 +857,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <select id="sf-branch" class="admin-only" style="display:none;font-size:12px;padding:5px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s2);color:var(--t1);margin-left:6px" onchange="renderStudents()">
             <option value="">Всі філії</option>
           </select>
+          <select id="sf-tutor" class="admin-only" style="display:none;font-size:12px;padding:5px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s2);color:var(--t1)" onchange="renderStudents()">
+            <option value="">Всі репетитори</option>
+          </select>
           <select id="sf-sort" class="admin-only" style="display:none;font-size:12px;padding:5px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s2);color:var(--t1)" onchange="renderStudents()">
             <option value="">Без сортування</option>
             <option value="az">А → Я</option>
@@ -1899,8 +1902,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
     <div class="mdlb"><div class="fg">
       <div id="pri-tutor-name" style="font-weight:600;font-size:13px;grid-column:1/-1;color:var(--t2)"></div>
       <div class="fgr full"><label>Пояснення *</label><input id="pri-label" placeholder="Премія, аванс, утримання..."></div>
-      <div class="fgr"><label>Сума ₴, як є (± для авансу/утримання)</label><input id="pri-amount" type="number" step="0.01" placeholder="1000 або -500"></div>
-      <div class="fgr"><label>або % від бази (після ×0.4)</label><input id="pri-percent" type="number" step="0.1" placeholder="10"></div>
+      <div class="fgr full"><label>Сума ₴, як є (± для авансу/утримання)</label><input id="pri-amount" type="number" step="0.01" placeholder="1000 або -500"></div>
     </div></div>
     <div class="mdlf">
       <button class="btn btn-p" onclick="savePayrollItem()">💾 Додати</button>
@@ -1967,7 +1969,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=payrollprint1"></script>
+<script src="app7.js?v=studtutfilt1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
