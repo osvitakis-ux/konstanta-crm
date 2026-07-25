@@ -2282,7 +2282,10 @@ function renderStudents(){
         || (s.email||'').toLowerCase().includes(_q);
   });
   if(sfCur!=='all') data=data.filter(function(s){return s.status===sfCur;});
-  if(_fBranch) data=data.filter(function(s){return (s.branchId||s.branch_id)===_fBranch;});
+  if(_fBranch) data=data.filter(function(s){
+    if(Array.isArray(s.branchIds)&&s.branchIds.length) return s.branchIds.indexOf(_fBranch)>=0;
+    return (s.branchId||s.branch_id)===_fBranch;
+  });
   if(_fTutor) data=data.filter(function(s){return studentTutorIds(s).indexOf(_fTutor)>=0;});
   if(_fSort==='az') data=data.slice().sort(function(a,b){return (a.ln+' '+a.fn).localeCompare(b.ln+' '+b.fn,'uk');});
   else if(_fSort==='za') data=data.slice().sort(function(a,b){return (b.ln+' '+b.fn).localeCompare(a.ln+' '+a.fn,'uk');});
@@ -3573,7 +3576,8 @@ async function loadAll(){
 // Normalize DB rows to match UI field names
 function normalizeStudent(r){ 
   var tutorIds = r.tutor_ids ? (Array.isArray(r.tutor_ids) ? r.tutor_ids : r.tutor_ids.split(',').filter(Boolean)) : (r.tutor_id ? [r.tutor_id] : []);
-  return Object.assign({}, r, { tutorId:r.tutor_id, crmStage:r.crm_stage||null, crmResponsible:r.crm_responsible||null, crmDate:r.crm_date||null, tutorIds:tutorIds, branchId:r.branch_id, parentFn:r.parent_fn, parentPhone:r.parent_phone }); 
+  var bIds = r.branch_ids ? (Array.isArray(r.branch_ids) ? r.branch_ids : String(r.branch_ids).split(',').filter(Boolean)) : (r.branch_id ? [r.branch_id] : []);
+  return Object.assign({}, r, { tutorId:r.tutor_id, crmStage:r.crm_stage||null, crmResponsible:r.crm_responsible||null, crmDate:r.crm_date||null, tutorIds:tutorIds, branchId:r.branch_id, branchIds:bIds, parentFn:r.parent_fn, parentPhone:r.parent_phone }); 
 }
 function normalizeLesson(r){  return Object.assign({}, r, { studentId:r.student_id, tutorId:r.tutor_id, branchId:r.branch_id, recurId:r.recur_id, recurType:r.recur_type, recurIndex:r.recur_index }); }
 function normalizePayment(r){ return Object.assign({}, r, { studentId:r.student_id, branchId:r.branch_id }); }
@@ -3936,7 +3940,8 @@ async function saveStudent(){
     parent_phone:(document.getElementById('s-parent-phone')?.value||'').trim(),
     crm_stage: document.getElementById('s-crm-stage')?.value||'lead',
     crm_responsible: document.getElementById('s-crm-resp')?.value||null,
-    branch_id: (function(){ var be=document.getElementById('s-branch'); return (be&&be.value)?be.value:(myBranchId()||null); })(),
+    branch_ids: (function(){ return Array.from(document.querySelectorAll('.s-branch-cb:checked')).map(function(el){return el.value;}).join(','); })(),
+    branch_id: (function(){ var ids=Array.from(document.querySelectorAll('.s-branch-cb:checked')).map(function(el){return el.value;}); return ids.length?ids[0]:(myBranchId()||null); })(),
   };
   // Auto-link to current tutor if none selected
   if(R()==='tutor' && !obj.tutor_id){
@@ -4022,9 +4027,41 @@ async function mergeDuplicateStudents(){
         st.forEach(function(t){ if(t&&tids.indexOf(t)<0) tids.push(t); });
       });
 
+      // Об'єднуємо "Окремі ставки" (rates) з УСІХ записів — унікальні за парою предмет+репетитор.
+      // Без цього дублікат із власними ставками (інший предмет/репетитор) втрачав їх при об'єднанні.
+      var mergedRates=[];
+      list.forEach(function(s){
+        studentRateRules(s).forEach(function(r){
+          var key=(r.subject||'').trim().toLowerCase()+'|'+(r.tutor_id||'');
+          if(!mergedRates.some(function(x){return ((x.subject||'').trim().toLowerCase()+'|'+(x.tutor_id||''))===key;})) mergedRates.push(r);
+        });
+      });
+      var subjNames=[]; mergedRates.forEach(function(r){ if(r.subject && subjNames.indexOf(r.subject)<0) subjNames.push(r.subject); });
+      var tidsFromRates=[]; mergedRates.forEach(function(r){ if(r.tutor_id && tidsFromRates.indexOf(r.tutor_id)<0) tidsFromRates.push(r.tutor_id); });
+      var finalTutorIds=tidsFromRates.length?tidsFromRates:tids;
+
+      // Об'єднуємо філії (учень/репетитор може працювати в кількох одночасно)
+      var brIds=[];
+      list.forEach(function(s){
+        var bi=(Array.isArray(s.branchIds)&&s.branchIds.length)?s.branchIds:(s.branchId||s.branch_id?[s.branchId||s.branch_id]:[]);
+        bi.forEach(function(b){ if(b&&brIds.indexOf(b)<0) brIds.push(b); });
+      });
+
       // Порожні поля основного запису заповнюємо даними з дублікатів
-      var patch={ tutor_ids:tids.join(','), tutor_id:tids[0]||null };
-      var fields=[['phone','phone'],['email','email'],['grade','grade'],['age','age'],['subject','subject'],['notes','notes'],['parent_fn','parentFn'],['parent_phone','parentPhone'],['status','status']];
+      var patch={
+        tutor_ids: finalTutorIds.join(','), tutor_id: finalTutorIds[0]||null,
+        rates: mergedRates,
+        subject: mergedRates.length?subjNames.join(', '):undefined, // якщо є ставки — предмет виводиться з них
+        branch_ids: brIds.join(','), branch_id: brIds[0]||null
+      };
+      if(patch.subject===undefined) delete patch.subject; // без ставок — не чіпаємо legacy-поле subject нижче (заповниться з дублікатів як і раніше)
+      if(!mergedRates.length){
+        // Жодних "Окремих ставок" у жодного з дублікатів — об'єднуємо старе текстове поле subject
+        var subjSet=[];
+        list.forEach(function(s){ (s.subject||'').split(',').map(function(x){return x.trim();}).filter(Boolean).forEach(function(x){ if(subjSet.indexOf(x)<0) subjSet.push(x); }); });
+        if(subjSet.length) patch.subject=subjSet.join(', ');
+      }
+      var fields=[['phone','phone'],['email','email'],['grade','grade'],['age','age'],['notes','notes'],['parent_fn','parentFn'],['parent_phone','parentPhone'],['status','status']];
       fields.forEach(function(f){
         var col=f[0], camel=f[1];
         if(!primary[camel]&&!primary[col]){
@@ -5740,12 +5777,15 @@ function openStudM(id=null){
   // Populate subject datalist for student modal
   var dl_s=document.getElementById('subj-list-s');
   if(dl_s){dl_s.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');}
-  // Populate branch select (god/director/admin only, hidden for others via CSS)
-  var brSelS=document.getElementById('s-branch');
-  if(brSelS){
-    brSelS.innerHTML='<option value="">\u2014 \u043D\u0435 \u0432\u043A\u0430\u0437\u0430\u043D\u043E \u2014</option>'
-      +(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
-        .map(function(b){return '<option value="'+b.id+'">'+b.name+'</option>';}).join('');
+  // Populate branch checkboxes (god/director/admin only, hidden for others via CSS)
+  var brListS=document.getElementById('s-branch-list');
+  var _preSelBranchesS=id?((S.students.find(x=>x.id===id)||{}).branchIds||[]):[];
+  if(brListS){
+    brListS.innerHTML=(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+      .map(function(b){
+        var checked=_preSelBranchesS.indexOf(b.id)>=0?' checked':'';
+        return '<label class="af-day"><input type="checkbox" class="s-branch-cb" value="'+b.id+'"'+checked+'> '+b.name+'</label>';
+      }).join('') || '<span style="font-size:11px;color:var(--t3)">\u0424\u0456\u043B\u0456\u0439 \u0449\u0435 \u043D\u0435 \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E</span>';
   }
   // Populate tutor datalist for searchable input
   var tutorDl=document.getElementById('s-tutor-datalist');
@@ -5767,7 +5807,6 @@ function openStudM(id=null){
   const flds=['fn','ln','age','grade','phone','email','notes'];
   const pflds=[];
   if(id){const s=S.students.find(x=>x.id===id);if(s){flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value=s[f]||'';});
-  var brElS=document.getElementById('s-branch'); if(brElS) brElS.value=s.branchId||s.branch_id||'';
   var _sSubjEl=document.getElementById('s-subj'); if(_sSubjEl)_sSubjEl.value=s.subject||'';
   // Render tutor tags (legacy, if element exists)
   var _tIds=s.tutorIds||(s.tutorId?[s.tutorId]:[]);
@@ -5789,7 +5828,6 @@ function openStudM(id=null){
     var _rlN=document.getElementById('s-rates-list'); if(_rlN) _rlN.innerHTML='';
     var crmStEl2=document.getElementById('s-crm-stage'); if(crmStEl2) crmStEl2.value='lead';
     var crmRespEl2=document.getElementById('s-crm-resp'); if(crmRespEl2) crmRespEl2.value='';
-    var brElS2=document.getElementById('s-branch'); if(brElS2) brElS2.value='';
   }
   renderCustomFields('student','mo-student-cf');
   renderStudentCard(id);
