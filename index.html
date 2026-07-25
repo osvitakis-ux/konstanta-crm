@@ -236,6 +236,18 @@ textarea{resize:vertical;min-height:72px}
 .tel-toggle input:checked+.tel-toggle-sw::after{transform:translateX(18px)}
 .ec-makeplan{background:rgba(148,163,184,.2);border-left:3px solid #94a3b8;color:#64748b}
 .ec-plan{background:rgba(41,171,226,.18);border-left:3px solid var(--adm);color:var(--adm)}
+/* ── Місячний календар ── */
+.schm-grid{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));min-width:840px}
+.schm-head{padding:8px 4px;text-align:center;font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--b1);background:var(--s2)}
+.schm-cell{min-height:104px;border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);padding:5px 5px 4px;box-sizing:border-box;cursor:pointer;transition:background .12s;display:flex;flex-direction:column;gap:2px}
+.schm-cell:hover{background:var(--s2)}
+.schm-cell.other-month{opacity:.35}
+.schm-cell.is-today{background:rgba(41,171,226,.07)}
+.schm-daynum{font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:2px}
+.schm-cell.is-today .schm-daynum{color:var(--adm);display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--adm);color:#fff;border-radius:50%}
+.schm-ev{font-size:10px;line-height:1.35;padding:1.5px 5px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.schm-more{font-size:10px;color:var(--t3);padding:1px 5px;font-weight:600}
+@media(max-width:768px){.schm-grid{grid-template-columns:repeat(7,minmax(72px,1fr))}.schm-cell{min-height:76px}}
 .ec0{background:rgba(108,143,255,.22);border-left:2.5px solid var(--adm);color:var(--adm)}
 .ec1{background:rgba(52,211,153,.18);border-left:2.5px solid var(--tut);color:var(--tut)}
 .ec2{background:rgba(245,158,11,.18);border-left:2.5px solid var(--dir);color:var(--dir)}
@@ -860,6 +872,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div style="display:flex;gap:4px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:3px">
             <button id="sch-btn-week" class="btn btn-sm active-view" onclick="schSetView('week')" style="padding:4px 12px;font-size:12px">Тиждень</button>
             <button id="sch-btn-day"  class="btn btn-sm" onclick="schSetView('day')"  style="padding:4px 12px;font-size:12px">День</button>
+            <button id="sch-btn-month" class="btn btn-sm" onclick="schSetView('month')" style="padding:4px 12px;font-size:12px">Місяць</button>
           </div>
           <!-- Nav -->
           <button class="btn btn-g btn-sm" onclick="chWk(-1)" id="sch-prev">← Попередній</button>
@@ -884,7 +897,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <span id="avail-hint" style="display:none;font-size:11px;color:var(--adm)"></span>
           </div>
         </div>
-        <div class="card" style="overflow-x:auto"><div class="schg" id="schg"></div></div>
+        <div class="card" style="overflow-x:auto"><div class="schg" id="schg"></div><div id="schm" style="display:none"></div></div>
       </div>
 
       <!-- ── LESSONS ── -->
@@ -1902,7 +1915,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=dashfix2"></script>
+<script src="app7.js?v=monthview1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
