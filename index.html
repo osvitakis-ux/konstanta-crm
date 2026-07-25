@@ -595,6 +595,10 @@ body.role-tutor .tutor-hidden { display: none !important; }
 .xls-btn, .dir-only { display: none !important; }
 body.role-god .xls-btn, body.role-director .xls-btn,
 body.role-god .dir-only, body.role-director .dir-only { display: inline-flex !important; }
+.admin-only { display: none !important; }
+body.role-god .admin-only, body.role-director .admin-only, body.role-admin .admin-only { display: inline-flex !important; }
+.admin-only.fgr { display: none !important; }
+body.role-god .admin-only.fgr, body.role-director .admin-only.fgr, body.role-admin .admin-only.fgr { display: flex !important; }
 /* Червона підсвітка пункту "Завдання" у відповідального з простроченими завданнями */
 .ni-task-alert { background: rgba(248,113,113,.16) !important; color: var(--danger) !important; animation: taskpulse 1.3s ease-in-out infinite; }
 @keyframes taskpulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(248,113,113,.45);} 50%{ box-shadow: 0 0 0 5px rgba(248,113,113,0);} }
@@ -850,6 +854,14 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div class="chip" onclick="sfilt('trial',this)">Пробне</div>
           <div class="chip" onclick="sfilt('paused',this)">Призупинені</div>
           <div class="chip" onclick="sfilt('completed',this)">Завершили</div>
+          <select id="sf-branch" class="admin-only" style="display:none;font-size:12px;padding:5px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s2);color:var(--t1);margin-left:6px" onchange="renderStudents()">
+            <option value="">Всі філії</option>
+          </select>
+          <select id="sf-sort" class="admin-only" style="display:none;font-size:12px;padding:5px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s2);color:var(--t1)" onchange="renderStudents()">
+            <option value="">Без сортування</option>
+            <option value="az">А → Я</option>
+            <option value="za">Я → А</option>
+          </select>
         </div>
         <div class="card">
           <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><button class="btn btn-g btn-sm dir-only" onclick="mergeDuplicateStudents()" style="margin-left:auto">🔗 Об'єднати дублікати</button><button class="btn btn-g btn-sm xls-btn" onclick="exportToExcel('students')">📊 Excel</button></div>
@@ -1538,6 +1550,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fgr"><label>Прізвище *</label><input id="s-ln"></div>
       <div class="fgr"><label>Вік</label><input id="s-age" type="number" min="4" max="80"></div>
       <div class="fgr"><label>Клас</label><input id="s-grade" placeholder="10 клас"></div>
+      <div class="fgr admin-only"><label>🏢 Філія</label><select id="s-branch"><option value="">— не вказано —</option></select></div>
       <div class="fgr full"><label>💰 Ставки (предмет / репетитор)</label>
         <div style="font-size:11px;color:var(--t3);margin-bottom:4px">Вартість заняття визначається тут. Порожнє поле = «будь-який». Пріоритет: предмет+репетитор → предмет → репетитор.</div>
         <div id="s-rates-list" style="display:flex;flex-direction:column;gap:6px"></div>
@@ -1634,6 +1647,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fgr"><label>Телефон</label><input id="t-phone"></div>
       <div class="fgr"><label>Email</label><input id="t-email" type="email"></div>
       <div class="fgr"><label>Предмети</label><input id="t-subj" placeholder="через кому"></div>
+      <div class="fgr admin-only"><label>🏢 Філія</label><select id="t-branch"><option value="">— не вказано —</option></select></div>
       <div class="fgr full"><label>🔗 Акаунт в системі</label>
         <select id="t-acc" style="width:100%">
           <option value="">— не прив'язано —</option>
@@ -1951,7 +1965,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=actparent1"></script>
+<script src="app7.js?v=branchfields1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
