@@ -2248,6 +2248,17 @@ function sfilt(f,el){sfCur=f;document.querySelectorAll('#sfchips .chip').forEach
 
 function renderStudents(){
   var _q=(document.getElementById('gsearch')||{value:''}).value.toLowerCase().trim();
+  var _canFilterExtra=(R()==='god'||R()==='director'||R()==='admin');
+  var brSel=document.getElementById('sf-branch');
+  if(brSel && _canFilterExtra){
+    var _prevBr=brSel.value;
+    brSel.innerHTML='<option value="">\u0412\u0441\u0456 \u0444\u0456\u043B\u0456\u0457</option>'
+      +(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+        .map(function(b){return '<option value="'+b.id+'">'+b.name+'</option>';}).join('');
+    brSel.value=_prevBr;
+  }
+  var _fBranch=_canFilterExtra?(document.getElementById('sf-branch')||{value:''}).value:'';
+  var _fSort=_canFilterExtra?(document.getElementById('sf-sort')||{value:''}).value:'';
   var data=myStudents().filter(function(s){
     if(!_q) return true;
     return (s.fn+' '+s.ln).toLowerCase().includes(_q)
@@ -2257,6 +2268,9 @@ function renderStudents(){
         || (s.email||'').toLowerCase().includes(_q);
   });
   if(sfCur!=='all') data=data.filter(function(s){return s.status===sfCur;});
+  if(_fBranch) data=data.filter(function(s){return (s.branchId||s.branch_id)===_fBranch;});
+  if(_fSort==='az') data=data.slice().sort(function(a,b){return (a.ln+' '+a.fn).localeCompare(b.ln+' '+b.fn,'uk');});
+  else if(_fSort==='za') data=data.slice().sort(function(a,b){return (b.ln+' '+b.fn).localeCompare(a.ln+' '+a.fn,'uk');});
   var tot=document.getElementById('st-total');
   if(tot) tot.textContent=data.length+' \u0437 '+myStudents().length;
   var ce=can('students');
@@ -3904,7 +3918,7 @@ async function saveStudent(){
     parent_phone:(document.getElementById('s-parent-phone')?.value||'').trim(),
     crm_stage: document.getElementById('s-crm-stage')?.value||'lead',
     crm_responsible: document.getElementById('s-crm-resp')?.value||null,
-    branch_id: myBranchId()||null,
+    branch_id: (function(){ var be=document.getElementById('s-branch'); return (be&&be.value)?be.value:(myBranchId()||null); })(),
   };
   // Auto-link to current tutor if none selected
   if(R()==='tutor' && !obj.tutor_id){
@@ -4073,7 +4087,7 @@ async function saveTutor(){
     bio:    document.getElementById('t-bio')?.value||'',
     rating: parseInt(document.getElementById('t-rating')?.value)||5,
     acc_uid: document.getElementById('t-acc')?.value||null,
-    branch_id: myBranchId()||null,
+    branch_id: (function(){ var be=document.getElementById('t-branch'); return (be&&be.value)?be.value:(myBranchId()||null); })(),
   };
   window._saving = true;
   try{
@@ -5672,6 +5686,13 @@ function openStudM(id=null){
   // Populate subject datalist for student modal
   var dl_s=document.getElementById('subj-list-s');
   if(dl_s){dl_s.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');}
+  // Populate branch select (god/director/admin only, hidden for others via CSS)
+  var brSelS=document.getElementById('s-branch');
+  if(brSelS){
+    brSelS.innerHTML='<option value="">\u2014 \u043D\u0435 \u0432\u043A\u0430\u0437\u0430\u043D\u043E \u2014</option>'
+      +(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+        .map(function(b){return '<option value="'+b.id+'">'+b.name+'</option>';}).join('');
+  }
   // Populate tutor datalist for searchable input
   var tutorDl=document.getElementById('s-tutor-datalist');
   if(tutorDl){tutorDl.innerHTML=(S.tutors||[]).map(function(t){return '<option value="'+t.fn+' '+t.ln+'" data-id="'+t.id+'">';}).join('');}
@@ -5692,6 +5713,7 @@ function openStudM(id=null){
   const flds=['fn','ln','age','grade','phone','email','notes'];
   const pflds=[];
   if(id){const s=S.students.find(x=>x.id===id);if(s){flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value=s[f]||'';});
+  var brElS=document.getElementById('s-branch'); if(brElS) brElS.value=s.branchId||s.branch_id||'';
   var _sSubjEl=document.getElementById('s-subj'); if(_sSubjEl)_sSubjEl.value=s.subject||'';
   // Render tutor tags (legacy, if element exists)
   var _tIds=s.tutorIds||(s.tutorId?[s.tutorId]:[]);
@@ -5713,6 +5735,7 @@ function openStudM(id=null){
     var _rlN=document.getElementById('s-rates-list'); if(_rlN) _rlN.innerHTML='';
     var crmStEl2=document.getElementById('s-crm-stage'); if(crmStEl2) crmStEl2.value='lead';
     var crmRespEl2=document.getElementById('s-crm-resp'); if(crmRespEl2) crmRespEl2.value='';
+    var brElS2=document.getElementById('s-branch'); if(brElS2) brElS2.value='';
   }
   renderCustomFields('student','mo-student-cf');
   renderStudentCard(id);
@@ -5815,11 +5838,19 @@ function openTutM(id=null){
     }).join('');
     accSel.innerHTML='<option value="">\u2014 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u043E \u2014</option>'+opts;
   }
+  // Populate branch select (god/director/admin only, hidden for others via CSS)
+  var brSelT=document.getElementById('t-branch');
+  if(brSelT){
+    brSelT.innerHTML='<option value="">\u2014 \u043D\u0435 \u0432\u043A\u0430\u0437\u0430\u043D\u043E \u2014</option>'
+      +(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+        .map(function(b){return '<option value="'+b.id+'">'+b.name+'</option>';}).join('');
+  }
 
   if(id){const t=S.tutors.find(x=>x.id===id);if(t){['fn','ln','phone','email','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value=t[f]||'';});document.getElementById('t-subj').value=t.subj||'';if(document.getElementById('t-rate'))document.getElementById('t-rate').value=t.rate||'';
     if(accSel) accSel.value=t.accId||t.acc_uid||'';
+    if(brSelT) brSelT.value=t.branchId||t.branch_id||'';
   }}
-  else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});if(accSel)accSel.value='';}
+  else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});if(accSel)accSel.value='';if(brSelT)brSelT.value='';}
   renderCustomFields('tutor','mo-tutor-cf');
   openM('mo-tutor');
 }
