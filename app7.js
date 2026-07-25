@@ -1255,7 +1255,7 @@ function renderActsPage(){
       +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">'+r.s.fn+' '+r.s.ln+'</div>'
         +'<div style="font-size:11px;color:var(--t3)">'+r.lessons.length+' \u043F\u043E\u0441\u043B\u0443\u0433 \u00B7 '+hours+'\u0433 \u00B7 '+sum+'\u20B4</div></div>'
       +badge
-      +'<button class="btn btn-g btn-sm" onclick="printAct(\''+r.s.id+'\')" title="\u0421\u0444\u043E\u0440\u043C\u0443\u0432\u0430\u0442\u0438/\u0434\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438">\uD83D\uDDA8 \u0410\u043A\u0442</button>'
+      +'<button class="btn btn-g btn-sm" onclick="openActEditM(\''+r.s.id+'\')" title="\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438/\u0441\u0444\u043E\u0440\u043C\u0443\u0432\u0430\u0442\u0438/\u0434\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438">\u270F\uFE0F \u0410\u043A\u0442</button>'
       +(!r.signed?'<button class="btn btn-g btn-sm" onclick="markActSigned(\''+r.s.id+'\')" title="\u041F\u043E\u0437\u043D\u0430\u0447\u0438\u0442\u0438 \u043F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u0438\u043C \u0432\u0440\u0443\u0447\u043D\u0443">\u2713 \u041F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u043E</button>':'')
       +'</div>';
   }).join('');
@@ -1278,7 +1278,7 @@ async function markActSigned(sid){
 }
 
 // Друк акта: генерує документ із реквізитами, переліком послуг і двома підписами
-function printAct(sid){
+function openActEditM(sid){
   if(!canActs()) return;
   var s=(S.students||[]).find(function(x){return x.id===sid;});
   if(!s){ mkToast('\u0423\u0447\u0435\u043D\u044C \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error'); return; }
@@ -1286,11 +1286,7 @@ function printAct(sid){
   var lessons=actLessonsFor(sid, per);
   if(!lessons.length){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C \u0437\u0430 \u0446\u0435\u0439 \u043F\u0435\u0440\u0456\u043E\u0434','error'); return; }
 
-  var bid=myBranchId();
-  var branch=(S.branches||[]).find(function(b){return b.id===bid;}) || (S.branches||[])[0];
-  var cfg=S.settings||{};
-
-  // Групуємо за предметом+репетитором — рядки акта як послуги
+  // Групуємо за предметом+репетитором — початкові рядки акта (можна редагувати нижче)
   var groups={}, order=[];
   lessons.forEach(function(l){
     var tid=l.tutorId||l.tutor_id;
@@ -1300,25 +1296,130 @@ function printAct(sid){
     groups[key].lessons.push(l);
   });
 
-  var totalHours=Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
-  var totalSum=Math.round(lessons.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100;
+  var rows=order.map(function(key){
+    var g=groups[key];
+    var gHours=Math.round(g.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    var gSum=Math.round(g.lessons.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100;
+    return { desc:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0441\u044C\u043A\u0456 \u043F\u043E\u0441\u043B\u0443\u0433\u0438: '+g.subj+(g.tutor?' ('+g.tutor.fn+' '+g.tutor.ln+')':''), hours:gHours, sum:gSum };
+  });
+
+  window._actEditSid=sid;
+  window._actEditPeriod=per;
+  var who=document.getElementById('act-edit-who');
+  if(who) who.textContent=s.fn+' '+s.ln+' \u00B7 '+actPeriod();
+  var noteEl=document.getElementById('act-edit-note');
+  if(noteEl) noteEl.value='';
+  var cName=document.getElementById('act-edit-client-name'); if(cName) cName.value=s.fn+' '+s.ln;
+  var cPhone=document.getElementById('act-edit-client-phone'); if(cPhone) cPhone.value=s.parentPhone||s.phone||'';
+  var cAddr=document.getElementById('act-edit-client-addr'); if(cAddr) cAddr.value=s.address||'';
+  renderActEditRows(rows);
+  openM('mo-act-edit');
+}
+
+function renderActEditRows(rows){
+  var tb=document.getElementById('act-edit-rows');
+  if(!tb) return;
+  tb.innerHTML='';
+  rows.forEach(function(r){ addActEditRow(r); });
+}
+
+function addActEditRow(r){
+  r=r||{desc:'',hours:'',sum:''};
+  var tb=document.getElementById('act-edit-rows');
+  if(!tb) return;
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td style="padding:3px 6px"><input class="ae-desc" value="'+String(r.desc||'').replace(/"/g,'&quot;')+'" style="width:100%;font-size:12.5px;padding:5px 7px"></td>'
+    +'<td style="padding:3px 4px"><input class="ae-hours" type="number" step="0.1" value="'+(r.hours!=null?r.hours:'')+'" style="width:100%;font-size:12.5px;padding:5px 5px;text-align:center" oninput="recalcActEditTotal()"></td>'
+    +'<td style="padding:3px 4px"><input class="ae-sum" type="number" step="0.01" value="'+(r.sum!=null?r.sum:'')+'" style="width:100%;font-size:12.5px;padding:5px 5px;text-align:right" oninput="recalcActEditTotal()"></td>'
+    +'<td style="text-align:center"><button type="button" onclick="this.closest(\'tr\').remove();recalcActEditTotal()" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:13px">\u2715</button></td>';
+  tb.appendChild(tr);
+  recalcActEditTotal();
+}
+
+function recalcActEditTotal(){
+  var sum=Array.from(document.querySelectorAll('#act-edit-rows .ae-sum')).reduce(function(s,el){return s+(parseFloat(el.value)||0);},0);
+  var el=document.getElementById('act-edit-total');
+  if(el) el.textContent=(Math.round(sum*100)/100).toLocaleString('uk-UA')+' \u20B4';
+}
+
+function collectActEditRows(){
+  return Array.from(document.querySelectorAll('#act-edit-rows tr')).map(function(tr){
+    return {
+      desc:(tr.querySelector('.ae-desc')||{value:''}).value.trim(),
+      hours:parseFloat((tr.querySelector('.ae-hours')||{value:'0'}).value)||0,
+      sum:parseFloat((tr.querySelector('.ae-sum')||{value:'0'}).value)||0
+    };
+  }).filter(function(r){ return r.desc||r.sum; });
+}
+
+function printActFromEdit(){
+  var sid=window._actEditSid, per=window._actEditPeriod;
+  if(!sid||!per) return;
+  var rows=collectActEditRows();
+  if(!rows.length){ mkToast('\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u0445\u043E\u0447\u0430 \u043E\u0434\u0438\u043D \u0440\u044F\u0434\u043E\u043A','error'); return; }
+  var note=(document.getElementById('act-edit-note')||{value:''}).value.trim();
+  var clientInfo={
+    name:(document.getElementById('act-edit-client-name')||{value:''}).value.trim(),
+    phone:(document.getElementById('act-edit-client-phone')||{value:''}).value.trim(),
+    addr:(document.getElementById('act-edit-client-addr')||{value:''}).value.trim()
+  };
+  closeM('mo-act-edit');
+  printAct(sid, per, rows, note, clientInfo);
+}
+
+// Друк акта: генерує документ із реквізитами, переліком послуг (можливо відредагованим) і двома підписами
+function printAct(sid, per, editedRows, editedNote, clientInfo){
+  if(!canActs()) return;
+  var s=(S.students||[]).find(function(x){return x.id===sid;});
+  if(!s){ mkToast('\u0423\u0447\u0435\u043D\u044C \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error'); return; }
+  per=per||actPeriod();
+
+  var bid=myBranchId();
+  var branch=(S.branches||[]).find(function(b){return b.id===bid;}) || (S.branches||[])[0];
+  var cfg=S.settings||{};
+
+  var rows;
+  if(editedRows && editedRows.length){
+    rows=editedRows;
+  } else {
+    var lessons=actLessonsFor(sid, per);
+    if(!lessons.length){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C \u0437\u0430 \u0446\u0435\u0439 \u043F\u0435\u0440\u0456\u043E\u0434','error'); return; }
+    var groups={}, order=[];
+    lessons.forEach(function(l){
+      var tid=l.tutorId||l.tutor_id;
+      var t=tid?(S.tutors||[]).find(function(x){return x.id===tid;}):null;
+      var key=(tid||'')+'|'+(l.subject||'');
+      if(!groups[key]){ groups[key]={tutor:t, subj:l.subject||'\u0406\u043D\u0448\u0435', lessons:[]}; order.push(key); }
+      groups[key].lessons.push(l);
+    });
+    rows=order.map(function(key){
+      var g=groups[key];
+      var gHours=Math.round(g.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+      var gSum=Math.round(g.lessons.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100;
+      return { desc:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0441\u044C\u043A\u0456 \u043F\u043E\u0441\u043B\u0443\u0433\u0438: '+g.subj+(g.tutor?' ('+g.tutor.fn+' '+g.tutor.ln+')':''), hours:gHours, sum:gSum };
+    });
+  }
+
+  var totalHours=Math.round(rows.reduce(function(s,r){return s+(parseFloat(r.hours)||0);},0)*10)/10;
+  var totalSum=Math.round(rows.reduce(function(s,r){return s+(parseFloat(r.sum)||0);},0)*100)/100;
 
   var actNo=(s.id||'').slice(0,6).toUpperCase()+'-'+per.replace('-','');
   var perLbl=(function(){ var p=per.split('-'); var m=['\u0441\u0456\u0447\u0435\u043D\u044C','\u043B\u044E\u0442\u0438\u0439','\u0431\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u043A\u0432\u0456\u0442\u0435\u043D\u044C','\u0442\u0440\u0430\u0432\u0435\u043D\u044C','\u0447\u0435\u0440\u0432\u0435\u043D\u044C','\u043B\u0438\u043F\u0435\u043D\u044C','\u0441\u0435\u0440\u043F\u0435\u043D\u044C','\u0432\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0436\u043E\u0432\u0442\u0435\u043D\u044C','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0433\u0440\u0443\u0434\u0435\u043D\u044C'][parseInt(p[1])-1]; return m+' '+p[0]; })();
 
   var rowsHtml='';
-  var idx=1;
-  order.forEach(function(key){
-    var g=groups[key];
-    var gHours=Math.round(g.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
-    var gSum=Math.round(g.lessons.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100;
-    rowsHtml+='<tr><td>'+(idx++)+'</td><td>\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0441\u044C\u043A\u0456 \u043F\u043E\u0441\u043B\u0443\u0433\u0438: '+g.subj+(g.tutor?' ('+g.tutor.fn+' '+g.tutor.ln+')':'')+'</td><td class="c">\u0433\u043E\u0434.</td><td class="c">'+gHours+'</td><td class="r">'+gSum+'</td></tr>';
+  rows.forEach(function(r,i){
+    rowsHtml+='<tr><td>'+(i+1)+'</td><td>'+r.desc+'</td><td class="c">\u0433\u043E\u0434.</td><td class="c">'+r.hours+'</td><td class="r">'+r.sum+'</td></tr>';
   });
 
   var executor=branch?(branch.pay_recipient||cfg.name||'\u2014'):(cfg.name||'\u2014');
   var execAddr=branch?(branch.pay_address||branch.address||''):'';
   var execEdrpou=branch?(branch.pay_edrpou||''):'';
   var execBank=branch?((branch.pay_bank||'')+(branch.pay_card?', '+branch.pay_card:'')):'';
+
+  // Реквізити замовника: якщо редаговані в модалці — беремо їх, інакше з картки учня
+  var clientName=(clientInfo&&clientInfo.name)?clientInfo.name:(s.fn+' '+s.ln);
+  var clientPhone=(clientInfo&&clientInfo.phone!=null)?clientInfo.phone:(s.parentPhone||s.phone||'');
+  var clientAddr=(clientInfo&&clientInfo.addr!=null)?clientInfo.addr:(s.address||'');
 
   var w=window.open('','_blank');
   w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0410\u043A\u0442 \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u0438\u0445 \u0440\u043E\u0431\u0456\u0442</title>'
@@ -1332,6 +1433,7 @@ function printAct(sid){
     +'.c{text-align:center} .r{text-align:right}'
     +'.tot td{font-weight:700;background:#f7f7f7}'
     +'.sumtext{margin:14px 0;font-size:13px}'
+    +'.note{margin:10px 0;font-size:12.5px;color:#333;white-space:pre-wrap}'
     +'.sign-wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:44px}'
     +'.sign-line{border-top:1px solid #111;margin-top:46px;padding-top:4px;font-size:11.5px;color:#333}'
     +'.legal-note{margin-top:26px;font-size:10.5px;color:#888;border-top:1px dashed #ccc;padding-top:8px}'
@@ -1344,9 +1446,9 @@ function printAct(sid){
         +(execAddr?'<br>'+execAddr:'')
         +(execBank?'<br>'+execBank:'')
       +'</div>'
-      +'<div><b>\u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A</b>'+s.fn+' '+s.ln
-        +((s.parentPhone||s.phone)?'<br>'+(s.parentPhone||s.phone):'')
-        +((s.address)?'<br>'+s.address:'')
+      +'<div><b>\u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A</b>'+clientName
+        +(clientPhone?'<br>'+clientPhone:'')
+        +(clientAddr?'<br>'+clientAddr:'')
       +'</div>'
     +'</div>'
     +'<p>\u0426\u0438\u043C \u0430\u043A\u0442\u043E\u043C \u043F\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E \u0412\u0438\u043A\u043E\u043D\u0430\u0432\u0435\u0446\u044C \u043D\u0430\u0434\u0430\u0432 \u043D\u0438\u0436\u0447\u0435\u043D\u0430\u0432\u0435\u0434\u0435\u043D\u0456 \u043F\u043E\u0441\u043B\u0443\u0433\u0438, \u0430 \u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A \u043F\u0440\u0438\u0439\u043D\u044F\u0432 \u0457\u0445 \u0443 \u043F\u043E\u0432\u043D\u043E\u043C\u0443 \u043E\u0431\u0441\u044F\u0437\u0456 \u0431\u0435\u0437 \u0437\u0430\u0443\u0432\u0430\u0436\u0435\u043D\u044C \u0449\u043E\u0434\u043E \u044F\u043A\u043E\u0441\u0442\u0456:</p>'
@@ -1354,10 +1456,11 @@ function printAct(sid){
     +rowsHtml
     +'<tr class="tot"><td colspan="3"></td><td class="c">'+totalHours+'</td><td class="r">'+totalSum+'</td></tr>'
     +'</tbody></table>'
+    +(editedNote?'<div class="note">'+editedNote.replace(/</g,'&lt;')+'</div>':'')
     +'<div class="sumtext">\u0420\u0430\u0437\u043E\u043C \u043D\u0430\u0434\u0430\u043D\u043E \u043F\u043E\u0441\u043B\u0443\u0433 \u043D\u0430 \u0441\u0443\u043C\u0443 <b>'+totalSum+' \u0433\u0440\u043D.</b> \u041F\u0440\u0435\u0442\u0435\u043D\u0437\u0456\u0439 \u0443 \u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A\u0430 \u0449\u043E\u0434\u043E \u044F\u043A\u043E\u0441\u0442\u0456, \u043E\u0431\u0441\u044F\u0433\u0443 \u0442\u0430 \u0442\u0435\u0440\u043C\u0456\u043D\u0456\u0432 \u043D\u0430\u0434\u0430\u043D\u043D\u044F \u043F\u043E\u0441\u043B\u0443\u0433 \u043D\u0435 \u043C\u0430\u0454.</div>'
     +'<div class="sign-wrap">'
       +'<div>\u0412\u0438\u043A\u043E\u043D\u0430\u0432\u0435\u0446\u044C:<div class="sign-line">'+executor+' \u00A0\u00A0\u00A0\u00A0 \u041F\u0456\u0434\u043F\u0438\u0441: ______________</div></div>'
-      +'<div>\u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A:<div class="sign-line">'+s.fn+' '+s.ln+' \u00A0\u00A0\u00A0\u00A0 \u041F\u0456\u0434\u043F\u0438\u0441: ______________</div></div>'
+      +'<div>\u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A:<div class="sign-line">'+clientName+' \u00A0\u00A0\u00A0\u00A0 \u041F\u0456\u0434\u043F\u0438\u0441: ______________</div></div>'
     +'</div>'
     +'<div class="legal-note">\u0424\u043E\u0440\u043C\u0430 \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430 \u043E\u0440\u0456\u0454\u043D\u0442\u043E\u0432\u0430\u043D\u0430 \u043D\u0430 \u043E\u0431\u043E\u0432\u2019\u044F\u0437\u043A\u043E\u0432\u0456 \u0440\u0435\u043A\u0432\u0456\u0437\u0438\u0442\u0438 \u043F\u0435\u0440\u0432\u0438\u043D\u043D\u043E\u0433\u043E \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430 (\u0441\u0442.9 \u0417\u0430\u043A\u043E\u043D\u0443 \u00AB\u041F\u0440\u043E \u0431\u0443\u0445\u0433\u0430\u043B\u0442\u0435\u0440\u0441\u044C\u043A\u0438\u0439 \u043E\u0431\u043B\u0456\u043A\u00BB). \u041F\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u043D\u0456\u0441\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 \u0432\u0430\u0448\u043E\u043C\u0443 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0443 \u0442\u0430 \u0441\u0438\u0441\u0442\u0435\u043C\u0456 \u043E\u043F\u043E\u0434\u0430\u0442\u043A\u0443\u0432\u0430\u043D\u043D\u044F \u0437 \u0431\u0443\u0445\u0433\u0430\u043B\u0442\u0435\u0440\u043E\u043C.</div>'
     +'<button class="noprint" onclick="window.print()" style="margin-top:20px;padding:8px 18px;font-size:14px;cursor:pointer">\uD83D\uDDA8 \u0414\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438 / \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u044F\u043A PDF</button>'
@@ -1375,7 +1478,12 @@ function printAct(sid){
   }).catch(function(){});
 }
 
+window.openActEditM=openActEditM;
+window.addActEditRow=addActEditRow;
+window.recalcActEditTotal=recalcActEditTotal;
+window.printActFromEdit=printActFromEdit;
 window.renderActsPage=renderActsPage;
+
 window.printAct=printAct;
 window.markActSigned=markActSigned;
 
