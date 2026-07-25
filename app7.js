@@ -4966,7 +4966,7 @@ function openTaskM(id){
     var html='<option value="">\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u043B\u044C\u043D\u043E\u0433\u043E</option>';
     if(_mgrs.length){
       html+='<optgroup label="\u041A\u0435\u0440\u0456\u0432\u043D\u0438\u0446\u0442\u0432\u043E / \u0430\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0446\u0456\u044F">'
-        +_mgrs.map(function(u){var rl=(ROLES[u.role]||{}).label||u.role;return '<option value="'+u.id+'">'+u.fn+' '+u.ln+' ('+rl+')</option>';}).join('')
+        +_mgrs.map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('')
         +'</optgroup>';
     }
     if(_tuts.length){
@@ -5456,7 +5456,7 @@ async function renderAudit(){
     var prev=uSel.value;
     uSel.innerHTML='<option value="">\u0412\u0441\u0456 \u043A\u043E\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447\u0456</option>'
       +(S.users||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
-        .map(function(u){var rl=(ROLES[u.role]||{}).label||u.role||'';return '<option value="'+u.id+'">'+u.fn+' '+u.ln+' ('+rl+')</option>';}).join('');
+        .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
     uSel.value=prev;
   }
   var fUser=(uSel||{value:''}).value;
