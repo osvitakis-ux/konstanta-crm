@@ -2262,7 +2262,16 @@ function renderStudents(){
         .map(function(b){return '<option value="'+b.id+'">'+b.name+'</option>';}).join('');
     brSel.value=_prevBr;
   }
+  var tutSel=document.getElementById('sf-tutor');
+  if(tutSel && _canFilterExtra){
+    var _prevTut=tutSel.value;
+    tutSel.innerHTML='<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>'
+      +(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+    tutSel.value=_prevTut;
+  }
   var _fBranch=_canFilterExtra?(document.getElementById('sf-branch')||{value:''}).value:'';
+  var _fTutor=_canFilterExtra?(document.getElementById('sf-tutor')||{value:''}).value:'';
   var _fSort=_canFilterExtra?(document.getElementById('sf-sort')||{value:''}).value:'';
   var data=myStudents().filter(function(s){
     if(!_q) return true;
@@ -2274,6 +2283,7 @@ function renderStudents(){
   });
   if(sfCur!=='all') data=data.filter(function(s){return s.status===sfCur;});
   if(_fBranch) data=data.filter(function(s){return (s.branchId||s.branch_id)===_fBranch;});
+  if(_fTutor) data=data.filter(function(s){return studentTutorIds(s).indexOf(_fTutor)>=0;});
   if(_fSort==='az') data=data.slice().sort(function(a,b){return (a.ln+' '+a.fn).localeCompare(b.ln+' '+b.fn,'uk');});
   else if(_fSort==='za') data=data.slice().sort(function(a,b){return (b.ln+' '+b.fn).localeCompare(a.ln+' '+a.fn,'uk');});
   var tot=document.getElementById('st-total');
@@ -3809,7 +3819,7 @@ function auditDescribe(table, data, id){
     if(table==='comms'){ return data.type||''; }
     if(table==='subjects'){ return data.name||''; }
     if(table==='tasks'){ return data.title||''; }
-    if(table==='payroll_items'){ return (data.label||'')+(data.amount!=null?' '+data.amount+'\u20B4':'')+(data.percent!=null?' '+data.percent+'%':''); }
+    if(table==='payroll_items'){ return (data.label||'')+(data.amount!=null?' '+data.amount+'\u20B4':''); }
     if(table==='branches'){ return data.name||''; }
     return data.name||data.title||data.label||id||'';
   }catch(e){ return id||''; }
@@ -5147,8 +5157,6 @@ function payrollItemsFor(tutorId, period){
 }
 
 function payrollItemAmount(item, base){
-  if(item.percent!=null&&item.percent!==''&&!isNaN(parseFloat(item.percent)))
-    return Math.round(base*parseFloat(item.percent)/100*100)/100;
   return Math.round((parseFloat(item.amount)||0)*100)/100;
 }
 
@@ -5226,7 +5234,7 @@ function renderPayroll(){
       var amt=payrollItemAmount(i,b.base);
       var neg=amt<0;
       return '<div class="pr-item">'
-        +'<span class="pr-item-lbl">'+(i.label||'\u2014')+(i.percent!=null&&i.percent!==''?' <span style="color:var(--t3)">('+i.percent+'%)</span>':'')+'</span>'
+        +'<span class="pr-item-lbl">'+(i.label||'\u2014')+'</span>'
         +'<span class="pr-item-amt '+(neg?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+'\u20B4'
         +'<button onclick="delPayrollItem(\''+i.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" class="pr-item-del">\u2715</button></span>'
       +'</div>';
@@ -5283,7 +5291,6 @@ function openPayrollItemM(tutorId){
   if(nEl) nEl.textContent=t?(t.fn+' '+t.ln+' \u00B7 '+payrollPeriod()):'';
   document.getElementById('pri-label').value='';
   document.getElementById('pri-amount').value='';
-  document.getElementById('pri-percent').value='';
   openM('mo-payroll-item');
 }
 
@@ -5291,13 +5298,11 @@ async function savePayrollItem(){
   if(!canPayroll()) return;
   var label=(document.getElementById('pri-label')||{value:''}).value.trim();
   var amount=(document.getElementById('pri-amount')||{value:''}).value;
-  var percent=(document.getElementById('pri-percent')||{value:''}).value;
   if(!label){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u043F\u043E\u044F\u0441\u043D\u0435\u043D\u043D\u044F','error'); return; }
-  if(!amount&&!percent){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0441\u0443\u043C\u0443 \u0430\u0431\u043E \u0432\u0456\u0434\u0441\u043E\u0442\u043E\u043A','error'); return; }
+  if(!amount){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0441\u0443\u043C\u0443','error'); return; }
   var obj={ id:uid(), tutor_id:window._prItemTutor, period:payrollPeriod(),
     label:label,
     amount:amount!==''?parseFloat(amount):null,
-    percent:percent!==''?parseFloat(percent):null,
     created_by:CU?CU.id:null, created_at:new Date().toISOString() };
   try{
     await dbInsert('payroll_items',obj);
@@ -5338,7 +5343,7 @@ function printPayroll(tutorId){
     var donePct=baseSum>0?Math.round(b.doneSalary/baseSum*100):0;
     var itemsHtml=payrollItemsFor(t.id,per).map(function(i){
       var amt=payrollItemAmount(i,b.base);
-      return '<tr><td class="ilbl">'+(i.label||'')+(i.percent!=null&&i.percent!==''?' <span class="muted">('+i.percent+'%)</span>':'')+'</td>'
+      return '<tr><td class="ilbl">'+(i.label||'')+'</td>'
         +'<td class="r '+(amt<0?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+' \u20B4</td></tr>';
     }).join('');
     cards+='<div class="card" style="--av:'+av+'">'
