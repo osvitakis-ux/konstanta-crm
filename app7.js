@@ -1537,7 +1537,12 @@ function filterByBranch(arr){
   if(!bid&&isSuperAdmin()) return arr;
   const activeBid=bid||myBranchId();
   if(!activeBid) return arr;
-  return arr.filter(function(x){return !x.branchId||x.branchId===activeBid;});
+  return arr.filter(function(x){
+    // Репетитор може працювати в кількох філіях одночасно (branchIds) —
+    // тоді дивимось членство у списку, а не рівність єдиному branchId.
+    if(Array.isArray(x.branchIds) && x.branchIds.length) return x.branchIds.indexOf(activeBid)>=0;
+    return !x.branchId||x.branchId===activeBid;
+  });
 }function myBranchId(){
   // For branch-level users, return their assigned branch
   if(isSuperAdmin()) return currentBranch();
@@ -3562,7 +3567,10 @@ function normalizeStudent(r){
 }
 function normalizeLesson(r){  return Object.assign({}, r, { studentId:r.student_id, tutorId:r.tutor_id, branchId:r.branch_id, recurId:r.recur_id, recurType:r.recur_type, recurIndex:r.recur_index }); }
 function normalizePayment(r){ return Object.assign({}, r, { studentId:r.student_id, branchId:r.branch_id }); }
-function normalizeTutor(r){   return Object.assign({}, r, { accId:r.acc_uid, branchId:r.branch_id }); }
+function normalizeTutor(r){
+  var bIds = r.branch_ids ? (Array.isArray(r.branch_ids) ? r.branch_ids : String(r.branch_ids).split(',').filter(Boolean)) : (r.branch_id ? [r.branch_id] : []);
+  return Object.assign({}, r, { accId:r.acc_uid, branchId:r.branch_id, branchIds:bIds });
+}
 function normalizeComm(r){    return Object.assign({}, r, { tutorId:r.tutor_id, studentId:r.student_id, branchId:r.branch_id }); }
 function normalizePricingRule(r){ return Object.assign({}, r, { subjectMatch:r.subject_match, tutorId:r.tutor_id, gradeMatch:r.grade_match, durMin:r.dur_min }); }
 function normalizeTask(r){ return Object.assign({}, r, { assigneeId:r.assignee_id, creatorId:r.creator_id, branchId:r.branch_id, deadlineTime:r.deadline_time, doneAt:r.done_at }); }
@@ -4087,7 +4095,8 @@ async function saveTutor(){
     bio:    document.getElementById('t-bio')?.value||'',
     rating: parseInt(document.getElementById('t-rating')?.value)||5,
     acc_uid: document.getElementById('t-acc')?.value||null,
-    branch_id: (function(){ var be=document.getElementById('t-branch'); return (be&&be.value)?be.value:(myBranchId()||null); })(),
+    branch_ids: (function(){ return Array.from(document.querySelectorAll('.t-branch-cb:checked')).map(function(el){return el.value;}).join(','); })(),
+    branch_id: (function(){ var ids=Array.from(document.querySelectorAll('.t-branch-cb:checked')).map(function(el){return el.value;}); return ids.length?ids[0]:(myBranchId()||null); })(),
   };
   window._saving = true;
   try{
@@ -5838,19 +5847,21 @@ function openTutM(id=null){
     }).join('');
     accSel.innerHTML='<option value="">\u2014 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u043E \u2014</option>'+opts;
   }
-  // Populate branch select (god/director/admin only, hidden for others via CSS)
-  var brSelT=document.getElementById('t-branch');
-  if(brSelT){
-    brSelT.innerHTML='<option value="">\u2014 \u043D\u0435 \u0432\u043A\u0430\u0437\u0430\u043D\u043E \u2014</option>'
-      +(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
-        .map(function(b){return '<option value="'+b.id+'">'+b.name+'</option>';}).join('');
+  // Populate branch checkboxes (god/director/admin only, hidden for others via CSS)
+  var brListT=document.getElementById('t-branch-list');
+  var _preSelBranches=id?((S.tutors.find(x=>x.id===id)||{}).branchIds||[]):[];
+  if(brListT){
+    brListT.innerHTML=(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+      .map(function(b){
+        var checked=_preSelBranches.indexOf(b.id)>=0?' checked':'';
+        return '<label class="af-day"><input type="checkbox" class="t-branch-cb" value="'+b.id+'"'+checked+'> '+b.name+'</label>';
+      }).join('') || '<span style="font-size:11px;color:var(--t3)">\u0424\u0456\u043B\u0456\u0439 \u0449\u0435 \u043D\u0435 \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E</span>';
   }
 
   if(id){const t=S.tutors.find(x=>x.id===id);if(t){['fn','ln','phone','email','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value=t[f]||'';});document.getElementById('t-subj').value=t.subj||'';if(document.getElementById('t-rate'))document.getElementById('t-rate').value=t.rate||'';
     if(accSel) accSel.value=t.accId||t.acc_uid||'';
-    if(brSelT) brSelT.value=t.branchId||t.branch_id||'';
   }}
-  else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});if(accSel)accSel.value='';if(brSelT)brSelT.value='';}
+  else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});if(accSel)accSel.value='';}
   renderCustomFields('tutor','mo-tutor-cf');
   openM('mo-tutor');
 }
