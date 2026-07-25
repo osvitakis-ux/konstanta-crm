@@ -2300,8 +2300,14 @@ function renderStudents(){
     var _tids=studentTutorIds(s);
     var _tnames=_tids.map(tn).filter(function(n){return n&&n!=='\u2014';});
     var _subjTxt=studentSubjects(s).join(', ')||s.subject||'';
+    var _canSeeBranchesS=isSuperAdmin()||R()==='director'||R()==='admin';
+    var _branchBadgeS=_canSeeBranchesS
+      ?((s.branchIds&&s.branchIds.length)
+        ? s.branchIds.map(function(bid){return '<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px;margin:1px 3px 1px 0;display:inline-block">'+branchName(bid)+'</span>';}).join('')
+        : (s.branchId||s.branch_id ? '<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px">'+branchName(s.branchId||s.branch_id)+'</span>' : ''))
+      :'';
     return '<tr>'
-      +'<td><div style="display:flex;align-items:center;gap:8px">'+mkAv(s.fn,s.ln)+'<div><div style="font-weight:600;font-size:13px">'+s.fn+' '+s.ln+'</div></div></div></td>'
+      +'<td><div style="display:flex;align-items:center;gap:8px">'+mkAv(s.fn,s.ln)+'<div><div style="font-weight:600;font-size:13px">'+s.fn+' '+s.ln+'</div>'+(_branchBadgeS?'<div style="margin-top:3px">'+_branchBadgeS+'</div>':'')+'</div></div></td>'
       +'<td style="font-size:12px;color:var(--t2)">'+(s.age||'\u2014')+' / '+(s.grade||'\u2014')+'</td>'
       +'<td>'+(_subjTxt||'\u2014')+'</td>'
       +'<td style="font-size:12px;line-height:1.6">'+(_tnames.length?_tnames.join('<br>'):'\u2014')+'</td>'
