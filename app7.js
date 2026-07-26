@@ -1518,7 +1518,7 @@ function can(k){
 }
 
 function isSuperAdmin(){
-  return R()==='god' || R()==='network_admin';
+  return R()==='god' || R()==='network_admin' || R()==='director';
 }
 
 function currentBranch(){
@@ -1976,13 +1976,13 @@ function renderDashKpi(){
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     // Заплановані години
     var tPlannedH=Math.round(tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
-    // Пропущені — некомпенсовані за 3 місяці, в годинах
-    var t3mL=allL.filter(function(l){return (l.tutorId===t.id||l.tutor_id===t.id)&&l.date>=from3m;});
-    var tMissedH=Math.round(t3mL.filter(function(l){return l.status==='missed';}).reduce(function(s,l){return s+uncoveredMissedHours(l);},0)*10)/10;
+    // Пропущені — за ЦЕЙ ТИЖДЕНЬ (раніше рахувалось за 3 місяці, що не збігалось з періодом таблиці)
+    var tMissedH=Math.round(tl.filter(function(l){return l.status==='missed';}).reduce(function(s,l){return s+uncoveredMissedHours(l);},0)*10)/10;
     var tComms  =weekComms.filter(function(c){return c.tutorId===t.id||c.tutor_id===t.id;}).length;
     var tStudents=S.students.filter(function(s){return (s.tutorId===t.id||s.tutor_id===t.id)&&s.status==='active';}).length;
-    // Виконання = проведено / (проведено + заплановано) * 100
-    var tTotalH =Math.round((tDoneH+tPlannedH)*10)/10;
+    // Виконання = проведено / (проведено + заплановано + пропущено) * 100 —
+    // пропуски мають знижувати відсоток, а не ігноруватись (інакше 100% навіть при повних пропусках)
+    var tTotalH =Math.round((tDoneH+tPlannedH+tMissedH)*10)/10;
     var tPct    =tTotalH>0?Math.round(tDoneH/tTotalH*100):(tPlanned>0?0:100);
     var barW    =maxDoneH>0?Math.round(tDoneH/maxDoneH*100):0;
     var pctColor=tPct>=80?'var(--tut)':tPct>=50?'var(--dir)':'var(--danger)';
