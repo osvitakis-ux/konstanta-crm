@@ -13,7 +13,7 @@ window.SupabaseMini = (function(){
       var h = {
         'Content-Type': 'application/json',
         'apikey': _key,
-        'Authorization': 'Bearer ' + (_token || _key)
+              'Authorization': 'Bearer ' + (_token || _key)
       };
       return h;
     }
