@@ -1619,6 +1619,11 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <label>Прив'язати до викладача</label>
         <select id="u-tlink" style="width:100%"><option value="">— не прив'язано —</option></select>
       </div>
+      <div class="fgr full" id="u-branch-wrap" style="display:none">
+        <label>🏢 Філії (за які відповідає, можна кілька)</label>
+        <div id="u-branch-list" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">Якщо не обрано жодної — бачитиме дані з усіх філій.</div>
+      </div>
     </div>
     <div class="mdlf">
       <button class="btn btn-p" onclick="saveUser()">💾 Зберегти</button>
@@ -1977,7 +1982,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=kpistudfix1"></script>
+<script src="app7.js?v=adminbranchfix1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
