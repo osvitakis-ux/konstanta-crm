@@ -13,7 +13,7 @@ window.SupabaseMini = (function(){
       var h = {
         'Content-Type': 'application/json',
         'apikey': _key,
-              'Authorization': 'Bearer ' + (_token || _key)
+        'Authorization': 'Bearer ' + (_token || _key)
       };
       return h;
     }
@@ -6350,6 +6350,7 @@ function nav(page){
   if(page==='payroll'){try{renderPayroll();}catch(e){console.error('renderPayroll:',e);}}
   if(page==='audit'){try{renderAudit();}catch(e){console.error('renderAudit:',e);}}
   if(page==='acts'){try{renderActsPage();}catch(e){console.error('renderActsPage:',e);}}
+  if(page==='telephony'){try{renderTelephony();}catch(e){console.error('renderTelephony:',e);}}
   if(page==='invoice'){ renderInvoicePage(); try{renderInvoiceStatus();}catch(e){} }
   if(page==='invoice-log') renderInvoiceLog();
   var _crmEl=document.getElementById('pg-crm');
