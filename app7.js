@@ -932,40 +932,45 @@ function renderInvoicePage(){
 
   var invText='';
   if(student&&lessons.length){
+    var monthsNom=['\u0421\u0456\u0447\u0435\u043D\u044C','\u041B\u044E\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u041A\u0432\u0456\u0442\u0435\u043D\u044C','\u0422\u0440\u0430\u0432\u0435\u043D\u044C','\u0427\u0435\u0440\u0432\u0435\u043D\u044C','\u041B\u0438\u043F\u0435\u043D\u044C','\u0421\u0435\u0440\u043F\u0435\u043D\u044C','\u0412\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0416\u043E\u0432\u0442\u0435\u043D\u044C','\u041B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043D\u044C'];
+    var monthsGen=['\u0441\u0456\u0447\u043D\u044F','\u043B\u044E\u0442\u043E\u0433\u043E','\u0431\u0435\u0440\u0435\u0437\u043D\u044F','\u043A\u0432\u0456\u0442\u043D\u044F','\u0442\u0440\u0430\u0432\u043D\u044F','\u0447\u0435\u0440\u0432\u043D\u044F','\u043B\u0438\u043F\u043D\u044F','\u0441\u0435\u0440\u043F\u043D\u044F','\u0432\u0435\u0440\u0435\u0441\u043D\u044F','\u0436\u043E\u0432\u0442\u043D\u044F','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434\u0430','\u0433\u0440\u0443\u0434\u043D\u044F'];
+    var _fromD=new Date(dateFrom+'T00:00:00');
+    var invMonthNom=monthsNom[_fromD.getMonth()];
+    var dueDate=new Date(_fromD.getFullYear(), _fromD.getMonth(), 1);
+    var dueStr='1 '+monthsGen[dueDate.getMonth()];
+    var cfg=S.settings||{};
+    var centerName=cfg.name||'\u041A\u043E\u043D\u0441\u0442\u0430\u043D\u0442\u0430';
+
     var lines=[];
-    lines.push('\uD83D\uDCCB \u0420\u0410\u0425\u0423\u041D\u041E\u041A \u041d\u0410 \u041e\u041f\u041b\u0410\u0422\u0423');
-    lines.push('\u0423\u0447\u0435\u043d\u044c: '+student.fn+' '+student.ln);
-    lines.push('\u041f\u0435\u0440\u0456\u043e\u0434: '+(dateFrom?fd(dateFrom)+' \u2014 ':'')+fd(dateTo));
-    lines.push('\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500');
+    lines.push('\u0412\u0430\u0441 \u0432\u0456\u0442\u0430\u0454 \u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0441\u044C\u043A\u0438\u0439 \u0446\u0435\u043D\u0442\u0440 '+centerName+'! \u0420\u0430\u0445\u0443\u043D\u043E\u043A \u043D\u0430 '+invMonthNom+':');
 
     groupOrder.forEach(function(key){
       var g=groups[key];
-      var gHours=Math.round(g.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
-      var gTotal=Math.round(g.lessons.reduce(function(s,l){return s+lessonCost(l);},0)*10)/10;
-      lines.push('\uD83D\uDC64 '+(g.tutor?g.tutor.fn+' '+g.tutor.ln:'\u0411\u0435\u0437 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430')+' \u2014 '+g.subj);
-      g.lessons.forEach(function(l,i){
-        var dur=(parseFloat(l.dur)||60)/60;
-        lines.push('  '+(i+1)+'. '+fd(l.date)+(l.time?' '+l.time:'')+' \u2014 '+dur+'\u0433\u043e\u0434 = '+lessonCost(l)+'\u20b4');
-      });
-      lines.push('  \u0420\u0430\u0437\u043e\u043c: '+gHours+'\u0433\u043e\u0434 / '+gTotal+'\u20b4');
-      lines.push('');
+      var gCount=g.lessons.length;
+      var gTotal=Math.round(g.lessons.reduce(function(s,l){return s+lessonCost(l);},0)*100)/100;
+      // Ставка за годину для показу в рядку "N уроків * ЦІНА грн/год" — беремо ставку групи
+      // (усі уроки групи мають один предмет+репетитор, тож ставка з правил учня спільна)
+      var gTid=g.tutor?g.tutor.id:null;
+      var gRate=studentRate(student, g.subj, gTid);
+      if(!gRate||gRate<=0){ var gHrsForRate=g.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0); gRate=gHrsForRate>0?Math.round(gTotal/gHrsForRate):0; }
+      lines.push(g.subj);
+      lines.push(gCount+' '+prPlural(gCount,'\u0443\u0440\u043E\u043A','\u0443\u0440\u043E\u043A\u0438','\u0443\u0440\u043E\u043A\u0456\u0432')+' * '+gRate+' \u0433\u0440\u043D/\u0433\u043E\u0434 =  '+gTotal+' \u0433\u0440\u043D.');
     });
 
-    lines.push('\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500');
-    lines.push('\u0412\u0421\u042c\u041e\u0413\u041e \u0433\u043e\u0434\u0438\u043d: '+totalHours);
-    lines.push('\u0414\u041e \u0421\u041f\u041b\u0410\u0422\u0418: '+total+' \u20b4');
-
-    // Реквізити для оплати
-    if(branch && (branch.pay_recipient||branch.pay_card||branch.pay_bank)){
-      lines.push('');
-      lines.push('\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500');
-      lines.push('\uD83D\uDCB3 \u0420\u0415\u041a\u0412\u0406\u0417\u0418\u0422\u0418 \u0414\u041b\u042f \u041e\u041f\u041b\u0410\u0422\u0418');
-      if(branch.pay_recipient) lines.push('\u041e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447: '+branch.pay_recipient);
-      if(branch.pay_card) lines.push('IBAN: '+branch.pay_card);
-      if(branch.pay_bank) lines.push('\u0411\u0430\u043d\u043a: '+branch.pay_bank);
-      if(branch.pay_edrpou) lines.push('\u0404\u0414\u0420\u041f\u041e\u0423/\u0406\u041f\u041d: '+branch.pay_edrpou);
-      lines.push('\u041f\u0440\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u043d\u044f: '+(branch.pay_purpose||'\u041e\u043f\u043b\u0430\u0442\u0430 \u0437\u0430 \u043d\u0430\u0432\u0447\u0430\u043d\u043d\u044f')+' \u2014 '+student.fn+' '+student.ln);
+    if(groupOrder.length>1){
+      lines.push('\u0423\u0421\u042C\u041E\u0413\u041E \u0414\u041E \u0421\u041F\u041B\u0410\u0422\u0418: '+total+' \u0433\u0440\u043D.');
     }
+
+    lines.push('\u041F\u043B\u0430\u0442\u0456\u0436 \u043F\u0440\u043E\u0432\u043E\u0434\u0438\u0442\u044C\u0441\u044F   \u0434\u043E '+dueStr+' \u0437\u0430 \u0442\u0430\u043A\u0438\u043C\u0438 \u0440\u0435\u043A\u0432\u0456\u0437\u0438\u0442\u0430\u043C\u0438:');
+    if(branch){
+      if(branch.pay_recipient) lines.push('\u041E\u0442\u0440\u0438\u043C\u0443\u0432\u0430\u0447: '+branch.pay_recipient);
+      if(branch.pay_edrpou) lines.push('\u041A\u043E\u0434 \u043E\u0442\u0440\u0438\u043C\u0443\u0432\u0430\u0447\u0430: '+branch.pay_edrpou);
+      if(branch.pay_card) lines.push('IBAN: '+branch.pay_card);
+      if(branch.pay_bank) lines.push('\u041D\u0430\u0437\u0432\u0430 \u0431\u0430\u043D\u043A\u0443: '+branch.pay_bank);
+    }
+    var studentInitial=(student.fn?student.fn[0]+'.':'');
+    lines.push('\u041F\u0440\u0438\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u043F\u043B\u0430\u0442\u0435\u0436\u0443: \u0437\u0430 \u043E\u0441\u0432\u0456\u0442\u043D\u0456 \u043F\u043E\u0441\u043B\u0443\u0433\u0438, '+student.ln+' '+studentInitial+' \u0443\u0447\u043D\u044F');
+    lines.push('\u0417\u0430\u0437\u0434\u0430\u043B\u0435\u0433\u0456\u0434\u044C \u0434\u044F\u043A\u0443\u0454\u043C\u043E \u0437\u0430 \u0432\u0447\u0430\u0441\u043D\u0443 \u0441\u043F\u043B\u0430\u0442\u0443 \ud83d\ude0a');
 
     invText=lines.join('\n');
   }
@@ -1076,6 +1081,16 @@ async function renderInvoiceStatus(){
   if(perEl && !perEl.value){ var n=new Date(); perEl.value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); }
   var per=(perEl&&perEl.value)||'';
   var filter=(document.getElementById('ivs-filter')||{value:''}).value;
+  var brSelIv=document.getElementById('ivs-branch');
+  var _canFilterBr=isSuperAdmin()||R()==='director'||R()==='admin';
+  if(brSelIv && _canFilterBr){
+    var _prevBrIv=brSelIv.value;
+    brSelIv.innerHTML='<option value="">\u0412\u0441\u0456 \u0444\u0456\u043B\u0456\u0457</option>'
+      +(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+        .map(function(b){return '<option value="'+b.id+'">'+b.name+'</option>';}).join('');
+    brSelIv.value=_prevBrIv;
+  }
+  var fBranchIv=_canFilterBr?(document.getElementById('ivs-branch')||{value:''}).value:'';
   if(!per){ body.innerHTML=''; return; }
 
   // Хто має заплановані заняття цього місяця (їм потрібен рахунок = передоплата)
@@ -1122,6 +1137,11 @@ async function renderInvoiceStatus(){
 
   if(filter==='sent') rows=rows.filter(function(r){return r.sent.length;});
   if(filter==='notsent') rows=rows.filter(function(r){return !r.sent.length;});
+  if(fBranchIv) rows=rows.filter(function(r){
+    var st=r.st;
+    if(Array.isArray(st.branchIds)&&st.branchIds.length) return st.branchIds.indexOf(fBranchIv)>=0;
+    return (st.branchId||st.branch_id)===fBranchIv;
+  });
 
   rows.sort(function(a,b){
     // не відіслані зверху, далі за іменем
@@ -1210,6 +1230,16 @@ function renderActsPage(){
   var perEl=document.getElementById('act-period');
   if(perEl&&!perEl.value) perEl.value=per;
   var filter=(document.getElementById('act-filter')||{value:''}).value;
+  var brSelAct=document.getElementById('act-branch');
+  var _canFilterBrA=isSuperAdmin()||R()==='director'||R()==='admin';
+  if(brSelAct && _canFilterBrA){
+    var _prevBrA=brSelAct.value;
+    brSelAct.innerHTML='<option value="">\u0412\u0441\u0456 \u0444\u0456\u043B\u0456\u0457</option>'
+      +(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+        .map(function(b){return '<option value="'+b.id+'">'+b.name+'</option>';}).join('');
+    brSelAct.value=_prevBrA;
+  }
+  var fBranchAct=_canFilterBrA?(document.getElementById('act-branch')||{value:''}).value:'';
 
   var students=(S.students||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
   var rows=[];
@@ -1224,6 +1254,11 @@ function renderActsPage(){
   if(filter==='sent') rows=rows.filter(function(r){return r.sent;});
   if(filter==='notsent') rows=rows.filter(function(r){return !r.sent;});
   if(filter==='signed') rows=rows.filter(function(r){return r.signed;});
+  if(fBranchAct) rows=rows.filter(function(r){
+    var st=r.s;
+    if(Array.isArray(st.branchIds)&&st.branchIds.length) return st.branchIds.indexOf(fBranchAct)>=0;
+    return (st.branchId||st.branch_id)===fBranchAct;
+  });
 
   rows.sort(function(a,b){
     var wa=a.signed?2:(a.sent?1:0), wb=b.signed?2:(b.sent?1:0);
