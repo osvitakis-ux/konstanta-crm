@@ -8082,49 +8082,43 @@ function isMakeupForMissed(l){
 function coveredMissedMinutes(l){
   var sid = l.studentId||l.student_id;
   var ldate = l.date;
-  var lgroup = l.split_group_id;
 
-  // Якщо пропуск — частина split-групи, покриття розподіляється МІЖ частинами послідовно,
-  // а не роздається кожній повністю. Рахуємо на рівні всієї групи.
-  if(lgroup){
-    // Усі missed-частини групи, впорядковані (split_index, потім час)
-    var parts = (S.lessons||[]).filter(function(x){
-      return x.status==='missed' && (x.split_group_id===lgroup) && ((x.studentId||x.student_id)===sid);
-    }).sort(function(a,b){
-      var ai=(a.split_index!=null?a.split_index:999), bi=(b.split_index!=null?b.split_index:999);
-      if(ai!==bi) return ai-bi;
-      return String(a.time||'').localeCompare(String(b.time||''));
-    });
-    // Усі проведені відпрацювання, пов'язані з групою (по split_group_id або missed_date будь-якої частини)
-    var partDates = parts.map(function(p){return p.date;});
-    var makeupsG = (S.lessons||[]).filter(function(x){
-      if(x.status!=='makeup') return false;
-      if((x.studentId||x.student_id)!==sid) return false;
-      if(x.split_group_id===lgroup) return true;
-      if(x.missed_date && partDates.indexOf(x.missed_date)>=0) return true;
-      return false;
-    });
-    var pool = makeupsG.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
-    // Розподіляємо пул хвилин по частинах по порядку; для нашої частини повертаємо її долю
-    for(var i=0;i<parts.length;i++){
-      var need = parseFloat(parts[i].dur)||60;
-      var give = Math.min(pool, need);
-      pool -= give;
-      if(parts[i].id===l.id) return give; // скільки хвилин дісталось саме цій частині
-    }
-    // Якщо не знайшли себе серед частин — падаємо у загальну гілку нижче
-  }
+  // Усі пропущені заняття ЦЬОГО учня в ЦЕЙ САМЕ день — незалежно від того, чи це
+  // частини одного розбитого уроку (split_group_id), чи два зовсім різні уроки,
+  // що просто збіглися датою. Раніше зіставлення йшло лише за датою (missed_date),
+  // тому одне відпрацювання "бачили" одразу всі пропуски того дня і кожен вважав
+  // себе покритим повністю. Тепер пул хвилин відпрацювань розподіляється між ними
+  // ПОСЛІДОВНО (за часом), а не роздається кожному окремо.
+  var sameDayParts = (S.lessons||[]).filter(function(x){
+    return x.status==='missed' && x.date===ldate && ((x.studentId||x.student_id)===sid);
+  }).sort(function(a,b){
+    var ai=(a.split_index!=null?a.split_index:999), bi=(b.split_index!=null?b.split_index:999);
+    if(ai!==bi) return ai-bi;
+    return String(a.time||'').localeCompare(String(b.time||''));
+  });
 
+  // Пул відпрацювань, пов'язаних із цим днем: за explicit missed_date, за split_group_id
+  // будь-якої з частин, або за посиланням makeup_date з боку пропущеного уроку.
+  var groupIds=[]; sameDayParts.forEach(function(p){ if(p.split_group_id&&groupIds.indexOf(p.split_group_id)<0) groupIds.push(p.split_group_id); });
+  var makeupDates=[]; sameDayParts.forEach(function(p){ if(p.makeup_date&&makeupDates.indexOf(p.makeup_date)<0) makeupDates.push(p.makeup_date); });
   var makeups = (S.lessons||[]).filter(function(x){
     if(x.status!=='makeup') return false; // рахуються лише ПРОВЕДЕНІ відпрацювання
     if((x.studentId||x.student_id)!==sid) return false;
-    // 1. Явне поле missed_date у відпрацювання
     if(x.missed_date===ldate) return true;
-    // 2. Пропущений урок вказує на дату відпрацювання
-    if(l.makeup_date && x.date===l.makeup_date) return true;
+    if(x.split_group_id && groupIds.indexOf(x.split_group_id)>=0) return true;
+    if(makeupDates.indexOf(x.date)>=0) return true;
     return false;
   });
-  return makeups.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
+  var pool = makeups.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
+
+  // Розподіляємо пул послідовно між усіма пропусками цього дня; повертаємо частку саме l.
+  for(var i=0;i<sameDayParts.length;i++){
+    var need = parseFloat(sameDayParts[i].dur)||60;
+    var give = Math.min(pool, need);
+    pool -= give;
+    if(sameDayParts[i].id===l.id) return give;
+  }
+  return 0; // l не знайдено серед власних пропусків цього дня (не мало б статись)
 }
 
 // Пропуск вважається покритим ЛИШЕ коли сума годин відпрацювань >= пропущених годин.
