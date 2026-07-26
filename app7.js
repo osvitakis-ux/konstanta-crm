@@ -2014,7 +2014,7 @@ function renderDashKpi(){
     // Пропущені — за ЦЕЙ ТИЖДЕНЬ (раніше рахувалось за 3 місяці, що не збігалось з періодом таблиці)
     var tMissedH=Math.round(tl.filter(function(l){return l.status==='missed';}).reduce(function(s,l){return s+uncoveredMissedHours(l);},0)*10)/10;
     var tComms  =weekComms.filter(function(c){return c.tutorId===t.id||c.tutor_id===t.id;}).length;
-    var tStudents=S.students.filter(function(s){return (s.tutorId===t.id||s.tutor_id===t.id)&&s.status==='active';}).length;
+    var tStudents=S.students.filter(function(s){return s.status==='active'&&studentTutorIds(s).indexOf(t.id)>=0;}).length;
     // Виконання = проведено / (проведено + заплановано + пропущено) * 100 —
     // пропуски мають знижувати відсоток, а не ігноруватись (інакше 100% навіть при повних пропусках)
     var tTotalH =Math.round((tDoneH+tPlannedH+tMissedH)*10)/10;
