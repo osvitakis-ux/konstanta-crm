@@ -8271,7 +8271,7 @@ function renderTelephony(){
   // Webhook URL
   var whEl = document.getElementById('tel-webhook-url');
   var _wUrls={kyivstar:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',zadarma:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook'};
-  if(whEl) whEl.value = _wUrls[cfg.provider]||'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook';
+  if(whEl) whEl.value = _wUrls[cfg.provider]||'';
 
   telProviderChange();
   telUpdateStatus(cfg.provider && cfg.key ? 'configured' : 'none');
@@ -8284,6 +8284,15 @@ function telProviderChange(){
   var rowWh  = document.getElementById('tel-row-webhook');
   if(rowUrl) rowUrl.style.display = (prov==='zadarma'||prov==='binotel'||prov==='ringostat'||prov==='kyivstar') ? 'none' : '';
   if(rowWh)  rowWh.style.display  = prov ? '' : 'none';
+
+  // Оновлюємо саме значення webhook URL під ЩОЙНО обраного провайдера — раніше це
+  // поле оновлювалось лише один раз при відкритті модалки (за старим збереженим
+  // провайдером), тому вибір "Київстар" не оновлював URL, доки не збережеш і не
+  // відкриєш налаштування знову.
+  var _wUrls={kyivstar:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',zadarma:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook'};
+  var whEl = document.getElementById('tel-webhook-url');
+  if(whEl) whEl.value = _wUrls[prov] || '';
+
   // Show provider-specific hints
   var hints = {
     kyivstar: 'Київстар Бізнес АТС: отримайте FMC Token на fmc.kyivstar.ua/crm-integration. Скопіюйте Webhook URL нижче і вставте в поле «URL віддаленої системи» в кабінеті Київстару',
@@ -8397,7 +8406,7 @@ function telToggleSettings(){
   // Webhook URL
   var _wUrls={kyivstar:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',zadarma:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook'};
   var whEl=document.getElementById('tel-webhook-url');
-  if(whEl) whEl.value=_wUrls[cfg.provider]||'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook';
+  if(whEl) whEl.value=_wUrls[cfg.provider]||'';
   // Синхронізуємо статус
   var dot=document.getElementById('tel-modal-dot');
   var lbl=document.getElementById('tel-modal-status-lbl');
