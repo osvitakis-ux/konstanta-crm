@@ -1224,6 +1224,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
               <option value="sent">✅ Відіслано</option>
               <option value="notsent">⏳ Не відіслано</option>
             </select>
+            <select id="ivs-branch" class="admin-only" onchange="renderInvoiceStatus()" style="font-size:12px;padding:5px 8px;margin-left:6px">
+              <option value="">Всі філії</option>
+            </select>
             <button class="btn btn-g btn-sm" onclick="renderInvoiceStatus()" style="margin-left:auto">↻ Оновити</button>
           </div>
           <div id="inv-status-body" style="padding:8px 4px"></div>
@@ -1317,6 +1320,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
               <option value="signed">✓ Підписані</option>
               <option value="sent">✉ Надіслані</option>
               <option value="notsent">○ Не сформовано</option>
+            </select>
+            <select id="act-branch" class="admin-only" onchange="renderActsPage()" style="font-size:12px;padding:5px 8px;margin-left:6px">
+              <option value="">Всі філії</option>
             </select>
             <button class="btn btn-g btn-sm" onclick="renderActsPage()" style="margin-left:auto">↻ Оновити</button>
           </div>
@@ -1971,7 +1977,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=directorfix1"></script>
+<script src="app7.js?v=invoicetemplate1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
