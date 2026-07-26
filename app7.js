@@ -1570,18 +1570,32 @@ function filterByBranch(arr){
   if(R()==='tutor') return arr;
   const bid=currentBranch();
   if(!bid&&isSuperAdmin()) return arr;
-  const activeBid=bid||myBranchId();
-  if(!activeBid) return arr;
+  if(bid){
+    // Хтось свідомо обрав конкретну філію в перемикачі — фільтруємо саме під неї
+    return arr.filter(function(x){
+      if(Array.isArray(x.branchIds) && x.branchIds.length) return x.branchIds.indexOf(bid)>=0;
+      return !x.branchId||x.branchId===bid;
+    });
+  }
+  // Немає обраної конкретної філії: показуємо дані З УСІХ філій, до яких прив'язаний
+  // САМ користувач (адмін може відповідати за кілька філій одночасно, як і репетитор/учень).
+  var myBranches=(Array.isArray(CU&&CU.branchIds)&&CU.branchIds.length)?CU.branchIds:((CU&&CU.branchId)?[CU.branchId]:null);
+  if(!myBranches||!myBranches.length) return arr; // адміну не призначено жодної філії — не обмежуємо (безпечний дефолт)
   return arr.filter(function(x){
-    // Репетитор може працювати в кількох філіях одночасно (branchIds) —
-    // тоді дивимось членство у списку, а не рівність єдиному branchId.
-    if(Array.isArray(x.branchIds) && x.branchIds.length) return x.branchIds.indexOf(activeBid)>=0;
-    return !x.branchId||x.branchId===activeBid;
+    if(Array.isArray(x.branchIds) && x.branchIds.length) return x.branchIds.some(function(b){return myBranches.indexOf(b)>=0;});
+    return !x.branchId||myBranches.indexOf(x.branchId)>=0;
   });
-}function myBranchId(){
-  // For branch-level users, return their assigned branch
+}
+function myBranchId(){
+  // Для суперадмінів — поточно обрана в перемикачі філія (чи все, якщо не обрано).
+  // Для звичайного адміна — ПЕРША з його власних призначених філій (використовується
+  // лише як дефолт при СТВОРЕННІ нового запису, не для показу/фільтрації списків —
+  // для цього тепер filterByBranch() враховує ВСІ філії адміна одразу).
+  // РАНІШЕ тут був небезпечний фолбек на S.branches[0] — перша-ліпша філія в базі,
+  // що прив'язувало будь-якого адміна без явного branchId до випадкової філії.
   if(isSuperAdmin()) return currentBranch();
-  return CU?.branchId || (S.branches[0]?.id);
+  if(Array.isArray(CU&&CU.branchIds)&&CU.branchIds.length) return CU.branchIds[0];
+  return (CU&&CU.branchId)||null;
 }
 
 function mkAv(fn,ln,sz,photo){
@@ -3366,7 +3380,7 @@ async function initApp(){
     S.tasks        = (_d.tasks       ||[]).map(normalizeTask);
     S.payrollItems = (_d.payroll_items||[]).map(normalizePayrollItem);
     S.settings     = (_d.settings    ||[{}])[0]||{};
-    S.users        = _d.profiles     ||[];
+    S.users        = (_d.profiles||[]).map(normalizeUser);
     // Мок поточного користувача — God-режим для перегляду всього
     CU = { id:'viewer', fn:'Перегляд', ln:'(резервна копія)', role:'god', perms:{} };
     applyGodConfig();
@@ -3507,12 +3521,12 @@ async function doLogout(){
 
 async function loadProfile(authUser){
   var _r2 = await _sb.from('profiles').select('*').eq('id', authUser.id).single(); var data = _r2.data;
-  if(data){ CU = data; }
+  if(data){ CU = normalizeUser(data); }
   else {
     const np = { id:authUser.id, email:authUser.email,
       fn: authUser.email.split('@')[0], ln:'', role:'tutor', perms:{} };
     await _sb.from('profiles').insert(np);
-    CU = np;
+    CU = normalizeUser(np);
   }
 }
 
@@ -3595,7 +3609,7 @@ async function loadAll(){
 
   // Users (profiles)
   var _users = await _sb.from('profiles').select('*'); var users = _users.data;
-  S.users = users || [];
+  S.users = (users || []).map(normalizeUser);
 
   // Normalize field names (snake_case  camelCase for UI compat)
   S.students = S.students.map(normalizeStudent);
@@ -3619,6 +3633,13 @@ function normalizeStudent(r){
   var tutorIds = r.tutor_ids ? (Array.isArray(r.tutor_ids) ? r.tutor_ids : r.tutor_ids.split(',').filter(Boolean)) : (r.tutor_id ? [r.tutor_id] : []);
   var bIds = r.branch_ids ? (Array.isArray(r.branch_ids) ? r.branch_ids : String(r.branch_ids).split(',').filter(Boolean)) : (r.branch_id ? [r.branch_id] : []);
   return Object.assign({}, r, { tutorId:r.tutor_id, crmStage:r.crm_stage||null, crmResponsible:r.crm_responsible||null, crmDate:r.crm_date||null, tutorIds:tutorIds, branchId:r.branch_id, branchIds:bIds, parentFn:r.parent_fn, parentPhone:r.parent_phone }); 
+}
+// Нормалізація профілів (S.users) — раніше не існувала ВЗАГАЛІ, тому CU.branchId
+// завжди був undefined, і будь-який звичайний адмін помилково "прив'язувався" до
+// першої-ліпшої філії в списку (S.branches[0]) замість своєї реальної філії/філій.
+function normalizeUser(r){
+  var bIds = r.branch_ids ? (Array.isArray(r.branch_ids) ? r.branch_ids : String(r.branch_ids).split(',').filter(Boolean)) : (r.branch_id ? [r.branch_id] : []);
+  return Object.assign({}, r, { branchId:r.branch_id, branchIds:bIds });
 }
 function normalizeLesson(r){  return Object.assign({}, r, { studentId:r.student_id, tutorId:r.tutor_id, branchId:r.branch_id, recurId:r.recur_id, recurType:r.recur_type, recurIndex:r.recur_index }); }
 function normalizePayment(r){ return Object.assign({}, r, { studentId:r.student_id, branchId:r.branch_id }); }
@@ -4488,7 +4509,7 @@ async function renderUsers(){
   if(!list) return;
   list.innerHTML='<div class="empty"><div class="ei">\u23F3</div>\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F\u2026</div>';
   var _users2 = await _sb.from('profiles').select('*'); var users = _users2.data;
-  S.users = users || [];
+  S.users = (users || []).map(normalizeUser);
   list.innerHTML='';
   (users||[]).forEach(function(u){
     var ro=ROLES[u.role]||ROLES.tutor;
@@ -4537,6 +4558,15 @@ async function openUserM(id){
     var linked=(S.tutors||[]).find(function(t){return t.acc_uid===id||t.accId===id;});
     if(linked){ var tlEl=document.getElementById('u-tlink'); if(tlEl) tlEl.value=linked.id; }
   }
+  var brListU=document.getElementById('u-branch-list');
+  if(brListU){
+    var _preSelU=(u&&u.branchIds)||[];
+    brListU.innerHTML=(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+      .map(function(b){
+        var checked=_preSelU.indexOf(b.id)>=0?' checked':'';
+        return '<label class="af-day"><input type="checkbox" class="u-branch-cb" value="'+b.id+'"'+checked+'> '+b.name+'</label>';
+      }).join('') || '<span style="font-size:11px;color:var(--t3)">\u0424\u0456\u043B\u0456\u0439 \u0449\u0435 \u043D\u0435 \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E</span>';
+  }
   openM('mo-user');
 }
 
@@ -4545,6 +4575,8 @@ async function saveUser(){
   var ln=document.getElementById('u-ln').value.trim();
   var role=document.getElementById('u-role').value;
   var email=document.getElementById('u-email').value.trim();
+  var branchIds=Array.from(document.querySelectorAll('.u-branch-cb:checked')).map(function(el){return el.value;});
+  var branchPatch={ branch_ids:branchIds.join(','), branch_id:branchIds[0]||null };
 
   if(!fn){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0456\u043c\u2019\u044f','error'); return; }
 
@@ -4558,17 +4590,17 @@ async function saveUser(){
       if(_inv.error) throw _inv.error;
       // Одразу оновимо профіль щойно створеного користувача
       if(_inv.data?.user?.id){
-        await _sb.from('profiles').update({fn,ln,role}).eq('id',_inv.data.user.id);
+        await _sb.from('profiles').update(Object.assign({fn,ln,role},branchPatch)).eq('id',_inv.data.user.id);
       }
       mkToast('\u0417\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u043d\u044f \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043d\u043e \u043d\u0430 '+email);
     } else {
       // Редагування існуючого
-      await dbUpdate('profiles',S.editId,{fn,ln,role});
+      await dbUpdate('profiles',S.editId,Object.assign({fn,ln,role},branchPatch));
       var tutorId=document.getElementById('u-tlink')?.value;
       if(role==='tutor'&&tutorId){
         await _sb.from('tutors').update({acc_uid:S.editId}).eq('id',tutorId);
       }
-      if(CU?.id===S.editId){ CU=Object.assign({},CU,{fn,ln,role}); updateSBUser(); buildSidebar(); }
+      if(CU?.id===S.editId){ CU=Object.assign({},CU,{fn,ln,role},normalizeUser(branchPatch)); updateSBUser(); buildSidebar(); }
       mkToast('\u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e');
     }
     closeM('mo-user'); S.editId=null; renderUsers();
@@ -6394,7 +6426,12 @@ function uaTab(id,el){
 }
 
 
-function toggleTutLink(){const r=document.getElementById('u-role').value;document.getElementById('u-tlink-wrap').style.display=r==='tutor'?'flex':'none';}
+function toggleTutLink(){
+  const r=document.getElementById('u-role').value;
+  document.getElementById('u-tlink-wrap').style.display=r==='tutor'?'flex':'none';
+  var bw=document.getElementById('u-branch-wrap');
+  if(bw) bw.style.display=(r==='admin'||r==='director')?'flex':'none';
+}
 
 
 function toggleProfileEdit(){
