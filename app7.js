@@ -8239,16 +8239,16 @@ async function telAddLog(entry){
 }
 
 function renderTelephony(){
-  // Access guard
+  // Access guard — дзвінки може слухати бог/директор/адмін; НАЛАШТУВАННЯ (нижче) — лише бог
   var r = R();
-  if(r !== 'god' && r !== 'director' && r !== 'admin' && r !== 'network_admin'){
+  if(r !== 'god' && r !== 'director' && r !== 'admin'){
     document.getElementById('pg-telephony').innerHTML =
-      '<div class="empty" style="padding:60px"><div class="ei">🔒</div>Доступ лише для адміністраторів та директорів</div>';
+      '<div class="empty" style="padding:60px"><div class="ei">🔒</div>Доступ лише для адміністраторів та директора</div>';
     return;
   }
 
-  // Кнопка налаштувань — тільки для god, director, network_admin
-  var canSettings = r==='god' || r==='director' || r==='network_admin';
+  // Кнопка "⚙ Налаштування" (провайдер, API-ключі, вебхук) — виключно для бога системи
+  var canSettings = r==='god';
   var settingsBtn = document.getElementById('tel-settings-toggle-btn');
   if(settingsBtn) settingsBtn.style.display = canSettings ? '' : 'none';
 
@@ -8305,6 +8305,7 @@ function telProviderChange(){
 }
 
 function telSaveSettings(){
+  if(R()!=='god'){ mkToast('\u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456 \u043b\u0438\u0448\u0435 \u0431\u043e\u0433\u0443 \u0441\u0438\u0441\u0442\u0435\u043c\u0438','error'); return; }
   var get  = function(id){ var el=document.getElementById(id); return el?el.value.trim():''; };
   var getCh = function(id){ var el=document.getElementById(id); return el?el.checked:false; };
   var cfg = {
@@ -8328,6 +8329,7 @@ function telSaveSettings(){
 }
 
 async function telTestConn(){
+  if(R()!=='god'){ mkToast('\u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456 \u043b\u0438\u0448\u0435 \u0431\u043e\u0433\u0443 \u0441\u0438\u0441\u0442\u0435\u043c\u0438','error'); return; }
   var cfg = telGetSettings();
   if(!cfg.provider||!cfg.key){ mkToast('Спочатку збережіть налаштування','error'); return; }
   mkToast('Перевіряємо з\'єднання…');
@@ -8370,6 +8372,7 @@ function telCopyWebhook(){
 }
 
 function telToggleSettings(){
+  if(R()!=='god'){ mkToast('\u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456 \u043b\u0438\u0448\u0435 \u0431\u043e\u0433\u0443 \u0441\u0438\u0441\u0442\u0435\u043c\u0438','error'); return; }
   var cfg = telGetSettings();
   // Заповнюємо модалку поточними налаштуваннями
   if(cfg.provider){
@@ -8422,6 +8425,10 @@ async function renderTelLog(){
   body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3)">\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</div>';
   var log = await telGetLog(filter||null);
 
+  // Кожен дзвінок від невідомого номера — автоматично новий лід у CRM (якщо ввімкнено
+  // "Автостворення ліда" в налаштуваннях). Раніше цей перемикач нічого не робив.
+  try{ await telAutoCreateLeads(log); }catch(e){ console.warn('[telAutoCreateLeads]', e); }
+
   if(!log.length){
     body.innerHTML = '<div class="empty"><div class="ei">\u260e\ufe0f</div>\u0416\u0443\u0440\u043d\u0430\u043b \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u043f\u043e\u0440\u043e\u0436\u043d\u0456\u0439</div>';
     return;
@@ -8468,6 +8475,46 @@ async function renderTelLog(){
     + '</tbody></table>';
 }
 
+
+// Автоматичне створення нового ліда в CRM з дзвінка від невідомого номера.
+// Раніше перемикач "Автостворення ліда" в налаштуваннях телефонії існував
+// в інтерфейсі, але ніде не використовувався — дзвінки ніяк не потрапляли в CRM.
+async function telAutoCreateLeads(log){
+  var cfg = telGetSettings();
+  if(cfg.autolead===false) return; // перемикач вимкнено — нічого не робимо
+  if(!log||!log.length) return;
+  for(var i=0;i<log.length;i++){
+    var e=log[i];
+    if(e.student_id||e.studentId) continue; // вже прив'язано до когось
+    var phone=(e.caller_phone||e.phone||'').trim();
+    if(!phone) continue;
+    var digits=phone.replace(/\D/g,'');
+    if(!digits) continue;
+    // Може, номер уже відповідає комусь із наявних учнів/лідів — тоді просто прив'язуємо
+    var existing=(S.students||[]).find(function(s){
+      return (s.phone&&s.phone.replace(/\D/g,'')===digits) || (s.parentPhone&&s.parentPhone.replace(/\D/g,'')===digits);
+    });
+    try{
+      if(existing){
+        await _sb.from('call_logs').update({student_id:existing.id, caller_name:existing.fn+' '+existing.ln}).eq('id',e.id);
+        e.student_id=existing.id; e.caller_name=existing.fn+' '+existing.ln;
+        continue;
+      }
+      // Номер невідомий — створюємо новий лід автоматично
+      var newLead={
+        id:uid(), fn:e.caller_name||e.callerName||'\u0414\u0437\u0432\u0456\u043d\u043e\u043a \u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457', ln:'',
+        phone:phone, status:'trial', crm_stage:'lead', crm_date:new Date().toISOString().slice(0,10),
+        notes:'\u0410\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e \u0437 '+((e.direction==='outbound')?'\u0432\u0438\u0445\u0456\u0434\u043d\u043e\u0433\u043e':'\u0432\u0445\u0456\u0434\u043d\u043e\u0433\u043e')+' \u0434\u0437\u0432\u0456\u043d\u043a\u0430',
+        branch_id: myBranchId()||null
+      };
+      await dbInsert('students', newLead);
+      if(!(S.students||[]).some(function(x){return x.id===newLead.id;}))
+        S.students=(S.students||[]).concat([normalizeStudent(newLead)]);
+      await _sb.from('call_logs').update({student_id:newLead.id, caller_name:newLead.fn}).eq('id',e.id);
+      e.student_id=newLead.id; e.caller_name=newLead.fn; // одразу відображаємо без повторного запиту
+    }catch(err){ console.warn('[telAutoCreateLeads] помилка для дзвінка', e.id, err); }
+  }
+}
 
 async function telLinkStudent(logId, phone){
   var found = (S.students||[]).find(function(s){
