@@ -3915,7 +3915,13 @@ async function dbInsert(table, data){
   if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   if(window._trainingMode){
     var _tk=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table];
-    if(_tk){ S[_tk]=(S[_tk]||[]).concat([data]); }
+    var _normFnsIns={students:normalizeStudent,lessons:normalizeLesson,payments:normalizePayment,tutors:normalizeTutor,comms:normalizeComm,tasks:normalizeTask,payroll_items:normalizePayrollItem};
+    if(_tk){
+      var _normed = _normFnsIns[table] ? _normFnsIns[table](data) : data;
+      S[_tk]=(S[_tk]||[]).concat([_normed]);
+      refreshPage(_tk);
+      if(S.currentPage==='schedule' && typeof renderSch==='function') renderSch();
+    }
     setTimeout(function(){ try{trainingCheckProgress&&trainingCheckProgress();}catch(e){} }, 50);
     return;
   }
@@ -3936,7 +3942,16 @@ async function dbUpdate(table, id, data){
   if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   if(window._trainingMode){
     var _tk2=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table];
-    if(_tk2){ var _entry=(S[_tk2]||[]).find(function(x){return x.id===id;}); if(_entry) Object.assign(_entry, data); }
+    var _normFnsUpd={students:normalizeStudent,lessons:normalizeLesson,payments:normalizePayment,tutors:normalizeTutor,comms:normalizeComm,tasks:normalizeTask,payroll_items:normalizePayrollItem};
+    if(_tk2){
+      var _entry=(S[_tk2]||[]).find(function(x){return x.id===id;});
+      if(_entry){
+        Object.assign(_entry, data);
+        if(_normFnsUpd[table]) Object.assign(_entry, _normFnsUpd[table](_entry));
+      }
+      refreshPage(_tk2);
+      if(S.currentPage==='schedule' && typeof renderSch==='function') renderSch();
+    }
     setTimeout(function(){ try{trainingCheckProgress&&trainingCheckProgress();}catch(e){} }, 50);
     return;
   }
@@ -3975,7 +3990,12 @@ async function dbDelete(table, id){
   if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   if(window._trainingMode){
     var _tk3=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table];
-    if(_tk3){ S[_tk3]=(S[_tk3]||[]).filter(function(x){return x.id!==id;}); }
+    if(_tk3){
+      S[_tk3]=(S[_tk3]||[]).filter(function(x){return x.id!==id;});
+      refreshPage(_tk3);
+      if(S.currentPage==='schedule' && typeof renderSch==='function') renderSch();
+    }
+    setTimeout(function(){ try{trainingCheckProgress&&trainingCheckProgress();}catch(e){} }, 50);
     return;
   }
   setSaving();
@@ -8577,10 +8597,10 @@ var TRAINING_QUESTS = [
     check:function(){ return TR._visited.student===true; } },
   { id:'donelesson',icon:'\u2705', badge:'\u2705', title:'\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0437\u0430\u043D\u044F\u0442\u0442\u044F',
     descr:'\u041F\u043E\u0437\u043D\u0430\u0447\u0442\u0435 \u0431\u0443\u0434\u044C-\u044F\u043A\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u044F\u043A "\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E"',
-    check:function(){ return (S.lessons||[]).some(function(l){return l.status==='done';}); } },
+    check:function(){ return (S.lessons||[]).some(function(l){return l.status==='done' && l.id!=='tr-l3';}); } },
   { id:'missedlesson',icon:'\u274C', badge:'\uD83D\uDD34', title:'\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F',
     descr:'\u041F\u043E\u0437\u043D\u0430\u0447\u0442\u0435 \u0431\u0443\u0434\u044C-\u044F\u043A\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u044F\u043A "\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E" \u0432 \u0440\u043E\u0437\u043A\u043B\u0430\u0434\u0456',
-    check:function(){ return (S.lessons||[]).some(function(l){return l.status==='missed';}); } },
+    check:function(){ return (S.lessons||[]).some(function(l){return l.status==='missed' && l.id!=='tr-l5';}); } },
   { id:'makeup',icon:'\uD83D\uDD01', badge:'\uD83D\uDD01', title:'\u0417\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u0435 \u0432\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F',
     descr:'\u0414\u043B\u044F \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E\u0433\u043E \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u043F\u043E\u0441\u0442\u0430\u0432\u0442\u0435 \u0432\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F (\u0441\u0442\u0430\u0442\u0443\u0441 "\u0412\u0456\u0434\u043F\u0440. \u0437\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u043E")',
     check:function(){ return (S.lessons||[]).some(function(l){return l.status==='makeup_planned'||l.status==='makeup';}); } },
@@ -8621,7 +8641,7 @@ function trainingSeedData(){
   var today=new Date();
   var ds=function(off){ var d=new Date(today); d.setDate(today.getDate()+off); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   var tutorId='tr-tut-1';
-  S.tutors=[{id:tutorId,fn:'\u0422\u0440\u0435\u043D\u0443\u0432\u0430\u043B\u044C\u043D\u0438\u0439',ln:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440',phone:'',email:'',subj:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',branchIds:[]}];
+  S.tutors=[{id:tutorId,accId:tutorId,acc_uid:tutorId,fn:'\u0422\u0440\u0435\u043D\u0443\u0432\u0430\u043B\u044C\u043D\u0438\u0439',ln:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440',phone:'',email:'',subj:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',branchIds:[]}];
   S.students=[
     {id:'tr-s1',fn:'\u0410\u043D\u043D\u0430',ln:'\u041F\u0440\u0438\u043A\u043B\u0430\u0434',status:'active',grade:'7 \u043A\u043B\u0430\u0441',phone:'+380501112233',tutorId:tutorId,tutorIds:[tutorId],rates:[{subject:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',tutor_id:tutorId,rate:400}]},
     {id:'tr-s2',fn:'\u0411\u043E\u0433\u0434\u0430\u043D',ln:'\u0417\u0440\u0430\u0437\u043E\u043A',status:'active',grade:'9 \u043A\u043B\u0430\u0441',phone:'+380501112234',tutorId:tutorId,tutorIds:[tutorId],rates:[{subject:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',tutor_id:tutorId,rate:400}]}
@@ -8698,7 +8718,10 @@ function trainingBuildPanel(){
         +'<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#94a3b8;margin-right:6px"></span>\u0412\u0456\u0434\u043F\u0440. \u0437\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u043E</div>'
       +'</div>'
     +'</div>'
-    +'<div id="tr-badges" style="display:flex;gap:4px;flex-wrap:wrap;padding:8px 10px;border-top:1px solid var(--b1)"></div>';
+    +'<div id="tr-badges" style="display:flex;gap:4px;flex-wrap:wrap;padding:8px 10px;border-top:1px solid var(--b1)"></div>'
+    +'<div style="padding:8px 10px;border-top:1px solid var(--b1)">'
+      +'<button id="tr-reset-btn" style="width:100%;padding:7px;font-size:11.5px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t2);cursor:pointer">\uD83D\uDD04 \u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u043F\u0440\u043E\u0433\u0440\u0435\u0441 \u0456 \u043F\u043E\u0447\u0430\u0442\u0438 \u0437\u0430\u043D\u043E\u0432\u043E</button>'
+    +'</div>';
   document.body.appendChild(wrap);
   document.getElementById('tr-head').onclick=function(){
     var body=document.getElementById('tr-body'), badges=document.getElementById('tr-badges'), legend=document.getElementById('tr-legend'), ico=document.getElementById('tr-toggle-ico');
@@ -8707,6 +8730,17 @@ function trainingBuildPanel(){
     badges.style.display = collapsed?'flex':'none';
     if(legend) legend.style.display = collapsed?'block':'none';
     ico.textContent = collapsed?'\u2212':'+';
+  };
+  var resetBtn=document.getElementById('tr-reset-btn');
+  if(resetBtn) resetBtn.onclick=function(e){
+    e.stopPropagation();
+    if(!confirm('\u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u0432\u0435\u0441\u044C \u043F\u0440\u043E\u0433\u0440\u0435\u0441 \u0456 \u043F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u0438 \u0442\u0435\u0441\u0442\u043E\u0432\u0456 \u0434\u0430\u043D\u0456 \u0434\u043E \u043F\u043E\u0447\u0430\u0442\u043A\u043E\u0432\u043E\u0433\u043E \u0441\u0442\u0430\u043D\u0443? \u0412\u0441\u0456 \u0432\u0430\u0448\u0456 \u0442\u0435\u0441\u0442\u043E\u0432\u0456 \u0437\u043C\u0456\u043D\u0438 \u0431\u0443\u0434\u0435 \u0432\u0442\u0440\u0430\u0447\u0435\u043D\u043E.')) return;
+    localStorage.removeItem('training_progress');
+    TR._done={}; TR._visited={};
+    trainingSeedData();
+    if(typeof nav==='function') nav(S.currentPage||'dashboard');
+    trainingRenderQuestList();
+    mkToast('\uD83D\uDD04 \u041F\u0440\u043E\u0433\u0440\u0435\u0441 \u0441\u043A\u0438\u043D\u0443\u0442\u043E, \u0442\u0435\u0441\u0442\u043E\u0432\u0456 \u0434\u0430\u043D\u0456 \u043F\u043E\u0432\u0435\u0440\u043D\u0435\u043D\u043E');
   };
   trainingRenderQuestList();
 }
