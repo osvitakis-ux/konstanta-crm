@@ -4314,7 +4314,32 @@ async function saveLesson(){
   };
   window._saving = true;
   try{
-    if(S.editId){ await dbUpdate('lessons',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); closeM('mo-lesson'); window._saving=false; refreshPage('lessons'); if(S.currentPage==='schedule') renderSch(); }
+    if(S.editId){
+      if(recurType && recurType!=='none'){
+        // Перетворюємо вже існуюче одноразове заняття на серію повторюваних —
+        // раніше ця гілка просто ігнорувала вибір "Повторення" при редагуванні.
+        var endDate  = document.getElementById('l-recur-end')?.value;
+        var count    = parseInt(document.getElementById('l-recur-count')?.value)||10;
+        var interval = parseInt(document.getElementById('l-recur-interval')?.value)||1;
+        var dates    = genRecurDates(date, recurType, endDate, count, interval);
+        var recurId  = uid();
+        // Існуюче заняття стає 0-м записом серії (дата збігається, лише додаємо recur-поля)
+        var firstPatch = Object.assign({}, obj, {recur_id:recurId, recur_type:recurType, recur_index:0});
+        await dbUpdate('lessons', S.editId, firstPatch);
+        var _newRecurLessons=[];
+        for(var i=1;i<dates.length;i++){
+          var _lo2=Object.assign({id:uid()},obj,{date:dates[i],recur_id:recurId,recur_type:recurType,recur_index:i});
+          await dbInsert('lessons',_lo2);
+          _newRecurLessons.push(normalizeLesson(_lo2));
+        }
+        S.lessons=(S.lessons||[]).concat(_newRecurLessons);
+        mkToast('\u041F\u0435\u0440\u0435\u0442\u0432\u043E\u0440\u0435\u043D\u043E \u043D\u0430 \u0441\u0435\u0440\u0456\u044E: '+dates.length+' \u0437\u0430\u043D\u044F\u0442\u044C'); closeM('mo-lesson');
+        window._saving=false;
+        refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
+      } else {
+        await dbUpdate('lessons',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); closeM('mo-lesson'); window._saving=false; refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
+      }
+    }
     else if(recurType && recurType!=='none'){
       var endDate  = document.getElementById('l-recur-end')?.value;
       var count    = parseInt(document.getElementById('l-recur-count')?.value)||10;
