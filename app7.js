@@ -2425,7 +2425,12 @@ function renderLessons(){
       +'<td style="font-size:12px">'+(l.tutorId||l.tutor_id?tn(l.tutorId||l.tutor_id):'—')+'</td>'
       +'<td style="font-family:JetBrains Mono,monospace;font-size:11px">'+fd(l.date)+' '+(l.time||'')+'</td>'
       +'<td>'+(l.dur||60)+' хв</td>'+mc2+mk2
-      +'<td style="font-size:11px;color:var(--t2)">'+(l.notes||'—')+(l.games?'<div style="color:var(--adm);margin-top:2px">🎧 '+l.games+'</div>':'')+'</td>'
+      +'<td style="font-size:11px;color:var(--t2);max-width:220px">'
+        +(l.notes?'<div>📌 '+l.notes+'</div>':'')
+        +(l.hw?'<div style="margin-top:2px">📝 '+l.hw+'</div>':'')
+        +(l.games?'<div style="color:var(--adm);margin-top:2px">🎧 '+l.games+'</div>':'')
+        +(!l.notes&&!l.hw&&!l.games?'—':'')
+      +'</td>'
       +'<td>'+bst(l.status)+'</td>'
       +'<td><div style="display:flex;gap:3px">'+btns+'</div></td></tr>';
   }).join('')
@@ -4813,11 +4818,11 @@ function exportToExcel(type){
     headers=['Імʼя','Прізвище','Телефон','Предмет','Статус','Клас','Нотатки'];
     data=(S.students||[]).map(function(s){return [s.fn||'',s.ln||'',s.phone||'',s.subject||'',s.status||'',s.grade||'',s.notes||''];});
   } else if(type==='lessons'){
-    headers=['Учень','Репетитор','Предмет','Дата','Час','Тривалість','Статус','Ціна'];
+    headers=['Учень','Репетитор','Предмет','Дата','Час','Тривалість','Статус','Ціна','Тема уроку','Домашнє завдання','Аудіювання та ігри'];
     data=myLessons().map(function(l){
       var st=(S.students||[]).find(function(s){return s.id===(l.studentId||l.student_id);});
       var tu=(S.tutors||[]).find(function(t){return t.id===(l.tutorId||l.tutor_id);});
-      return [(st?st.fn+' '+st.ln:''),(tu?tu.fn+' '+tu.ln:''),(l.subject||''),(l.date||''),(l.time||''),(l.dur||60)+' хв',(l.status||''),(l.price||'')];
+      return [(st?st.fn+' '+st.ln:''),(tu?tu.fn+' '+tu.ln:''),(l.subject||''),(l.date||''),(l.time||''),(l.dur||60)+' хв',(l.status||''),(l.price||''),(l.notes||''),(l.hw||''),(l.games||'')];
     });
   } else if(type==='payments'){
     headers=['Учень','Сума','Дата','Статус','Нотатки'];
