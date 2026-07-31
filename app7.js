@@ -4385,10 +4385,12 @@ async function doDelLesson(mode){
   try{
     if(mode==='one'){ await dbDelete('lessons',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }
     else if(mode==='future'){
+      if(!l.recurId){ mkToast('\u0426\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u043D\u0435 \u043D\u0430\u043B\u0435\u0436\u0438\u0442\u044C \u0434\u043E \u0441\u0435\u0440\u0456\u0457 \u043f\u043e\u0432\u0442\u043e\u0440\u0435\u043d\u044c \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u044e \u043b\u0438\u0448\u0435 \u0439\u043e\u0433\u043e \u043e\u0434\u043d\u043e\u0433\u043e','error'); await dbDelete('lessons',id); return; }
       var toDelete=(S.lessons||[]).filter(function(x){return x.recurId===l.recurId&&x.recurIndex>=l.recurIndex;});
       for(var i=0;i<toDelete.length;i++) await dbDelete('lessons',toDelete[i].id);
       mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E '+toDelete.length+' \u0437\u0430\u043D\u044F\u0442\u044C');
     } else {
+      if(!l.recurId){ mkToast('\u0426\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u043D\u0435 \u043D\u0430\u043B\u0435\u0436\u0438\u0442\u044C \u0434\u043E \u0441\u0435\u0440\u0456\u0457 \u043f\u043e\u0432\u0442\u043e\u0440\u0435\u043d\u044c \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u044e \u043b\u0438\u0448\u0435 \u0439\u043e\u0433\u043e \u043e\u0434\u043d\u043e\u0433\u043e','error'); await dbDelete('lessons',id); return; }
       var all=(S.lessons||[]).filter(function(x){return x.recurId===l.recurId;});
       for(var i=0;i<all.length;i++) await dbDelete('lessons',all[i].id);
       mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E \u0441\u0435\u0440\u0456\u044E ('+all.length+')');
