@@ -12,7 +12,7 @@ window.SupabaseMini = (function(){
     function headers(){
       var h = {
         'Content-Type': 'application/json',
-                'apikey': _key,
+        'apikey': _key,
         'Authorization': 'Bearer ' + (_token || _key)
       };
       return h;
@@ -8027,6 +8027,95 @@ var RIGHTS_MATRIX = [
   ['Небезпечна зона',        '✅','❌','❌','❌'],
 ];
 
+// ── Резервне копіювання: статус, ручний запуск, список копій ──
+async function renderBackupStatus(){
+  var dot=document.getElementById('backup-status-dot'), txt=document.getElementById('backup-status-txt');
+  if(!dot||!txt) return;
+  try{
+    var _r=await _sb.from('backup_log').select('*').order('created_at',{ascending:false}).limit(1);
+    var last=(_r.data||[])[0];
+    if(!last){
+      dot.style.background='#ef4444'; txt.textContent='\u0429\u0435 \u0436\u043E\u0434\u043D\u043E\u0457 \u043A\u043E\u043F\u0456\u0457 \u043D\u0435 \u0431\u0443\u043B\u043E \u0437\u0440\u043E\u0431\u043B\u0435\u043D\u043E';
+      return;
+    }
+    var when=new Date(last.created_at);
+    var hoursAgo=(Date.now()-when.getTime())/3600000;
+    var totalRows=Object.values(last.row_counts||{}).reduce(function(s,n){return s+(n||0);},0);
+    var sizeKb=Math.round((last.file_size_bytes||0)/1024);
+    if(last.status==='error'){
+      dot.style.background='#ef4444';
+      txt.textContent='\u041E\u0441\u0442\u0430\u043D\u043D\u044F \u0441\u043F\u0440\u043E\u0431\u0430 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u043B\u0430\u0441\u044C \u043F\u043E\u043C\u0438\u043B\u043A\u043E\u044E: '+(last.error_message||'');
+    } else if(hoursAgo>26){
+      dot.style.background='#f59e0b';
+      txt.textContent='\u26A0\uFE0F \u041E\u0441\u0442\u0430\u043D\u043D\u044F \u043A\u043E\u043F\u0456\u044F \u0431\u0443\u043B\u0430 '+when.toLocaleString('uk-UA')+' \u2014 \u0434\u0430\u0432\u043D\u0456\u0448\u0435 \u0434\u043E\u0431\u0438 24 \u0433\u043E\u0434\u0438\u043D. \u041F\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 cron-\u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F';
+    } else {
+      dot.style.background='#22c55e';
+      txt.textContent='\u2705 \u041E\u0441\u0442\u0430\u043D\u043D\u044F \u043A\u043E\u043F\u0456\u044F: '+when.toLocaleString('uk-UA')+' \u00B7 '+totalRows+' \u0437\u0430\u043F\u0438\u0441\u0456\u0432 \u00B7 '+sizeKb+' \u041A\u0411'+(last.github_committed?' \u00B7 \uD83D\uDCE6 GitHub \u2713':' \u00B7 \u26A0\uFE0F GitHub \u043D\u0435 \u043D\u0430\u043B\u0430\u0448\u0442\u043E\u0432\u0430\u043D\u043E');
+    }
+  }catch(e){
+    dot.style.background='#ef4444'; txt.textContent='\u041D\u0435 \u0432\u0434\u0430\u043B\u043E\u0441\u044F \u043F\u0435\u0440\u0435\u0432\u0456\u0440\u0438\u0442\u0438 \u0441\u0442\u0430\u0442\u0443\u0441: '+(e.message||e);
+  }
+}
+
+async function triggerBackupNow(){
+  if(R()!=='god'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F \u043B\u0438\u0448\u0435 \u0434\u043B\u044F \u0431\u043E\u0433\u0430 \u0441\u0438\u0441\u0442\u0435\u043C\u0438','error'); return; }
+  var btn=document.getElementById('backup-now-btn');
+  if(btn){ btn.disabled=true; btn.textContent='\u23F3 \u0421\u0442\u0432\u043E\u0440\u0435\u043D\u043D\u044F \u043A\u043E\u043F\u0456\u0457...'; }
+  try{
+    var _sess=await _sb.auth.getSession();
+    var jwt=_sess?.data?.session?.access_token;
+    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/daily-backup',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+      body:JSON.stringify({trigger:'manual'})
+    });
+    var data=await res.json();
+    if(!res.ok) throw new Error(data.error||'\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430');
+    mkToast('\u2705 \u041A\u043E\u043F\u0456\u044E \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E: '+Object.values(data.rowCounts||{}).reduce(function(s,n){return s+(n||0);},0)+' \u0437\u0430\u043F\u0438\u0441\u0456\u0432');
+    renderBackupStatus();
+  }catch(e){
+    mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='\uD83D\uDCBE \u0417\u0440\u043E\u0431\u0438\u0442\u0438 \u043A\u043E\u043F\u0456\u044E \u0437\u0430\u0440\u0430\u0437'; }
+  }
+}
+
+async function renderBackupList(){
+  var wrap=document.getElementById('backup-list');
+  if(!wrap) return;
+  wrap.innerHTML='<div style="padding:10px;color:var(--t3);font-size:12px">\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F\u2026</div>';
+  try{
+    var _r=await _sb.from('backup_log').select('*').order('created_at',{ascending:false}).limit(30);
+    var rows=_r.data||[];
+    if(!rows.length){ wrap.innerHTML='<div style="padding:10px;color:var(--t3);font-size:12px">\u041A\u043E\u043F\u0456\u0439 \u0449\u0435 \u043D\u0435\u043C\u0430\u0454</div>'; return; }
+    var html='<table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">\u0414\u0430\u0442\u0430</th><th>\u0417\u0430\u043F\u0438\u0441\u0456\u0432</th><th>\u0420\u043E\u0437\u043C\u0456\u0440</th><th>GitHub</th><th></th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var totalRows=Object.values(r.row_counts||{}).reduce(function(s,n){return s+(n||0);},0);
+      var sizeKb=Math.round((r.file_size_bytes||0)/1024);
+      html+='<tr>'
+        +'<td>'+new Date(r.created_at).toLocaleString('uk-UA')+'</td>'
+        +'<td style="text-align:center">'+(r.status==='error'?'\u274C':totalRows)+'</td>'
+        +'<td style="text-align:center">'+sizeKb+' \u041A\u0411</td>'
+        +'<td style="text-align:center">'+(r.github_committed?'\u2705':'\u2014')+'</td>'
+        +'<td style="text-align:center"><button class="btn btn-g btn-sm" onclick="downloadBackup(\''+r.file_path+'\')">\u2B07</button></td>'
+      +'</tr>';
+    });
+    html+='</tbody></table>';
+    wrap.innerHTML=html;
+  }catch(e){ wrap.innerHTML='<div style="padding:10px;color:var(--danger);font-size:12px">\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e)+'</div>'; }
+}
+
+async function downloadBackup(filePath){
+  try{
+    var _r=await _sb.storage.from('backups').createSignedUrl(filePath,60);
+    if(_r.error) throw _r.error;
+    window.open(_r.data.signedUrl,'_blank');
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0437\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F: '+(e.message||e),'error'); }
+}
+window.triggerBackupNow=triggerBackupNow;
+window.renderBackupList=renderBackupList;
+window.downloadBackup=downloadBackup;
+
 function renderSettings(){
   var gcWrap = document.getElementById('god-constructor-wrap');
   if(gcWrap) gcWrap.style.display = (R()==='god') ? 'block' : 'none';
@@ -8037,6 +8126,8 @@ function renderSettings(){
   var gbEl=document.getElementById('god-banner-settings'); if(gbEl) gbEl.style.display=isGod?'flex':'none';
   var rsEl=document.getElementById('rights-section'); if(rsEl) rsEl.style.display=isGod?'block':'none';
   var dzEl=document.getElementById('danger-zone'); if(dzEl) dzEl.style.display=isGod?'block':'none';
+  var bkEl=document.getElementById('backup-card'); if(bkEl) bkEl.style.display=isGod?'block':'none';
+  if(isGod){ try{ renderBackupStatus(); }catch(e){} }
   if(isGod){
     // Build rights matrix
     let rt='<thead><tr>'+RIGHTS_MATRIX[0].map((h,i)=>('<th style="'+(i===1?'color:var(--god)':i===2?'color:var(--dir)':i===3?'color:var(--adm)':i===4?'color:var(--tut)':'')+'">'+(h)+'</th>')).join('')+'</tr></thead><tbody>';
