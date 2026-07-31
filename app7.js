@@ -8150,7 +8150,7 @@ async function renderBackupList(){
         +'<td style="text-align:center">'+(r.status==='error'?'\u274C':totalRows)+'</td>'
         +'<td style="text-align:center">'+sizeKb+' \u041A\u0411</td>'
         +'<td style="text-align:center">'+(r.github_committed?'\u2705':'\u2014')+'</td>'
-        +'<td style="text-align:center"><button class="btn btn-g btn-sm" onclick="downloadBackup(\''+r.file_path+'\')">\u2B07</button></td>'
+        +'<td style="text-align:center"><button class="btn btn-g btn-sm" onclick="downloadBackup(\''+r.file_path+'\')">\u2B07</button> <button class="btn btn-p btn-sm" onclick="restoreFromBackup(\''+r.file_path+'\')">\u267B\uFE0F</button></td>'
       +'</tr>';
     });
     html+='</tbody></table>';
@@ -8165,6 +8165,42 @@ async function downloadBackup(filePath){
     window.open(_r.data.signedUrl,'_blank');
   }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0437\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F: '+(e.message||e),'error'); }
 }
+
+async function restoreFromBackup(filePath){
+  if(R()!=='god'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F \u043B\u0438\u0448\u0435 \u0434\u043B\u044F \u0431\u043E\u0433\u0430 \u0441\u0438\u0441\u0442\u0435\u043C\u0438','error'); return; }
+  if(!confirm('\u0412\u0456\u0434\u043D\u043E\u0432\u0438\u0442\u0438 \u0434\u0430\u043D\u0456 \u0437 \u0446\u0456\u0454\u0457 \u043A\u043E\u043F\u0456\u0457?\n\n'
+    +'\u0426\u0435 \u0411\u0415\u0417\u041F\u0415\u0427\u041D\u041E: \u0431\u0443\u0434\u0443\u0442\u044C \u043F\u043E\u0432\u0435\u0440\u043D\u0435\u043D\u0456 \u041B\u0418\u0428\u0415 \u0442\u0456 \u0437\u0430\u043F\u0438\u0441\u0438, \u044F\u043A\u0438\u0445 \u0417\u0410\u0420\u0410\u0417 \u041D\u0415\u041C\u0410\u0404 \u0432 \u0431\u0430\u0437\u0456 (\u0437\u0430 id). '
+    +'\u0406\u0441\u043D\u0443\u044E\u0447\u0456 \u0437\u0430\u043F\u0438\u0441\u0438 \u041D\u0415 \u0431\u0443\u0434\u0443\u0442\u044C \u043F\u0435\u0440\u0435\u043F\u0438\u0441\u0430\u043D\u0456 \u0447\u0438 \u0437\u0430\u0434\u0432\u043E\u0454\u043D\u0456. \u041D\u0456\u0447\u043E\u0433\u043E \u043D\u0435 \u0432\u0438\u0434\u0430\u043B\u044F\u0454\u0442\u044C\u0441\u044F.')) return;
+
+  var loadingToast=mkToast('\u23F3 \u0412\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u044F...');
+  try{
+    var _sess=await _sb.auth.getSession();
+    var jwt=_sess?.data?.session?.access_token;
+    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/restore-backup',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+      body:JSON.stringify({file_path:filePath})
+    });
+    var data=await res.json();
+    if(!res.ok) throw new Error(data.error||'\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430');
+
+    var restored=data.restoredCounts||{};
+    var totalRestored=Object.values(restored).reduce(function(s,n){return s+(n||0);},0);
+    var details=Object.keys(restored).filter(function(t){return restored[t]>0;})
+      .map(function(t){return t+': +'+restored[t];}).join(', ');
+
+    if(totalRestored===0){
+      mkToast('\u2139\uFE0F \u041D\u0456\u0447\u043E\u0433\u043E \u0432\u0456\u0434\u043D\u043E\u0432\u043B\u044E\u0432\u0430\u0442\u0438 \u2014 \u0443\u0441\u0456 \u0437\u0430\u043F\u0438\u0441\u0438 \u0437 \u0446\u0456\u0454\u0457 \u043A\u043E\u043F\u0456\u0457 \u0432\u0436\u0435 \u0454 \u0432 \u0431\u0430\u0437\u0456');
+    } else {
+      mkToast('\u2705 \u0412\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043E '+totalRestored+' \u0437\u0430\u043F\u0438\u0441\u0456\u0432 ('+details+')');
+    }
+    // Оновлюємо видиму сторінку, щоб одразу побачити повернуті дані (напр. розклад)
+    if(typeof nav==='function' && S.currentPage) nav(S.currentPage);
+  }catch(e){
+    mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0432\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u044F: '+(e.message||e),'error');
+  }
+}
+window.restoreFromBackup=restoreFromBackup;
 window.triggerBackupNow=triggerBackupNow;
 window.renderBackupList=renderBackupList;
 window.downloadBackup=downloadBackup;
