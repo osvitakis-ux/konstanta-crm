@@ -1016,6 +1016,21 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <div><div class="god-banner-title">Режим Бога — повний доступ</div><div class="god-banner-text">Редагування системних налаштувань, скидання даних та управління базою</div></div>
         </div>
         <div class="tc">
+          <div class="card" id="backup-card" style="border:2px solid #8b5cf6;display:none">
+            <div class="ch"><span class="ct">💾 Резервне копіювання</span></div>
+            <div style="padding:14px 18px">
+              <div id="backup-status" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--s2);border-radius:10px">
+                <span id="backup-status-dot" style="width:9px;height:9px;border-radius:50%;background:var(--t3);flex-shrink:0"></span>
+                <span id="backup-status-txt" style="font-size:13px;color:var(--t2)">Перевірка стану...</span>
+              </div>
+              <div style="font-size:12px;color:var(--t3);margin-bottom:14px;line-height:1.5">
+                Автоматична копія всіх даних формується щодня о 03:00 і зберігається окремо від основної бази — і в Storage Supabase, і поза Supabase (GitHub), щоб пережити навіть проблему із самим проєктом. Останні 30 копій зберігаються, старіші видаляються автоматично.
+              </div>
+              <button class="btn btn-p btn-sm" id="backup-now-btn" onclick="triggerBackupNow()">💾 Зробити копію зараз</button>
+              <button class="btn btn-g btn-sm" onclick="renderBackupList()" style="margin-left:6px">📋 Список копій</button>
+              <div id="backup-list" style="margin-top:12px"></div>
+            </div>
+          </div>
           <div class="card">
             <div class="ch">
               <span class="ct">🏢 Репетиторський центр «Константа»</span>
@@ -1983,7 +1998,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=criticaldeletefix1"></script>
+<script src="app7.js?v=backupsystem1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
