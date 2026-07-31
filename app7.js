@@ -188,7 +188,60 @@ window.SupabaseMini = (function(){
       return query('rpc/' + fn, 'POST', params, null, {});
     }
 
-    return { from: from, auth: auth, channel: channel, removeChannel: removeChannel, rpc: rpc };
+    // ── Storage (мінімальна реалізація — лише те, що реально використовується:
+    //    підписані посилання для завантаження файлів резервних копій) ──────
+    function storageFrom(bucket){
+      return {
+        createSignedUrl: async function(path, expiresIn){
+          try{
+            var res = await fetch(_url + '/storage/v1/object/sign/' + bucket + '/' + encodeURIComponent(path).replace(/%2F/g,'/'), {
+              method: 'POST',
+              headers: headers(),
+              body: JSON.stringify({ expiresIn: expiresIn || 60 })
+            });
+            var data = await res.json();
+            if(!res.ok) return { data: null, error: { message: data.message || res.statusText } };
+            // API повертає відносний шлях (напр. "/object/sign/bucket/path?token=...") —
+            // додаємо базовий URL, щоб отримати повне посилання, готове для window.open
+            var signedURL = data.signedURL || data.signedUrl || '';
+            var fullUrl = signedURL.indexOf('http') === 0 ? signedURL : (_url + '/storage/v1' + signedURL);
+            return { data: { signedUrl: fullUrl }, error: null };
+          }catch(e){
+            return { data: null, error: { message: e.message } };
+          }
+        },
+        upload: async function(path, fileBody, opts){
+          try{
+            var h = Object.assign({}, headers());
+            delete h['Content-Type']; // браузер сам виставить multipart/binary Content-Type
+            if(opts&&opts.contentType) h['Content-Type']=opts.contentType;
+            var res = await fetch(_url + '/storage/v1/object/' + bucket + '/' + encodeURIComponent(path).replace(/%2F/g,'/'), {
+              method: 'POST', headers: h, body: fileBody
+            });
+            var data = await res.json().catch(function(){ return null; });
+            if(!res.ok) return { data: null, error: { message: (data&&data.message)||res.statusText } };
+            return { data: data, error: null };
+          }catch(e){
+            return { data: null, error: { message: e.message } };
+          }
+        },
+        remove: async function(paths){
+          try{
+            var res = await fetch(_url + '/storage/v1/object/' + bucket, {
+              method: 'DELETE', headers: headers(), body: JSON.stringify({ prefixes: paths })
+            });
+            var data = await res.json().catch(function(){ return null; });
+            if(!res.ok) return { data: null, error: { message: (data&&data.message)||res.statusText } };
+            return { data: data, error: null };
+          }catch(e){
+            return { data: null, error: { message: e.message } };
+          }
+        }
+      };
+    }
+    var storage = { from: storageFrom };
+
+    return { from: from, auth: auth, channel: channel, removeChannel: removeChannel, rpc: rpc, storage: storage };
   }
 
   return { createClient: createClient };
