@@ -8064,7 +8064,7 @@ async function triggerBackupNow(){
   try{
     var _sess=await _sb.auth.getSession();
     var jwt=_sess?.data?.session?.access_token;
-    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/daily-backup',{
+    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/supabase-functions-deploy-daily-backup',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
       body:JSON.stringify({trigger:'manual'})
