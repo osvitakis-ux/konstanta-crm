@@ -230,7 +230,7 @@ var ROLES = {
     label:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440', icon:'\uD83D\uDCDA', color:'var(--tut)',
     avatarBg:'linear-gradient(135deg,#22b573,#7ac943)',
     nav:['dashboard','students','schedule','lessons','comms','tasks','profile'],
-    can:{students:true,tutors:false,lessons:true,comms:true,payments:false,users:false,settings:false,danger:false,deleteAny:false},
+    can:{students:false,tutors:false,lessons:true,comms:true,payments:false,users:false,settings:false,danger:false,deleteAny:false},
     seeIncome:false, seeAll:false, canEditUsers:false, showGodBanner:false
   },
   };
@@ -4027,6 +4027,7 @@ async function dbDelete(table, id){
 // SAVE FUNCTIONS
 // =
 async function saveStudent(){
+  if(!can('students')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
   var fn=document.getElementById('s-fn').value.trim(), ln=document.getElementById('s-ln').value.trim();
   if(!fn||!ln){ mkToast("\u0406\u043C'\u044F \u0442\u0430 \u043F\u0440\u0456\u0437\u0432\u0438\u0449\u0435 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
   var obj={
