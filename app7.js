@@ -12,7 +12,7 @@ window.SupabaseMini = (function(){
     function headers(){
       var h = {
         'Content-Type': 'application/json',
-        'apikey': _key,
+                'apikey': _key,
         'Authorization': 'Bearer ' + (_token || _key)
       };
       return h;
