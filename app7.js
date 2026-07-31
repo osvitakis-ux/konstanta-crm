@@ -8192,10 +8192,19 @@ async function restoreFromBackup(filePath){
     if(totalRestored===0){
       mkToast('\u2139\uFE0F \u041D\u0456\u0447\u043E\u0433\u043E \u0432\u0456\u0434\u043D\u043E\u0432\u043B\u044E\u0432\u0430\u0442\u0438 \u2014 \u0443\u0441\u0456 \u0437\u0430\u043F\u0438\u0441\u0438 \u0437 \u0446\u0456\u0454\u0457 \u043A\u043E\u043F\u0456\u0457 \u0432\u0436\u0435 \u0454 \u0432 \u0431\u0430\u0437\u0456');
     } else {
-      mkToast('\u2705 \u0412\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043E '+totalRestored+' \u0437\u0430\u043F\u0438\u0441\u0456\u0432 ('+details+')');
+      mkToast('\u2705 \u0412\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043E '+totalRestored+' \u0437\u0430\u043F\u0438\u0441\u0456\u0432 ('+details+'). \u041E\u043D\u043E\u0432\u043B\u044E\u044E \u0435\u043A\u0440\u0430\u043D\u2026');
+    }
+    // КРИТИЧНО: сервер уже дописав рядки в базу, але локальний стан (S.lessons тощо)
+    // у браузері про це нічого не знає — без явного перезавантаження таблиць
+    // розклад/списки продовжать показувати старі (кешовані) дані, ніби нічого
+    // не відновилось, хоча в базі все вже на місці.
+    var tablesToReload=Object.keys(restored).filter(function(t){return restored[t]>0;});
+    for(var i=0;i<tablesToReload.length;i++){
+      try{ await loadTableFresh(tablesToReload[i]); }catch(e){ console.warn('[restore] reload failed for', tablesToReload[i], e); }
     }
     // Оновлюємо видиму сторінку, щоб одразу побачити повернуті дані (напр. розклад)
     if(typeof nav==='function' && S.currentPage) nav(S.currentPage);
+    if(S.currentPage==='schedule' && typeof renderSch==='function') renderSch();
   }catch(e){
     mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0432\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u044F: '+(e.message||e),'error');
   }
