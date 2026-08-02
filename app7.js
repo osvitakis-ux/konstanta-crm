@@ -40,6 +40,7 @@ window.SupabaseMini = (function(){
         neq: function(col, val){ this._filters.push(col + '=neq.' + encodeURIComponent(val)); return this; },
         order: function(col, opts){ this._filters.push('order=' + col + (opts&&opts.ascending===false?'.desc':'.asc')); return this; },
         limit: function(n){ this._filters.push('limit=' + n); return this; },
+        range: function(from, to){ this._filters.push('offset=' + from); this._filters.push('limit=' + (to - from + 1)); return this; },
         single: function(){ this._isSingle=true; return this; },
         then: function(resolve, reject){ return this._exec().then(resolve, reject); },
         _exec: async function(){
@@ -3649,12 +3650,29 @@ async function loadAll(){
     { table:'payroll_items', key:'payrollItems' },
     { table:'act_log',       key:'actLog' },
   ];
-  function fetchAll(){
-    return Promise.all(tables.map(function(t){
+  // Завантажуємо КОЖНУ таблицю посторінково.
+  // PostgREST за замовчуванням віддає максимум 1000 рядків. Раніше запит ішов
+  // без пагінації, тож щойно занять ставало більше 1000, найстаріші (сортування
+  // за датою у спадному порядку) просто переставали приходити — і зникали
+  // з розкладу "пластами", починаючи з найдавніших дат.
+  async function fetchTableAll(t){
+    var PAGE=1000, page=0, all=[], lastErr=null;
+    while(true){
       var q = _sb.from(t.table).select('*');
       if(t.order) q = q.order(t.order, { ascending:false });
-      return q;
-    }));
+      q = q.range(page*PAGE, page*PAGE + PAGE - 1);
+      var res = await q;
+      if(res.error){ lastErr=res.error; break; }
+      var batch = res.data || [];
+      all = all.concat(batch);
+      if(batch.length < PAGE) break;
+      page++;
+      if(page > 200) break; // запобіжник
+    }
+    return { data: all, error: lastErr };
+  }
+  function fetchAll(){
+    return Promise.all(tables.map(fetchTableAll));
   }
   var results = await fetchAll();
   // Якщо будь-який запит впав через протермінований токен — оновлюємо сесію і повторюємо весь батч
@@ -3819,12 +3837,21 @@ async function loadTableFresh(table){
   var norm = {students:normalizeStudent,lessons:normalizeLesson,
     payments:normalizePayment,tutors:normalizeTutor,
     comms:normalizeComm,pricingRules:normalizePricingRule,tasks:normalizeTask,payrollItems:normalizePayrollItem};
-  var res = await _sb.from(table).select('*');
-  if(res.error && await refreshIfExpired(res.error)){
-    res = await _sb.from(table).select('*'); // повтор після оновлення сесії
+  // Посторінкове читання — та сама причина, що й у loadAll: без цього
+  // фонове оновлення обрізало б таблицю на 1000 записах і "загубило" решту.
+  var PAGE=1000, page=0, data=[], res=null;
+  while(true){
+    res = await _sb.from(table).select('*').range(page*PAGE, page*PAGE + PAGE - 1);
+    if(res.error && await refreshIfExpired(res.error)){
+      res = await _sb.from(table).select('*').range(page*PAGE, page*PAGE + PAGE - 1); // повтор після оновлення сесії
+    }
+    if(res.error) return;
+    var batch = res.data || [];
+    data = data.concat(batch);
+    if(batch.length < PAGE) break;
+    page++;
+    if(page > 200) break;
   }
-  if(res.error) return;
-  var data = res.data || [];
   var fresh = norm[key] ? data.map(norm[key]) : data;
   // Об'єднуємо замість повної заміни: якщо щойно збережений запис ще не встиг
   // "доїхати" до цього select (мережева затримка/кешування), не втрачаємо його —
