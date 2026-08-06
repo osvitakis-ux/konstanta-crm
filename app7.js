@@ -1661,8 +1661,8 @@ function mkAv(fn,ln,sz,photo){
 }
 
 function bst(s){
-  var m={active:'bg',trial:'bb',paused:'by',completed:'br',planned:'bb',done:'bg',cancelled:'br',missed:'br',makeup:'by',makeup_planned:'bn',paid:'bg',pending:'by',overdue:'br'};
-  var l={active:'Активний',trial:'Пробне',paused:'Призупин.',completed:'Завершив',planned:'Планов.',done:'Проведено',cancelled:'Скасов.',missed:'Пропущено',makeup:'Відпрацьовано',makeup_planned:'План. відпрац.',paid:'Оплачено',pending:'Очікується',overdue:'Прострочено'};
+  var m={active:'bg',trial:'bb',paused:'by',completed:'br',inactive:'bn',request:'bb',planned:'bb',done:'bg',cancelled:'br',missed:'br',makeup:'by',makeup_planned:'bn',paid:'bg',pending:'by',overdue:'br'};
+  var l={active:'Активний',trial:'Пробне',paused:'Призупин.',completed:'Завершив',inactive:'Неактивний',request:'Запит',planned:'Планов.',done:'Проведено',cancelled:'Скасов.',missed:'Пропущено',makeup:'Відпрацьовано',makeup_planned:'План. відпрац.',paid:'Оплачено',pending:'Очікується',overdue:'Прострочено'};
   return '<span class="badge '+(m[s]||'bb')+'">'+( l[s]||s)+'</span>';
 }
 
@@ -2399,7 +2399,7 @@ function renderStudents(){
     var btns=ce
       ?('<button class="btn btn-g btn-sm" onclick="openStudM(this.dataset.id)" data-id="'+s.id+'">\u270F\uFE0F</button>'
         +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delStudent(this.dataset.id)" data-id="'+s.id+'">\uD83D\uDDD1</button>')
-      :'<span style="font-size:10px;color:var(--t3)">\u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434</span>';
+      :('<button class="btn btn-g btn-sm" onclick="openStudM(this.dataset.id)" data-id="'+s.id+'" title="\u041F\u0435\u0440\u0435\u0433\u043B\u044F\u043D\u0443\u0442\u0438 \u043A\u0430\u0440\u0442\u043A\u0443">\uD83D\uDC41</button>');
     var _tids=studentTutorIds(s);
     var _tnames=_tids.map(tn).filter(function(n){return n&&n!=='\u2014';});
     var _subjTxt=studentSubjects(s).join(', ')||s.subject||'';
@@ -6113,8 +6113,14 @@ window.sAddTutor=sAddTutor;
 window.sRemoveTutor=sRemoveTutor;
 
 function openStudM(id=null){
-  if(!can('students')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
-  S.editId=id;document.getElementById('ms-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0443\u0447\u043D\u044F':'\u041D\u043E\u0432\u0438\u0439 \u0443\u0447\u0435\u043D\u044C';
+  var _canEditStud = can('students');
+  // Без права редагування картку МОЖНА відкрити лише для ПЕРЕГЛЯДУ існуючого учня.
+  // Створення нового (id===null) залишається недоступним.
+  if(!_canEditStud && !id){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432 \u043D\u0430 \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043D\u044F \u0443\u0447\u043D\u0456\u0432','error'); return; }
+  S.editId=id;
+  document.getElementById('ms-title').textContent = !_canEditStud
+    ? '\uD83D\uDC41 \u041A\u0430\u0440\u0442\u043A\u0430 \u0443\u0447\u043D\u044F (\u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434)'
+    : (id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0443\u0447\u043D\u044F':'\u041D\u043E\u0432\u0438\u0439 \u0443\u0447\u0435\u043D\u044C');
   // Populate subject datalist for student modal
   var dl_s=document.getElementById('subj-list-s');
   if(dl_s){dl_s.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');}
@@ -6174,6 +6180,23 @@ function openStudM(id=null){
   renderStudentCard(id);
   var invBtn = document.getElementById('inv-btn');
   if(invBtn) invBtn.style.display = (id && (R()==='god'||R()==='director')) ? 'inline-flex' : 'none';
+
+  // ── Режим лише перегляду (репетитор) ──────────────────────────
+  // Блокуємо всі поля картки й ховаємо "Зберегти", щоб дані було видно,
+  // але змінити їх було неможливо. Захист на рівні saveStudent() теж лишається.
+  var _mo = document.getElementById('mo-student');
+  if(_mo){
+    _mo.querySelectorAll('input, select, textarea').forEach(function(el){
+      el.disabled = !_canEditStud;
+      if(!_canEditStud) el.style.cursor='default';
+    });
+    // Кнопки додавання/видалення рядків ставок теж вимикаємо
+    _mo.querySelectorAll('.mdlb button').forEach(function(b){ b.disabled = !_canEditStud; });
+    var saveBtn=document.getElementById('ms-save-btn');
+    if(saveBtn) saveBtn.style.display = _canEditStud ? '' : 'none';
+    var cancelBtn=document.getElementById('ms-cancel-btn');
+    if(cancelBtn) cancelBtn.textContent = _canEditStud ? '\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438' : '\u0417\u0430\u043A\u0440\u0438\u0442\u0438';
+  }
   openM('mo-student');
 }
 
