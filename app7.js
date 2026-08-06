@@ -8564,6 +8564,8 @@ function renderTelephony(){
   var canSettings = r==='god';
   var settingsBtn = document.getElementById('tel-settings-toggle-btn');
   if(settingsBtn) settingsBtn.style.display = canSettings ? '' : 'none';
+  var syncBtn = document.getElementById('tel-sync-btn');
+  if(syncBtn) syncBtn.style.display = canSettings ? '' : 'none';
 
   var cfg = telGetSettings();
 
@@ -8743,6 +8745,46 @@ window.telSelectProv = telSelectProv;
 // Завантажує запис розмови через серверну функцію (браузер не може
 // звертатись до API Київстару напряму — там секретний токен) і одразу
 // підставляє програвач у ту саму клітинку таблиці.
+// Запускає серверну синхронізацію з Київстаром: підтягує реальну тривалість,
+// record_id (для записів розмов), час дзвінка до відповіді та код завершення.
+// Показує діагностику, якщо базову адресу чи спосіб авторизації ще не визначено.
+async function syncCallHistory(){
+  if(R()!=='god'){ mkToast('\u0414\u043e\u0441\u0442\u0443\u043f \u043b\u0438\u0448\u0435 \u0434\u043b\u044f \u0431\u043e\u0433\u0430 \u0441\u0438\u0441\u0442\u0435\u043c\u0438','error'); return; }
+  var btn=document.getElementById('tel-sync-btn');
+  if(btn){ btn.disabled=true; btn.textContent='\u23f3 \u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u044f\u2026'; }
+  try{
+    var _sess=await _sb.auth.getSession();
+    var jwt=_sess?.data?.session?.access_token;
+    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/sync-call-history',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+      body:JSON.stringify({hours:24})
+    });
+    var data=await res.json();
+    console.log('[sync-call-history] \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u044c:', data);
+
+    if(!res.ok){
+      // Показуємо докладну діагностику — які адреси й способи авторизації пробувались
+      var att=(data.attempts||[]).join('\n');
+      alert('\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0437\u0432\u0435\u0440\u043d\u0443\u0442\u0438\u0441\u044c \u0434\u043e API \u041a\u0438\u0457\u0432\u0441\u0442\u0430\u0440\u0443.\n\n'
+        +(data.error||'')+'\n\n'+(data.hint||'')+'\n\n\u0421\u043f\u0440\u043e\u0431\u0438:\n'+att);
+      throw new Error(data.error||'\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430');
+    }
+
+    mkToast('\u2705 \u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e '+(data.updated||0)+' \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432, \u0456\u0437 \u0437\u0430\u043f\u0438\u0441\u043e\u043c: '+(data.withRecording||0));
+    // Підказуємо, які значення варто зберегти секретами, щоб не перебирати щоразу
+    if(data.apiBase && data.authMode){
+      console.log('%c[\u041a\u0438\u0457\u0432\u0441\u0442\u0430\u0440] \u0417\u0431\u0435\u0440\u0435\u0436\u0456\u0442\u044c \u0441\u0435\u043a\u0440\u0435\u0442\u0430\u043c\u0438: KYIVSTAR_API_BASE='+data.apiBase+'  KYIVSTAR_AUTH_MODE='+data.authMode,'font-weight:bold;color:#22c55e');
+    }
+    await renderTelLog();
+  }catch(e){
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='\ud83d\udd04 \u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u043f\u0438\u0441\u0438'; }
+  }
+}
+window.syncCallHistory=syncCallHistory;
+
 async function playCallRecord(callLogId){
   var cell=document.getElementById('rec-cell-'+callLogId);
   if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--t3)">\u23f3 \u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</span>';
