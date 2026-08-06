@@ -1430,6 +1430,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
                   <option value="missed">Пропущені</option>
                 </select>
                 <button class="btn btn-g btn-sm" onclick="renderTelLog()" title="Оновити">↻</button>
+                <button class="btn btn-p btn-sm" onclick="syncCallHistory()" id="tel-sync-btn" style="display:none" title="Підтягнути з Київстару тривалість і записи розмов">🔄 Синхронізувати записи</button>
                 <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn" style="display:none">⚙ Налаштування</button>
               </div>
             </div>
@@ -2000,7 +2001,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=callrecords1"></script>
+<script src="app7.js?v=syncbtn1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
