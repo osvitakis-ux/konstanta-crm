@@ -852,8 +852,10 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <div style="display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap" id="sfchips">
           <div class="chip active" onclick="sfilt('all',this)">Всі</div>
           <div class="chip" onclick="sfilt('active',this)">Активні</div>
+          <div class="chip" onclick="sfilt('request',this)">Запит</div>
           <div class="chip" onclick="sfilt('trial',this)">Пробне</div>
           <div class="chip" onclick="sfilt('paused',this)">Призупинені</div>
+          <div class="chip" onclick="sfilt('inactive',this)">Неактивні</div>
           <div class="chip" onclick="sfilt('completed',this)">Завершили</div>
           <select id="sf-branch" class="admin-only" style="display:none;font-size:12px;padding:5px 10px;border:1px solid var(--b1);border-radius:20px;background:var(--s2);color:var(--t1);margin-left:6px" onchange="renderStudents()">
             <option value="">Всі філії</option>
@@ -1594,7 +1596,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <datalist id="subj-list-s"></datalist>
       <datalist id="s-tutor-datalist"></datalist>
       <select id="s-tutor" style="display:none"></select>
-      <div class="fgr"><label>Статус</label><select id="s-status"><option value="active">Активний</option><option value="trial">Пробне</option><option value="paused">Призупинений</option><option value="completed">Завершив</option></select></div>
+      <div class="fgr"><label>Статус</label><select id="s-status"><option value="active">Активний</option><option value="request">Запит</option><option value="trial">Пробне</option><option value="paused">Призупинений</option><option value="inactive">Неактивний</option><option value="completed">Завершив</option></select></div>
       <div class="fgr"><label>Джерело</label><select id="s-src"><option value="referral">Рекомендація</option><option value="internet">Інтернет</option><option value="social">Соцмережі</option><option value="other">Інше</option></select></div>
       <div class="fgr full" style="grid-column:1/-1;margin-top:6px;padding-top:10px;border-top:1px solid var(--b1)">
         <div style="font-size:11px;font-weight:700;color:var(--adm);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">CRM</div>
@@ -1613,7 +1615,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="fgr full"><label>Нотатки</label><textarea id="s-notes"></textarea></div>
     </div></div>
     <div id="mo-student-cf" class="fg" style="padding:0 24px 0;margin-top:0"></div>
-    <div class="mdlf"><button class="btn btn-g" onclick="closeM('mo-student')">Скасувати</button><button class="btn btn-p" onclick="saveStudent()">💾 Зберегти</button></div>
+    <div class="mdlf"><button class="btn btn-g" onclick="closeM('mo-student')" id="ms-cancel-btn">Скасувати</button><button class="btn btn-p" id="ms-save-btn" onclick="saveStudent()">💾 Зберегти</button></div>
   </div>
 </div>
 <div class="mo" id="mo-user">
@@ -1998,7 +2000,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=pagination1"></script>
+<script src="app7.js?v=studstatusview1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
