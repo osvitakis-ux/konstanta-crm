@@ -8795,6 +8795,7 @@ async function syncCallHistory(){
     }
 
     mkToast('\u2705 \u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e '+(data.updated||0)+' \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432, \u0456\u0437 \u0437\u0430\u043f\u0438\u0441\u043e\u043c: '+(data.withRecording||0));
+    if(data.connectivity) alert('\u0414\u0456\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u043a\u0430 \u0437\u0432\'\u044f\u0437\u043a\u0443:\n\n'+data.connectivity+'\n\n\u0416\u0443\u0440\u043d\u0430\u043b:\n'+((data.log||[]).join('\n')));
     // Підказуємо, які значення варто зберегти секретами, щоб не перебирати щоразу
     if(data.apiBase && data.authMode){
       console.log('%c[\u041a\u0438\u0457\u0432\u0441\u0442\u0430\u0440] \u0417\u0431\u0435\u0440\u0435\u0436\u0456\u0442\u044c \u0441\u0435\u043a\u0440\u0435\u0442\u0430\u043c\u0438: KYIVSTAR_API_BASE='+data.apiBase+'  KYIVSTAR_AUTH_MODE='+data.authMode,'font-weight:bold;color:#22c55e');
