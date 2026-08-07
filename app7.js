@@ -8566,6 +8566,8 @@ function renderTelephony(){
   if(settingsBtn) settingsBtn.style.display = canSettings ? '' : 'none';
   var syncBtn = document.getElementById('tel-sync-btn');
   if(syncBtn) syncBtn.style.display = canSettings ? '' : 'none';
+  var diagBtn = document.getElementById('tel-diag-btn');
+  if(diagBtn) diagBtn.style.display = canSettings ? '' : 'none';
 
   var cfg = telGetSettings();
 
@@ -8748,6 +8750,27 @@ window.telSelectProv = telSelectProv;
 // Запускає серверну синхронізацію з Київстаром: підтягує реальну тривалість,
 // record_id (для записів розмов), час дзвінка до відповіді та код завершення.
 // Показує діагностику, якщо базову адресу чи спосіб авторизації ще не визначено.
+// Діагностика зʼєднання з API Київстару. Показує, чи Supabase взагалі
+// може достукатись до їхніх серверів, чи проблема в токені/параметрах.
+async function diagnoseKyivstar(){
+  if(R()!=='god'){ mkToast('\u0414\u043e\u0441\u0442\u0443\u043f \u043b\u0438\u0448\u0435 \u0434\u043b\u044f \u0431\u043e\u0433\u0430','error'); return; }
+  mkToast('\u23f3 \u041f\u0435\u0440\u0435\u0432\u0456\u0440\u043a\u0430 \u0437\u2019\u0454\u0434\u043d\u0430\u043d\u043d\u044f\u2026');
+  try{
+    var _sess=await _sb.auth.getSession();
+    var jwt=_sess?.data?.session?.access_token;
+    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/sync-call-history',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+      body:JSON.stringify({diagnose:true})
+    });
+    var data=await res.json();
+    console.log('[\u0434\u0456\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u043a\u0430]', data);
+    var txt=(data.diagnostics||[data.error||'\u043d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445']).join('\n');
+    alert('\u0414\u0456\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u043a\u0430 \u0437\u2019\u0454\u0434\u043d\u0430\u043d\u043d\u044f \u0437 \u041a\u0438\u0457\u0432\u0441\u0442\u0430\u0440\u043e\u043c:\n\n'+txt);
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+}
+window.diagnoseKyivstar=diagnoseKyivstar;
+
 async function syncCallHistory(){
   if(R()!=='god'){ mkToast('\u0414\u043e\u0441\u0442\u0443\u043f \u043b\u0438\u0448\u0435 \u0434\u043b\u044f \u0431\u043e\u0433\u0430 \u0441\u0438\u0441\u0442\u0435\u043c\u0438','error'); return; }
   var btn=document.getElementById('tel-sync-btn');
@@ -8765,7 +8788,7 @@ async function syncCallHistory(){
 
     if(!res.ok){
       // Показуємо докладну діагностику — які адреси й способи авторизації пробувались
-      var att=(data.attempts||[]).join('\n');
+      var att=((data.attempts||[]).concat(data.log||[])).join('\n')||'(\u043f\u043e\u0440\u043e\u0436\u043d\u044c\u043e)';
       alert('\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0437\u0432\u0435\u0440\u043d\u0443\u0442\u0438\u0441\u044c \u0434\u043e API \u041a\u0438\u0457\u0432\u0441\u0442\u0430\u0440\u0443.\n\n'
         +(data.error||'')+'\n\n'+(data.hint||'')+'\n\n\u0421\u043f\u0440\u043e\u0431\u0438:\n'+att);
       throw new Error(data.error||'\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430');
