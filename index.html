@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="uk"> 
+<html lang="uk">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -1431,6 +1431,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
                 </select>
                 <button class="btn btn-g btn-sm" onclick="renderTelLog()" title="Оновити">↻</button>
                 <button class="btn btn-p btn-sm" onclick="syncCallHistory()" id="tel-sync-btn" style="display:none" title="Підтягнути з Київстару тривалість і записи розмов">🔄 Синхронізувати записи</button>
+                <button class="btn btn-g btn-sm" onclick="diagnoseKyivstar()" id="tel-diag-btn" style="display:none" title="Перевірити зʼєднання Supabase з API Київстару">🩺 Діагностика</button>
                 <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn" style="display:none">⚙ Налаштування</button>
               </div>
             </div>
@@ -2001,7 +2002,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=syncretry1"></script>
+<script src="app7.js?v=diag1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
