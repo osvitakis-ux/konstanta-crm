@@ -1430,7 +1430,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
                   <option value="missed">Пропущені</option>
                 </select>
                 <button class="btn btn-g btn-sm" onclick="renderTelLog()" title="Оновити">↻</button>
-                <button class="btn btn-p btn-sm" onclick="syncCallHistory()" id="tel-sync-btn" style="display:none" title="Підтягнути з Київстару тривалість і записи розмов">🔄 Синхронізувати записи</button>
+                <span id="tel-sync-hint" style="display:none;font-size:11px;color:var(--t3);padding:0 8px" title="Сервери Supabase не мають доступу до API Київстару, тому синхронізація виконується скриптом на вашому комп'ютері">↻ дані підтягує konstanta-sync.js</span>
                 <button class="btn btn-g btn-sm" onclick="diagnoseKyivstar()" id="tel-diag-btn" style="display:none" title="Перевірити зʼєднання Supabase з API Київстару">🩺 Діагностика</button>
                 <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn" style="display:none">⚙ Налаштування</button>
               </div>
