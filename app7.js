@@ -8564,8 +8564,8 @@ function renderTelephony(){
   var canSettings = r==='god';
   var settingsBtn = document.getElementById('tel-settings-toggle-btn');
   if(settingsBtn) settingsBtn.style.display = canSettings ? '' : 'none';
-  var syncBtn = document.getElementById('tel-sync-btn');
-  if(syncBtn) syncBtn.style.display = canSettings ? '' : 'none';
+  var syncHint = document.getElementById('tel-sync-hint');
+  if(syncHint) syncHint.style.display = canSettings ? 'inline' : 'none';
   var diagBtn = document.getElementById('tel-diag-btn');
   if(diagBtn) diagBtn.style.display = canSettings ? '' : 'none';
 
@@ -8811,20 +8811,21 @@ window.syncCallHistory=syncCallHistory;
 
 async function playCallRecord(callLogId){
   var cell=document.getElementById('rec-cell-'+callLogId);
-  if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--t3)">\u23f3 \u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</span>';
+  if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--t3)">\u23f3\u2026</span>';
   try{
-    var _sess=await _sb.auth.getSession();
-    var jwt=_sess?.data?.session?.access_token;
-    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/get-call-record',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
-      body:JSON.stringify({call_log_id:callLogId})
-    });
-    var data=await res.json();
-    if(!res.ok||!data.url) throw new Error(data.error||'\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 \u0437\u0430\u043f\u0438\u0441');
-    if(cell) cell.innerHTML='<audio controls autoplay style="height:28px;max-width:180px"><source src="'+data.url+'" type="audio/mpeg"></audio>';
+    // Знаходимо шлях до вже завантаженого файлу в нашому сховищі.
+    // Напряму до Київстару не звертаємось: по-перше, там потрібен секретний
+    // токен, по-друге, сервери Supabase не мають до нього мережевого доступу.
+    var _r=await _sb.from('call_logs').select('*').eq('id',callLogId).limit(1);
+    var row=(_r.data||[])[0];
+    if(!row||!row.recording_path)
+      throw new Error('\u0417\u0430\u043f\u0438\u0441 \u0449\u0435 \u043d\u0435 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043e. \u0417\u0430\u043f\u0443\u0441\u0442\u0456\u0442\u044c konstanta-sync.js');
+
+    var _s=await _sb.storage.from('call-records').createSignedUrl(row.recording_path,3600);
+    if(_s.error||!_s.data?.signedUrl) throw new Error(_s.error?.message||'\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 \u043f\u043e\u0441\u0438\u043b\u0430\u043d\u043d\u044f');
+    if(cell) cell.innerHTML='<audio controls autoplay style="height:28px;max-width:180px"><source src="'+_s.data.signedUrl+'" type="audio/mpeg"></audio>';
   }catch(e){
-    if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--danger)" title="'+String(e.message||e).replace(/"/g,'')+'">\u274c \u041f\u043e\u043c\u0438\u043b\u043a\u0430</span>';
+    if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--danger)">\u274c</span>';
     mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error');
   }
 }
@@ -8878,9 +8879,15 @@ async function renderTelLog(){
           +'<td style="padding:8px;font-size:11px;color:var(--t2)">'+dtStr+'</td>'
           +'<td style="padding:8px" id="rec-cell-'+e.id+'">'+(recUrl
             ? '<audio controls style="height:28px;max-width:180px"><source src="'+recUrl+'"></audio>'
-            : ((e.record_id||e.recordId)
-              ? '<button class="btn btn-g btn-sm" onclick="playCallRecord(\''+e.id+'\')" title="\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438 \u0439 \u043f\u0440\u043e\u0441\u043b\u0443\u0445\u0430\u0442\u0438">\ud83c\udfa7 \u0421\u043b\u0443\u0445\u0430\u0442\u0438</button>'
-              : '<span style="color:var(--t3);font-size:11px">\u043d\u0435\u043c\u0430\u0454</span>'))+'</td>'
+            : (e.recording_path
+              // Запис уже завантажено в наше сховище — можна слухати одразу
+              ? '<button class="btn btn-g btn-sm" onclick="playCallRecord(\''+e.id+'\')" title="\u041f\u0440\u043e\u0441\u043b\u0443\u0445\u0430\u0442\u0438 \u0437\u0430\u043f\u0438\u0441">\ud83c\udfa7 \u0421\u043b\u0443\u0445\u0430\u0442\u0438</button>'
+              // record_id є, але файл ще не завантажено локальним скриптом.
+              // Кнопку не показуємо: сервери Supabase не мають доступу до
+              // Київстару, тож спроба завантажити звідси все одно впаде.
+              : ((e.record_id||e.recordId)
+                ? '<span style="color:var(--t3);font-size:11px" title="\u0417\u0430\u043f\u0443\u0441\u0442\u0456\u0442\u044c konstanta-sync.js \u043d\u0430 \u043a\u043e\u043c\u043f\u2019\u044e\u0442\u0435\u0440\u0456, \u0449\u043e\u0431 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438 \u0437\u0430\u043f\u0438\u0441">\u23f3 \u043d\u0435 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043e</span>'
+                : '<span style="color:var(--t3);font-size:11px">\u043d\u0435\u043c\u0430\u0454</span>')))+'</td>'
           +'<td style="padding:8px">'
             +(sid ? '<button class="btn btn-g btn-sm" onclick="openStudM(\''+sid+'\')">\ud83d\udc64</button>' : '<button class="btn btn-g btn-sm" onclick="telLinkStudent(\''+e.id+'\',\''+(e.caller_phone||e.phone||'')+'\')">\u041f\u0440\u0438\u0432\u2019\u044f\u0437\u0430\u0442\u0438</button>')
           +'</td>'
