@@ -771,7 +771,7 @@ function calcTutorRating(tutorId){
 
   // Проведені: done, completed, makeup (відпрацювання теж рахується)
   var done   = lessons.filter(function(l){
-    return l.status==='done'||l.status==='completed'||l.status==='makeup';
+    return isDoneLesson(l)||l.status==='makeup';
   }).length;
 
   // Пропущені без відпрацювання
@@ -1268,7 +1268,7 @@ function actLessonsFor(sid, period){
   return (S.lessons||[]).filter(function(l){
     if((l.studentId||l.student_id)!==sid) return false;
     if(String(l.date||'').slice(0,7)!==period) return false;
-    return l.status==='done'||l.status==='completed'||l.status==='makeup';
+    return isDoneLesson(l)||l.status==='makeup';
   }).sort(function(a,b){return String(a.date).localeCompare(String(b.date));});
 }
 
@@ -1661,8 +1661,8 @@ function mkAv(fn,ln,sz,photo){
 }
 
 function bst(s){
-  var m={active:'bg',trial:'bb',paused:'by',completed:'br',inactive:'bn',request:'bb',planned:'bb',done:'bg',cancelled:'br',missed:'br',makeup:'by',makeup_planned:'bn',paid:'bg',pending:'by',overdue:'br'};
-  var l={active:'Активний',trial:'Пробне',paused:'Призупин.',completed:'Завершив',inactive:'Неактивний',request:'Запит',planned:'Планов.',done:'Проведено',cancelled:'Скасов.',missed:'Пропущено',makeup:'Відпрацьовано',makeup_planned:'План. відпрац.',paid:'Оплачено',pending:'Очікується',overdue:'Прострочено'};
+  var m={active:'bg',trial:'bb',paused:'by',completed:'br',inactive:'bn',request:'bb',planned:'bb',done:'bg',testing:'bp',cancelled:'br',missed:'br',makeup:'by',makeup_planned:'bn',paid:'bg',pending:'by',overdue:'br'};
+  var l={active:'Активний',trial:'Пробне',paused:'Призупин.',completed:'Завершив',inactive:'Неактивний',request:'Запит',planned:'Планов.',done:'Проведено',testing:'Тестування',cancelled:'Скасов.',missed:'Пропущено',makeup:'Відпрацьовано',makeup_planned:'План. відпрац.',paid:'Оплачено',pending:'Очікується',overdue:'Прострочено'};
   return '<span class="badge '+(m[s]||'bb')+'">'+( l[s]||s)+'</span>';
 }
 
@@ -1960,12 +1960,12 @@ function renderDashStats(){
     +'<div class="ssub">\u0417\u0430\u0433\u0430\u043B\u043E\u043C: '+ms.length+'</div><span class="sico">\u25CE</span></div>'
     +'<div class="sc green">'
     +'<div class="slbl">\u0417\u0430\u043D\u044F\u0442\u044C \u0446\u044C\u043E\u0433\u043E \u043C\u0456\u0441\u044F\u0446\u044F</div>'
-    +'<div class="sval">'+Math.round(monthL.filter(function(l){return l.status==='planned'||l.status==='scheduled'||l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
-    +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+Math.round(monthL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
+    +'<div class="sval">'+Math.round(monthL.filter(function(l){return l.status==='planned'||l.status==='scheduled'||isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
+    +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+Math.round(monthL.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
     +'<span class="sico">\u25C9</span></div>';
   if(P().seeIncome && R()!=='tutor'){
     var inc=monthL.filter(function(l){
-      return l.status==='done'||l.status==='completed'||l.status==='makeup';
+      return isDoneLesson(l)||l.status==='makeup';
     }).reduce(function(a,l){return a+lessonTotal(l);},0);
     statsHtml+='<div class="sc yellow">'      +'<div class="slbl">Дохід цього місяця</div>'      +'<div class="sval">'+Math.round(inc).toLocaleString('uk-UA')+'₴</div>'      +'<div class="ssub">Отримано</div><span class="sico">◈</span></div>';
     } else if(R()!=='tutor') {
@@ -2001,7 +2001,7 @@ function renderDashKpi(){
   });
 
   // Години проведених занять (тиждень)
-  var doneH = Math.round(weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var doneH = Math.round(weekL.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
   // Години запланованих (тиждень, без скасованих)
   var plannedH = Math.round(weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
   // Загальні години тижня (проведені + заплановані, без скасованих і пропущених)
@@ -2019,7 +2019,7 @@ function renderDashKpi(){
 
   var wrPrev=getWeekRange(offset-1);
   var prevL  =allL.filter(function(l){return inWeek(l.date,wrPrev);});
-  var prevDoneH =Math.round(prevL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var prevDoneH =Math.round(prevL.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
   var prevTotalH=Math.round(prevL.filter(function(l){return l.status!=='cancelled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
   var prevMissed3m=uncoveredMissedFilter(prevL);
   var prevMissedH =Math.round(prevMissed3m.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
@@ -2066,7 +2066,7 @@ function renderDashKpi(){
   }
 
   var maxDoneH=Math.max.apply(null,tutors.map(function(t){
-    return weekL.filter(function(l){return (l.tutorId===t.id||l.tutor_id===t.id)&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0);
+    return weekL.filter(function(l){return (l.tutorId===t.id||l.tutor_id===t.id)&&(isDoneLesson(l)||l.status==='makeup');}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0);
   }).concat([1]));
 
   var totalDoneH=0,totalMissedH=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
@@ -2074,7 +2074,7 @@ function renderDashKpi(){
   tutors.forEach(function(t){
     var tl=weekL.filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;});
     // Проведено — години за тиждень
-    var tDoneH  =Math.round(tl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    var tDoneH  =Math.round(tl.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
     // Заплановано — кількість
     var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
     // Заплановані години
@@ -2095,7 +2095,7 @@ function renderDashKpi(){
 
     // Тренд проведених годин vs минулий тиждень
     var prevTl=prevL.filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;});
-    var prevTDoneH=Math.round(prevTl.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    var prevTDoneH=Math.round(prevTl.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
     var trendTxt='', trendCls='same';
     var dd=Math.round((tDoneH-prevTDoneH)*10)/10;
     if(dd>0){trendTxt='\u2191+'+dd;trendCls='up';}
@@ -2176,7 +2176,7 @@ function renderDashTrends(){
     });
     weeks.push({
       wr:wr,
-      done: Math.round(weekL.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10,
+      done: Math.round(weekL.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10,
       missed: uncoveredMissedFilter(weekL).length,
       planned:weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length,
       comms:  weekComms.length,
@@ -2218,7 +2218,7 @@ function renderDashTrends(){
         if(containerId==='dash-trend-comms'){
           return (S.comms||[]).filter(function(c){return inWeek(c.date,w.wr)&&(c.tutor_id===t.id||c.tutorId===t.id);}).length;
         }
-        return S.lessons.filter(function(l){return inWeek(l.date,w.wr)&&(l.tutor_id===t.id||l.tutorId===t.id)&&(l.status==='done'||l.status==='completed'||l.status==='makeup');}).length;
+        return S.lessons.filter(function(l){return inWeek(l.date,w.wr)&&(l.tutor_id===t.id||l.tutorId===t.id)&&(isDoneLesson(l)||l.status==='makeup');}).length;
       });
       var tMax = Math.max.apply(null, vals.concat([1]));
       var total = vals[vals.length-1];
@@ -2455,7 +2455,7 @@ function renderLessons(){
   if(sdv) data = data.filter(function(l){return (l.studentId||l.student_id)===sdv;});
   if(tv)  data = data.filter(function(l){return (l.tutorId||l.tutor_id)===tv;});
   if(sv)  data = data.filter(function(l){
-    if(sv==='done') return l.status==='done'||l.status==='completed'||l.status==='makeup';
+    if(sv==='done') return isDoneLesson(l)||l.status==='makeup';
     if(sv==='missed') return l.status==='missed' && !isCoveredMissed(l);
     return l.status===sv;
   });
@@ -2505,7 +2505,7 @@ function renderPayments(){
   var myLess = myLessons();
   // Отримано = проведені заняття
   var paid = myLess.filter(function(l){
-    return l.status==='done'||l.status==='completed'||l.status==='makeup';
+    return isDoneLesson(l)||l.status==='makeup';
   }).reduce(function(a,l){ return a+lessonAmt(l); }, 0);
 
   // Очікується = заплановані заняття
@@ -3172,7 +3172,7 @@ function renderAnalytics(){
 
   function h(arr){return Math.round(arr.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;}
 
-  var done    =lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';});
+  var done    =lessons.filter(function(l){return isDoneLesson(l)||l.status==='makeup';});
   var missed  =uncoveredMissedFilter(lessons.filter(function(l){return l.status!=='cancelled';}));
   var planned =lessons.filter(function(l){return l.status==='planned'||l.status==='scheduled';});
   var cancelled=lessons.filter(function(l){return l.status==='cancelled';});
@@ -3720,6 +3720,15 @@ function normalizeUser(r){
   var bIds = r.branch_ids ? (Array.isArray(r.branch_ids) ? r.branch_ids : String(r.branch_ids).split(',').filter(Boolean)) : (r.branch_id ? [r.branch_id] : []);
   return Object.assign({}, r, { branchId:r.branch_id, branchIds:bIds });
 }
+// Статуси, що вважаються ПРОВЕДЕНИМ заняттям (оплачуються, входять в акти,
+// рахуються в статистиці). "testing" — тестування/діагностика рівня учня:
+// заняття реально відбулось, тому рахується як проведене.
+var DONE_STATUSES = ['done','completed','testing'];
+function isDoneLesson(l){
+  return DONE_STATUSES.indexOf(l && l.status) >= 0;
+}
+window.isDoneLesson = isDoneLesson;
+
 function normalizeLesson(r){  return Object.assign({}, r, { studentId:r.student_id, tutorId:r.tutor_id, branchId:r.branch_id, recurId:r.recur_id, recurType:r.recur_type, recurIndex:r.recur_index }); }
 function normalizePayment(r){ return Object.assign({}, r, { studentId:r.student_id, branchId:r.branch_id }); }
 function normalizeTutor(r){
@@ -4889,7 +4898,7 @@ async function quickSetStatus(status){
   if(!_quickLessonId) return;
   try{
     await dbUpdate('lessons', _quickLessonId, {status: status});
-    mkToast(status==='done'?'✅ Проведено':status==='missed'?'❌ Пропущено':status==='cancelled'?'🚫 Скасовано':'📅 Заплановано');
+    mkToast(status==='testing'?'🧪 Тестування':status==='done'?'✅ Проведено':status==='missed'?'❌ Пропущено':status==='cancelled'?'🚫 Скасовано':'📅 Заплановано');
     if(S.currentPage==='schedule') renderSch();
     if(S.currentPage==='lessons') renderLessons();
   }catch(e){ mkToast('Помилка: '+e.message,'error'); }
@@ -5396,7 +5405,7 @@ function payrollBase(tutorId, period){
   (S.lessons||[]).forEach(function(l){
     if((l.tutorId||l.tutor_id)!==tutorId) return;
     if(String(l.date||'').slice(0,7)!==period) return;
-    if(l.status==='done'||l.status==='completed') done.push(l);
+    if(isDoneLesson(l)) done.push(l);
     else if(l.status==='makeup') makeup.push(l);
   });
   function hrs(a){ return Math.round(a.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
@@ -6950,7 +6959,7 @@ function renderProfile(){
       : '<div style="width:56px;height:56px;border-radius:50%;background:var(--adm2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;font-family:Syne,sans-serif">'+(mt.fn||'?')[0]+(mt.ln||'')[0]+'</div>';
 
     var doneH = Math.round(myLessons().filter(function(l){
-      return l.status==='done'||l.status==='completed'||l.status==='makeup';
+      return isDoneLesson(l)||l.status==='makeup';
     }).reduce(function(s,l){ return s+(parseFloat(l.dur)||60)/60; },0)*10)/10;
 
     _pi.innerHTML =
@@ -7096,7 +7105,7 @@ function renderReports(){
   }).join('') || '<div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445</div>';
 
   // === Загальна статистика ===
-  var doneL  = lessons.filter(function(l){return l.status==='done'||l.status==='completed'||l.status==='makeup';});
+  var doneL  = lessons.filter(function(l){return isDoneLesson(l)||l.status==='makeup';});
   var missedL= uncoveredMissedFilter(lessons);
   var doneH  = hrs(doneL);
   var missedH= hrs(missedL);
@@ -7197,7 +7206,7 @@ function renderSchMonth(){
     if(_schTut && (l.tutorId||l.tutor_id)!==_schTut) return false;
     if(_schStat){
       if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
-      if(_schStat==='completed') return l.status==='done'||l.status==='completed'||l.status==='makeup';
+      if(_schStat==='completed') return isDoneLesson(l)||l.status==='makeup';
       return l.status===_schStat;
     }
     return l.status!=='cancelled';
@@ -7220,7 +7229,7 @@ function renderSchMonth(){
     dayLessons.slice(0,MAX_SHOW).forEach(function(l){
       const isCov=l.status==='missed'&&isCoveredMissed(l);
       const isPart=!isCov&&l.status==='missed'&&uncoveredMissedHours(l)*60<(parseFloat(l.dur)||60);
-      const ecl=isCov?'ec-covered':isPart?'ec-partial':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':l.status==='makeup_planned'?'ec-makeplan':(l.status==='completed'||l.status==='done')?'ec-done':'ec-plan';
+      const ecl=isCov?'ec-covered':isPart?'ec-partial':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':l.status==='makeup_planned'?'ec-makeplan':l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done':'ec-plan';
       evHtml+='<div class="schm-ev '+ecl+'" onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)" title="'+(l.time||'')+' '+snShort(l.studentId||l.student_id)+' '+(l.subject||'')+'">'
         +'<b>'+(l.time||'')+'</b> '+snShort(l.studentId||l.student_id)+'</div>';
     });
@@ -7287,7 +7296,7 @@ function renderSchDay(){
     if(l.status==='cancelled') return false;
     if(_schStat){
       if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
-      if(_schStat==='completed') return l.status==='done'||l.status==='completed'||l.status==='makeup';
+      if(_schStat==='completed') return isDoneLesson(l)||l.status==='makeup';
       return l.status===_schStat;
     }
     return true;
@@ -7339,7 +7348,7 @@ function renderSchDay(){
           : l.status==='missed'  ? 'ec-miss'
           : l.status==='makeup'  ? 'ec-make'
           : l.status==='makeup_planned' ? 'ec-makeplan'
-          : (l.status==='completed'||l.status==='done') ? 'ec-done'
+          : l.status==='testing' ? 'ec-testing' : isDoneLesson(l) ? 'ec-done'
           : 'ec-plan';
         var liD=laneMapD.get(l.id)||{lane:0,count:1};
         var wPctD=100/liD.count;
@@ -7475,7 +7484,7 @@ function renderSchWeek(){
     if(_schTut && (l.tutorId||l.tutor_id)!==_schTut) return false;
     if(_schStat){
       if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
-      if(_schStat==='completed') return l.status==='done'||l.status==='completed'||l.status==='makeup';
+      if(_schStat==='completed') return isDoneLesson(l)||l.status==='makeup';
       return l.status===_schStat;
     }
     return true;
@@ -7541,7 +7550,7 @@ function renderSchWeek(){
         :l.status==='missed'?'ec-miss'
         :l.status==='makeup'?'ec-make'
         :l.status==='makeup_planned'?'ec-makeplan'
-        :(l.status==='completed'||l.status==='done')?'ec-done'
+        :l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done'
         :'ec-plan';
       var li=laneMap.get(l.id)||{lane:0,count:1};
       var wPct=100/li.count;
