@@ -8873,7 +8873,7 @@ function renderTelephony(){
   var settingsBtn = document.getElementById('tel-settings-toggle-btn');
   if(settingsBtn) settingsBtn.style.display = canSettings ? '' : 'none';
   var syncHint = document.getElementById('tel-sync-hint');
-  if(syncHint) syncHint.style.display = canSettings ? 'inline' : 'none';
+  if(syncHint) syncHint.style.display = canSettings ? 'block' : 'none';
   var diagBtn = document.getElementById('tel-diag-btn');
   if(diagBtn) diagBtn.style.display = canSettings ? '' : 'none';
 
@@ -9139,69 +9139,171 @@ async function playCallRecord(callLogId){
 }
 window.playCallRecord=playCallRecord;
 
+// Поточне сортування журналу дзвінків
+var telSort = { col:'date', dir:'desc' };
+
+function telSetSort(col){
+  if(telSort.col===col) telSort.dir = telSort.dir==='desc' ? 'asc' : 'desc';
+  else { telSort.col=col; telSort.dir='desc'; }
+  renderTelLog();
+}
+window.telSetSort = telSetSort;
+
 async function renderTelLog(){
   var body = document.getElementById('tel-log-body');
   if(!body) return;
-  var filter = (document.getElementById('tel-log-filter')||{value:''}).value;
-  body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3)">\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</div>';
-  var log = await telGetLog(filter||null);
+  var typeF   = (document.getElementById('tel-log-filter')||{value:''}).value;
+  var periodF = (document.getElementById('tel-period')||{value:''}).value;
+  var q       = ((document.getElementById('tel-search')||{value:''}).value||'').toLowerCase().trim();
 
-  // Кожен дзвінок від невідомого номера — автоматично новий лід у CRM (якщо ввімкнено
-  // "Автостворення ліда" в налаштуваннях). Раніше цей перемикач нічого не робив.
+  body.innerHTML = '<div class="tel-empty">\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</div>';
+
+  // Напрямок фільтруємо на сервері, решту — локально
+  var srvFilter = (typeF==='inbound'||typeF==='outbound') ? typeF : null;
+  var log = await telGetLog(srvFilter);
+
   try{ await telAutoCreateLeads(log); }catch(e){ console.warn('[telAutoCreateLeads]', e); }
 
-  if(!log.length){
-    body.innerHTML = '<div class="empty"><div class="ei">\u260e\ufe0f</div>\u0416\u0443\u0440\u043d\u0430\u043b \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u043f\u043e\u0440\u043e\u0436\u043d\u0456\u0439</div>';
+  // ── Фільтрація ──
+  var now = Date.now();
+  var rows = (log||[]).filter(function(e){
+    var isMissed = e.status==='missed' || (!e.duration && e.status!=='alerting');
+    if(typeF==='missed' && !isMissed) return false;
+    if(typeF==='hasrec' && !e.recording_path && !e.recording_url && !e.record_url) return false;
+
+    if(periodF){
+      var t = new Date(e.created_at||0).getTime();
+      if(periodF==='today'){
+        var d0=new Date(); d0.setHours(0,0,0,0);
+        if(t < d0.getTime()) return false;
+      } else {
+        if(now - t > parseInt(periodF)*86400000) return false;
+      }
+    }
+
+    if(q){
+      var sid=e.studentId||e.student_id;
+      var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+      var hay=[(e.caller_phone||''),(e.callee_phone||''),(e.phone||''),(e.caller_name||''),
+               st?(st.fn+' '+st.ln):''].join(' ').toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+
+  // ── Сортування ──
+  rows.sort(function(a,b){
+    var v;
+    if(telSort.col==='dur')      v=(parseInt(a.duration)||0)-(parseInt(b.duration)||0);
+    else if(telSort.col==='who'){
+      var nm=function(e){
+        var sid=e.studentId||e.student_id;
+        var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+        return (st?st.fn+' '+st.ln:(e.caller_name||'\uffff')).toLowerCase();
+      };
+      v=nm(a).localeCompare(nm(b),'uk');
+    }
+    else if(telSort.col==='type') v=String(a.direction||'').localeCompare(String(b.direction||''));
+    else v=new Date(a.created_at||0)-new Date(b.created_at||0);
+    return telSort.dir==='desc' ? -v : v;
+  });
+
+  // ── Зведення ──
+  var sum=document.getElementById('tel-summary');
+  if(sum){
+    var inC=0,outC=0,missC=0,totalSec=0,recC=0;
+    rows.forEach(function(e){
+      var isMissed = e.status==='missed' || (!e.duration && e.status!=='alerting');
+      if(isMissed) missC++;
+      else if(String(e.direction)==='outbound') outC++;
+      else inC++;
+      totalSec += parseInt(e.duration)||0;
+      if(e.recording_path) recC++;
+    });
+    var mins=Math.floor(totalSec/60);
+    sum.innerHTML =
+       '<span class="tel-sum-item">\ud83d\udcca \u0423\u0441\u044c\u043e\u0433\u043e <b>'+rows.length+'</b></span>'
+      +'<span class="tel-sum-item" style="color:#16a34a">\ud83d\udce5 \u0412\u0445\u0456\u0434\u043d\u0456 <b>'+inC+'</b></span>'
+      +'<span class="tel-sum-item" style="color:#2563eb">\ud83d\udce4 \u0412\u0438\u0445\u0456\u0434\u043d\u0456 <b>'+outC+'</b></span>'
+      +'<span class="tel-sum-item" style="color:#dc2626">\u274c \u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0456 <b>'+missC+'</b></span>'
+      +'<span class="tel-sum-item">\u23f1 \u0420\u043e\u0437\u043c\u043e\u0432 <b>'+mins+'</b> \u0445\u0432</span>'
+      +'<span class="tel-sum-item">\ud83c\udfa7 \u0417\u0430\u043f\u0438\u0441\u0456\u0432 <b>'+recC+'</b></span>';
+  }
+
+  if(!rows.length){
+    body.innerHTML='<div class="tel-empty"><div style="font-size:34px;margin-bottom:8px">\ud83d\udcde</div>'
+      +((q||typeF||periodF)
+        ? '\u0417\u0430 \u0446\u0438\u043c\u0438 \u0444\u0456\u043b\u044c\u0442\u0440\u0430\u043c\u0438 \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u043d\u0435\u043c\u0430\u0454'
+        : '\u0416\u0443\u0440\u043d\u0430\u043b \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u043f\u043e\u0440\u043e\u0436\u043d\u0456\u0439')+'</div>';
     return;
   }
 
-  var dirIcon = {inbound:'\u260e', outbound:'\u260e', missed:'\u260e'};
-  var dirLbl  = {inbound:'\u0412\u0445\u0456\u0434\u043d\u0438\u0439', outbound:'\u0412\u0438\u0445\u0456\u0434\u043d\u0438\u0439', missed:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0438\u0439'};
-  var dirClr  = {inbound:'var(--tut)', outbound:'var(--adm)', missed:'#ef4444'};
+  // ── Заголовок таблиці із сортуванням ──
+  function th(col,label,extra){
+    var on = telSort.col===col;
+    var ico = on ? (telSort.dir==='desc'?'\u25bc':'\u25b2') : '\u21c5';
+    return '<th class="sortable'+(on?' sorted':'')+'" onclick="telSetSort(\''+col+'\')"'+(extra||'')+'>'
+      +label+'<span class="sort-ico">'+ico+'</span></th>';
+  }
 
-  body.innerHTML = '<table style="width:100%;border-collapse:collapse">'
-    + '<thead><tr style="font-size:11px;color:var(--t2)">'
-    + '<th style="padding:6px 8px;text-align:left">\u0422\u0438\u043f</th>'
-    + '<th style="padding:6px 8px;text-align:left">\u041d\u043e\u043c\u0435\u0440</th>'
-    + '<th style="padding:6px 8px;text-align:left">\u0423\u0447\u0435\u043d\u044c/\u041a\u043b\u0456\u0454\u043d\u0442</th>'
-    + '<th style="padding:6px 8px;text-align:left">\u0422\u0440\u0438\u0432\u0430\u043b\u0456\u0441\u0442\u044c</th>'
-    + '<th style="padding:6px 8px;text-align:left">\u0414\u0430\u0442\u0430/\u0427\u0430\u0441</th>'
-    + '<th style="padding:6px 8px;text-align:left">\u0417\u0430\u043f\u0438\u0441</th>'
-    + '<th style="padding:6px 8px"></th>'
-    + '</tr></thead><tbody>'
-    + log.map(function(e){
-        var sid = e.student_id || e.studentId;
-        var s = sid ? (S.students||[]).find(function(x){return x.id===sid;}) : null;
-        var sName = s ? s.fn+' '+s.ln : (e.caller_name||e.callerName||'\u2014');
-        var dt = e.created_at ? new Date(e.created_at) : null;
-        var dtStr = dt ? dt.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit',year:'2-digit'})
-          +' '+dt.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'}) : '\u2014';
-        var dur = e.duration ? (Math.floor(e.duration/60)+'\u0445\u0432 '+(e.duration%60)+'\u0441') : '\u2014';
-        var recUrl = e.recording_url || e.record_url || e.recordUrl;
-        var dir = e.status==='missed' ? 'missed' : (e.direction||'inbound');
-        return '<tr style="border-top:1px solid var(--b1);font-size:13px">'
-          +'<td style="padding:8px;color:'+(dirClr[dir]||'var(--t1)')+'">'+'\u260e'+' '+(dirLbl[dir]||dir)+'</td>'
-          +'<td style="padding:8px;font-family:JetBrains Mono,monospace;font-size:12px"><a href="tel:'+(e.caller_phone||e.phone||'')+'" style="color:var(--adm);text-decoration:none">'+(e.caller_phone||e.phone||'\u2014')+'</a></td>'
-          +'<td style="padding:8px">'+sName+'</td>'
-          +'<td style="padding:8px;font-family:JetBrains Mono,monospace;font-size:12px">'+dur+'</td>'
-          +'<td style="padding:8px;font-size:11px;color:var(--t2)">'+dtStr+'</td>'
-          +'<td style="padding:8px" id="rec-cell-'+e.id+'">'+(recUrl
-            ? '<audio controls style="height:28px;max-width:180px"><source src="'+recUrl+'"></audio>'
-            : (e.recording_path
-              // Запис уже завантажено в наше сховище — можна слухати одразу
-              ? '<button class="btn btn-g btn-sm" onclick="playCallRecord(\''+e.id+'\')" title="\u041f\u0440\u043e\u0441\u043b\u0443\u0445\u0430\u0442\u0438 \u0437\u0430\u043f\u0438\u0441">\ud83c\udfa7 \u0421\u043b\u0443\u0445\u0430\u0442\u0438</button>'
-              // record_id є, але файл ще не завантажено локальним скриптом.
-              // Кнопку не показуємо: сервери Supabase не мають доступу до
-              // Київстару, тож спроба завантажити звідси все одно впаде.
-              : ((e.record_id||e.recordId)
-                ? '<span style="color:var(--t3);font-size:11px" title="\u0417\u0430\u043f\u0443\u0441\u0442\u0456\u0442\u044c konstanta-sync.js \u043d\u0430 \u043a\u043e\u043c\u043f\u2019\u044e\u0442\u0435\u0440\u0456, \u0449\u043e\u0431 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438 \u0437\u0430\u043f\u0438\u0441">\u23f3 \u043d\u0435 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043e</span>'
-                : '<span style="color:var(--t3);font-size:11px">\u043d\u0435\u043c\u0430\u0454</span>')))+'</td>'
-          +'<td style="padding:8px">'
-            +(sid ? '<button class="btn btn-g btn-sm" onclick="openStudM(\''+sid+'\')">\ud83d\udc64</button>' : '<button class="btn btn-g btn-sm" onclick="telLinkStudent(\''+e.id+'\',\''+(e.caller_phone||e.phone||'')+'\')">\u041f\u0440\u0438\u0432\u2019\u044f\u0437\u0430\u0442\u0438</button>')
-          +'</td>'
-          +'</tr>';
-      }).join('')
-    + '</tbody></table>';
+  var html='<div style="overflow-x:auto;max-height:70vh"><table class="tel-tbl"><thead><tr>'
+    +th('type','\u0422\u0438\u043f')
+    +'<th>\u041d\u043e\u043c\u0435\u0440</th>'
+    +th('who','\u0423\u0447\u0435\u043d\u044c / \u043a\u043b\u0456\u0454\u043d\u0442')
+    +th('dur','\u0422\u0440\u0438\u0432\u0430\u043b\u0456\u0441\u0442\u044c')
+    +th('date','\u0414\u0430\u0442\u0430')
+    +'<th>\u0417\u0430\u043f\u0438\u0441</th><th></th></tr></thead><tbody>';
+
+  html += rows.map(function(e){
+    var sid=e.studentId||e.student_id;
+    var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+    var isMissed = e.status==='missed' || (!e.duration && e.status!=='alerting');
+    var isOut = String(e.direction)==='outbound';
+
+    var dirHtml = isMissed
+      ? '<span class="tel-dir tel-dir-miss">\u274c \u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0438\u0439</span>'
+      : (isOut ? '<span class="tel-dir tel-dir-out">\ud83d\udce4 \u0412\u0438\u0445\u0456\u0434\u043d\u0438\u0439</span>'
+               : '<span class="tel-dir tel-dir-in">\ud83d\udce5 \u0412\u0445\u0456\u0434\u043d\u0438\u0439</span>');
+
+    var phone = e.caller_phone||e.phone||e.callee_phone||'';
+    var secs = parseInt(e.duration)||0;
+    var dur = secs ? (Math.floor(secs/60)+'\u0445\u0432 '+String(secs%60).padStart(2,'0')+'\u0441') : '\u2014';
+
+    var d=new Date(e.created_at||0);
+    var dateHtml = isNaN(d.getTime()) ? '\u2014'
+      : '<span class="tel-date"><b>'+String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getFullYear()).slice(2)+'</b>'
+        +String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+'</span>';
+
+    var whoTxt = st ? (st.fn+' '+st.ln) : (e.caller_name||'\u2014');
+    var isLead = !st && /\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434|\u0414\u0437\u0432\u0456\u043d\u043e\u043a/.test(whoTxt);
+    var whoHtml = st
+      ? '<span class="tel-who">'+whoTxt+'</span>'
+      : '<span class="tel-who'+(isLead?' tel-who-lead':'')+'">'+whoTxt+'</span>';
+
+    var recUrl = e.recording_url || e.record_url || e.recordUrl;
+    var recHtml = recUrl
+      ? '<audio controls style="height:28px;max-width:170px"><source src="'+recUrl+'"></audio>'
+      : (e.recording_path
+        ? '<button class="btn btn-g btn-sm" onclick="playCallRecord(\''+e.id+'\')">\ud83c\udfa7 \u0421\u043b\u0443\u0445\u0430\u0442\u0438</button>'
+        : ((e.record_id||e.recordId)
+          ? '<span style="color:var(--t3);font-size:11px" title="\u0417\u0430\u043f\u0443\u0441\u0442\u0456\u0442\u044c konstanta-sync.js">\u23f3 \u043d\u0435 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043e</span>'
+          : '<span style="color:var(--t3);font-size:11px">\u2014</span>'));
+
+    return '<tr class="'+(isMissed?'row-miss':(isOut?'row-out':'row-in'))+'">'
+      +'<td>'+dirHtml+'</td>'
+      +'<td><a class="tel-num" href="tel:'+phone+'">'+phone+'</a></td>'
+      +'<td>'+whoHtml+'</td>'
+      +'<td class="tel-dur"'+(isMissed?' style="color:var(--t3)"':'')+'>'+dur+'</td>'
+      +'<td>'+dateHtml+'</td>'
+      +'<td id="rec-cell-'+e.id+'">'+recHtml+'</td>'
+      +'<td style="text-align:right">'
+        +(sid ? '<button class="btn btn-g btn-sm" onclick="openStudM(\''+sid+'\')" title="\u041a\u0430\u0440\u0442\u043a\u0430 \u0443\u0447\u043d\u044f">\ud83d\udc64</button>'
+              : '<button class="btn btn-g btn-sm" onclick="telLinkStudent(\''+e.id+'\',\''+phone+'\')" title="\u041f\u0440\u0438\u0432\'\u044f\u0437\u0430\u0442\u0438 \u0434\u043e \u0443\u0447\u043d\u044f">\ud83d\udd17</button>')
+      +'</td></tr>';
+  }).join('');
+
+  html += '</tbody></table></div>';
+  body.innerHTML = html;
 }
 
 
