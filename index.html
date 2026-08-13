@@ -952,6 +952,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <option value="az">А → Я</option>
             <option value="za">Я → А</option>
           </select>
+          <button class="btn btn-g btn-sm admin-only" id="cleanup-leads-btn" style="display:none;margin-left:auto" onclick="cleanupPhoneLeads()" title="Видалити лідів із телефонії, які не стали учнями, і більше їх не створювати">🧹 Очистити ліди</button>
         </div>
         <div class="card">
           <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><button class="btn btn-g btn-sm dir-only" onclick="mergeDuplicateStudents()" style="margin-left:auto">🔗 Об'єднати дублікати</button><button class="btn btn-g btn-sm xls-btn" onclick="exportToExcel('students')">📊 Excel</button></div>
@@ -2111,7 +2112,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=telui2"></script>
+<script src="app7.js?v=leadclean1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
