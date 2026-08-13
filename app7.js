@@ -1182,12 +1182,19 @@ async function renderInvoiceStatus(){
   }catch(e){ console.warn('[inv-status] read error', e); }
 
   // Формуємо список: усі учні, кому потрібен рахунок
-  var ids=Object.keys(need);
-  var rows=ids.map(function(sid){
-    var st=(S.students||[]).find(function(x){return x.id===sid;});
-    var sent=sentMap[sid]||[];
-    return { st:st, sid:sid, count:need[sid].count, sent:sent };
-  }).filter(function(r){ return r.st; });
+  // Показуємо ВСІХ активних учнів, а не лише тих, у кого є заняття цього
+  // місяця. Інакше учні без занять (щойно додані, у відпустці тощо)
+  // випадали зі списку, і рахунок їм ніхто не виставляв.
+  var rows=(S.students||[])
+    .filter(function(st){ return st.status==='active'||st.status==='trial'; })
+    .map(function(st){
+      return {
+        st: st,
+        sid: st.id,
+        count: (need[st.id]||{}).count||0,
+        sent: sentMap[st.id]||[]
+      };
+    });
 
   if(filter==='sent') rows=rows.filter(function(r){return r.sent.length;});
   if(filter==='notsent') rows=rows.filter(function(r){return !r.sent.length;});
@@ -1205,7 +1212,9 @@ async function renderInvoiceStatus(){
   });
 
   var sentCount=rows.filter(function(r){return r.sent.length;}).length;
-  var total=Object.keys(need).length;
+  // Загальна кількість — за фактично показаними рядками, а не за тими,
+  // у кого є заняття. Інакше лічильник показував менше, ніж у списку.
+  var total=rows.length;
 
   var CH={viber:'\uD83D\uDFE3 Viber',telegram:'\u2708\uFE0F Telegram',email:'\u2709\uFE0F Email',copy:'\uD83D\uDCCB \u041a\u043e\u043f\u0456\u044f'};
 
@@ -1214,7 +1223,7 @@ async function renderInvoiceStatus(){
     +'<div style="flex:1;min-width:120px;align-self:center"><div style="height:8px;background:var(--s3);border-radius:10px;overflow:hidden"><div style="height:100%;width:'+(total?Math.round(sentCount/total*100):0)+'%;background:var(--tut);transition:width .4s"></div></div></div>'
     +'</div>';
 
-  if(!rows.length){ body.innerHTML=head+'<div style="padding:20px;text-align:center;color:var(--t3)">\u041d\u0435\u043c\u0430\u0454 \u0443\u0447\u043d\u0456\u0432 \u0456\u0437 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u043c\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f\u043c\u0438 \u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f</div>'; return; }
+  if(!rows.length){ body.innerHTML=head+'<div style="padding:20px;text-align:center;color:var(--t3)">\u041d\u0435\u043c\u0430\u0454 \u0443\u0447\u043d\u0456\u0432 \u0456\u0437 \u0437\u0430\u043d\u044f\u0442\u0442\u044f\u043c\u0438 \u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f</div>'; return; }
 
   var list=rows.map(function(r){
     var isSent=r.sent.length>0;
@@ -1225,7 +1234,9 @@ async function renderInvoiceStatus(){
       : '<span style="background:rgba(230,126,34,.14);color:var(--warn);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">\u23f3 \u041d\u0435 \u0432\u0456\u0434\u0456\u0441\u043b\u0430\u043d\u043e</span>';
     var detail=isSent && last
       ? '<div style="font-size:11px;color:var(--t3)">'+(CH[last.channel]||last.channel||'')+' \u00b7 '+(last.sent_at?new Date(last.sent_at).toLocaleDateString('uk-UA'):'')+(r.sent.length>1?' \u00b7 \u0432\u0441\u044c\u043e\u0433\u043e '+r.sent.length:'')+'</div>'
-      : '<div style="font-size:11px;color:var(--t3)">'+r.count+' \u0437\u0430\u043f\u043b. \u0437\u0430\u043d\u044f\u0442\u044c</div>';
+      : '<div style="font-size:11px;color:var(--t3)">'+(r.count
+          ? r.count+' \u0437\u0430\u043f\u043b. \u0437\u0430\u043d\u044f\u0442\u044c'
+          : '\u2014 \u0431\u0435\u0437 \u0437\u0430\u043d\u044f\u0442\u044c \u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f')+'</div>';
     return '<div style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--s3)">'
       +'<div style="width:34px;height:34px;border-radius:10px;background:'+av+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">'+((r.st.fn||' ')[0]+(r.st.ln||' ')[0]).toUpperCase()+'</div>'
       +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">'+r.st.fn+' '+r.st.ln+'</div>'+detail+'</div>'
@@ -1295,11 +1306,14 @@ function renderActsPage(){
   }
   var fBranchAct=_canFilterBrA?(document.getElementById('act-branch')||{value:''}).value:'';
 
-  var students=(S.students||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+  // Показуємо ВСІХ активних учнів, навіть без проведених занять цього
+  // місяця — інакше вони випадали зі списку й акт їм ніхто не формував.
+  var students=(S.students||[])
+    .filter(function(x){ return x.status==='active'||x.status==='trial'; })
+    .slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
   var rows=[];
   students.forEach(function(s){
     var lessons=actLessonsFor(s.id, per);
-    if(!lessons.length) return;
     var log=actLogFor(s.id, per);
     var signed=log.some(function(r){return r.status==='signed';});
     var sent=log.length>0;
@@ -1342,7 +1356,9 @@ function renderActsPage(){
     return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--s3)">'
       +'<div style="width:34px;height:34px;border-radius:10px;background:var(--adm);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">'+((r.s.fn||' ')[0]+(r.s.ln||' ')[0]).toUpperCase()+'</div>'
       +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">'+r.s.fn+' '+r.s.ln+'</div>'
-        +'<div style="font-size:11px;color:var(--t3)">'+r.lessons.length+' \u043F\u043E\u0441\u043B\u0443\u0433 \u00B7 '+hours+'\u0433 \u00B7 '+sum+'\u20B4</div></div>'
+        +'<div style="font-size:11px;color:var(--t3)">'+(r.lessons.length
+            ? r.lessons.length+' \u043F\u043E\u0441\u043B\u0443\u0433 \u00B7 '+hours+'\u0433 \u00B7 '+sum+'\u20B4'
+            : '\u2014 \u0431\u0435\u0437 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C')+'</div></div>'
       +badge
       +'<button class="btn btn-g btn-sm" onclick="openActEditM(\''+r.s.id+'\')" title="\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438/\u0441\u0444\u043E\u0440\u043C\u0443\u0432\u0430\u0442\u0438/\u0434\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438">\u270F\uFE0F \u0410\u043A\u0442</button>'
       +(!r.signed?'<button class="btn btn-g btn-sm" onclick="markActSigned(\''+r.s.id+'\')" title="\u041F\u043E\u0437\u043D\u0430\u0447\u0438\u0442\u0438 \u043F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u0438\u043C \u0432\u0440\u0443\u0447\u043D\u0443">\u2713 \u041F\u0456\u0434\u043F\u0438\u0441\u0430\u043D\u043E</button>':'')
