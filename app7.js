@@ -4466,10 +4466,85 @@ async function saveStudent(){
   }catch(e){ window._saving=false; mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
 }
 
+/**
+ * Масове видалення лідів із телефонії, які так і не стали учнями.
+ * Номери одразу потрапляють до списку ігнорованих, тому синхронізація
+ * не створить їх повторно.
+ */
+async function cleanupPhoneLeads(){
+  if(!can('students')){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432','error'); return; }
+
+  // Лід із телефонії: стадія lead + типове імʼя, яке ставить інтеграція
+  var leads=(S.students||[]).filter(function(s){
+    var stage=s.crmStage||s.crm_stage;
+    var nm=((s.fn||'')+' '+(s.ln||'')).trim();
+    return stage==='lead' && /^(\u0414\u0437\u0432\u0456\u043d\u043e\u043a|\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434)/i.test(nm);
+  });
+
+  if(!leads.length){ mkToast('\u041b\u0456\u0434\u0456\u0432 \u0456\u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e'); return; }
+
+  if(!confirm('\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e '+leads.length+' \u043b\u0456\u0434\u0456\u0432 \u0456\u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457.\n\n'
+    +'\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0432\u0441\u0456\u0445 \u0456 \u0431\u0456\u043b\u044c\u0448\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u044e\u0432\u0430\u0442\u0438 \u0457\u0445 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e?\n\n'
+    +'\u0406\u0441\u0442\u043e\u0440\u0456\u044f \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u0417\u0410\u041b\u0418\u0428\u0418\u0422\u042c\u0421\u042f \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u044e\u0442\u044c\u0441\u044f \u043b\u0438\u0448\u0435 \u043a\u0430\u0440\u0442\u043a\u0438 \u0443\u0447\u043d\u0456\u0432.')) return;
+
+  var ok=0, fail=0;
+  for(var i=0;i<leads.length;i++){
+    var st=leads[i];
+    var tail=String(st.phone||st.parentPhone||st.parent_phone||'').replace(/\D/g,'').slice(-10);
+    try{
+      if(tail){
+        await _sb.from('ignored_phones').upsert({
+          phone: tail,
+          reason: '\u041c\u0430\u0441\u043e\u0432\u0435 \u043e\u0447\u0438\u0449\u0435\u043d\u043d\u044f \u043b\u0456\u0434\u0456\u0432',
+          created_by: CU?CU.id:null
+        });
+      }
+      await dbDelete('students', st.id);
+      ok++;
+    }catch(e){ fail++; console.warn('cleanupPhoneLeads:', st.id, e); }
+  }
+  mkToast('\u2705 \u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e '+ok+' \u043b\u0456\u0434\u0456\u0432'+(fail?(', \u043f\u043e\u043c\u0438\u043b\u043e\u043a: '+fail):''));
+  renderStudents();
+}
+window.cleanupPhoneLeads=cleanupPhoneLeads;
+
 async function delStudent(id){
   if(!can('students')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  var st=(S.students||[]).find(function(x){return x.id===id;});
+  var isLead = st && (st.crmStage==='lead' || st.crm_stage==='lead');
+  var phone = st ? (st.phone||st.parentPhone||st.parent_phone||'') : '';
+  var tail = String(phone).replace(/\D/g,'').slice(-10);
+
   if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0443\u0447\u043D\u044F?')) return;
-  try{ await dbDelete('students',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+
+  // Якщо видаляємо ЛІДА з телефонії — запамʼятовуємо номер, щоб скрипт
+  // синхронізації не створив його знову з історії дзвінків Київстару.
+  var addToIgnore = false;
+  if(isLead && tail){
+    addToIgnore = confirm('\u0426\u0435 \u043B\u0456\u0434 \u0456\u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457.\n\n'
+      +'\u0414\u043e\u0434\u0430\u0442\u0438 \u043d\u043e\u043c\u0435\u0440 '+phone+' \u0434\u043e \u0441\u043f\u0438\u0441\u043a\u0443 \u0456\u0433\u043d\u043e\u0440\u043e\u0432\u0430\u043d\u0438\u0445, '
+      +'\u0449\u043e\u0431 \u043b\u0456\u0434 \u041d\u0415 \u0441\u0442\u0432\u043e\u0440\u044e\u0432\u0430\u0432\u0441\u044f \u0437\u043d\u043e\u0432\u0443 \u043f\u0440\u0438 \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0456\u0439 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u0457?\n\n'
+      +'\u041e\u041a \u2014 \u0431\u0456\u043b\u044c\u0448\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u044e\u0432\u0430\u0442\u0438\n'
+      +'\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 \u2014 \u0432\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043b\u0438\u0448\u0435 \u0437\u0430\u0440\u0430\u0437');
+  }
+
+  try{
+    await dbDelete('students',id);
+    if(addToIgnore){
+      try{
+        await _sb.from('ignored_phones').upsert({
+          phone: tail,
+          reason: '\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u0438\u0439 \u043b\u0456\u0434: '+((st.fn||'')+' '+(st.ln||'')).trim(),
+          created_by: CU?CU.id:null
+        });
+        mkToast('\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e. \u041d\u043e\u043c\u0435\u0440 \u0431\u0456\u043b\u044c\u0448\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u044e\u0432\u0430\u0442\u0438\u043c\u0435 \u043b\u0456\u0434\u0456\u0432');
+      }catch(e){
+        mkToast('\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e, \u0430\u043b\u0435 \u043d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0434\u043e\u0434\u0430\u0442\u0438 \u0432 \u0441\u043f\u0438\u0441\u043e\u043a: '+(e.message||e),'error');
+      }
+    } else {
+      mkToast('\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e');
+    }
+  }catch(e){}
 }
 
 // ── ОБ'ЄДНАННЯ ДУБЛІКАТІВ УЧНІВ ──────────────────────
