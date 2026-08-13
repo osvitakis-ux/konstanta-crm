@@ -7378,10 +7378,99 @@ function renderAllAnalytics(){
   renderReports();
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  ТАЙМЛАЙН АНАЛІТИКИ — навігація в часі
+// ═══════════════════════════════════════════════════════════════
+// Зсув відносно поточного періоду: 0 = зараз, -1 = попередній тощо
+var rcOffset = 0;
+
+/** Стрілки «назад / вперед / зараз» */
+function rcShiftPeriod(dir){
+  if(dir===0) rcOffset=0;
+  else rcOffset += dir;
+  if(rcOffset>0) rcOffset=0;          // у майбутнє далі поточного не йдемо
+  if(rcOffset<-36) rcOffset=-36;      // і не глибше трьох років
+  renderAllAnalytics();
+}
+window.rcShiftPeriod=rcShiftPeriod;
+
+/** Перехід на конкретний місяць кліком по стовпчику */
+function rcGoToMonth(off){
+  rcOffset = off;
+  var sel=document.getElementById('rc-range');
+  if(sel) sel.value='month';          // клік по місяцю = режим місяця
+  renderAllAnalytics();
+}
+window.rcGoToMonth=rcGoToMonth;
+
+/**
+ * Малює смужки останніх 12 місяців: висота — кількість проведених годин.
+ * Дає одразу побачити сезонність і провали, а не гортати наосліп.
+ */
+function renderTimeline(){
+  var wrap=document.getElementById('rc-tl-bars');
+  var lblEl=document.getElementById('rc-tl-label');
+  if(!wrap) return;
+
+  var months=['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+  var now=new Date();
+  var base=new Date(now.getFullYear(), now.getMonth()+rcOffset, 1);
+
+  // Підпис поточного вибору
+  if(lblEl){
+    var sel=(document.getElementById('rc-range')||{value:'month'}).value;
+    var nm=months[base.getMonth()]+' '+base.getFullYear();
+    lblEl.textContent = rcOffset===0
+      ? (sel==='month' ? nm+' (поточний)' : 'Поточний період')
+      : nm;
+  }
+  var nextBtn=document.getElementById('rc-tl-next');
+  if(nextBtn) nextBtn.disabled = rcOffset>=0;
+
+  // Дані по 12 місяцях, що закінчуються обраним
+  var bars=[], maxH=1;
+  for(var i=11;i>=0;i--){
+    var d=new Date(base.getFullYear(), base.getMonth()-i, 1);
+    var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    var h=0;
+    myLessons().forEach(function(l){
+      if(String(l.date||'').slice(0,7)!==key) return;
+      if(!(isDoneLesson(l)||l.status==='makeup')) return;
+      h+=(parseFloat(l.dur)||60)/60;
+    });
+    h=Math.round(h*10)/10;
+    if(h>maxH) maxH=h;
+    bars.push({ off: rcOffset-i, key:key, h:h,
+      lbl:months[d.getMonth()], year:d.getFullYear(),
+      isFuture: d > new Date(now.getFullYear(), now.getMonth(), 1) });
+  }
+
+  wrap.innerHTML=bars.map(function(b){
+    var cls='rc-tl-bar'+(b.off===rcOffset?' cur':'')+(b.isFuture?' fut':'');
+    var hPct=Math.max(3, Math.round(b.h/maxH*100));
+    return '<div class="'+cls+'" onclick="rcGoToMonth('+b.off+')" title="'+b.lbl+' '+b.year+'">'
+      +'<span class="rc-tl-tip">'+b.h+'г</span>'
+      +'<div class="fill" style="height:'+hPct+'%"></div>'
+      +'<div class="lb">'+b.lbl+'</div>'
+    +'</div>';
+  }).join('');
+}
+window.renderTimeline=renderTimeline;
+
 function renderReports(){
   // === Діапазон дат ===
   var range = (document.getElementById('rc-range')||{value:'month'}).value;
-  var now = new Date();
+  // «now» зсувається таймлайном: rcOffset=-1 означає попередній місяць.
+  // Для місячних режимів беремо кінець зсунутого місяця, для решти — той самий день.
+  var realNow = new Date();
+  var now;
+  if(rcOffset===0){
+    now = realNow;
+  } else if(range==='month'||range==='3month'||range==='6month'){
+    now = new Date(realNow.getFullYear(), realNow.getMonth()+rcOffset+1, 0);
+  } else {
+    now = new Date(realNow.getFullYear(), realNow.getMonth()+rcOffset, realNow.getDate());
+  }
   var fromDate = new Date(now);
 
   if(range === 'week'){
@@ -7404,7 +7493,16 @@ function renderReports(){
     fromDate = new Date(0);
   }
   var fromStr = localDateStr(fromDate);
-  var toStr   = localDateStr(now);
+  // Кінець періоду — не «сьогодні», а кінець обраного проміжку.
+  // Інакше заплановані заняття в майбутньому не потрапляли в розрахунок,
+  // і показник «Заплановано» був заниженим.
+  var toDate;
+  if(range==='month')       toDate = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  else if(range==='year')   toDate = new Date(now.getFullYear(), 11, 31);
+  else if(range==='3month'||range==='6month') toDate = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  else if(range==='all')    toDate = new Date(now.getFullYear()+5, 11, 31);
+  else                      toDate = now;
+  var toStr   = localDateStr(toDate);
 
   // Підпис діапазону
   var lbl = document.getElementById('rc-range-lbl');
@@ -7417,6 +7515,8 @@ function renderReports(){
   var incCard = document.getElementById('rc-income-card');
   if(incCard) incCard.style.display = (R()==='admin') ? 'none' : '';
 
+  try{ renderTimeline(); }catch(e){ console.error('renderTimeline:',e); }
+
   // === Фільтрація занять ===
   var lessons = (S.lessons||[]).filter(function(l){
     return l.date >= fromStr && l.date <= toStr && l.status !== 'cancelled';
@@ -7428,7 +7528,8 @@ function renderReports(){
   var months = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
   var md = new Array(12).fill(0);
   var curYear = new Date().getFullYear();
-  var validInc = ['done','completed','makeup'];
+  // Тестування теж оплачується (див. isDoneLesson), тому має входити в дохід
+  var validInc = ['done','completed','testing','makeup'];
   myLessons().filter(function(l){
     if(!l.date) return false;
     if(validInc.indexOf(l.status)<0) return false;
@@ -7455,17 +7556,23 @@ function renderReports(){
       +'</div><div class="blbl">'+months[i]+'</div></div>';
   }).join('');
   // === Заняття по предметах (год) ===
-  var sc = {};
+  // Об'єднуємо предмети, що відрізняються лише регістром чи пробілами:
+  // «Англійська мова» і «англійська мова» — це один предмет, а не два.
+  var sc = {}, scLabel = {};
   lessons.forEach(function(l){
     if(!l.subject) return;
-    sc[l.subject] = (sc[l.subject]||0) + (parseFloat(l.dur)||60)/60;
+    var key = String(l.subject).trim().toLowerCase().replace(/\s+/g,' ');
+    if(!key) return;
+    // Для показу лишаємо найпоширеніший варіант написання
+    if(!scLabel[key]) scLabel[key] = String(l.subject).trim();
+    sc[key] = (sc[key]||0) + (parseFloat(l.dur)||60)/60;
   });
   var totalSubjH = hrs(lessons) || 1;
   var cols = ['var(--adm)','var(--tut)','var(--dir)','var(--god)','#a78bfa','#0ea5e9','#f59e0b','#ec4899'];
   var subjEl = document.getElementById('rc-subj');
   if(subjEl) subjEl.innerHTML = Object.entries(sc).sort(function(a,b){return b[1]-a[1];})
     .map(function(e,i){
-      var s=e[0], h=Math.round(e[1]*10)/10, pct=Math.round(e[1]/totalSubjH*100);
+      var s=scLabel[e[0]]||e[0], h=Math.round(e[1]*10)/10, pct=Math.round(e[1]/totalSubjH*100);
       return '<div style="margin-bottom:10px">'
         +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
         +'<span style="font-size:12px">'+s+'</span>'
@@ -7507,8 +7614,8 @@ function renderReports(){
 
   var genEl = document.getElementById('rc-gen');
   if(genEl) genEl.innerHTML =
-    '<div class="ms"><span class="msl">\u0412\u0441\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(S.students.length)+'</span></div>'
-    +'<div class="ms"><span class="msl">\u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0445 \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(S.students.filter(function(s){return s.status==='active';}).length)+'</span></div>'
+    '<div class="ms"><span class="msl">\u0412\u0441\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(myStudents().length)+'</span></div>'
+    +'<div class="ms"><span class="msl">\u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0445 \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(myStudents().filter(function(s){return s.status==='active'||s.status==='trial';}).length)+'</span></div>'
     +'<div class="ms"><span class="msl">\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e (\u0433\u043e\u0434)</span><span class="msv" style="color:var(--tut)">'+doneH+'\u0433</span></div>'
     +'<div class="ms"><span class="msl">\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e (\u0433\u043e\u0434)</span><span class="msv" style="color:var(--danger)">'+missedH+'\u0433</span></div>'
     +'<div class="ms"><span class="msl">\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u043f\u043b\u0430\u043d\u0443</span><span class="msv" style="color:'+(pct>=80?'var(--tut)':pct>=50?'var(--dir)':'var(--danger)')+'">'+pct+'%</span></div>'
