@@ -219,6 +219,57 @@ textarea{resize:vertical;min-height:72px}
 .qp-btn:hover{background:var(--s2)!important}
 .ec-done{background:rgba(34,197,94,.18);border-left:3px solid #22c55e;color:#16a34a}
 .ec-testing{background:rgba(20,184,166,.18);border-left:3px solid #14b8a6;color:#0d9488}
+/* ── Журнал дзвінків ── */
+.tel-inp{font-size:12px;padding:5px 9px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1);outline:none;transition:.15s;width:auto!important;flex:0 0 auto!important;max-width:220px}
+.tel-inp:focus{border-color:var(--adm);background:var(--s1)}
+.tel-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:10.5px;white-space:nowrap;background:var(--s2);color:var(--t3)}
+.tel-pill #tel-status-dot{width:6px;height:6px;border-radius:50%;background:var(--t3);display:inline-block;flex-shrink:0}
+.tel-sum-item{display:flex;align-items:center;gap:5px;color:var(--t2)}
+.tel-sum-item b{font-size:13px;font-family:'JetBrains Mono',monospace}
+.tel-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tel-tbl th{text-align:left;padding:9px 12px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--b1);white-space:nowrap;background:var(--s2);position:sticky;top:0;z-index:1}
+.tel-tbl th.sortable{cursor:pointer;user-select:none;transition:.15s}
+.tel-tbl th.sortable:hover{color:var(--adm)}
+.tel-tbl th .sort-ico{opacity:.35;margin-left:3px;font-size:9px}
+.tel-tbl th.sorted .sort-ico{opacity:1;color:var(--adm)}
+.tel-tbl td{padding:9px 12px;border-bottom:1px solid var(--b1);vertical-align:middle}
+.tel-tbl tbody tr{transition:background .12s}
+.tel-tbl tbody tr:hover{background:var(--s2)}
+.tel-dir{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.tel-dir-in{color:#16a34a}
+.tel-dir-out{color:#2563eb}
+.tel-dir-miss{color:#dc2626}
+.tel-num{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--adm);text-decoration:none;white-space:nowrap}
+.tel-num:hover{text-decoration:underline}
+.tel-who{font-size:12.5px}
+.tel-who-lead{color:#8b5cf6;font-weight:600}
+/* Мінімальні ширини — щоб колонки не тиснулись і не обрізались */
+.tel-tbl{min-width:820px}
+.tel-tbl th:nth-child(1),.tel-tbl td:nth-child(1){min-width:110px}
+.tel-tbl th:nth-child(2),.tel-tbl td:nth-child(2){min-width:140px}
+.tel-tbl th:nth-child(3),.tel-tbl td:nth-child(3){min-width:150px}
+.tel-tbl th:nth-child(4),.tel-tbl td:nth-child(4){min-width:95px;text-align:right}
+.tel-tbl th:nth-child(5),.tel-tbl td:nth-child(5){min-width:90px}
+.tel-tbl th:nth-child(6),.tel-tbl td:nth-child(6){min-width:120px}
+.tel-tbl th:last-child,.tel-tbl td:last-child{width:52px;text-align:center}
+/* Смужка кольору напрямку зліва — швидше зчитується оком */
+.tel-tbl tbody tr td:first-child{border-left:3px solid transparent}
+.tel-tbl tbody tr.row-in td:first-child{border-left-color:#22c55e}
+.tel-tbl tbody tr.row-out td:first-child{border-left-color:#3b82f6}
+.tel-tbl tbody tr.row-miss td:first-child{border-left-color:#ef4444}
+.tel-tbl tbody tr.row-miss{background:rgba(239,68,68,.035)}
+@media(max-width:768px){
+  #pg-telephony .ch{gap:8px}
+  #tel-search{width:100%!important;flex:1 1 100%!important}
+}
+.tel-dur{font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap}
+.tel-date{font-size:11px;color:var(--t2);white-space:nowrap;line-height:1.35}
+.tel-date b{display:block;color:var(--t1);font-weight:600}
+.tel-empty{padding:40px;text-align:center;color:var(--t3)}
+@media(max-width:768px){
+  .tel-tbl th:nth-child(4),.tel-tbl td:nth-child(4){display:none}
+  #tel-search{width:120px!important}
+}
 /* ── Рейтинг репетитора ── */
 .rt-card{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;padding:18px 20px;margin-bottom:16px;border-radius:14px;border:1px solid var(--b1);background:var(--s1)}
 .rt-dial{position:relative;width:120px;height:120px;flex-shrink:0}
@@ -1461,38 +1512,44 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
       <!-- ── TELEPHONY ── -->
       <div class="page" id="pg-telephony">
-        <div class="tc">
 
           <!-- Журнал — головна картка -->
           <div class="card" style="margin-bottom:0">
-            <div class="ch">
-              <div style="display:flex;align-items:center;gap:10px">
-                <span class="ct">Журнал дзвінків</span>
-                <span id="tel-status-pill" style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;background:rgba(var(--danger-rgb),.1);color:var(--danger)">
-                  <span id="tel-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--t3);display:inline-block"></span>
+            <div class="ch" style="flex-wrap:wrap;gap:10px;align-items:center">
+              <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                <span class="ct">📞 Журнал дзвінків</span>
+                <span id="tel-status-pill" class="tel-pill">
+                  <span id="tel-status-dot"></span>
                   <span id="tel-status-lbl">Не підключено</span>
                 </span>
               </div>
-              <div style="display:flex;gap:8px;align-items:center">
-                <select id="tel-log-filter" onchange="renderTelLog()" style="font-size:12px;padding:5px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2)">
-                  <option value="">Всі</option>
-                  <option value="inbound">Вхідні</option>
-                  <option value="outbound">Вихідні</option>
-                  <option value="missed">Пропущені</option>
+              <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-left:auto;justify-content:flex-end">
+                <input id="tel-search" class="tel-inp" placeholder="🔍 Номер або ім'я…" oninput="renderTelLog()" style="width:190px;flex:0 0 auto">
+                <select id="tel-log-filter" class="tel-inp" onchange="renderTelLog()" style="flex:0 0 auto;min-width:130px">
+                  <option value="">Усі типи</option>
+                  <option value="inbound">📥 Вхідні</option>
+                  <option value="outbound">📤 Вихідні</option>
+                  <option value="missed">❌ Пропущені</option>
+                  <option value="hasrec">🎧 Із записом</option>
+                </select>
+                <select id="tel-period" class="tel-inp" onchange="renderTelLog()" style="flex:0 0 auto;min-width:120px">
+                  <option value="">Увесь час</option>
+                  <option value="today">Сьогодні</option>
+                  <option value="7">7 днів</option>
+                  <option value="30">30 днів</option>
                 </select>
                 <button class="btn btn-g btn-sm" onclick="renderTelLog()" title="Оновити">↻</button>
-                <span id="tel-sync-hint" style="display:none;font-size:11px;color:var(--t3);padding:0 8px" title="Сервери Supabase не мають доступу до API Київстару, тому синхронізація виконується скриптом на вашому комп'ютері">↻ дані підтягує konstanta-sync.js</span>
-                <button class="btn btn-g btn-sm" onclick="diagnoseKyivstar()" id="tel-diag-btn" style="display:none" title="Перевірити зʼєднання Supabase з API Київстару">🩺 Діагностика</button>
-                <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn" style="display:none">⚙ Налаштування</button>
+                <button class="btn btn-g btn-sm" onclick="diagnoseKyivstar()" id="tel-diag-btn" style="display:none" title="Перевірити зʼєднання з API Київстару">🩺</button>
+                <button class="btn btn-g btn-sm" onclick="telToggleSettings()" id="tel-settings-toggle-btn" style="display:none">⚙</button>
               </div>
             </div>
+            <div id="tel-summary" style="display:flex;gap:16px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--b1);font-size:11.5px"></div>
+            <div id="tel-sync-hint" style="display:none;padding:7px 18px;font-size:11px;color:var(--t3);background:var(--s2);border-bottom:1px solid var(--b1)">↻ Дані підтягує скрипт <b>konstanta-sync.js</b> з вашого комп'ютера</div>
             <div id="tel-log-body" style="padding:0 18px 18px">
               <div class="empty"><div class="ei">📞</div>Журнал дзвінків порожній</div>
             </div>
           </div>
 
-
-        </div>
       </div>
 
       </div>
@@ -2054,7 +2111,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=journalperm1"></script>
+<script src="app7.js?v=telui2"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
