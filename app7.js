@@ -3468,7 +3468,15 @@ function renderAnalytics(){
     fromDate=new Date(0);
   }
   var fromStr=localDateStr(fromDate);
-  var toStr=localDateStr(now);
+  // Кінець періоду — кінець ОБРАНОГО проміжку, а не «сьогодні».
+  // Інакше заплановані заняття далі по місяцю не потрапляли в розрахунок.
+  var toDateA;
+  if(range==='month'||range==='3month'||range==='6month')
+    toDateA=new Date(now.getFullYear(),now.getMonth()+1,0);
+  else if(range==='year') toDateA=new Date(now.getFullYear(),11,31);
+  else if(range==='all')  toDateA=new Date(now.getFullYear()+5,11,31);
+  else toDateA=now;
+  var toStr=localDateStr(toDateA);
 
   // Range label
   var lbl=document.getElementById('an-range-lbl');
@@ -3480,6 +3488,9 @@ function renderAnalytics(){
   var selTutor=(tutSel||{value:''}).value;
   var allLessons=(S.lessons||[]).filter(function(l){return l.date>=fromStr&&l.date<=toStr;});
   var lessons=selTutor?allLessons.filter(function(l){return (l.tutorId||l.tutor_id)===selTutor;}):allLessons;
+  // Фільтр філії має діяти й тут — інакше при обраній філії цифри
+  // рахувались по всій мережі
+  allLessons=filterByBranch(allLessons); lessons=filterByBranch(lessons);
   var students=selTutor
     ?(S.students||[]).filter(function(s){return (s.tutorId||s.tutor_id)===selTutor||((s.tutorIds||[]).indexOf(selTutor)>=0);})
     :(S.students||[]);
@@ -3494,13 +3505,21 @@ function renderAnalytics(){
   var doneH   =h(done), missedH=h(missed), plannedH=h(planned);
   var totalH  =Math.round((doneH+missedH+plannedH+h(cancelled))*10)/10;
   var income  =done.reduce(function(s,l){return s+lessonTotal(l);},0);
-  var activeStudents=students.filter(function(s){return s.status==='active';}).length;
+  var activeStudents=filterByBranch(students).filter(function(s){return s.status==='active'||s.status==='trial';}).length;
   var pct     =totalH>0?Math.round(doneH/totalH*100):0;
 
   // Subjects breakdown (від done)
-  var subjMap={};
-  done.forEach(function(l){var s=l.subject||'\u0406\u043d\u0448\u0435'; subjMap[s]=(subjMap[s]||0)+(parseFloat(l.dur)||60)/60;});
-  var subjArr=Object.keys(subjMap).map(function(k){return{name:k,v:Math.round(subjMap[k]*10)/10};}).sort(function(a,b){return b.v-a.v;});
+  // Об'єднуємо предмети, що відрізняються лише регістром чи пробілами
+  var subjMap={}, subjLabel={};
+  done.forEach(function(l){
+    var raw=String(l.subject||'\u0406\u043d\u0448\u0435').trim();
+    var key=raw.toLowerCase().replace(/\s+/g,' ');
+    if(!subjLabel[key]) subjLabel[key]=raw;
+    subjMap[key]=(subjMap[key]||0)+(parseFloat(l.dur)||60)/60;
+  });
+  var subjArr=Object.keys(subjMap).map(function(k){
+    return{name:subjLabel[k]||k, key:k, v:Math.round(subjMap[k]*10)/10};
+  }).sort(function(a,b){return b.v-a.v;});
 
   // Tutors breakdown — всі репетитори, навіть без занять у період
   var tutorArr=[];
@@ -3508,12 +3527,15 @@ function renderAnalytics(){
     var tutMap={};
     done.forEach(function(l){var tid=l.tutorId||l.tutor_id; if(tid) tutMap[tid]=(tutMap[tid]||0)+(parseFloat(l.dur)||60)/60;});
     // Include ALL tutors, even with 0 hours
-    tutorArr=(S.tutors||[]).map(function(t){
+    tutorArr=filterByBranch(S.tutors||[]).map(function(t){
       return{name:t.fn+' '+t.ln, v:Math.round((tutMap[t.id]||0)*10)/10, id:t.id};
     }).sort(function(a,b){return b.v-a.v;});
   }
 
   var COLORS=['#6366f1','#22c55e','#f59e0b','#ef4444','#14b8a6','#ec4899','#8b5cf6','#f97316','#06b6d4','#84cc16'];
+
+  // Зберігаємо контекст, щоб деталізація знала, які саме заняття показувати
+  window._anCtx={fromStr:fromStr,toStr:toStr,selTutor:selTutor};
 
   function pieChart(canvasId,data,total){
     var c=document.getElementById(canvasId);
@@ -3535,10 +3557,17 @@ function renderAnalytics(){
     ctx.fillText(total+'\u0433',cx,cy);
   }
 
-  function legend(data,total){
+  /**
+   * Легенда діаграми. Кожен рядок клікабельний — відкриває перелік
+   * занять, з яких складається саме цей сегмент.
+   */
+  function legend(data,total,kind){
     return data.map(function(d,i){
       var pct2=total?Math.round(d.v/total*100):0;
-      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:12px">'
+      var arg=JSON.stringify(String(d.key||d.id||d.name)).replace(/"/g,'&quot;');
+      return '<div class="an-lg-row" onclick="anDrill(&quot;'+kind+'&quot;,'+arg+')" '
+        +'title="\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f" '
+        +'style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:12px;cursor:pointer;padding:3px 5px;border-radius:6px;transition:.12s">'
         +'<span style="width:10px;height:10px;border-radius:50%;background:'+COLORS[i%COLORS.length]+';flex-shrink:0;display:inline-block"></span>'
         +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.name+'</span>'
         +'<span style="color:var(--t2);font-size:11px;white-space:nowrap">'+d.v+'\u0433 ('+pct2+'%)</span>'
@@ -3554,10 +3583,10 @@ function renderAnalytics(){
   }
 
   var statusData=[
-    {name:'\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e',v:doneH},
-    {name:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e',v:missedH},
-    {name:'\u0417\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u043e',v:plannedH},
-    {name:'\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e',v:h(cancelled)}
+    {name:'\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e',v:doneH,key:'done'},
+    {name:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e',v:missedH,key:'missed'},
+    {name:'\u0417\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u043e',v:plannedH,key:'planned'},
+    {name:'\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e',v:h(cancelled),key:'cancelled'}
   ].filter(function(d){return d.v>0;});
 
   var tutDoneH=h(done); // для центру діаграми репетиторів
@@ -3578,21 +3607,21 @@ function renderAnalytics(){
     +'<div class="card"><div class="ch"><span class="ct">\u0421\u0442\u0430\u0442\u0443\u0441\u0438 \u0437\u0430\u043d\u044f\u0442\u044c</span></div>'
     +'<div style="display:flex;align-items:center;gap:16px;padding:12px">'
     +'<canvas id="pie-status" width="140" height="140" style="flex-shrink:0"></canvas>'
-    +'<div style="flex:1;min-width:0">'+legend(statusData,totalH)+'</div>'
+    +'<div style="flex:1;min-width:0">'+legend(statusData,totalH,'status')+'</div>'
     +'</div></div>'
     // Subjects
     +(subjArr.length
       ?'<div class="card"><div class="ch"><span class="ct">\u041f\u043e \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u0430\u0445 (\u0433\u043e\u0434)</span></div>'
       +'<div style="display:flex;align-items:center;gap:16px;padding:12px">'
       +'<canvas id="pie-subj" width="140" height="140" style="flex-shrink:0"></canvas>'
-      +'<div style="flex:1;min-width:0">'+legend(subjArr,doneH)+'</div>'
+      +'<div style="flex:1;min-width:0">'+legend(subjArr,doneH,'subject')+'</div>'
       +'</div></div>':'')
     // Tutors — all tutors
     +(!selTutor
       ?'<div class="card"><div class="ch"><span class="ct">\u041f\u043e \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430\u0445 (\u0433\u043e\u0434)</span></div>'
       +'<div style="display:flex;align-items:center;gap:16px;padding:12px">'
       +'<canvas id="pie-tutor" width="140" height="140" style="flex-shrink:0"></canvas>'
-      +'<div style="flex:1;min-width:0">'+legend(tutorArr,tutDoneH)+'</div>'
+      +'<div style="flex:1;min-width:0">'+legend(tutorArr,tutDoneH,'tutor')+'</div>'
       +'</div></div>':'')
     +'</div>';
 
@@ -7373,6 +7402,90 @@ function renderProfile(){
     if(prev && mt.photo) prev.innerHTML = '<img src="'+mt.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
   }
 }
+/**
+ * Деталізація по кліку на сегмент діаграми.
+ * Показує конкретні заняття, з яких складається цифра —
+ * щоб можна було перевірити, звідки вона взялась.
+ */
+function anDrill(kind, key){
+  var ctx=window._anCtx||{};
+  var from=ctx.fromStr, to=ctx.toStr, selTutor=ctx.selTutor;
+  if(!from||!to) return;
+
+  var pool=filterByBranch((S.lessons||[]).filter(function(l){
+    return l.date>=from && l.date<=to;
+  }));
+  if(selTutor) pool=pool.filter(function(l){return (l.tutorId||l.tutor_id)===selTutor;});
+
+  var title='', list=[];
+  if(kind==='status'){
+    if(key==='done'){ list=pool.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}); title='\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f'; }
+    else if(key==='missed'){ list=uncoveredMissedFilter(pool.filter(function(l){return l.status!=='cancelled';})); title='\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f'; }
+    else if(key==='planned'){ list=pool.filter(function(l){return l.status==='planned'||l.status==='scheduled';}); title='\u0417\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f'; }
+    else { list=pool.filter(function(l){return l.status==='cancelled';}); title='\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f'; }
+  } else if(kind==='subject'){
+    list=pool.filter(function(l){
+      if(!(isDoneLesson(l)||l.status==='makeup')) return false;
+      var k=String(l.subject||'\u0406\u043d\u0448\u0435').trim().toLowerCase().replace(/\s+/g,' ');
+      return k===String(key).toLowerCase();
+    });
+    title='\u041f\u0440\u0435\u0434\u043c\u0435\u0442: '+(list[0]?(list[0].subject||key):key);
+  } else if(kind==='tutor'){
+    list=pool.filter(function(l){
+      return (isDoneLesson(l)||l.status==='makeup') && (l.tutorId||l.tutor_id)===key;
+    });
+    var t=(S.tutors||[]).find(function(x){return x.id===key;});
+    title='\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440: '+(t?t.fn+' '+t.ln:key);
+  }
+
+  list.sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+  var hrs=Math.round(list.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+
+  var rows=list.map(function(l){
+    var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+    var tu=(S.tutors||[]).find(function(x){return x.id===(l.tutorId||l.tutor_id);});
+    var d=String(l.date||'').split('-');
+    return '<tr style="cursor:pointer" onclick="closeM(\'mo-an-drill\');openLessM(\''+l.id+'\')">'
+      +'<td style="padding:6px 8px;font-family:JetBrains Mono,monospace;font-size:11.5px">'
+        +(d.length===3?d[2]+'.'+d[1]:l.date)+(l.time?' '+l.time:'')+'</td>'
+      +'<td style="padding:6px 8px">'+(st?st.fn+' '+st.ln:'\u2014')+'</td>'
+      +'<td style="padding:6px 8px;font-size:11.5px;color:var(--t2)">'+(l.subject||'\u2014')+'</td>'
+      +'<td style="padding:6px 8px;font-size:11.5px;color:var(--t2)">'+(tu?tu.fn+' '+tu.ln:'\u2014')+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:JetBrains Mono,monospace;font-size:11.5px">'
+        +Math.round((parseFloat(l.dur)||60)/60*10)/10+'\u0433</td>'
+      +'<td style="padding:6px 8px;text-align:center">'+bst(l.status)+'</td>'
+    +'</tr>';
+  }).join('');
+
+  var el=document.getElementById('mo-an-drill');
+  if(!el){
+    el=document.createElement('div');
+    el.className='mo'; el.id='mo-an-drill';
+    document.body.appendChild(el);
+  }
+  el.innerHTML='<div class="mdl" style="max-width:860px">'
+    +'<div class="mdlh"><div class="mdlt">'+title+'</div>'
+      +'<button class="xbtn" onclick="closeM(\'mo-an-drill\')">\u00d7</button></div>'
+    +'<div class="mdlb" style="max-height:70vh;overflow:auto">'
+      +'<div style="font-size:12px;color:var(--t3);margin-bottom:10px">'
+        +list.length+' \u0437\u0430\u043d\u044f\u0442\u044c \u00b7 '+hrs+'\u0433 \u00b7 '
+        +'<span style="opacity:.8">\u043a\u043b\u0456\u043a \u043f\u043e \u0440\u044f\u0434\u043a\u0443 \u2014 \u0432\u0456\u0434\u043a\u0440\u0438\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f</span></div>'
+      +(list.length
+        ? '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+          +'<thead><tr style="border-bottom:1px solid var(--b1)">'
+          +'<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--t3)">\u0414\u0410\u0422\u0410</th>'
+          +'<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--t3)">\u0423\u0427\u0415\u041d\u042c</th>'
+          +'<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--t3)">\u041f\u0420\u0415\u0414\u041c\u0415\u0422</th>'
+          +'<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--t3)">\u0420\u0415\u041f\u0415\u0422\u0418\u0422\u041e\u0420</th>'
+          +'<th style="text-align:right;padding:6px 8px;font-size:10px;color:var(--t3)">\u0413\u041e\u0414</th>'
+          +'<th style="text-align:center;padding:6px 8px;font-size:10px;color:var(--t3)">\u0421\u0422\u0410\u0422\u0423\u0421</th>'
+          +'</tr></thead><tbody>'+rows+'</tbody></table>'
+        : '<div class="empty"><div class="ei">\ud83d\udced</div>\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043d\u044f\u0442\u044c</div>')
+    +'</div></div>';
+  openM('mo-an-drill');
+}
+window.anDrill=anDrill;
+
 function renderAllAnalytics(){
   renderAnalytics();
   renderReports();
