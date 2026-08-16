@@ -1686,4 +1686,8439 @@ function fd(d){if(!d)return '\u2014';return new Date(d).toLocaleDateString('uk-U
 
 function fd2(l,p){document.getElementById('lu').value=l;document.getElementById('lp').value=p;}
 
-function sn(id){const s=S.students.find(x=>x.id===id);retu
+function sn(id){const s=S.students.find(x=>x.id===id);return s?s.fn+' '+s.ln:'\u2014';}
+// Прізвище та ініціал: "Мілентьєва В."
+function snShort(id){const s=S.students.find(x=>x.id===id);return s?((s.ln||'')+(s.fn?' '+s.fn[0]+'.':'')).trim()||'\u2014':'\u2014';}
+// Розкладання уроків дня по вертикальних смугах: уроки, що перетинаються в часі,
+// діляться по ширині клітинки. Повертає Map(lessonId -> {lane, count}).
+function schAssignLanes(dayLessons){
+  var evs=dayLessons.map(function(l){
+    var p=(l.time||'08:00').split(':');
+    var st=(parseInt(p[0])||8)*60+(parseInt(p[1])||0);
+    return {l:l, s:st, e:st+(parseFloat(l.dur)||60)};
+  }).sort(function(a,b){return a.s-b.s||a.e-b.e;});
+  var out=new Map();
+  var cluster=[], clusterEnd=-1;
+  function flush(){
+    if(!cluster.length) return;
+    var lanes=[];
+    cluster.forEach(function(ev){
+      var lane=-1;
+      for(var i=0;i<lanes.length;i++){ if(lanes[i]<=ev.s){ lane=i; break; } }
+      if(lane<0){ lane=lanes.length; lanes.push(0); }
+      lanes[lane]=ev.e;
+      ev.lane=lane;
+    });
+    cluster.forEach(function(ev){ out.set(ev.l.id,{lane:ev.lane,count:lanes.length}); });
+    cluster=[];
+  }
+  evs.forEach(function(ev){
+    if(cluster.length && ev.s>=clusterEnd){ flush(); clusterEnd=-1; }
+    cluster.push(ev);
+    clusterEnd=Math.max(clusterEnd,ev.e);
+  });
+  flush();
+  return out;
+}
+
+function tn(id){const t=S.tutors.find(x=>x.id===id);return t?t.fn+' '+t.ln:'\u2014';}
+// Вартість заняття: ставка ЗА ГОДИНУ × (тривалість/60).
+// Ставка: знімок у занятті (l.price) → якщо нема, ставка з картки учня за правилами.
+function lessonTotal(l){
+  var dur=(parseFloat(l.dur)||60)/60;
+  var rate=(l.price!=null&&l.price!==''&&!isNaN(parseFloat(l.price))&&parseFloat(l.price)>0)?parseFloat(l.price):(function(){
+    var sid=l.studentId||l.student_id;
+    var st=sid?(S.students||[]).find(function(s){return s.id===sid;}):null;
+    return studentRate(st, l.subject, l.tutorId||l.tutor_id);
+  })();
+  return Math.round(dur*rate*100)/100;
+}
+
+// Ставка учня для конкретного предмета/репетитора.
+// Правила в st.rates: [{subject:'', tutor_id:'', rate:N}], порожнє поле = будь-який.
+// Пріоритет: предмет+репетитор (3) → предмет (2) → репетитор (1) → базова hourly_rate.
+function studentRate(st, subject, tutorId){
+  if(!st) return 0;
+  var rules=[];
+  try{ rules=typeof st.rates==='string'?JSON.parse(st.rates||'[]'):(Array.isArray(st.rates)?st.rates:[]); }catch(e){ rules=[]; }
+  var subjN=(subject||'').trim().toLowerCase();
+  var best=null, bestScore=-1;
+  rules.forEach(function(r){
+    if(isNaN(parseFloat(r.rate))) return;
+    var rs=(r.subject||'').trim().toLowerCase();
+    if(rs && rs!==subjN) return;          // предмет вказано і не збігся
+    if(r.tutor_id && r.tutor_id!==tutorId) return; // репетитора вказано і не збігся
+    var score=(rs?2:0)+(r.tutor_id?1:0);
+    if(score>bestScore){ bestScore=score; best=r; }
+  });
+  if(best) return parseFloat(best.rate);
+  var b=parseFloat(st.hourly_rate);
+  return isNaN(b)?0:b;
+}
+
+// ── UI рядків ставок у картці учня ──
+function addRateRow(rule){
+  rule=rule||{};
+  var list=document.getElementById('s-rates-list');
+  if(!list) return;
+  var row=document.createElement('div');
+  row.className='s-rate-row';
+  row.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+  row.innerHTML=
+    '<input class="sr-subj" list="subj-list-s" placeholder="Предмет (будь-який)" value="'+String(rule.subject||'').replace(/"/g,'&quot;')+'" style="flex:2;min-width:110px;font-size:12px;padding:5px 8px">'
+    +'<select class="sr-tutor" style="flex:2;min-width:110px;font-size:12px;padding:5px 8px">'
+      +'<option value="">Будь-який репетитор</option>'
+      +(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(t){return '<option value="'+t.id+'"'+(t.id===(rule.tutor_id||'')?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';}).join('')
+    +'</select>'
+    +'<input class="sr-rate" type="number" placeholder="₴/год" value="'+(rule.rate!=null?rule.rate:'')+'" style="width:80px;font-size:12px;padding:5px 8px">'
+    +'<button type="button" title="Прибрати" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:14px;padding:2px 6px" onclick="this.parentElement.remove()">✕</button>';
+  list.appendChild(row);
+  // Підказки предметів у рядку ставки (працюють і на телефонах)
+  var _si=row.querySelector('.sr-subj');
+  if(_si){ _si.id=_si.id||('sr-subj-'+Math.random().toString(36).slice(2,8)); makeSuggest(_si.id, allKnownSubjects); }
+}
+// Похідні дані зі ставок учня: предмети та репетитори (з фолбеком на legacy-поля)
+function studentRatesArr(st){
+  if(!st) return [];
+  try{ var r=typeof st.rates==='string'?JSON.parse(st.rates||'[]'):(Array.isArray(st.rates)?st.rates:[]); return r||[]; }catch(e){ return []; }
+}
+function studentSubjects(st){
+  var out=[];
+  studentRatesArr(st).forEach(function(r){ var s=(r.subject||'').trim(); if(s&&out.indexOf(s)<0) out.push(s); });
+  if(!out.length && st && st.subject) out.push(st.subject);
+  return out;
+}
+function studentTutorIds(st){
+  var out=[];
+  studentRatesArr(st).forEach(function(r){ if(r.tutor_id&&out.indexOf(r.tutor_id)<0) out.push(r.tutor_id); });
+  if(!out.length && st){
+    var legacy=(Array.isArray(st.tutorIds)&&st.tutorIds.length)?st.tutorIds:(st.tutorId?[st.tutorId]:[]);
+    legacy.forEach(function(t){ if(t&&out.indexOf(t)<0) out.push(t); });
+  }
+  return out;
+}
+
+function collectRateRows(){
+  return Array.from(document.querySelectorAll('#s-rates-list .s-rate-row')).map(function(row){
+    var rv=parseFloat(row.querySelector('.sr-rate')?.value);
+    return {
+      subject:(row.querySelector('.sr-subj')?.value||'').trim(),
+      tutor_id:row.querySelector('.sr-tutor')?.value||'',
+      rate:(!isNaN(rv)&&rv>0)?rv:null
+    };
+  }).filter(function(r){ return r.subject||r.tutor_id||r.rate; });
+}
+
+// Розбір правил ставок учня (рядок JSON або масив)
+function studentRateRules(st){
+  if(!st) return [];
+  try{ return typeof st.rates==='string'?JSON.parse(st.rates||'[]'):(Array.isArray(st.rates)?st.rates:[]); }catch(e){ return []; }
+}
+
+function mkToast(msg,type='success'){
+  const e=document.createElement('div');e.className=("toast "+(type));
+  e.innerHTML=("<span>"+(type==='success'?'\u2705':'\u274C')+"</span> "+(msg));
+  document.body.appendChild(e);setTimeout(()=>e.remove(),3000);
+}
+
+function popSel(id,arr,valKey,lblFn,placeholder='\u2014'){const el=document.getElementById(id);if(!el)return;el.innerHTML=("<option value=\"\">"+(placeholder)+"</option>")+arr.map(x=>("<option value=\""+(x[valKey])+"\">"+(lblFn(x))+"</option>")).join('');}
+function popSelSearch(id,arr,valKey,lblFn,placeholder){
+  var el=document.getElementById(id);
+  var savedVal=el?el.value:'';
+  popSel(id,arr,valKey,lblFn,placeholder);
+  // Відновлюємо значення якщо воно є серед нових options
+  if(el&&savedVal){
+    el.value=savedVal;
+    // якщо option не знайдено — скидаємо
+    if(el.value!==savedVal) el.value='';
+  }
+  makeSearchable(id);
+  if(el&&el._updateSearch) el._updateSearch();
+}
+
+function openM(id){
+  var el=document.getElementById(id);
+  if(!el) return;
+  el.style.display='';
+  el.style.pointerEvents='';
+  el.classList.add('open');
+}
+
+function closeM(id){
+  var el=document.getElementById(id);
+  if(el){
+    el.style.display='none';
+    el.classList.remove('open');
+    el.style.pointerEvents='none';
+  }
+  S.editId=null;
+  // Reset pointer events on all modals
+  document.querySelectorAll('.mo').forEach(function(m){
+    if(!m.classList.contains('open') && m.style.display==='none'){
+      m.style.pointerEvents='none';
+    }
+  });
+}
+
+function toggleSidebar(){
+  var sb=document.querySelector('.sb');
+  var ov=document.getElementById('sb-overlay');
+  if(!sb)return;
+  sb.classList.toggle('open');
+  if(ov)ov.classList.toggle('open',sb.classList.contains('open'));
+}
+
+function closeSidebar(){
+  var sb=document.querySelector('.sb');
+  var ov=document.getElementById('sb-overlay');
+  if(sb)sb.classList.remove('open');
+  if(ov)ov.classList.remove('open');
+}
+
+function myLessons(){
+  var all = filterByBranch(S.lessons || []);
+  if(P().seeAll) return all;
+  var cuId = CU ? CU.id : null;
+  var mt = S.tutors.find(function(t){
+    return t.accId === cuId || t.acc_uid === cuId;
+  });
+  if(!mt) return [];
+  return all.filter(function(l){
+    return l.tutorId === mt.id || l.tutor_id === mt.id;
+  });
+}
+function myStudents(){
+  var all = filterByBranch(S.students || []);
+  try{ if(P().seeAll) return all; }catch(e){ return all; }
+  if(R() !== 'tutor') return all;
+  var cuId = CU ? CU.id : null;
+  var mt = S.tutors.find(function(t){
+    return t.accId === cuId || t.acc_uid === cuId || t.id === cuId;
+  });
+  if(!mt) return all; // fallback: show all if tutor record not found
+  return all.filter(function(s){
+    if(s.tutorId === mt.id || s.tutor_id === mt.id) return true;
+    if(Array.isArray(s.tutorIds) && s.tutorIds.indexOf(mt.id) >= 0) return true;
+    // also check raw tutor_ids string
+    if(typeof s.tutor_ids === 'string' && s.tutor_ids.split(',').indexOf(mt.id) >= 0) return true;
+    return false;
+  });
+}
+function myTutor(){
+  var cuId = CU ? CU.id : null;
+  return S.tutors.find(function(t){
+    return t.accId === cuId || t.acc_uid === cuId;
+  }) || null;
+}
+function autoFillPrice(){
+  const subj   = document.getElementById('l-subj')?.value || '';
+  const tutorId= document.getElementById('l-tutor')?.value || '';
+  const dur    = document.getElementById('l-dur')?.value || 60;
+  // Get student grade
+  const stId   = document.getElementById('l-std')?.value || '';
+  const st     = (S.students||[]).find(s=>s.id===stId);
+  const grade  = st?.grade || '';
+  const price  = calcPrice(subj, tutorId, grade, dur);
+  const pEl    = document.getElementById('l-price');
+  if(pEl && price) pEl.value = price;
+  if(price) mkToast('\u0426\u0456\u043D\u0443 \u043F\u0456\u0434\u0456\u0431\u0440\u0430\u043D\u043E: '+price+' \u20B4','info');
+  else mkToast('\u041F\u0440\u0430\u0432\u0438\u043B\u043E \u0446\u0456\u043D\u0438 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error');
+}
+
+function getWeekRange(offset){
+  var now=new Date();
+  var day=now.getDay()===0?6:now.getDay()-1;
+  var mon=new Date(now); mon.setDate(now.getDate()-day+offset*7); mon.setHours(0,0,0,0);
+  var sun=new Date(mon); sun.setDate(mon.getDate()+6); sun.setHours(23,59,59,999);
+  var fmt=function(d){return d.toLocaleDateString('uk-UA',{day:'numeric',month:'short'});};
+  return {mon:mon,sun:sun,label:fmt(mon)+' \u2014 '+fmt(sun)};
+}
+
+function inWeek(dateStr,wr){
+  if(!dateStr)return false;
+  var d=new Date(dateStr+'T12:00:00');
+  return d>=wr.mon&&d<=wr.sun;
+}
+
+function dashKpiWeek(dir){
+  if(dir===0)S.dashWeekOffset=0;
+  else S.dashWeekOffset=(S.dashWeekOffset||0)+dir;
+  renderDashKpi();
+  renderDashTrends();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  РЕЙТИНГ РЕПЕТИТОРА
+//  Показує, наскільки сумлінно ведеться електронний журнал.
+//  Рахується з наявних даних, без окремих таблиць.
+// ═══════════════════════════════════════════════════════════════
+var RATING_WEIGHTS = { journal:30, hw:20, timely:25, forgotten:25 };
+
+/** Заняття репетитора за місяць (period = 'YYYY-MM') */
+/**
+ * Заняття репетитора за період.
+ * period — або 'YYYY-MM' (місяць), або {from:'YYYY-MM-DD', to:'YYYY-MM-DD'}
+ */
+function ratingLessons(tutorId, period){
+  return (S.lessons||[]).filter(function(l){
+    if((l.tutorId||l.tutor_id)!==tutorId) return false;
+    var d=String(l.date||'');
+    if(period && typeof period==='object') return d>=period.from && d<=period.to;
+    return d.slice(0,7)===period;
+  });
+}
+
+/** Поточний період рейтингу: місяць або тиждень зі зсувом */
+var rtMode='month', rtOffset=0;
+function rtPeriod(){
+  var now=new Date();
+  if(rtMode==='week'){
+    var dow=now.getDay()===0?6:now.getDay()-1;
+    var mon=new Date(now); mon.setDate(now.getDate()-dow+rtOffset*7); mon.setHours(0,0,0,0);
+    var sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    var f=function(d){return d.toLocaleDateString('uk-UA',{day:'numeric',month:'short'});};
+    return {from:localDateStr(mon), to:localDateStr(sun), label:f(mon)+' \u2014 '+f(sun), isWeek:true};
+  }
+  var d=new Date(now.getFullYear(), now.getMonth()+rtOffset, 1);
+  var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  return {key:key, label:prMonthName(key), isWeek:false};
+}
+function rtSetMode(m){ rtMode=m; rtOffset=0; renderRatingBlock(); }
+function rtShift(dir){ if(dir===0) rtOffset=0; else rtOffset+=dir; renderRatingBlock(); }
+window.rtSetMode=rtSetMode; window.rtShift=rtShift;
+
+/** Скільки днів минуло від заняття до моменту, коли його відзначили */
+function markDelayDays(l){
+  if(!l.updated_at || !l.date) return null;
+  var lessonDay=new Date(l.date+'T23:59:59').getTime();
+  var marked=new Date(l.updated_at).getTime();
+  if(isNaN(lessonDay)||isNaN(marked)) return null;
+  var d=(marked-lessonDay)/86400000;
+  return d<0?0:d;   // відзначив у день заняття або раніше — без затримки
+}
+
+/**
+ * Рейтинг репетитора 0–100 із розбивкою по складових
+ * і переліком конкретних недоробок.
+ */
+/**
+ * СУВОРА ПЕРЕВІРКА ЖУРНАЛУ — пошук ознак формального заповнення.
+ *
+ * Усе рахується з наявних даних: дати/часу заняття та моменту, коли його
+ * востаннє змінювали (updated_at). Це не доводить обману, але показує
+ * місця, які варто перевірити людині.
+ */
+function journalRedFlags(tutorId, period){
+  var all = ratingLessons(tutorId, period);
+  var done = all.filter(isDoneLesson);
+
+  var flags = {
+    beforeStart: [],   // відмічено ДО початку заняття
+    bulk: [],          // пачка занять закрита за одну хвилину
+    nightly: [],       // відмічено вночі (00:00–05:59)
+    shortTopic: [],    // тема з 1–3 символів
+    repeated: [],      // однакова тема поспіль
+    longDelay: []      // відмічено пізніше ніж за 7 днів
+  };
+
+  // ── 1. Відмічено раніше, ніж заняття мало початися ──
+  done.forEach(function(l){
+    if(!l.updated_at || !l.date || !l.time) return;
+    var startMs = new Date(l.date + 'T' + l.time + ':00').getTime();
+    var markMs  = new Date(l.updated_at).getTime();
+    if(isNaN(startMs) || isNaN(markMs)) return;
+    // 10 хвилин допуску: могли відмітити перед самим початком
+    if(markMs < startMs - 10*60*1000) flags.beforeStart.push(l);
+  });
+
+  // ── 2. Масове закриття: 5+ занять в одну хвилину ──
+  var byMinute = {};
+  done.forEach(function(l){
+    if(!l.updated_at) return;
+    var key = String(l.updated_at).slice(0,16); // до хвилини
+    (byMinute[key] = byMinute[key] || []).push(l);
+  });
+  Object.keys(byMinute).forEach(function(k){
+    if(byMinute[k].length >= 5) flags.bulk = flags.bulk.concat(byMinute[k]);
+  });
+
+  // ── 3. Відмітки серед ночі ──
+  done.forEach(function(l){
+    if(!l.updated_at) return;
+    var h = new Date(l.updated_at).getHours();
+    if(h >= 0 && h < 6) flags.nightly.push(l);
+  });
+
+  // ── 4. Надто короткі теми ──
+  done.forEach(function(l){
+    var t = String(l.notes||'').trim();
+    if(t && t.length <= 3) flags.shortTopic.push(l);
+  });
+
+  // ── 5. Однакова тема в кількох заняттях поспіль ──
+  var sorted = done.slice().sort(function(a,b){
+    return String(a.date+(a.time||'')).localeCompare(String(b.date+(b.time||'')));
+  });
+  var run = [];
+  for(var i=0;i<sorted.length;i++){
+    var cur = String(sorted[i].notes||'').trim().toLowerCase();
+    var prev = i>0 ? String(sorted[i-1].notes||'').trim().toLowerCase() : null;
+    if(cur && cur === prev){
+      if(!run.length) run.push(sorted[i-1]);
+      run.push(sorted[i]);
+    } else {
+      if(run.length >= 3) flags.repeated = flags.repeated.concat(run);
+      run = [];
+    }
+  }
+  if(run.length >= 3) flags.repeated = flags.repeated.concat(run);
+
+  // ── 6. Дуже пізні відмітки ──
+  done.forEach(function(l){
+    var d = markDelayDays(l);
+    if(d !== null && d > 7) flags.longDelay.push(l);
+  });
+
+  // Скільки унікальних занять під підозрою
+  var flagged = {};
+  Object.keys(flags).forEach(function(k){
+    flags[k].forEach(function(l){ flagged[l.id]=true; });
+  });
+
+  return {
+    flags: flags,
+    flaggedCount: Object.keys(flagged).length,
+    doneCount: done.length,
+    // Штраф до рейтингу: до 30 пунктів
+    penalty: Math.min(30, Object.keys(flagged).length * 5)
+  };
+}
+window.journalRedFlags = journalRedFlags;
+
+function tutorRating(tutorId, period){
+  period = period || new Date().toISOString().slice(0,7);
+  var all = ratingLessons(tutorId, period);
+  var todayStr = localDateStr(new Date());
+
+  // Проведені — саме їх журнал і має бути заповнений
+  var done = all.filter(isDoneLesson);
+  // Забуті: дата минула, а статус досі "заплановане"
+  var forgotten = all.filter(function(l){
+    return (l.status==='planned'||l.status==='scheduled'||!l.status)
+        && String(l.date||'') < todayStr;
+  });
+
+  var noTopic = done.filter(function(l){ return !String(l.notes||'').trim(); });
+  var noHw    = done.filter(function(l){ return !String(l.hw||'').trim(); });
+
+  // ── Складові ──
+  var pJournal = done.length ? Math.round((done.length-noTopic.length)/done.length*100) : 100;
+  var pHw      = done.length ? Math.round((done.length-noHw.length)/done.length*100) : 100;
+
+  // Вчасність: чим швидше відзначено заняття, тим краще
+  var delays = done.map(markDelayDays).filter(function(d){ return d!==null; });
+  var avgDelay = delays.length ? delays.reduce(function(a,b){return a+b;},0)/delays.length : 0;
+  var pTimely = 100;
+  if(delays.length){
+    if(avgDelay<=1) pTimely=100;
+    else if(avgDelay<=3) pTimely=75;
+    else if(avgDelay<=7) pTimely=45;
+    else pTimely=10;
+  }
+
+  // Забуті заняття: кожне знімає 20 пунктів цієї складової
+  var pForgotten = Math.max(0, 100 - forgotten.length*20);
+
+  var score = Math.round(
+      pJournal   * RATING_WEIGHTS.journal   / 100
+    + pHw        * RATING_WEIGHTS.hw        / 100
+    + pTimely    * RATING_WEIGHTS.timely    / 100
+    + pForgotten * RATING_WEIGHTS.forgotten / 100
+  );
+
+  // Сувора перевірка: ознаки формального заповнення знижують рейтинг
+  var rf = journalRedFlags(tutorId, period);
+  score = Math.max(0, score - rf.penalty);
+
+  return {
+    score: score,
+    lessonsTotal: all.length,
+    doneCount: done.length,
+    parts: {
+      journal:{ pct:pJournal, weight:RATING_WEIGHTS.journal, label:'\u0422\u0435\u043c\u0430 \u0443\u0440\u043e\u043a\u0443' },
+      hw:{ pct:pHw, weight:RATING_WEIGHTS.hw, label:'\u0414\u043e\u043c\u0430\u0448\u043d\u0454 \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f' },
+      timely:{ pct:pTimely, weight:RATING_WEIGHTS.timely, label:'\u0412\u0447\u0430\u0441\u043d\u0456\u0441\u0442\u044c \u0432\u0456\u0434\u043c\u0456\u0442\u043e\u043a' },
+      forgotten:{ pct:pForgotten, weight:RATING_WEIGHTS.forgotten, label:'\u0411\u0435\u0437 \u0437\u0430\u0431\u0443\u0442\u0438\u0445 \u0437\u0430\u043d\u044f\u0442\u044c' }
+    },
+    issues: { forgotten:forgotten, noTopic:noTopic, noHw:noHw, avgDelay:Math.round(avgDelay*10)/10 },
+    redFlags: rf
+  };
+}
+window.tutorRating = tutorRating;
+
+/** Колір за значенням рейтингу */
+function ratingColor(score){
+  if(score>=90) return '#22c55e';
+  if(score>=75) return '#84cc16';
+  if(score>=60) return '#f59e0b';
+  return '#ef4444';
+}
+
+/** Круговий індикатор */
+function ratingDial(score, prevScore){
+  var col=ratingColor(score), R=52, C=2*Math.PI*R;
+  var off=C*(1-score/100);
+  var trend='';
+  if(prevScore!=null && prevScore!==score){
+    var d=score-prevScore;
+    trend='<div class="rt-trend" style="color:'+(d>0?'#22c55e':'#ef4444')+'">'
+        +(d>0?'\u2191 +':'\u2193 ')+d+' \u0434\u043e \u043c\u0438\u043d\u0443\u043b\u043e\u0433\u043e</div>';
+  }
+  return '<div class="rt-dial">'
+    +'<svg width="120" height="120" viewBox="0 0 120 120">'
+      +'<circle cx="60" cy="60" r="'+R+'" fill="none" stroke="var(--b1)" stroke-width="10"/>'
+      +'<circle cx="60" cy="60" r="'+R+'" fill="none" stroke="'+col+'" stroke-width="10"'
+        +' stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'"'
+        +' stroke-dashoffset="'+off.toFixed(1)+'"/>'
+    +'</svg>'
+    +'<div class="rt-dial-txt"><div class="rt-score" style="color:'+col+'">'+score+'</div>'+trend+'</div>'
+  +'</div>';
+}
+
+/** Блок рейтингу на дашборді */
+/**
+ * Хто має право бачити й контролювати рейтинг ведення журналів.
+ * Завжди: бог системи та директор.
+ * Додатково: ОДИН адміністратор, призначений у налаштуваннях.
+ */
+function canReviewJournals(){
+  var r=R();
+  if(r==='god'||r==='director') return true;
+  if(r!=='admin') return false;
+  var assigned=(S.settings||{}).journal_reviewer;
+  return !!assigned && CU && CU.id===assigned;
+}
+window.canReviewJournals=canReviewJournals;
+
+/** Заповнює список адміністраторів у налаштуваннях */
+function renderJournalReviewerSetting(){
+  var sec=document.getElementById('journal-reviewer-section');
+  if(!sec) return;
+  // Призначати відповідального може лише бог або директор
+  var canAssign=(R()==='god'||R()==='director');
+  sec.style.display=canAssign?'block':'none';
+  if(!canAssign) return;
+  var sel=document.getElementById('set-journal-reviewer');
+  if(!sel) return;
+  var admins=(S.users||[]).filter(function(u){return u.role==='admin';})
+    .sort(function(a,b){return ((a.fn||'')+' '+(a.ln||'')).localeCompare((b.fn||'')+' '+(b.ln||''),'uk');});
+  sel.innerHTML='<option value="">\u2014 \u043d\u0435 \u043f\u0440\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u043e \u2014</option>'
+    +admins.map(function(u){return '<option value="'+u.id+'">'+(u.fn||'')+' '+(u.ln||'')+'</option>';}).join('');
+  sel.value=(S.settings||{}).journal_reviewer||'';
+  if(!admins.length){
+    sel.innerHTML='<option value="">\u2014 \u043d\u0435\u043c\u0430\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0456\u0432 \u2014</option>';
+  }
+}
+window.renderJournalReviewerSetting=renderJournalReviewerSetting;
+
+/** Зберігає відповідального адміністратора */
+async function saveJournalReviewer(){
+  if(!(R()==='god'||R()==='director')){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432','error'); return; }
+  var val=(document.getElementById('set-journal-reviewer')||{value:''}).value||null;
+  try{
+    await _sb.from('settings').upsert({ id:'main', journal_reviewer:val, updated_at:new Date().toISOString() });
+    S.settings=Object.assign({}, S.settings||{}, {journal_reviewer:val});
+    var who=val?((S.users||[]).find(function(u){return u.id===val;})||{}) : null;
+    mkToast(val
+      ? '\u2705 \u0412\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u0430\u043b\u044c\u043d\u0438\u0439: '+((who.fn||'')+' '+(who.ln||''))
+      : '\u0412\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u0430\u043b\u044c\u043d\u043e\u0433\u043e \u0437\u043d\u044f\u0442\u043e');
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+}
+window.saveJournalReviewer=saveJournalReviewer;
+
+function renderRatingBlock(){
+  var wrap=document.getElementById('dash-rating');
+  if(!wrap) return;
+  var role=R();
+
+  // ── Репетитор бачить СВІЙ рейтинг ──
+  if(role==='tutor'){
+    var mt=myTutor();
+    if(!mt){ wrap.innerHTML=''; return; }
+    var P=rtPeriod();
+    var per = P.isWeek ? {from:P.from,to:P.to} : P.key;
+    // Попередній період для порівняння
+    var prevPer;
+    if(P.isWeek){
+      var pm=new Date(P.from+'T12:00:00'); pm.setDate(pm.getDate()-7);
+      var ps=new Date(pm); ps.setDate(pm.getDate()+6);
+      prevPer={from:localDateStr(pm), to:localDateStr(ps)};
+    } else {
+      var pd=new Date(P.key+'-01T12:00:00'); pd.setMonth(pd.getMonth()-1);
+      prevPer=pd.getFullYear()+'-'+String(pd.getMonth()+1).padStart(2,'0');
+    }
+    var r=tutorRating(mt.id, per);
+    var prev=tutorRating(mt.id, prevPer);
+    var hasPrev = prev.lessonsTotal>0;
+
+    if(!r.lessonsTotal){
+      wrap.innerHTML='<div class="rt-card"><div class="rt-body">'
+        +'<div class="rt-title">\ud83d\udcd6 \u0412\u0435\u0434\u0435\u043d\u043d\u044f \u0436\u0443\u0440\u043d\u0430\u043b\u0443</div>'
+        +'<div class="rt-sub" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+          +'<span style="display:inline-flex;gap:3px">'
+            +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
+            +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
+          +'</span>'
+          +'<span style="display:inline-flex;gap:3px;align-items:center">'
+            +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(-1)">\u2190</button>'
+            +'<b style="min-width:110px;text-align:center">'+P.label+'</b>'
+            +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(1)">\u2192</button>'
+            +(rtOffset!==0?'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
+          +'</span>'
+          +'<span>\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043d\u044f\u0442\u044c \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434</span>'
+        +'</div>'
+        +'</div></div>';
+      return;
+    }
+
+    // Смужки складових
+    var bars='';
+    ['journal','hw','timely','forgotten'].forEach(function(k){
+      var p=r.parts[k];
+      bars+='<div class="rt-bar-row">'
+        +'<span class="rt-bar-lbl">'+p.label+'</span>'
+        +'<span class="rt-bar-track"><span class="rt-bar-fill" style="width:'+p.pct+'%;background:'+ratingColor(p.pct)+'"></span></span>'
+        +'<span class="rt-bar-val" style="color:'+ratingColor(p.pct)+'">'+p.pct+'%</span>'
+      +'</div>';
+    });
+
+    // Конкретні недоробки — з можливістю одразу виправити
+    var iss='', I=r.issues;
+    if(I.forgotten.length){
+      var dates=I.forgotten.slice(0,4).map(function(l){var d=String(l.date||'').split('-');return d.length===3?d[2]+'.'+d[1]:l.date;}).join(', ')
+              +(I.forgotten.length>4?' \u0442\u0430 \u0456\u043d.':'');
+      iss+='<div class="rt-issue rt-issue-bad" onclick="ratingFixOpen(\''+I.forgotten[0].id+'\')">'
+        +'<span>\u274c</span><span class="rt-issue-txt"><b>'+I.forgotten.length+'</b> '
+        +prPlural(I.forgotten.length,'\u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043d\u0435 \u0432\u0456\u0434\u0437\u043d\u0430\u0447\u0435\u043d\u043e','\u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043d\u0435 \u0432\u0456\u0434\u0437\u043d\u0430\u0447\u0435\u043d\u043e','\u0437\u0430\u043d\u044f\u0442\u044c \u043d\u0435 \u0432\u0456\u0434\u0437\u043d\u0430\u0447\u0435\u043d\u043e')
+        +' \u2014 '+dates+'</span><span class="rt-issue-go">\u0432\u0438\u043f\u0440\u0430\u0432\u0438\u0442\u0438 \u2192</span></div>';
+    }
+    if(I.noTopic.length){
+      iss+='<div class="rt-issue rt-issue-warn" onclick="ratingFixOpen(\''+I.noTopic[0].id+'\')">'
+        +'<span>\ud83d\udcdd</span><span class="rt-issue-txt"><b>'+I.noTopic.length+'</b> '
+        +prPlural(I.noTopic.length,'\u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0431\u0435\u0437 \u0442\u0435\u043c\u0438 \u0443\u0440\u043e\u043a\u0443','\u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0431\u0435\u0437 \u0442\u0435\u043c\u0438 \u0443\u0440\u043e\u043a\u0443','\u0437\u0430\u043d\u044f\u0442\u044c \u0431\u0435\u0437 \u0442\u0435\u043c\u0438 \u0443\u0440\u043e\u043a\u0443')
+        +'</span><span class="rt-issue-go">\u0437\u0430\u043f\u043e\u0432\u043d\u0438\u0442\u0438 \u2192</span></div>';
+    }
+    if(I.noHw.length){
+      iss+='<div class="rt-issue rt-issue-warn" onclick="ratingFixOpen(\''+I.noHw[0].id+'\')">'
+        +'<span>\ud83d\udcda</span><span class="rt-issue-txt"><b>'+I.noHw.length+'</b> '
+        +prPlural(I.noHw.length,'\u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0431\u0435\u0437 \u0414\u0417','\u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0431\u0435\u0437 \u0414\u0417','\u0437\u0430\u043d\u044f\u0442\u044c \u0431\u0435\u0437 \u0414\u0417')
+        +'</span><span class="rt-issue-go">\u0437\u0430\u043f\u043e\u0432\u043d\u0438\u0442\u0438 \u2192</span></div>';
+    }
+    if(I.avgDelay>3){
+      iss+='<div class="rt-issue rt-issue-warn" style="cursor:default">'
+        +'<span>\u23f1</span><span class="rt-issue-txt">\u0421\u0435\u0440\u0435\u0434\u043d\u044f \u0437\u0430\u0442\u0440\u0438\u043c\u043a\u0430 \u0432\u0456\u0434\u043c\u0456\u0442\u043a\u0438: <b>'+I.avgDelay+'</b> \u0434\u043d.</span></div>';
+    }
+    if(!iss){
+      iss='<div class="rt-issue rt-issue-ok"><span>\u2705</span>'
+        +'<span class="rt-issue-txt">\u0416\u0443\u0440\u043d\u0430\u043b \u0432\u0435\u0434\u0435\u0442\u044c\u0441\u044f \u0431\u0435\u0437\u0434\u043e\u0433\u0430\u043d\u043d\u043e \u2014 \u0436\u043e\u0434\u043d\u0438\u0445 \u0437\u0430\u0443\u0432\u0430\u0436\u0435\u043d\u044c</span></div>';
+    }
+
+    // Бейджі за досягнення
+    var badges='';
+    if(r.score===100) badges+='<span class="rt-badge">\ud83c\udfc6 \u0406\u0434\u0435\u0430\u043b\u044c\u043d\u0438\u0439 \u043c\u0456\u0441\u044f\u0446\u044c</span>';
+    if(!I.forgotten.length&&r.doneCount>=5) badges+='<span class="rt-badge">\u2705 \u0416\u043e\u0434\u043d\u043e\u0433\u043e \u0437\u0430\u0431\u0443\u0442\u043e\u0433\u043e</span>';
+    if(I.avgDelay<=1&&r.doneCount>=5) badges+='<span class="rt-badge">\u26a1 \u0412\u0456\u0434\u043c\u0456\u0442\u043a\u0438 \u0432 \u0434\u0435\u043d\u044c \u0437\u0430\u043d\u044f\u0442\u0442\u044f</span>';
+    if(r.parts.journal.pct===100&&r.doneCount>=5) badges+='<span class="rt-badge">\ud83d\udcdd \u0416\u0443\u0440\u043d\u0430\u043b \u0431\u0435\u0437 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0456\u0432</span>';
+
+    wrap.innerHTML='<div class="rt-card">'
+      +ratingDial(r.score, hasPrev?prev.score:null)
+      +'<div class="rt-body">'
+        +'<div class="rt-title">\ud83d\udcd6 \u0412\u0435\u0434\u0435\u043d\u043d\u044f \u0436\u0443\u0440\u043d\u0430\u043b\u0443</div>'
+        +'<div class="rt-sub" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+          +'<span style="display:inline-flex;gap:3px">'
+            +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
+            +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
+          +'</span>'
+          +'<span style="display:inline-flex;gap:3px;align-items:center">'
+            +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(-1)">\u2190</button>'
+            +'<b style="min-width:110px;text-align:center">'+P.label+'</b>'
+            +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(1)">\u2192</button>'
+            +(rtOffset!==0?'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
+          +'</span>'
+          +'<span>'+r.doneCount+' \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u0438\u0445 \u0437 '+r.lessonsTotal+'</span>'
+        +'</div>'
+        +'<div class="rt-bars">'+bars+'</div>'
+        +'<div class="rt-issues">'+iss+'</div>'
+        +(badges?'<div class="rt-badges">'+badges+'</div>':'')
+      +'</div>'
+    +'</div>';
+    return;
+  }
+
+  // ── Керівництво бачить таблицю всіх репетиторів ──
+  if(canReviewJournals()){
+    var P2=rtPeriod();
+    var per2 = P2.isWeek ? {from:P2.from,to:P2.to} : P2.key;
+    var rows=(S.tutors||[]).map(function(t){ return {t:t, r:tutorRating(t.id, per2)}; })
+      .filter(function(x){ return x.r.lessonsTotal>0; })
+      .sort(function(a,b){ return a.r.score-b.r.score; }); // проблемні — зверху
+    if(!rows.length){ wrap.innerHTML=''; return; }
+
+    var html='<div class="card" style="margin-bottom:16px"><div class="ch">'
+      +'<span class="ct">\ud83d\udcd6 \u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u0432\u0435\u0434\u0435\u043d\u043d\u044f \u0436\u0443\u0440\u043d\u0430\u043b\u0456\u0432</span>'
+      +'<span style="display:inline-flex;gap:3px;align-items:center;margin-left:auto">'
+        +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
+        +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
+        +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(-1)">\u2190</button>'
+        +'<b style="font-size:11px;min-width:105px;text-align:center">'+P2.label+'</b>'
+        +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(1)">\u2192</button>'
+        +(rtOffset!==0?'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
+      +'</span></div>'
+      +'<div style="overflow-x:auto"><table><thead><tr>'
+      +'<th>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440</th><th style="text-align:center">\u0420\u0435\u0439\u0442\u0438\u043d\u0433</th>'
+      +'<th style="text-align:center">\u0422\u0435\u043c\u0430</th><th style="text-align:center">\u0414\u0417</th>'
+      +'<th style="text-align:center">\u0412\u0447\u0430\u0441\u043d\u043e</th><th style="text-align:center">\u041d\u0435 \u0432\u0456\u0434\u0437\u043d\u0430\u0447\u0435\u043d\u043e</th><th style="text-align:center">\u041f\u0456\u0434\u043e\u0437\u0440\u0456\u043b\u0456</th>'
+      +'</tr></thead><tbody>';
+    rows.forEach(function(x){
+      var col=ratingColor(x.r.score);
+      var fg=x.r.issues.forgotten.length;
+      html+='<tr>'
+        +'<td><div style="display:flex;align-items:center;gap:9px">'+mkAv(x.t.fn,x.t.ln,30,x.t.photo)
+          +'<div><div style="font-weight:600;font-size:13px">'+x.t.fn+' '+x.t.ln+'</div>'
+          +'<div style="font-size:10.5px;color:var(--t3)">'+x.r.doneCount+' \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u0438\u0445</div></div></div></td>'
+        +'<td style="text-align:center"><span style="font-size:17px;font-weight:800;color:'+col+';font-family:\'JetBrains Mono\',monospace">'+x.r.score+'</span></td>'
+        +'<td style="text-align:center;color:'+ratingColor(x.r.parts.journal.pct)+';font-weight:700">'+x.r.parts.journal.pct+'%</td>'
+        +'<td style="text-align:center;color:'+ratingColor(x.r.parts.hw.pct)+';font-weight:700">'+x.r.parts.hw.pct+'%</td>'
+        +'<td style="text-align:center;color:'+ratingColor(x.r.parts.timely.pct)+';font-weight:700">'+x.r.parts.timely.pct+'%</td>'
+        +'<td style="text-align:center">'+(fg
+            ? '<span class="badge br">'+fg+'</span>'
+            : '<span style="color:var(--t3)">\u2014</span>')+'</td>'
+        +'<td style="text-align:center">'+((x.r.redFlags&&x.r.redFlags.flaggedCount)
+            ? '<span class="badge br" title="\u041e\u0437\u043d\u0430\u043a\u0438 \u0444\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e\u0433\u043e \u0437\u0430\u043f\u043e\u0432\u043d\u0435\u043d\u043d\u044f">\u26a0\ufe0f '+x.r.redFlags.flaggedCount+'</span>'
+            : '<span style="color:var(--t3)">\u2014</span>')+'</td>'
+      +'</tr>';
+    });
+    html+='</tbody></table></div></div>';
+    wrap.innerHTML=html;
+    return;
+  }
+  wrap.innerHTML='';
+}
+window.renderRatingBlock=renderRatingBlock;
+
+/** Відкриває заняття для виправлення просто з блоку рейтингу */
+function ratingFixOpen(lessonId){
+  if(typeof openLessM==='function') openLessM(lessonId);
+}
+window.ratingFixOpen=ratingFixOpen;
+
+function renderDash(){
+  try{ renderRatingBlock(); }catch(e){ console.error('renderRatingBlock:',e); }
+  try{ renderDashStats(); }catch(e){ console.error('renderDashStats:',e); }
+  try{ renderDashKpi(); }catch(e){ console.error('renderDashKpi:',e); }
+  try{ renderDashTrends(); }catch(e){ console.error('renderDashTrends:',e); showErr('renderDashTrends: '+e.message); }
+  try{ renderCommLog(); }catch(e){ console.error('renderCommLog:',e); }
+  try{ renderDashBottom(); }catch(e){ console.error('renderDashBottom:',e); }
+}
+function showErr(msg){
+  var d=document.getElementById('debug-err')||document.createElement('div');
+  d.id='debug-err';
+  d.style.cssText='position:fixed;bottom:10px;right:10px;background:#f8d7da;color:#721c24;padding:12px 16px;border-radius:8px;font-size:12px;font-family:monospace;z-index:9999;max-width:400px;word-break:break-all';
+  d.textContent=msg;
+  document.body.appendChild(d);
+}
+
+function renderDashStats(){
+  var ml=myLessons(), ms=myStudents(), now=new Date();
+  var monthL=ml.filter(function(l){
+    var d=new Date(l.date);
+    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+  });
+  var nb=document.getElementById('nb-s'); if(nb)nb.textContent=myStudents().filter(function(s){return s.status==='active';}).length;
+  var statsHtml='<div class="sc blue">'
+    +'<div class="slbl">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432</div>'
+    +'<div class="sval">'+ms.filter(function(s){return s.status==='active';}).length+'</div>'
+    +'<div class="ssub">\u0417\u0430\u0433\u0430\u043B\u043E\u043C: '+ms.length+'</div><span class="sico">\u25CE</span></div>'
+    +'<div class="sc green">'
+    +'<div class="slbl">\u0417\u0430\u043D\u044F\u0442\u044C \u0446\u044C\u043E\u0433\u043E \u043C\u0456\u0441\u044F\u0446\u044F</div>'
+    +'<div class="sval">'+Math.round(monthL.filter(function(l){return l.status==='planned'||l.status==='scheduled'||isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
+    +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+Math.round(monthL.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
+    +'<span class="sico">\u25C9</span></div>';
+  if(P().seeIncome && R()!=='tutor'){
+    var inc=monthL.filter(function(l){
+      return isDoneLesson(l)||l.status==='makeup';
+    }).reduce(function(a,l){return a+lessonTotal(l);},0);
+    statsHtml+='<div class="sc yellow">'      +'<div class="slbl">Дохід цього місяця</div>'      +'<div class="sval">'+Math.round(inc).toLocaleString('uk-UA')+'₴</div>'      +'<div class="ssub">Отримано</div><span class="sico">◈</span></div>';
+    } else if(R()!=='tutor') {
+
+
+    statsHtml+='<div class="sc yellow" style="opacity:.4">'
+      +'<div class="slbl">\u0414\u043E\u0445\u0456\u0434 \u043C\u0456\u0441\u044F\u0446\u044F</div>'
+      +'<div class="sval">\uD83D\uDD12</div>'
+      +'<div class="ssub">\u0422\u0456\u043B\u044C\u043A\u0438 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440</div><span class="sico">\u25C8</span></div>';
+  }
+    if(R()!=='tutor'){
+  statsHtml+='<div class="sc red">'
+    +'<div class="slbl">\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432</div>'
+    +'<div class="sval">'+S.tutors.length+'</div>'
+    +'<div class="ssub">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445</div><span class="sico">\u25C8</span></div>';
+  }
+  document.getElementById('dash-stats').innerHTML=statsHtml;
+}
+
+function renderDashKpi(){
+  var offset=S.dashWeekOffset||0;
+  var wr=getWeekRange(offset);
+  var lbl=document.getElementById('dash-week-lbl');
+  if(lbl)lbl.textContent=wr.label;
+  var tlbl=document.getElementById('dash-tutor-week-lbl');
+  if(tlbl)tlbl.textContent=wr.label;
+
+  var allL=myLessons();
+  var weekL=allL.filter(function(l){return inWeek(l.date,wr);});
+  var _myT=myTutor();
+  var weekComms=(S.comms||[]).filter(function(c){
+    return inWeek(c.date,wr)&&(R()!=='tutor'||!_myT||(c.tutorId||c.tutor_id)===_myT.id);
+  });
+
+  // Години проведених занять (тиждень)
+  var doneH = Math.round(weekL.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  // Години запланованих (тиждень, без скасованих)
+  var plannedH = Math.round(weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  // Загальні години тижня (проведені + заплановані, без скасованих і пропущених)
+  var totalH = Math.round(weekL.filter(function(l){return l.status!=='cancelled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  // Пропущені — некомпенсовані за 3 місяці, в годинах
+  var threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
+  var from3m = localDateStr(threeMonthsAgo);
+  var missed3m = uncoveredMissedFilter(allL.filter(function(l){ return l.date>=from3m; }));
+  var missedH = Math.round(allL.filter(function(l){return l.status==='missed'&&l.date>=from3m;}).reduce(function(s,l){return s+uncoveredMissedHours(l);},0)*10)/10;
+  var cancelled = weekL.filter(function(l){return l.status==='cancelled';}).length;
+  var plannedCnt = weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
+  var totalComms = weekComms.length;
+  // Виконання плану = проведені / (проведені + заплановані) * 100
+  var pct = totalH>0 ? Math.round(doneH/totalH*100) : 0;
+
+  var wrPrev=getWeekRange(offset-1);
+  var prevL  =allL.filter(function(l){return inWeek(l.date,wrPrev);});
+  var prevDoneH =Math.round(prevL.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var prevTotalH=Math.round(prevL.filter(function(l){return l.status!=='cancelled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var prevMissed3m=uncoveredMissedFilter(prevL);
+  var prevMissedH =Math.round(prevMissed3m.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var prevComms=(S.comms||[]).filter(function(c){return inWeek(c.date,wrPrev);}).length;
+  var prevPct=prevTotalH>0?Math.round(prevDoneH/prevTotalH*100):0;
+
+  function trend(cur,prev){
+    if(prev===0&&cur===0)return {cls:'same',txt:'\u2014 0'};
+    if(prev===0)return {cls:'up',txt:'\u2191 \u043d\u043e\u0432\u0438\u0439'};
+    var d=Math.round((cur-prev)*10)/10;
+    return d>0?{cls:'up',txt:'\u2191 +'+d}:d<0?{cls:'down',txt:'\u2193 '+d}:{cls:'same',txt:'= '+cur};
+  }
+
+  var kpis=[
+    {ico:'\u2705',val:doneH+'\u0433', lbl:'\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e \u0437\u0430\u043d\u044f\u0442\u044c', sub:plannedCnt+' \u0449\u0435 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u043e', accent:'var(--tut)', tr:trend(doneH,prevDoneH)},
+    {ico:'\u274c',val:missedH+'\u0433', lbl:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e \u0443\u0447\u043d\u044f\u043c\u0438', sub:'\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e: '+cancelled, accent:'var(--danger)', tr:trend(missedH,prevMissedH)},
+    {ico:'\ud83d\udcac',val:totalComms, lbl:'\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0439', sub:'\u0414\u0437\u0432\u0456\u043d\u043a\u0438 \u0442\u0430 \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043d\u044f', accent:'var(--adm)', tr:trend(totalComms,prevComms)},
+    {ico:'\ud83d\udcc8',val:pct+'%', lbl:'\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u043f\u043b\u0430\u043d\u0443', sub:doneH+'\u0433 \u0437 '+totalH+'\u0433', accent:'#a78bfa', tr:trend(pct,prevPct)},
+  ];
+  var wkpiEl=document.getElementById('dash-week-kpi');
+  if(wkpiEl){
+    wkpiEl.innerHTML=kpis.map(function(k){
+      return '<div class="kpi-card" style="--kpi-accent:'+k.accent+'">'
+        +'<div class="kpi-ico">'+k.ico+'</div>'
+        +'<div class="kpi-val">'+k.val+'</div>'
+        +'<div class="kpi-lbl">'+k.lbl+'</div>'
+        +'<div class="kpi-sub">'+k.sub+'</div>'
+        +'<div class="kpi-badge '+k.tr.cls+'">'+k.tr.txt+'</div>'
+        +'</div>';
+    }).join('');
+  }
+
+  // = Per-tutor KPI table =
+  var tbody=document.getElementById('dash-tutor-kpi');
+  if(!tbody)return;
+
+  var tutors=R()==='tutor'
+    ? S.tutors.filter(function(t){return CU && t.accId===CU.id;})
+    : S.tutors;
+
+  if(!tutors.length){
+    tbody.innerHTML='<tr><td colspan="8" class="empty" style="padding:20px">\u041D\u0435\u043C\u0430\u0454 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432</td></tr>';
+    return;
+  }
+
+  var maxDoneH=Math.max.apply(null,tutors.map(function(t){
+    return weekL.filter(function(l){return (l.tutorId===t.id||l.tutor_id===t.id)&&(isDoneLesson(l)||l.status==='makeup');}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0);
+  }).concat([1]));
+
+  var totalDoneH=0,totalMissedH=0,totalPlanned=0,totalTutComms=0,totalStudents=0;
+  var rowsArr=[];
+  tutors.forEach(function(t){
+    var tl=weekL.filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;});
+    // Проведено — години за тиждень
+    var tDoneH  =Math.round(tl.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    // Заплановано — кількість
+    var tPlanned=tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length;
+    // Заплановані години
+    var tPlannedH=Math.round(tl.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    // Пропущені — за ЦЕЙ ТИЖДЕНЬ (раніше рахувалось за 3 місяці, що не збігалось з періодом таблиці)
+    var tMissedH=Math.round(tl.filter(function(l){return l.status==='missed';}).reduce(function(s,l){return s+uncoveredMissedHours(l);},0)*10)/10;
+    var tComms  =weekComms.filter(function(c){return c.tutorId===t.id||c.tutor_id===t.id;}).length;
+    var tStudents=S.students.filter(function(s){return s.status==='active'&&studentTutorIds(s).indexOf(t.id)>=0;}).length;
+    // Виконання = проведено / (проведено + заплановано + пропущено) * 100 —
+    // пропуски мають знижувати відсоток, а не ігноруватись (інакше 100% навіть при повних пропусках)
+    var tTotalH =Math.round((tDoneH+tPlannedH+tMissedH)*10)/10;
+    var tPct    =tTotalH>0?Math.round(tDoneH/tTotalH*100):(tPlanned>0?0:100);
+    var barW    =maxDoneH>0?Math.round(tDoneH/maxDoneH*100):0;
+    var pctColor=tPct>=80?'var(--tut)':tPct>=50?'var(--dir)':'var(--danger)';
+
+    totalDoneH+=tDoneH; totalMissedH+=tMissedH;
+    totalPlanned+=tPlanned; totalTutComms+=tComms; totalStudents+=tStudents;
+
+    // Тренд проведених годин vs минулий тиждень
+    var prevTl=prevL.filter(function(l){return l.tutorId===t.id||l.tutor_id===t.id;});
+    var prevTDoneH=Math.round(prevTl.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    var trendTxt='', trendCls='same';
+    var dd=Math.round((tDoneH-prevTDoneH)*10)/10;
+    if(dd>0){trendTxt='\u2191+'+dd;trendCls='up';}
+    else if(dd<0){trendTxt='\u2193'+dd;trendCls='down';}
+    else if(prevTDoneH>0){trendTxt='='+tDoneH;trendCls='same';}
+
+    var rowHtml = '<tr>'
+      +'<td style="min-width:180px"><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,34,t.photo)
+      +'<div style="min-width:0"><div style="font-weight:600;font-size:12px;line-height:1.3">'+t.fn+'</div>'
+      +'<div style="font-weight:700;font-size:12px;line-height:1.3">'+t.ln+'</div>'
+      +'<div style="font-size:10px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">'+(t.subj||'\u2014')+'</div></div></div></td>'
+
+      +'<td><div style="display:flex;align-items:center;gap:8px">'
+      +'<span style="font-weight:700;font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+tDoneH+'\u0433</span>'
+      +(trendTxt?'<span class="kpi-badge '+trendCls+'" style="font-size:9px">'+trendTxt+'</span>':'')
+      +'</div>'
+      +'<div class="mini-bar"><div class="mini-fill" style="width:'+barW+'%;background:var(--tut)"></div></div></td>'
+
+      +'<td style="text-align:center">'
+      +'<span style="font-weight:600;font-size:15px;color:var(--t2)">'+tPlanned+'</span>'
+      +'</td>'
+
+      +'<td style="text-align:center">'
+      +'<span style="font-weight:700;font-size:16px;color:'+(tMissedH>0?'var(--danger)':'var(--t3)')+'">'+tMissedH+'\u0433</span>'
+      +'</td>'
+
+      +'<td style="text-align:center">'
+      +'<span style="font-weight:700;font-size:16px;color:var(--adm)">'+tComms+'</span>'
+      +'</td>'
+
+      +'<td style="text-align:center">'
+      +'<span style="font-size:14px">'+tStudents+'</span>'
+      +'</td>'
+
+      +'<td>'
+      +'<div style="font-weight:700;font-size:15px;color:'+pctColor+'">'+tPct+'%</div>'
+      +'<div style="font-size:10px;color:var(--t3)">'+tDoneH+'\u0433 / '+tTotalH+'\u0433</div>'
+      +'</td>'
+      +'</tr>';
+    rowsArr.push(rowHtml);
+  });
+  var rows = rowsArr.join('');
+
+  // Підсумковий рядок
+  totalDoneH=Math.round(totalDoneH*10)/10;
+  totalMissedH=Math.round(totalMissedH*10)/10;
+  var totalPct=0;
+  if(R()!=='tutor'){
+    var allTotalH=Math.round(weekL.filter(function(l){return l.status!=='cancelled';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+    totalPct=allTotalH>0?Math.round(totalDoneH/allTotalH*100):0;
+    var totalPctColor=totalPct>=80?'var(--tut)':totalPct>=50?'var(--dir)':'var(--danger)';
+    rows+='<tr style="background:rgba(255,255,255,.03);font-weight:700;border-top:2px solid var(--b1)">'
+    +'<td><span style="font-size:12px;color:var(--t2);letter-spacing:.5px">\u0420\u0410\u0417\u041e\u041c / \u0421\u0415\u0420\u0415\u0414\u041d\u0404</span></td>'
+    +'<td><span style="font-size:18px;font-family:Syne,sans-serif;color:var(--tut)">'+totalDoneH+'\u0433</span></td>'
+    +'<td style="text-align:center;color:var(--t2)">'+totalPlanned+'</td>'
+    +'<td style="text-align:center;color:'+(totalMissedH>0?'var(--danger)':'var(--t3)')+'">'+totalMissedH+'\u0433</td>'
+    +'<td style="text-align:center;color:var(--adm)">'+totalTutComms+'</td>'
+    +'<td style="text-align:center">'+totalStudents+'</td>'
+    +'<td><span style="font-weight:700;color:'+totalPctColor+'">'+totalPct+'%</span></td>'
+    +'</tr>';
+  }
+  tbody.innerHTML=rows;
+}
+
+function renderDashTrends(){
+  if(!CU) return;
+  var offset = S.dashWeekOffset||0;
+  var curWr = getWeekRange(offset);
+  var trendLbl = document.getElementById('dash-trend-week-lbl');
+  if(trendLbl) trendLbl.textContent = curWr.label;
+  var weeks = [];
+  for(var i=3;i>=0;i--){
+    var wr = getWeekRange(offset-i);
+    var _mt2=myTutor();
+    var weekL = myLessons().filter(function(l){return inWeek(l.date,wr);});
+    var weekComms = (S.comms||[]).filter(function(c){
+      return inWeek(c.date,wr)&&(R()!=='tutor'||!_mt2||(c.tutorId||c.tutor_id)===_mt2.id);
+    });
+    weeks.push({
+      wr:wr,
+      done: Math.round(weekL.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10,
+      missed: uncoveredMissedFilter(weekL).length,
+      planned:weekL.filter(function(l){return l.status==='planned'||l.status==='scheduled';}).length,
+      comms:  weekComms.length,
+    });
+  }
+
+  var tutors = R()==='tutor'
+    ? S.tutors.filter(function(t){return CU && t.accId===CU.id;})
+    : S.tutors;
+
+  function miniChart(containerId, data, color, keyFn){
+    var el = document.getElementById(containerId);
+    if(!el) return;
+    var max = Math.max.apply(null, data.map(keyFn).concat([1]));
+
+    // Header bars
+    var barsHtml = '<div class="trend-weeks">';
+    data.forEach(function(w, i){
+      var val = keyFn(w);
+      var pct = Math.round(val/max*100);
+      var isNow = (i===data.length-1);
+      var fmt = {day:'2-digit',month:'2-digit'};
+      var sun = new Date(w.wr.mon); sun.setDate(sun.getDate()+6);
+      var lbl = w.wr.mon.toLocaleDateString('uk-UA',fmt)+'–'+sun.toLocaleDateString('uk-UA',fmt);
+      barsHtml += '<div class="trend-week'+(isNow?' trend-week-now':'')+'">'
+        +'<div class="trend-week-val">'+val+'</div>'
+        +'<div class="trend-week-bar-wrap">'
+          +'<div class="trend-week-bar" style="width:'+pct+'%;background:'+color+'"></div>'
+        +'</div>'
+        +'<div class="trend-week-lbl">'+lbl+'</div>'
+        +'</div>';
+    });
+    barsHtml += '</div>';
+
+    // Per-tutor rows
+    var tutorRows = '';
+    tutors.slice(0,6).forEach(function(t){
+      var vals = data.map(function(w){
+        if(containerId==='dash-trend-comms'){
+          return (S.comms||[]).filter(function(c){return inWeek(c.date,w.wr)&&(c.tutor_id===t.id||c.tutorId===t.id);}).length;
+        }
+        return S.lessons.filter(function(l){return inWeek(l.date,w.wr)&&(l.tutor_id===t.id||l.tutorId===t.id)&&(isDoneLesson(l)||l.status==='makeup');}).length;
+      });
+      var tMax = Math.max.apply(null, vals.concat([1]));
+      var total = vals[vals.length-1];
+
+      tutorRows += '<div class="trend-tutor-row">'
+        + mkAv(t.fn,t.ln,24,t.photo)
+        + '<div class="trend-tutor-name">'+(t.ln||t.fn)+' '+(t.fn?t.fn[0]+'.':'')+'</div>'
+        + '<div class="trend-tutor-bars">'
+        + vals.map(function(v,i){
+            var pct = Math.round(v/tMax*100);
+            var isNow = (i===vals.length-1);
+            return '<div class="trend-tutor-col">'
+              +'<div class="trend-tutor-num">'+v+'</div>'
+              +'<div class="trend-tutor-bar-wrap">'
+                +'<div class="trend-tutor-bar" style="width:'+pct+'%;background:'+(isNow?color:'var(--b2)')+'"></div>'
+              +'</div>'
+              +'</div>';
+          }).join('')
+        + '</div>'
+        + '<div class="trend-tutor-total">'+total+'</div>'
+        + '</div>';
+    });
+
+    el.innerHTML = barsHtml + (tutorRows ? '<div class="trend-tutor-list">'+tutorRows+'</div>' : '');
+  }
+
+  miniChart('dash-trend-lessons', weeks, 'var(--tut)', function(w){return w.done;});
+  miniChart('dash-trend-comms',   weeks, 'var(--adm)', function(w){return w.comms;});
+}
+
+function renderDashBottom(){
+  var now=new Date();
+  var ml=myLessons();
+
+  // Upcoming lessons
+  var up=[].concat(ml).filter(function(l){
+    return new Date(l.date+'T'+(l.time||'00:00'))>=now&&l.status!=='cancelled';
+  }).sort(function(a,b){
+    return new Date(a.date+'T'+a.time)-new Date(b.date+'T'+b.time);
+  }).slice(0,6);
+  document.getElementById('dt-lessons').innerHTML=up.length
+    ?up.map(function(l){
+      return '<tr><td>'+sn(l.studentId)+'</td><td>'+l.subject+'</td>'
+        +'<td style="font-family:JetBrains Mono,monospace;font-size:11px">'+fd(l.date)+' '+(l.time||'')+'</td>'
+        +'<td>'+bst(l.status)+'</td></tr>';
+    }).join('')
+    :'<tr><td colspan="4" class="empty" style="padding:20px">\u0417\u0430\u043D\u044F\u0442\u044C \u043D\u0435 \u0437\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u043E</td></tr>';
+
+  // Right panel
+  var rt=document.getElementById('dash-rt');
+  var rb=document.getElementById('dash-rb');
+  if(P().seeIncome && R()!=='tutor'){
+    if(rt)rt.textContent='\u041E\u0441\u0442\u0430\u043D\u043D\u0456 \u043F\u043B\u0430\u0442\u0435\u0436\u0456';
+    var rec=[].concat(S.payments).sort(function(a,b){return new Date(b.date)-new Date(a.date);}).slice(0,6);
+    if(rb)rb.innerHTML=rec.length
+      ?'<div style="max-height:220px;overflow-y:auto"><table><thead><tr><th>\u0423\u0447\u0435\u043D\u044C</th><th>\u0421\u0443\u043C\u0430</th><th>\u0414\u0430\u0442\u0430</th><th>\u0421\u0442\u0430\u0442\u0443\u0441</th></tr></thead><tbody>'
+        +rec.map(function(p){
+          return '<tr><td>'+sn(p.studentId)+'</td>'
+            +'<td style="font-family:JetBrains Mono,monospace">'+(p.amount||0).toLocaleString('uk-UA')+'\u20B4</td>'
+            +'<td style="font-size:11px">'+fd(p.date)+'</td>'
+            +'<td>'+bst(p.status)+'</td></tr>';
+        }).join('')+'</tbody></table></div>'
+      :'<div class="empty" style="padding:20px"><div class="ei">\uD83D\uDCB3</div>\u041F\u043B\u0430\u0442\u0435\u0436\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</div>';
+  } else {
+    if(rt)rt.textContent='\u0423\u0447\u043D\u0456';
+    var msArr=myStudents();
+    if(rb)rb.innerHTML=msArr.length
+      ?'<div style="max-height:220px;overflow-y:auto"><table><thead><tr><th>\u0406\u043C\'\u044F</th><th>\u041F\u0440\u0435\u0434\u043C\u0435\u0442</th><th>\u0421\u0442\u0430\u0442\u0443\u0441</th></tr></thead><tbody>'
+        +msArr.map(function(s){
+          return '<tr><td>'+s.fn+' '+s.ln+'</td><td>'+(s.subject||'\u2014')+'</td><td>'+bst(s.status)+'</td></tr>';
+        }).join('')+'</tbody></table></div>'
+      :'<div class="empty" style="padding:20px"><div class="ei">\uD83D\uDC65</div>\u0423\u0447\u043D\u0456\u0432 \u043D\u0435 \u043F\u0440\u0438\u0437\u043D\u0430\u0447\u0435\u043D\u043E</div>';
+  }
+
+  // Subjects chart
+  var sc={};ml.forEach(function(l){sc[l.subject]=(sc[l.subject]||0)+(parseFloat(l.dur)||60)/60;});
+  var colors=['var(--adm)','var(--tut)','var(--dir)','var(--god2)','#a78bfa','#0ea5e9'];
+  var maxS=Math.max.apply(null,Object.values(sc).concat([1]));
+  var dashSubjEl=document.getElementById('dash-subj');
+  if(dashSubjEl) dashSubjEl.innerHTML=Object.entries(sc)
+    .sort(function(a,b){return b[1]-a[1];}).slice(0,6)
+    .map(function(e,i){
+      return '<div style="margin-bottom:9px">'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+        +'<span style="font-size:12px">'+e[0]+'</span>'
+        +'<span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+e[1]+'</span></div>'
+        +'<div class="pb"><div class="pf" style="width:'+Math.round(e[1]/maxS*100)+'%;background:'+colors[i%colors.length]+'"></div></div>'
+        +'</div>';
+    }).join('')||'<div class="empty"><div class="ei">\uD83D\uDCCA</div>\u041D\u0435\u043C\u0430\u0454 \u0434\u0430\u043D\u0438\u0445</div>';
+
+  // Payments status
+  var paid=S.payments.filter(function(p){return p.status==='paid';}).reduce(function(a,p){return a+p.amount;},0);
+  var pend=S.payments.filter(function(p){return p.status==='pending';}).reduce(function(a,p){return a+p.amount;},0);
+  var over=S.payments.filter(function(p){return p.status==='overdue';}).reduce(function(a,p){return a+p.amount;},0);
+  // dash-pay card removed from dashboard
+  var rbCard = document.getElementById('dash-rb-card');
+  var payCard = document.getElementById('dash-pay-card');
+  var isTutor = R()==='tutor';
+  if(rbCard)  rbCard.style.display  = isTutor ? 'none' : '';
+  if(payCard) payCard.style.display = isTutor ? 'none' : '';
+
+  // Hide old comm block - comms now shown inline
+  var cb=document.getElementById('dash-comm-block');
+  if(cb)cb.style.display='none';
+  // Hide payments block for tutors
+  var pyBlock=document.getElementById('dash-pay');
+  if(pyBlock&&R()==='tutor') pyBlock.closest('.card') && (pyBlock.closest('.card').style.display='none');
+}
+
+function renderCommLog(){
+  var el  = document.getElementById('dash-comm-log');
+  var el2 = document.getElementById('dash-comm-log2');
+  if(!el && !el2) return;
+  var _myTc=myTutor();
+  var comms=[].concat(S.comms||[])
+    .filter(function(c){return R()!=='tutor'||!_myTc||(c.tutorId||c.tutor_id)===_myTc.id;})
+    .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,20);
+  var typeIco={call:'📞',message:'💬',meeting:'🤝',email:'📧',other:'📋',msg:'💬',meet:'🤝'};
+  var html;
+  if(!comms.length){
+    html='<div class="empty" style="padding:20px"><div class="ei">💬</div>Комунікацій ще не записано</div>';
+  } else {
+    html=comms.map(function(c){
+      var tutor=S.tutors.find(function(t){return t.id===c.tutorId;})||{fn:'',ln:''};
+      var student=c.studentId?S.students.find(function(s){return s.id===c.studentId;}):null;
+      return '<div class="comm-item">'        +'<div class="comm-ico">'+(typeIco[c.type]||'📋')+'</div>'        +'<div class="comm-body">'        +'<div class="comm-meta">'        +'<span class="comm-type">'+(c.type||'інше')+'</span>'        +'<span class="comm-tutor">'+tutor.fn+' '+tutor.ln+'</span>'        +(student?'<span style="font-size:11px;color:var(--t3)">→ '+student.fn+' '+student.ln+'</span>':'')
+        +'<span class="comm-date">'+fd((c.date||'').slice(0,10))+'</span>'        +'</div>'        +'<div class="comm-note">'+(c.note||'—')+'</div>'        +'</div>'        +'<button onclick="delComm(this.dataset.id)" data-id="'+c.id+'" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:14px;flex-shrink:0">&times;</button>'        +'</div>';
+    }).join('');
+  }
+  if(el)  el.innerHTML  = html;
+  if(el2) el2.innerHTML = html;
+}
+
+function sfilt(f,el){sfCur=f;document.querySelectorAll('#sfchips .chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderStudents();}
+
+function renderStudents(){
+  var _q=(document.getElementById('gsearch')||{value:''}).value.toLowerCase().trim();
+  var _canFilterExtra=(R()==='god'||R()==='director'||R()==='admin');
+  var brSel=document.getElementById('sf-branch');
+  if(brSel && _canFilterExtra){
+    var _prevBr=brSel.value;
+    brSel.innerHTML='<option value="">\u0412\u0441\u0456 \u0444\u0456\u043B\u0456\u0457</option>'
+      +(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+        .map(function(b){return '<option value="'+b.id+'">'+b.name+'</option>';}).join('');
+    brSel.value=_prevBr;
+  }
+  var tutSel=document.getElementById('sf-tutor');
+  if(tutSel && _canFilterExtra){
+    var _prevTut=tutSel.value;
+    tutSel.innerHTML='<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>'
+      +(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+    tutSel.value=_prevTut;
+  }
+  var _fBranch=_canFilterExtra?(document.getElementById('sf-branch')||{value:''}).value:'';
+  var _fTutor=_canFilterExtra?(document.getElementById('sf-tutor')||{value:''}).value:'';
+  var _fSort=_canFilterExtra?(document.getElementById('sf-sort')||{value:''}).value:'';
+  var data=myStudents().filter(function(s){
+    if(!_q) return true;
+    return (s.fn+' '+s.ln).toLowerCase().includes(_q)
+        || (s.ln+' '+s.fn).toLowerCase().includes(_q)
+        || (s.phone||'').includes(_q)
+        || (s.parentPhone||'').includes(_q)
+        || (s.email||'').toLowerCase().includes(_q);
+  });
+  if(sfCur!=='all') data=data.filter(function(s){return s.status===sfCur;});
+  if(_fBranch) data=data.filter(function(s){
+    if(Array.isArray(s.branchIds)&&s.branchIds.length) return s.branchIds.indexOf(_fBranch)>=0;
+    return (s.branchId||s.branch_id)===_fBranch;
+  });
+  if(_fTutor) data=data.filter(function(s){return studentTutorIds(s).indexOf(_fTutor)>=0;});
+  if(_fSort==='az') data=data.slice().sort(function(a,b){return (a.ln+' '+a.fn).localeCompare(b.ln+' '+b.fn,'uk');});
+  else if(_fSort==='za') data=data.slice().sort(function(a,b){return (b.ln+' '+b.fn).localeCompare(a.ln+' '+a.fn,'uk');});
+  var tot=document.getElementById('st-total');
+  if(tot) tot.textContent=data.length+' \u0437 '+myStudents().length;
+  var ce=can('students');
+  var html=data.length?data.map(function(s){
+    var btns=ce
+      ?('<button class="btn btn-g btn-sm" onclick="openStudM(this.dataset.id)" data-id="'+s.id+'">\u270F\uFE0F</button>'
+        +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delStudent(this.dataset.id)" data-id="'+s.id+'">\uD83D\uDDD1</button>')
+      :('<button class="btn btn-g btn-sm" onclick="openStudM(this.dataset.id)" data-id="'+s.id+'" title="\u041F\u0435\u0440\u0435\u0433\u043B\u044F\u043D\u0443\u0442\u0438 \u043A\u0430\u0440\u0442\u043A\u0443">\uD83D\uDC41</button>');
+    var _tids=studentTutorIds(s);
+    var _tnames=_tids.map(tn).filter(function(n){return n&&n!=='\u2014';});
+    var _subjTxt=studentSubjects(s).join(', ')||s.subject||'';
+    var _canSeeBranchesS=isSuperAdmin()||R()==='director'||R()==='admin';
+    var _branchBadgeS=_canSeeBranchesS
+      ?((s.branchIds&&s.branchIds.length)
+        ? s.branchIds.map(function(bid){return '<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px;margin:1px 3px 1px 0;display:inline-block">'+branchName(bid)+'</span>';}).join('')
+        : (s.branchId||s.branch_id ? '<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px">'+branchName(s.branchId||s.branch_id)+'</span>' : ''))
+      :'';
+    return '<tr>'
+      +'<td><div style="display:flex;align-items:center;gap:8px">'+mkAv(s.fn,s.ln)+'<div><div style="font-weight:600;font-size:13px">'+s.fn+' '+s.ln+'</div>'+(_branchBadgeS?'<div style="margin-top:3px">'+_branchBadgeS+'</div>':'')+'</div></div></td>'
+      +'<td style="font-size:12px;color:var(--t2)">'+(s.age||'\u2014')+' / '+(s.grade||'\u2014')+'</td>'
+      +'<td>'+(_subjTxt||'\u2014')+'</td>'
+      +'<td style="font-size:12px;line-height:1.6">'+(_tnames.length?_tnames.join('<br>'):'\u2014')+'</td>'
+      +'<td>'+bst(s.status)+'</td>'
+      +'<td style="font-size:12px;color:var(--t2)">'+(s.parentPhone||s.phone||s.email||'\u2014')+'</td>'
+      +'<td><div style="display:flex;gap:3px">'+btns+'</div></td>'
+      +'</tr>';
+  }).join(''):'<tr><td colspan="7"><div class="empty"><div class="ei">\uD83D\uDC65</div>\u0423\u0447\u043D\u0456\u0432 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E</div></td></tr>';
+  document.getElementById('st-table').innerHTML=html;
+}
+// ── Перегляд занять по тижнях / місяцях ──────────────────────
+var lfOffset = 0;
+
+function lfPeriodRange(){
+  var mode=(document.getElementById('lf-period')||{value:''}).value;
+  if(!mode) return null;
+  var now=new Date();
+  if(mode==='week'){
+    var dow=now.getDay()===0?6:now.getDay()-1;
+    var mon=new Date(now); mon.setDate(now.getDate()-dow+lfOffset*7); mon.setHours(0,0,0,0);
+    var sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    var f=function(d){return d.toLocaleDateString('uk-UA',{day:'numeric',month:'short'});};
+    return {from:localDateStr(mon), to:localDateStr(sun), label:f(mon)+' \u2014 '+f(sun)};
+  }
+  var first=new Date(now.getFullYear(), now.getMonth()+lfOffset, 1);
+  var last=new Date(now.getFullYear(), now.getMonth()+lfOffset+1, 0);
+  var mn=['\u0421\u0456\u0447\u0435\u043d\u044c','\u041b\u044e\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043d\u044c','\u041a\u0432\u0456\u0442\u0435\u043d\u044c','\u0422\u0440\u0430\u0432\u0435\u043d\u044c','\u0427\u0435\u0440\u0432\u0435\u043d\u044c','\u041b\u0438\u043f\u0435\u043d\u044c','\u0421\u0435\u0440\u043f\u0435\u043d\u044c','\u0412\u0435\u0440\u0435\u0441\u0435\u043d\u044c','\u0416\u043e\u0432\u0442\u0435\u043d\u044c','\u041b\u0438\u0441\u0442\u043e\u043f\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043d\u044c'];
+  return {from:localDateStr(first), to:localDateStr(last), label:mn[first.getMonth()]+' '+first.getFullYear()};
+}
+
+function lfSetPeriod(){ lfOffset=0; renderLessons(); }
+function lfShift(d){
+  if(d===0) lfOffset=0; else lfOffset+=d;
+  renderLessons();
+}
+window.lfSetPeriod=lfSetPeriod;
+window.lfShift=lfShift;
+
+function renderLessons(){
+  var stf = document.getElementById('lf-stat');
+  var sdf = document.getElementById('lf-student');
+  var ttf = document.getElementById('lf-tutor');
+  var sv  = stf ? stf.value : '';
+  var sdv = sdf ? sdf.value : '';
+  var tv  = ttf ? ttf.value : '';
+
+  // Період (тиждень / місяць) із навігацією стрілками
+  var lfR = lfPeriodRange();
+  var navEl = document.getElementById('lf-nav');
+  var navLbl = document.getElementById('lf-nav-lbl');
+  if(navEl) navEl.style.display = lfR ? 'inline-flex' : 'none';
+  if(navLbl && lfR) navLbl.textContent = lfR.label + (lfOffset===0 ? '' : '');
+
+  if(sdf){
+    var cur = sdf.value;
+    popSelSearch('lf-student', [{id:'',fn:'Всі учні',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
+    if(cur){ sdf.value=cur; if(sdf._updateSearch) sdf._updateSearch(); }
+  }
+  // Фільтр по репетиторах (адміни/директори/бог; для репетиторів прихований через .tutor-hidden)
+  if(ttf && R()!=='tutor'){
+    var curT = ttf.value;
+    popSelSearch('lf-tutor', [{id:'',fn:'Всі репетитори',ln:''}].concat((S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(t){return t.fn+(t.ln?' '+t.ln:'');}, '');
+    if(curT){ ttf.value=curT; if(ttf._updateSearch) ttf._updateSearch(); }
+  }
+  // Якщо селект обгорнутий пошуковим полем — ховаємо/показуємо всю обгортку за роллю
+  if(ttf && ttf.parentElement && ttf.parentElement.classList.contains('srch-wrap')){
+    ttf.parentElement.style.display = R()==='tutor' ? 'none' : '';
+  }
+
+  var data = [].concat(myLessons()).filter(function(l){
+    // Покриті missed не показуємо в загальному списку (є як makeup)
+    if(!sv && l.status==='missed' && isCoveredMissed(l)) return false;
+    return true;
+  }).sort(function(a,b){
+    return new Date(b.date+'T'+(b.time||'00:00'))-new Date(a.date+'T'+(a.time||'00:00'));
+  });
+  // Обмеження періодом, якщо обрано тиждень/місяць
+  if(lfR) data = data.filter(function(l){
+    var d=String(l.date||''); return d>=lfR.from && d<=lfR.to;
+  });
+  if(sdv) data = data.filter(function(l){return (l.studentId||l.student_id)===sdv;});
+  if(tv)  data = data.filter(function(l){return (l.tutorId||l.tutor_id)===tv;});
+  if(sv)  data = data.filter(function(l){
+    if(sv==='done') return isDoneLesson(l)||l.status==='makeup';
+    if(sv==='missed') return l.status==='missed' && !isCoveredMissed(l);
+    return l.status===sv;
+  });
+
+  var hasMissed = sv==='missed'||sv==='makeup'||sv==='makeup_planned'||(!sv&&data.some(function(l){return l.status==='missed'||l.status==='makeup'||l.status==='makeup_planned';}));
+  var mc=document.getElementById('lt-miss-col'); if(mc) mc.style.display=hasMissed?'':'none';
+  var mkc=document.getElementById('lt-makeup-col'); if(mkc) mkc.style.display=hasMissed?'':'none';
+
+  var ce = can('lessons');
+  var ri = function(l){return l.recurId?'<span style="color:var(--adm);font-size:10px">🔁</span>':'';};
+  var html = data.length ? data.map(function(l){
+    var mc2=hasMissed?('<td style="font-size:11px;color:var(--danger)">'+(l.missed_date?fd(l.missed_date):'—')+'</td>'):'';
+    var mk2=hasMissed?('<td style="font-size:11px;color:#f59e0b">'+(l.makeup_date?fd(l.makeup_date):'—')+'</td>'):'';
+    var btns=ce
+      ?('<button class="btn btn-g btn-sm" onclick="openLessM(this.dataset.id)" data-id="'+l.id+'">✏️</button>'
+        +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);color:var(--danger)" onclick="delLesson(this.dataset.id)" data-id="'+l.id+'">🗑</button>')
+      :'';
+    return '<tr>'
+      +'<td>'+sn(l.studentId||l.student_id)+'</td>'
+      +'<td>'+(l.subject||'—')+' '+ri(l)+'</td>'
+      +'<td style="font-size:12px">'+(l.tutorId||l.tutor_id?tn(l.tutorId||l.tutor_id):'—')+'</td>'
+      +'<td style="font-family:JetBrains Mono,monospace;font-size:11px">'+fd(l.date)+' '+(l.time||'')+'</td>'
+      +'<td>'+(l.dur||60)+' хв</td>'+mc2+mk2
+      +'<td style="font-size:11px;color:var(--t2);max-width:220px">'
+        +(l.notes?'<div>📌 '+l.notes+'</div>':'')
+        +(l.hw?'<div style="margin-top:2px">📝 '+l.hw+'</div>':'')
+        +(l.games?'<div style="color:var(--adm);margin-top:2px">🎧 '+l.games+'</div>':'')
+        +(!l.notes&&!l.hw&&!l.games?'—':'')
+      +'</td>'
+      +'<td>'+bst(l.status)+'</td>'
+      +'<td><div style="display:flex;gap:3px">'+btns+'</div></td></tr>';
+  }).join('')
+  : '<tr><td colspan="10"><div class="empty"><div class="ei">📚</div>Занять немає</div></td></tr>';
+  document.getElementById('lt-table').innerHTML = html;
+}
+
+function renderPayments(){
+  // Show invoice toolbar only for god/director
+  var invToolbar = document.getElementById('inv-toolbar');
+  if(invToolbar) invToolbar.style.display = (R()==='god'||R()==='director') ? 'block' : 'none';
+
+  // Допоміжна функція вартості заняття (ставка за годину × тривалість)
+  function lessonAmt(l){
+    return lessonTotal(l);
+  }
+
+  var myLess = myLessons();
+  // Отримано = проведені заняття
+  var paid = myLess.filter(function(l){
+    return isDoneLesson(l)||l.status==='makeup';
+  }).reduce(function(a,l){ return a+lessonAmt(l); }, 0);
+
+  // Очікується = заплановані заняття
+  var pend = myLess.filter(function(l){
+    return l.status==='planned'||l.status==='scheduled';
+  }).reduce(function(a,l){ return a+lessonAmt(l); }, 0);
+
+  // Різниця = Очікується − Отримано
+  var diff = pend - paid;
+
+  document.getElementById('py-paid').textContent = Math.round(paid).toLocaleString('uk-UA')+'\u20B4';
+  document.getElementById('py-pend').textContent = Math.round(pend).toLocaleString('uk-UA')+'\u20B4';
+  var overEl = document.getElementById('py-over');
+  if(overEl){
+    overEl.textContent = (diff>=0?'+':'')+Math.round(diff).toLocaleString('uk-UA')+'\u20B4';
+    overEl.style.color = diff<0 ? 'var(--danger)' : diff>0 ? 'var(--tut)' : '';
+  }
+  var mm={cash:'\u0413\u043E\u0442\u0456\u0432\u043A\u0430',card:'\u041A\u0430\u0440\u0442\u043A\u0430',transfer:'\u041F\u0435\u0440\u0435\u043A\u0430\u0437'};
+  var ce=can('payments');
+  var data=[].concat(S.payments).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  var html=data.length?data.map(function(p){
+    var btns=ce
+      ?('<button class="btn btn-g btn-sm" onclick="openPayM(this.dataset.id)" data-id="'+p.id+'">\u270F\uFE0F</button>'
+        +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delPay(this.dataset.id)" data-id="'+p.id+'">\uD83D\uDDD1</button>')
+      :'\u2014';
+    return '<tr>'
+      +'<td>'+sn(p.studentId)+'</td>'
+      +'<td style="font-family:JetBrains Mono,monospace">'+((p.amount||0).toLocaleString('uk-UA'))+'\u20B4</td>'
+      +'<td>'+(mm[p.method]||p.method)+'</td>'
+      +'<td style="font-size:11px">'+fd(p.date)+'</td>'
+      +'<td style="font-size:12px">'+(p.month||'\u2014')+'</td>'
+      +'<td style="font-size:12px;color:var(--t2)">'+(p.note||'\u2014')+'</td>'
+      +'<td>'+bst(p.status)+'</td>'
+      +'<td><div style="display:flex;gap:3px">'+btns+'</div></td>'
+      +'</tr>';
+  }).join(''):'<tr><td colspan="8"><div class="empty"><div class="ei">\uD83D\uDCB3</div>\u041F\u043B\u0430\u0442\u0435\u0436\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</div></td></tr>';
+  document.getElementById('pt-table').innerHTML=html;
+}
+function renderCustomPage(pageId){
+  var pel=document.getElementById('pg-'+pageId);
+  if(!pel){
+    pel=document.createElement('div');
+    pel.className='page';
+    pel.id='pg-'+pageId;
+    document.getElementById('content').appendChild(pel);
+  }
+  var cfg=(S.godConfig)||{};
+  var navItems=cfg.navItems||[].concat(NAV_CFG);
+  var pageInfo=navItems.find(function(n){return n.id===pageId;})||{lbl:'\u0412\u043B\u0430\u0441\u043D\u0430 \u0441\u0442\u043E\u0440\u0456\u043D\u043A\u0430',ico:'\u2B50'};
+  var notes=(cfg.customPageNotes||{})[pageId]||'';
+  var saveBtn=R()==='god'
+    ?('<button class="btn btn-p btn-sm" style="margin-top:8px" onclick="saveCustomPageNotes(this.dataset.pid)" data-pid="'+pageId+'">\uD83D\uDCBE \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u043D\u043E\u0442\u0430\u0442\u043A\u0438</button>')
+    :'';
+  pel.innerHTML=''
+    +'<div class="god-banner" style="margin-bottom:16px">'
+      +'<span class="god-banner-icon">'+pageInfo.ico+'</span>'
+      +'<div><div class="god-banner-title">'+pageInfo.lbl+'</div>'
+      +'<div class="god-banner-text">\u0412\u043B\u0430\u0441\u043D\u0430 \u0441\u0442\u043E\u0440\u0456\u043D\u043A\u0430, \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u0430 \u0447\u0435\u0440\u0435\u0437 \u041a\u043e\u043d\u0441\u0442\u0440\u0443\u043a\u0442\u043e\u0440 \u0456\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0443</div></div>'
+    +'</div>'
+    +'<div class="card">'
+      +'<div class="ch"><span class="ct">\u0412\u043c\u0456\u0441\u0442 \u0441\u0442\u043e\u0440\u0456\u043d\u043a\u0438 \u00ab'+pageInfo.lbl+'\u00bb</span></div>'
+      +'<div style="padding:24px">'
+        +'<div style="margin-bottom:14px">'
+          +'<label style="font-size:11px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.4px">\u041d\u043e\u0442\u0430\u0442\u043a\u0438 / \u043e\u043f\u0438\u0441 \u0441\u0442\u043e\u0440\u0456\u043d\u043a\u0438</label>'
+          +'<textarea id="custom-page-notes-'+pageId+'" style="width:100%;margin-top:6px;min-height:120px;font-size:13px" placeholder="\u0414\u043e\u0434\u0430\u0439\u0442\u0435 \u043e\u043f\u0438\u0441 \u0430\u0431\u043e \u043d\u043e\u0442\u0430\u0442\u043a\u0438...">'+notes+'</textarea>'
+          +saveBtn
+        +'</div>'
+        +'<div style="margin-top:20px;padding:16px;background:var(--s2);border-radius:10px;border:1px dashed var(--b2)">'
+          +'<div style="font-size:12px;color:var(--t3);text-align:center">'
+            +'<div style="font-size:24px;margin-bottom:8px">\uD83D\uDEA7</div>'
+            +'\u0426\u044f \u0441\u0442\u043e\u0440\u0456\u043d\u043a\u0430 \u043f\u043e\u0440\u043e\u0436\u043d\u044f.'
+          +'</div>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  pel.classList.add('active');
+}
+
+function saveCustomPageNotes(pageId){
+  var cfg=(S.godConfig)||{};
+  if(!cfg.customPageNotes) cfg.customPageNotes={};
+  var el=document.getElementById('custom-page-notes-'+pageId);
+  cfg.customPageNotes[pageId]=el?el.value:'';
+  gcSave('customPageNotes',cfg.customPageNotes);
+  mkToast('\u041d\u043e\u0442\u0430\u0442\u043a\u0438 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e');
+}
+
+function gcGetConfig(){if(!S.godConfig)S.godConfig={};return S.godConfig;}
+
+function gcSet(key,val){
+  if(!S.godConfig)S.godConfig={};
+  if(val===null||val===undefined)delete S.godConfig[key];
+  else S.godConfig[key]=val;
+  // Demo communications
+  if(!S.comms||!S.comms.length){
+    S.comms=[
+      {id:'cm1',tutorId:'t1',studentId:'s1',date:localDateStr(new Date()),type:'call',note:'\u041E\u0431\u0433\u043E\u0432\u043E\u0440\u0438\u043B\u0438 \u043F\u043B\u0430\u043D \u0437\u0430\u043D\u044F\u0442\u044C \u043D\u0430 \u043C\u0456\u0441\u044F\u0446\u044C',createdAt:new Date().toISOString()},
+      {id:'cm2',tutorId:'t2',studentId:'s4',date:localDateStr(new Date()),type:'msg',note:'\u041D\u0430\u0433\u0430\u0434\u0443\u0432\u0430\u043D\u043D\u044F \u043F\u0440\u043E \u0434\u043E\u043C\u0430\u0448\u043D\u0454 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F',createdAt:new Date().toISOString()},
+      {id:'cm3',tutorId:'t3',studentId:'s6',date:localDateStr(new Date()),type:'meeting',note:'\u0411\u0430\u0442\u044C\u043A\u0456\u0432\u0441\u044C\u043A\u0456 \u0437\u0431\u043E\u0440\u0438',createdAt:new Date().toISOString()},
+    ];
+  }
+  saveS();
+}
+
+function gcTab(id,el){
+  document.querySelectorAll('.gc-tab').forEach(function(t){t.classList.remove('active');});
+  document.querySelectorAll('.gc-panel').forEach(function(p){p.classList.remove('active');});
+  el.classList.add('active');
+  document.getElementById('gcp-'+id).classList.add('active');
+}
+
+function renderConstructor(){
+  if(R()!=='god'){mkToast('\u0422\u0456\u043B\u044C\u043A\u0438 \u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438','error');return;}
+  gcRenderRoles();
+  gcRenderNav();
+  gcRenderFields();
+  gcRenderLabels();
+}
+
+function gcRenderRoles(){
+  var cfg=gcGetConfig();
+  var sp=cfg.perms||{};
+  var rl=[
+    {role:'god',ico:'\u26A1',lbl:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438',clr:'var(--god2)',locked:true},
+    {role:'director',ico:'\uD83D\uDC51',lbl:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440',clr:'var(--dir)',locked:false},
+    {role:'admin',ico:'\uD83D\uDEE1',lbl:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440',clr:'var(--adm)',locked:false},
+    {role:'tutor',ico:'\uD83D\uDCDA',lbl:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440',clr:'var(--tut)',locked:false},
+  ];
+  var cont=document.getElementById('gc-role-editor');
+  cont.innerHTML='';
+  var grid=document.createElement('div');grid.className='role-editor';
+  rl.forEach(function(ri){
+    var rp=Object.assign({},DEFAULT_PERMS[ri.role],sp[ri.role]||{});
+    var card=document.createElement('div');card.className='role-card';
+    var hd=document.createElement('div');hd.className='role-card-head';
+    var s1=document.createElement('span');s1.textContent=ri.ico;
+    var s2=document.createElement('span');
+    s2.style.cssText='font-weight:700;font-size:13px;color:'+ri.clr;
+    s2.textContent=ri.lbl;
+    hd.appendChild(s1);hd.appendChild(s2);
+    if(ri.locked){var s3=document.createElement('span');s3.style.cssText='font-size:10px;color:var(--t3);margin-left:auto';s3.textContent='\u043D\u0435\u0437\u043C\u0456\u043D\u043D\u0430';hd.appendChild(s3);}
+    card.appendChild(hd);
+    var bd=document.createElement('div');bd.className='role-card-body';
+    Object.keys(PERM_LABELS).forEach(function(key){
+      var pr=document.createElement('div');pr.className='perm-row';
+      var pl=document.createElement('span');pl.className='perm-label';pl.textContent=PERM_LABELS[key];
+      var tl=document.createElement('label');tl.className='toggle';
+      var cb=document.createElement('input');cb.type='checkbox';cb.checked=!!rp[key];if(ri.locked)cb.disabled=true;
+      (function(role,k){cb.addEventListener('change',function(){gcLivePermChange(role,k,this.checked);});})(ri.role,key);
+      var sl=document.createElement('span');sl.className='toggle-slider';
+      tl.appendChild(cb);tl.appendChild(sl);
+      pr.appendChild(pl);pr.appendChild(tl);bd.appendChild(pr);
+    });
+    card.appendChild(bd);grid.appendChild(card);
+  });
+  cont.appendChild(grid);
+  var bar=document.createElement('div');bar.className='gc-save-bar';
+  bar.innerHTML='<span style="font-size:12px;color:var(--tut)">&#10003; \u0417\u043C\u0456\u043D\u0438 \u043C\u0438\u0442\u0442\u0454\u0432\u0456</span>'
+    +'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="gcResetRoles()">&#8635; \u0421\u043A\u0438\u043D\u0443\u0442\u0438</button>';
+  cont.appendChild(bar);
+}
+
+function gcLivePermChange(role,key,val){
+  // 1. Save to config
+  var cfg=gcGetConfig();
+  if(!cfg.perms)cfg.perms={};
+  if(!cfg.perms[role])cfg.perms[role]={};
+  cfg.perms[role][key]=val;
+  gcSet('perms',cfg.perms);
+  // 2. Apply live to ROLES object
+  if(ROLES[role]){
+    ROLES[role].can[key]=val;
+    if(key==='seeIncome')ROLES[role].seeIncome=val;
+    if(key==='seeAll')ROLES[role].seeAll=val;
+  }
+  // 3. Refresh current view if needed
+  var pg=S.currentPage;
+  if(pg==='dashboard')renderDash();
+  mkToast(role+': '+PERM_LABELS[key]+' \u2192 '+(val?'\u2705':'\u274C'));
+}
+
+function gcResetRoles(){
+  if(!confirm('\u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u0432\u0441\u0456 \u043F\u0440\u0430\u0432\u0430 \u0434\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u0438\u0445?'))return;
+  gcSet('perms',null);
+  // Restore ROLES
+  ['director','admin','tutor'].forEach(function(role){
+    ROLES[role].can=Object.assign({},DEFAULT_PERMS[role]);
+    ROLES[role].seeIncome=DEFAULT_PERMS[role].seeIncome;
+    ROLES[role].seeAll=DEFAULT_PERMS[role].seeAll;
+  });
+  gcRenderRoles();
+  mkToast('\u041F\u0440\u0430\u0432\u0430 \u0441\u043A\u0438\u043D\u0443\u0442\u043E \u0434\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u0438\u0445');
+}
+
+function gcGetNavItems(){
+  var cfg=gcGetConfig();
+  if(cfg.navItems&&cfg.navItems.length)return cfg.navItems;
+  return DEFAULT_NAV_CFG.map(function(n){return Object.assign({},n);});
+}
+
+function gcRenderNav(){
+  var ni=gcGetNavItems();
+  var rk=['god','director','admin','tutor'];
+  var rico={god:'\u26A1',director:'\uD83D\uDC51',admin:'\uD83D\uDEE1',tutor:'\uD83D\uDCDA'};
+  var el=document.getElementById('gc-nav-editor');
+  var wrap=document.createElement('div');wrap.className='nav-editor';
+  ni.forEach(function(n,i){
+    var rArr=n.roles||rk;
+    var row=document.createElement('div');row.className='nav-edit-row';row.draggable=true;
+    (function(idx){
+      row.addEventListener('dragstart',function(e){gcDragStart(e,idx);});
+      row.addEventListener('dragover',function(e){gcDragOver(e,idx);});
+      row.addEventListener('drop',function(e){gcDrop(e,idx);});
+      row.addEventListener('dragleave',function(){gcDragLeave();});
+    })(i);
+    var dh=document.createElement('span');dh.className='drag-handle';dh.innerHTML='&#8283;';row.appendChild(dh);
+    var icoI=document.createElement('input');icoI.type='text';icoI.value=n.ico||'';
+    icoI.style.cssText='width:44px;font-size:16px;text-align:center;background:var(--s1);border:1px solid var(--b1);border-radius:6px;color:var(--t1);padding:4px 6px';
+    (function(idx){icoI.addEventListener('input',function(){gcLiveNavChange(idx,'ico',this.value);});})(i);
+    row.appendChild(icoI);
+    var lblI=document.createElement('input');lblI.type='text';lblI.value=n.lbl||'';
+    lblI.style.cssText='flex:1;background:var(--s1);border:1px solid var(--b1);border-radius:6px;color:var(--t1);padding:5px 8px;font-size:13px';
+    (function(idx){lblI.addEventListener('input',function(){gcLiveNavChange(idx,'lbl',this.value);});})(i);
+    row.appendChild(lblI);
+    var secI=document.createElement('input');secI.type='text';secI.value=n.sec||'';
+    secI.style.cssText='width:95px;background:var(--s1);border:1px solid var(--b1);border-radius:6px;color:var(--t2);padding:5px 8px;font-size:11px';
+    (function(idx){secI.addEventListener('input',function(){gcLiveNavChange(idx,'sec',this.value);});})(i);
+    row.appendChild(secI);
+    var cbWrap=document.createElement('div');cbWrap.className='nav-vis-checkboxes';
+    rk.forEach(function(r){
+      var lbl=document.createElement('label');lbl.className='nav-vis-cb';lbl.title=r;
+      var cb=document.createElement('input');cb.type='checkbox';cb.checked=rArr.includes(r);
+      (function(idx,role){cb.addEventListener('change',function(){gcLiveNavRole(idx,role,this.checked);});})(i,r);
+      var ico=document.createElement('span');ico.textContent=rico[r]||r;
+      lbl.appendChild(cb);lbl.appendChild(ico);cbWrap.appendChild(lbl);
+    });
+    row.appendChild(cbWrap);
+    if(n.custom){
+      var del=document.createElement('button');del.className='btn btn-sm';
+      del.style.cssText='background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger);padding:4px 8px';
+      del.innerHTML='&times;';
+      (function(idx){del.addEventListener('click',function(){gcDelNavItem(idx);});})(i);
+      row.appendChild(del);
+    }
+    wrap.appendChild(row);
+  });
+  el.innerHTML='';el.appendChild(wrap);
+  var bar=document.createElement('div');bar.className='gc-save-bar';
+  bar.innerHTML='<span style="font-size:12px;color:var(--tut)">&#10003; \u0417\u043C\u0456\u043D\u0438 \u043C\u0438\u0442\u0442\u0454\u0432\u0456</span>'
+    +'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="gcResetNav()">&#8635; \u0421\u043A\u0438\u043D\u0443\u0442\u0438</button>';
+  el.appendChild(bar);
+}
+
+function gcEsc(str){return (str||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+function gcLiveNavChange(idx,key,val){
+  var items=gcGetNavItems();
+  items[idx][key]=val;
+  gcSet('navItems',items);
+  buildSidebar();
+  // Highlight current active
+  var nel=document.getElementById('ni-'+S.currentPage);
+  if(nel)nel.classList.add('active');
+}
+
+function gcLiveNavRole(idx,role,checked){
+  var items=gcGetNavItems();
+  if(!items[idx].roles)items[idx].roles=['god','director','admin','tutor'];
+  if(checked){if(!items[idx].roles.includes(role))items[idx].roles.push(role);}
+  else items[idx].roles=items[idx].roles.filter(function(r){return r!==role;});
+  gcSet('navItems',items);
+  buildSidebar();
+  var nel=document.getElementById('ni-'+S.currentPage);
+  if(nel)nel.classList.add('active');
+}
+
+function gcDelNavItem(idx){
+  var items=gcGetNavItems();
+  if(!items[idx].custom){mkToast('\u0421\u0438\u0441\u0442\u0435\u043C\u043D\u0456 \u0432\u043A\u043B\u0430\u0434\u043A\u0438 \u043D\u0435 \u043C\u043E\u0436\u043D\u0430 \u0432\u0438\u0434\u0430\u043B\u044F\u0442\u0438','error');return;}
+  items.splice(idx,1);
+  gcSet('navItems',items);
+  gcRenderNav();
+  buildSidebar();
+}
+
+function gcAddNavItem(){
+  var ico=document.getElementById('gc-new-ico').value.trim()||'\u2B50';
+  var lbl=document.getElementById('gc-new-lbl').value.trim();
+  if(!lbl){mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443 \u0432\u043A\u043B\u0430\u0434\u043A\u0438','error');return;}
+  var sec=document.getElementById('gc-new-sec').value.trim()||'\u0406\u043D\u0448\u0435';
+  var items=gcGetNavItems();
+  items.push({id:'custom_'+uid(),ico:ico,lbl:lbl,sec:sec,badge:false,roles:['god','director','admin','tutor'],custom:true});
+  gcSet('navItems',items);
+  document.getElementById('gc-new-ico').value='';
+  document.getElementById('gc-new-lbl').value='';
+  document.getElementById('gc-new-sec').value='';
+  gcRenderNav();
+  buildSidebar();
+  mkToast('\u0412\u043A\u043B\u0430\u0434\u043A\u0443 "'+lbl+'" \u0434\u043E\u0434\u0430\u043D\u043E');
+}
+
+function gcResetNav(){
+  if(!confirm('\u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u043D\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u044E \u0434\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E\u0457?'))return;
+  gcSet('navItems',null);
+  gcRenderNav();
+  buildSidebar();
+  var nel=document.getElementById('ni-'+S.currentPage);
+  if(nel)nel.classList.add('active');
+  mkToast('\u041D\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u044E \u0441\u043A\u0438\u043D\u0443\u0442\u043E');
+}
+
+function gcDragStart(e,idx){_gcDragSrc=idx;e.dataTransfer.effectAllowed='move';}
+
+function gcDragOver(e,idx){
+  e.preventDefault();e.dataTransfer.dropEffect='move';
+  document.querySelectorAll('.nav-edit-row').forEach(function(r,i){
+    r.classList.toggle('drag-over',i===idx&&i!==_gcDragSrc);
+  });
+}
+
+function gcDragLeave(){document.querySelectorAll('.nav-edit-row').forEach(function(r){r.classList.remove('drag-over');});}
+
+function gcDrop(e,targetIdx){
+  e.preventDefault();gcDragLeave();
+  if(_gcDragSrc===null||_gcDragSrc===targetIdx){_gcDragSrc=null;return;}
+  var items=gcGetNavItems();
+  var moved=items.splice(_gcDragSrc,1)[0];
+  items.splice(targetIdx,0,moved);
+  _gcDragSrc=null;
+  gcSet('navItems',items);
+  gcRenderNav();
+  buildSidebar();
+  var nel=document.getElementById('ni-'+S.currentPage);
+  if(nel)nel.classList.add('active');
+}
+
+function gcGetFields(){
+  var cfg=gcGetConfig();
+  return (cfg.customFields||[]).slice();
+}
+
+function gcRenderFields(){
+  var fields=gcGetFields();
+  var targets={student:'\u0423\u0447\u0435\u043D\u044C',lesson:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F',tutor:'\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447',payment:'\u041F\u043B\u0430\u0442\u0456\u0436'};
+  var el=document.getElementById('gc-field-editor');
+  if(!fields.length){
+    el.innerHTML='<div class="empty" style="padding:24px"><div class="ei">\uD83D\uDDC2</div>\u0414\u043E\u0434\u0430\u0442\u043A\u043E\u0432\u0438\u0445 \u043F\u043E\u043B\u0456\u0432 \u043D\u0435\u043C\u0430\u0454.<br><span style="font-size:12px">\u0421\u043A\u043E\u0440\u0438\u0441\u0442\u0430\u0439\u0442\u0435\u0441\u044F \u0444\u043E\u0440\u043C\u043E\u044E \u043D\u0438\u0436\u0447\u0435, \u0449\u043E\u0431 \u0434\u043E\u0434\u0430\u0442\u0438 \u043F\u0435\u0440\u0448\u0435 \u043F\u043E\u043B\u0435.</span></div>';
+    return;
+  }
+  var rows='';
+  fields.forEach(function(f,i){
+    var tSel='';
+    Object.keys(targets).forEach(function(k){
+      tSel+='<option value="'+k+'"'+(f.target===k?' selected':'')+'>'+targets[k]+'</option>';
+    });
+    var extraInput='';
+    if(f.type==='select'){
+      extraInput='<input type="text" value="'+gcEsc((f.options||[]).join('; '))+'" placeholder="\u0412\u0430\u0440\u0456\u0430\u043D\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 ; "'+
+        ' style="flex:1;min-width:100px;font-size:11px;background:var(--s1);border:1px solid var(--b1);border-radius:6px;color:var(--t1);padding:4px 8px"'+
+        ' oninput="gcLiveFieldOpts('+i+',this.value)">';
+    } else {
+      extraInput='<span style="flex:1"></span>';
+    }
+    rows+='<div class="field-row">'
+      +'<span style="color:var(--t3);font-size:14px;cursor:grab;padding:0 2px">&#8283;</span>'
+      +'<span class="field-type-badge">'+FIELD_TYPE_ICONS[f.type]+' '+FIELD_TYPE_LABELS[f.type]+'</span>'
+      +'<input type="text" value="'+gcEsc(f.label||'')+'" placeholder="\u041D\u0430\u0437\u0432\u0430 \u043F\u043E\u043B\u044F"'
+      +' style="flex:1;background:var(--s1);border:1px solid var(--b1);border-radius:6px;color:var(--t1);padding:5px 8px;font-size:13px;font-family:Karla,sans-serif"'
+      +' oninput="gcLiveFieldLabel('+i+',this.value)">'
+      +'<select style="width:95px;background:var(--s1);border:1px solid var(--b1);border-radius:6px;color:var(--t2);padding:4px 6px;font-size:11px" onchange="gcLiveFieldTarget('+i+',this.value)">'+tSel+'</select>'
+      +extraInput
+      +'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);white-space:nowrap;cursor:pointer">'
+      +'<input type="checkbox" '+(f.required?'checked':'')+' style="accent-color:var(--god2);cursor:pointer" onchange="gcLiveFieldReq('+i+',this.checked)"> *\u043E\u0431\u043E\u0432</label>'
+      +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="gcDelField('+i+')">&times;</button>'
+      +'</div>';
+  });
+  el.innerHTML='<div class="field-editor">'+rows+'</div>'
+    +'<div class="gc-save-bar">'
+    +'<span style="font-size:12px;color:var(--tut)">&#10003; \u041F\u043E\u043B\u044F \u0432\u0456\u0434\u043E\u0431\u0440\u0430\u0436\u0430\u044E\u0442\u044C\u0441\u044F \u0443 \u0444\u043E\u0440\u043C\u0430\u0445 \u043F\u0440\u0438 \u0434\u043E\u0434\u0430\u0432\u0430\u043D\u043D\u0456 \u0437\u0430\u043F\u0438\u0441\u0456\u0432</span>'
+    +'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="gcClearFields()">&#128465; \u041E\u0447\u0438\u0441\u0442\u0438\u0442\u0438 \u0432\u0441\u0456</button>'
+    +'</div>';
+}
+
+function gcLiveFieldLabel(idx,val){var f=gcGetFields();f[idx].label=val;gcSet('customFields',f);}
+
+function gcLiveFieldTarget(idx,val){var f=gcGetFields();f[idx].target=val;gcSet('customFields',f);}
+
+function gcLiveFieldReq(idx,val){var f=gcGetFields();f[idx].required=val;gcSet('customFields',f);}
+
+function gcLiveFieldOpts(idx,val){
+  var f=gcGetFields();
+  f[idx].options=val.split(';').map(function(x){return x.trim();}).filter(Boolean);
+  gcSet('customFields',f);
+}
+
+function gcDelField(idx){
+  var f=gcGetFields();f.splice(idx,1);gcSet('customFields',f);gcRenderFields();
+  mkToast('\u041F\u043E\u043B\u0435 \u0432\u0438\u0434\u0430\u043B\u0435\u043D\u043E');
+}
+
+function gcClearFields(){
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0432\u0441\u0456 \u0434\u043E\u0434\u0430\u0442\u043A\u043E\u0432\u0456 \u043F\u043E\u043B\u044F?'))return;
+  gcSet('customFields',[]);gcRenderFields();mkToast('\u041F\u043E\u043B\u044F \u043E\u0447\u0438\u0449\u0435\u043D\u043E');
+}
+
+function gcAddField(){
+  var type=document.getElementById('gc-field-type').value;
+  var label=document.getElementById('gc-field-lbl').value.trim();
+  var target=document.getElementById('gc-field-target').value;
+  var optsRaw=document.getElementById('gc-field-opts').value;
+  if(type!=='divider'&&type!=='label'&&!label){mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443 \u043F\u043E\u043B\u044F','error');return;}
+  var f=gcGetFields();
+  var obj={id:'cf_'+uid(),type:type,label:label||(type==='divider'?'---':'\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A'),target:target,required:false};
+  if(type==='select'&&optsRaw)obj.options=optsRaw.split(';').map(function(x){return x.trim();}).filter(Boolean);
+  f.push(obj);
+  gcSet('customFields',f);
+  document.getElementById('gc-field-lbl').value='';
+  document.getElementById('gc-field-opts').value='';
+  gcRenderFields();
+  mkToast('"'+obj.label+'" \u0434\u043E\u0434\u0430\u043D\u043E \u0434\u043E \u0444\u043E\u0440\u043C\u0438 "'+target+'"');
+}
+
+function gcGetLabels(){
+  var cfg=gcGetConfig();
+  var out={};
+  Object.keys(DEFAULT_LABELS_MAP).forEach(function(k){out[k]=DEFAULT_LABELS_MAP[k].def;});
+  Object.assign(out,cfg.labels||{});
+  return out;
+}
+
+function gcRenderLabels(){
+  var labels=gcGetLabels();
+  var el=document.getElementById('gc-labels-editor');
+  var wrapper=document.createElement('div');
+  wrapper.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:12px';
+  Object.keys(DEFAULT_LABELS_MAP).forEach(function(key){
+    var def=DEFAULT_LABELS_MAP[key];
+    var div=document.createElement('div');
+    div.className='fgr';
+    var lbl=document.createElement('label');
+    lbl.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:4px';
+    var lblText=document.createElement('span');
+    lblText.textContent=def.label;
+    var resetBtn=document.createElement('button');
+    resetBtn.type='button';
+    resetBtn.innerHTML='&#8635;';
+    resetBtn.title='\u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u0434\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u043E\u0433\u043E';
+    resetBtn.style.cssText='background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;padding:0 2px';
+    resetBtn.addEventListener('click',function(){gcResetLabel(key);});
+    lbl.appendChild(lblText);
+    lbl.appendChild(resetBtn);
+    var inp=document.createElement('input');
+    inp.type='text';
+    inp.value=labels[key]||'';
+    inp.placeholder=def.def;
+    inp.style.cssText='width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);padding:9px 12px;font-size:13px;outline:none;transition:border .15s';
+    inp.addEventListener('focus',function(){this.style.borderColor='var(--god2)';});
+    inp.addEventListener('blur',function(){this.style.borderColor='var(--b1)';});
+    inp.addEventListener('input',function(){gcLiveLabelChange(key,this.value);});
+    div.appendChild(lbl);
+    div.appendChild(inp);
+    wrapper.appendChild(div);
+  });
+  var saveBar=document.createElement('div');
+  saveBar.className='gc-save-bar';
+  saveBar.innerHTML='<span style="font-size:12px;color:var(--tut)">&#10003; \u0422\u0435\u043A\u0441\u0442\u0438 \u043E\u043D\u043E\u0432\u043B\u044E\u044E\u0442\u044C\u0441\u044F \u0432 \u0456\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0456 \u043C\u0438\u0442\u0442\u0454\u0432\u043E</span>'
+    +'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="gcResetAllLabels()">&#8635; \u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u0432\u0441\u0456</button>';
+  el.innerHTML='';
+  el.appendChild(wrapper);
+  el.appendChild(saveBar);
+}
+
+function gcLiveLabelChange(key,val){
+  var cfg=gcGetConfig();
+  if(!cfg.labels)cfg.labels={};
+  if(val===DEFAULT_LABELS_MAP[key].def||val===''){delete cfg.labels[key];} else {cfg.labels[key]=val;}
+  gcSet('labels',cfg.labels&&Object.keys(cfg.labels).length?cfg.labels:null);
+  // Apply live
+  gcApplyLabel(key,val||DEFAULT_LABELS_MAP[key].def);
+}
+
+function gcApplyLabel(key,val){
+  var ptitle=document.getElementById('ptitle');
+  if(key==='studentsTitle'){PLABELS.students=val;if(S.currentPage==='students'&&ptitle)ptitle.textContent=val;}
+  if(key==='tutorsTitle'){PLABELS.tutors=val;if(S.currentPage==='tutors'&&ptitle)ptitle.textContent=val;}
+  if(key==='lessonsTitle'){PLABELS.lessons=val;if(S.currentPage==='lessons'&&ptitle)ptitle.textContent=val;}
+  if(key==='paymentsTitle'){PLABELS.payments=val;if(S.currentPage==='payments'&&ptitle)ptitle.textContent=val;}
+  if(key==='scheduleTitle'){PLABELS.schedule=val;if(S.currentPage==='schedule'&&ptitle)ptitle.textContent=val;}
+  if(key==='reportsTitle'){PLABELS.reports=val;if(S.currentPage==='reports'&&ptitle)ptitle.textContent=val;}
+  if(key==='appName'){var sblt=document.querySelector('.sblt');if(sblt)sblt.textContent=val;}
+  if(key==='loginTitle'){var elt=document.querySelector('.lh');if(elt)elt.textContent=val;}
+  if(key==='loginSub'){var els=document.querySelector('.lsub');if(els)els.textContent=val;}
+  var ab=document.getElementById('addbtn');
+  if(ab&&key==='addStudent'&&S.currentPage==='students')ab.textContent='+ '+val;
+  if(ab&&key==='addLesson'&&(S.currentPage==='lessons'||S.currentPage==='schedule'))ab.textContent='+ '+val;
+  if(ab&&key==='addPayment'&&S.currentPage==='payments')ab.textContent='+ '+val;
+  if(ab&&key==='addTutor'&&S.currentPage==='tutors')ab.textContent='+ '+val;
+  buildSidebar();
+  var nel=document.getElementById('ni-'+S.currentPage);if(nel)nel.classList.add('active');
+}
+
+function gcResetLabel(key){
+  var cfg=gcGetConfig();
+  if(cfg.labels){delete cfg.labels[key];gcSet('labels',Object.keys(cfg.labels).length?cfg.labels:null);}
+  gcRenderLabels();
+  gcApplyLabel(key,DEFAULT_LABELS_MAP[key].def);
+}
+
+function gcResetAllLabels(){
+  if(!confirm('\u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u0432\u0441\u0456 \u0442\u0435\u043A\u0441\u0442\u0438 \u0434\u043E \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u0438\u0445?'))return;
+  gcSet('labels',null);
+  var labels={};
+  Object.keys(DEFAULT_LABELS_MAP).forEach(function(k){labels[k]=DEFAULT_LABELS_MAP[k].def;});
+  Object.keys(labels).forEach(function(k){gcApplyLabel(k,labels[k]);});
+  gcRenderLabels();
+  mkToast('\u0412\u0441\u0456 \u0442\u0435\u043A\u0441\u0442\u0438 \u0441\u043A\u0438\u043D\u0443\u0442\u043E');
+}
+
+function applyGodConfig(){
+  var cfg=gcGetConfig();
+  // Apply permissions
+  if(cfg.perms){
+    ['director','admin','tutor'].forEach(function(role){
+      if(cfg.perms[role]){
+        Object.assign(ROLES[role].can,cfg.perms[role]);
+        if('seeIncome' in cfg.perms[role])ROLES[role].seeIncome=cfg.perms[role].seeIncome;
+        if('seeAll' in cfg.perms[role])ROLES[role].seeAll=cfg.perms[role].seeAll;
+      }
+    });
+  }
+  // Apply labels
+  if(cfg.labels){
+    Object.keys(cfg.labels).forEach(function(k){
+      gcApplyLabel(k,cfg.labels[k]);
+    });
+  }
+}
+
+function renderCustomFields(target,containerId){
+  var cfg=gcGetConfig();
+  var fields=(cfg.customFields||[]).filter(function(f){return f.target===target;});
+  if(!fields.length)return;
+  var el=document.getElementById(containerId);
+  if(!el)return;
+  var html='<div class="fgr full" style="border-top:1px solid var(--b1);padding-top:12px;margin-top:6px">'
+    +'<label style="color:var(--adm);letter-spacing:.5px">&#9889; \u0414\u043E\u0434\u0430\u0442\u043A\u043E\u0432\u0456 \u043F\u043E\u043B\u044F</label></div>';
+  fields.forEach(function(f){
+    if(f.type==='divider'){
+      html+='<div style="grid-column:1/-1;border-top:1px solid var(--b1);margin:4px 0;font-size:11px;color:var(--t3);padding-top:4px">'+(f.label!=='---'?f.label:'')+'</div>';
+    } else if(f.type==='label'){
+      html+='<div class="fgr full"><div style="font-size:12px;font-weight:700;color:var(--adm);letter-spacing:.5px;text-transform:uppercase;margin-top:6px">'+f.label+'</div></div>';
+    } else if(f.type==='checkbox'){
+      html+='<div class="fgr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="cf_'+f.id+'" style="accent-color:var(--adm);width:14px;height:14px"> <span>'+f.label+(f.required?' *':'')+'</span></label></div>';
+    } else if(f.type==='select'){
+      var opts='<option value="">\u041E\u0431\u0435\u0440\u0456\u0442\u044C...</option>';
+      (f.options||[]).forEach(function(o){opts+='<option>'+o+'</option>';});
+      html+='<div class="fgr"><label>'+f.label+(f.required?' *':'')+'</label><select id="cf_'+f.id+'">'+opts+'</select></div>';
+    } else if(f.type==='textarea'){
+      html+='<div class="fgr full"><label>'+f.label+(f.required?' *':'')+'</label><textarea id="cf_'+f.id+'" placeholder="'+f.label+'..."></textarea></div>';
+    } else {
+      var itype=f.type==='number'?'number':(f.type==='date'?'date':'text');
+      html+='<div class="fgr"><label>'+f.label+(f.required?' *':'')+'</label><input id="cf_'+f.id+'" type="'+itype+'" placeholder="'+f.label+(f.required?' *':'')+'"></div>';
+    }
+  });
+  el.insertAdjacentHTML('beforeend',html);
+}
+
+function gcSaveRoles(){mkToast('\u041F\u0440\u0430\u0432\u0430 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E \u2705');}
+
+function gcSaveNav(){buildSidebar();mkToast('\u041D\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u044E \u043E\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u2705');}
+
+function gcSaveFields(){mkToast('\u041F\u043E\u043B\u044F \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E \u2705');}
+
+function gcResetLabels(){gcResetAllLabels();}
+
+function gcSaveLabels(){mkToast('\u0422\u0435\u043A\u0441\u0442\u0438 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E \u2705');}
+
+function gSearch(q){
+  if(S.currentPage!=='students') nav('students');
+  else renderStudents();
+}
+
+// = Supabase integration =
+// =
+// SUPABASE CONFIG -    
+// app.supabase.com  Project Settings  API
+// =
+var SUPABASE_URL  = 'https://rndxbvwisppxnhvrzwqi.supabase.co';
+var SUPABASE_ANON = 'sb_publishable_21KKA9MELBdwMRj4XG0riw_NuLYzpAw';
+
+// =
+// APP STATE
+// =
+var _sb = null;
+var CU  = null;   // current user profile from DB
+var S   = {
+  students:[], tutors:[], lessons:[], payments:[],
+  users:[], subjects:[], comms:[], branches:[], pricingRules:[],
+  settings:{}, currentBranchId:null,
+  weekOffset:0, dayOffset:0, dashWeekOffset:0,
+  currentPage:'dashboard', editId:null, schView:'week',
+  sfCur:'all', godConfig:null
+};
+var sfCur = 'all';
+var _channels = [];
+var _syncTimer = null;
+
+// =
+// INIT
+// =
+
+// =
+// ANALYTICS DASHBOARD
+// =
+function renderAnalytics(){
+  var pg=document.getElementById('pg-reports');
+  if(!pg)return;
+
+  // Populate tutor filter
+  var tutSel=document.getElementById('an-tutor');
+  if(tutSel){
+    var curTut=tutSel.value;
+    tutSel.innerHTML='<option value="">\u0412\u0441\u0456 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438</option>'
+      +(S.tutors||[]).map(function(t){return '<option value="'+t.id+'"'+(t.id===curTut?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';}).join('');
+    if(curTut) tutSel.value=curTut;
+  }
+
+  // Date range
+  var range=(document.getElementById('rc-range')||{value:'month'}).value;
+  var now=new Date(), fromDate=new Date(now);
+  if(range==='week'){
+    var day=now.getDay()||7; fromDate=new Date(now); fromDate.setDate(now.getDate()-day+1); fromDate.setHours(0,0,0,0);
+  } else if(range==='2week'){
+    fromDate.setDate(now.getDate()-14);
+  } else if(range==='4week'){
+    fromDate.setDate(now.getDate()-28);
+  } else if(range==='month'){
+    fromDate=new Date(now.getFullYear(),now.getMonth(),1);
+  } else if(range==='3month'){
+    fromDate=new Date(now.getFullYear(),now.getMonth()-3,1);
+  } else if(range==='6month'){
+    fromDate=new Date(now.getFullYear(),now.getMonth()-6,1);
+  } else if(range==='year'){
+    fromDate=new Date(now.getFullYear(),0,1);
+  } else {
+    fromDate=new Date(0);
+  }
+  var fromStr=localDateStr(fromDate);
+  // Кінець періоду — кінець ОБРАНОГО проміжку, а не «сьогодні».
+  // Інакше заплановані заняття далі по місяцю не потрапляли в розрахунок.
+  var toDateA;
+  if(range==='month'||range==='3month'||range==='6month')
+    toDateA=new Date(now.getFullYear(),now.getMonth()+1,0);
+  else if(range==='year') toDateA=new Date(now.getFullYear(),11,31);
+  else if(range==='all')  toDateA=new Date(now.getFullYear()+5,11,31);
+  else toDateA=now;
+  var toStr=localDateStr(toDateA);
+
+  // Range label
+  var lbl=document.getElementById('an-range-lbl');
+  if(lbl && range!=='all'){
+    lbl.textContent=fromDate.toLocaleDateString('uk-UA',{day:'numeric',month:'short'})
+      +' \u2014 '+now.toLocaleDateString('uk-UA',{day:'numeric',month:'short',year:'numeric'});
+  } else if(lbl){ lbl.textContent=''; }
+
+  var selTutor=(tutSel||{value:''}).value;
+  var allLessons=(S.lessons||[]).filter(function(l){return l.date>=fromStr&&l.date<=toStr;});
+  var lessons=selTutor?allLessons.filter(function(l){return (l.tutorId||l.tutor_id)===selTutor;}):allLessons;
+  // Фільтр філії має діяти й тут — інакше при обраній філії цифри
+  // рахувались по всій мережі
+  allLessons=filterByBranch(allLessons); lessons=filterByBranch(lessons);
+  var students=selTutor
+    ?(S.students||[]).filter(function(s){return (s.tutorId||s.tutor_id)===selTutor||((s.tutorIds||[]).indexOf(selTutor)>=0);})
+    :(S.students||[]);
+
+  function h(arr){return Math.round(arr.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;}
+
+  var done    =lessons.filter(function(l){return isDoneLesson(l)||l.status==='makeup';});
+  var missed  =uncoveredMissedFilter(lessons.filter(function(l){return l.status!=='cancelled';}));
+  var planned =lessons.filter(function(l){return l.status==='planned'||l.status==='scheduled';});
+  var cancelled=lessons.filter(function(l){return l.status==='cancelled';});
+
+  var doneH   =h(done), missedH=h(missed), plannedH=h(planned);
+  var totalH  =Math.round((doneH+missedH+plannedH+h(cancelled))*10)/10;
+  var income  =done.reduce(function(s,l){return s+lessonTotal(l);},0);
+  var activeStudents=filterByBranch(students).filter(function(s){return s.status==='active'||s.status==='trial';}).length;
+  var pct     =totalH>0?Math.round(doneH/totalH*100):0;
+
+  // Subjects breakdown (від done)
+  // Об'єднуємо предмети, що відрізняються лише регістром чи пробілами
+  var subjMap={}, subjLabel={};
+  done.forEach(function(l){
+    var raw=String(l.subject||'\u0406\u043d\u0448\u0435').trim();
+    var key=raw.toLowerCase().replace(/\s+/g,' ');
+    if(!subjLabel[key]) subjLabel[key]=raw;
+    subjMap[key]=(subjMap[key]||0)+(parseFloat(l.dur)||60)/60;
+  });
+  var subjArr=Object.keys(subjMap).map(function(k){
+    return{name:subjLabel[k]||k, key:k, v:Math.round(subjMap[k]*10)/10};
+  }).sort(function(a,b){return b.v-a.v;});
+
+  // Tutors breakdown — всі репетитори, навіть без занять у період
+  var tutorArr=[];
+  if(!selTutor){
+    var tutMap={};
+    done.forEach(function(l){var tid=l.tutorId||l.tutor_id; if(tid) tutMap[tid]=(tutMap[tid]||0)+(parseFloat(l.dur)||60)/60;});
+    // Include ALL tutors, even with 0 hours
+    tutorArr=filterByBranch(S.tutors||[]).map(function(t){
+      return{name:t.fn+' '+t.ln, v:Math.round((tutMap[t.id]||0)*10)/10, id:t.id};
+    }).sort(function(a,b){return b.v-a.v;});
+  }
+
+  var COLORS=['#6366f1','#22c55e','#f59e0b','#ef4444','#14b8a6','#ec4899','#8b5cf6','#f97316','#06b6d4','#84cc16'];
+
+  // Зберігаємо контекст, щоб деталізація знала, які саме заняття показувати
+  window._anCtx={fromStr:fromStr,toStr:toStr,selTutor:selTutor};
+
+  function pieChart(canvasId,data,total){
+    var c=document.getElementById(canvasId);
+    if(!c||!c.getContext)return;
+    var ctx=c.getContext('2d');
+    var cx=c.width/2,cy=c.height/2,r=Math.min(cx,cy)-8;
+    ctx.clearRect(0,0,c.width,c.height);
+    if(!total){ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.fillStyle='#e5e7eb';ctx.fill();
+      ctx.fillStyle='var(--t3)';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('0г',cx,cy);return;}
+    var start=-Math.PI/2;
+    data.forEach(function(d,i){
+      if(!d.v)return;
+      var angle=(d.v/total)*2*Math.PI;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,start+angle);
+      ctx.fillStyle=COLORS[i%COLORS.length];ctx.fill();start+=angle;
+    });
+    ctx.beginPath();ctx.arc(cx,cy,r*0.55,0,2*Math.PI);ctx.fillStyle='var(--s1)';ctx.fill();
+    ctx.fillStyle='var(--t1)';ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(total+'\u0433',cx,cy);
+  }
+
+  /**
+   * Легенда діаграми. Кожен рядок клікабельний — відкриває перелік
+   * занять, з яких складається саме цей сегмент.
+   */
+  function legend(data,total,kind){
+    return data.map(function(d,i){
+      var pct2=total?Math.round(d.v/total*100):0;
+      var arg=JSON.stringify(String(d.key||d.id||d.name)).replace(/"/g,'&quot;');
+      return '<div class="an-lg-row" onclick="anDrill(&quot;'+kind+'&quot;,'+arg+')" '
+        +'title="\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f" '
+        +'style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:12px;cursor:pointer;padding:3px 5px;border-radius:6px;transition:.12s">'
+        +'<span style="width:10px;height:10px;border-radius:50%;background:'+COLORS[i%COLORS.length]+';flex-shrink:0;display:inline-block"></span>'
+        +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.name+'</span>'
+        +'<span style="color:var(--t2);font-size:11px;white-space:nowrap">'+d.v+'\u0433 ('+pct2+'%)</span>'
+        +'</div>';
+    }).join('');
+  }
+
+  function kpiBox(ico,lbl,val,color){
+    return '<div style="flex:1;min-width:120px;background:var(--s2);border-radius:12px;padding:12px 14px;border-left:3px solid '+color+'">'
+      +'<div style="font-size:18px;font-weight:700;color:'+color+'">'+val+'</div>'
+      +'<div style="font-size:11px;color:var(--t2);margin-top:2px">'+ico+' '+lbl+'</div>'
+      +'</div>';
+  }
+
+  var statusData=[
+    {name:'\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e',v:doneH,key:'done'},
+    {name:'\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e',v:missedH,key:'missed'},
+    {name:'\u0417\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u043e',v:plannedH,key:'planned'},
+    {name:'\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e',v:h(cancelled),key:'cancelled'}
+  ].filter(function(d){return d.v>0;});
+
+  var tutDoneH=h(done); // для центру діаграми репетиторів
+
+  document.getElementById('an-content').innerHTML=
+    // KPI
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+    +kpiBox('\u2705','\u0413\u043e\u0434\u0438\u043d \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e',doneH,'#22c55e')
+    +kpiBox('\u274c','\u0413\u043e\u0434\u0438\u043d \u043f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e',missedH,'#ef4444')
+    +kpiBox('\uD83D\uDCC5','\u0417\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u043e',plannedH,'#6366f1')
+    +(P().seeIncome?kpiBox('\uD83D\uDCB0','\u0414\u043e\u0445\u0456\u0434',income+'\u20b4','#14b8a6'):'')
+    +kpiBox('\uD83D\uDC65','\u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0445 \u0443\u0447\u043d\u0456\u0432',activeStudents,'#f59e0b')
+    +kpiBox('\uD83D\uDCC8','\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f',pct+'%','#8b5cf6')
+    +'</div>'
+    // Charts
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">'
+    // Status
+    +'<div class="card"><div class="ch"><span class="ct">\u0421\u0442\u0430\u0442\u0443\u0441\u0438 \u0437\u0430\u043d\u044f\u0442\u044c</span></div>'
+    +'<div style="display:flex;align-items:center;gap:16px;padding:12px">'
+    +'<canvas id="pie-status" width="140" height="140" style="flex-shrink:0"></canvas>'
+    +'<div style="flex:1;min-width:0">'+legend(statusData,totalH,'status')+'</div>'
+    +'</div></div>'
+    // Subjects
+    +(subjArr.length
+      ?'<div class="card"><div class="ch"><span class="ct">\u041f\u043e \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u0430\u0445 (\u0433\u043e\u0434)</span></div>'
+      +'<div style="display:flex;align-items:center;gap:16px;padding:12px">'
+      +'<canvas id="pie-subj" width="140" height="140" style="flex-shrink:0"></canvas>'
+      +'<div style="flex:1;min-width:0">'+legend(subjArr,doneH,'subject')+'</div>'
+      +'</div></div>':'')
+    // Tutors — all tutors
+    +(!selTutor
+      ?'<div class="card"><div class="ch"><span class="ct">\u041f\u043e \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430\u0445 (\u0433\u043e\u0434)</span></div>'
+      +'<div style="display:flex;align-items:center;gap:16px;padding:12px">'
+      +'<canvas id="pie-tutor" width="140" height="140" style="flex-shrink:0"></canvas>'
+      +'<div style="flex:1;min-width:0">'+legend(tutorArr,tutDoneH,'tutor')+'</div>'
+      +'</div></div>':'')
+    +'</div>';
+
+  setTimeout(function(){
+    pieChart('pie-status',statusData,totalH);
+    if(subjArr.length) pieChart('pie-subj',subjArr,doneH);
+    if(!selTutor) pieChart('pie-tutor',tutorArr,tutDoneH);
+  },50);
+}
+
+function saveS(){ 
+  // In Supabase version, data is saved to DB in real-time
+  // godConfig is kept in memory only
+}
+function loadS(){}
+function saveSess(){}
+function loadSess(){}
+function seedData(){}
+
+
+// ═══════════════════════════════════════
+// BACKUP & RESTORE
+// ═══════════════════════════════════════
+async function exportBackup(){
+  var btn = document.getElementById('backup-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Завантаження...'; }
+  try{
+    // Load all data fresh from Supabase
+    var tables = ['branches','tutors','students','lessons','payments','subjects','comms','pricing_rules','settings'];
+    var backup = { version:1, created: new Date().toISOString(), data:{} };
+    for(var i=0;i<tables.length;i++){
+      var res = await _sb.from(tables[i]).select('*');
+      backup.data[tables[i]] = res.data || [];
+    }
+    // Also include profiles (without sensitive auth data)
+    var prof = await _sb.from('profiles').select('id,email,fn,ln,role,branch_id,perms');
+    backup.data['profiles'] = prof.data || [];
+
+    // Download as JSON file
+    var json = JSON.stringify(backup, null, 2);
+    var blob = new Blob([json], {type:'application/json'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    var date = localDateStr(new Date());
+    a.href     = url;
+    a.download = 'konstanta-backup-' + date + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    mkToast('\u0420\u0435\u0437\u0435\u0440\u0432\u043d\u0443 \u043a\u043e\u043f\u0456\u044e \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e \u2705');
+    var _eL={branches:'\uD83C\uDFE2 \u0424.',tutors:'\uD83D\uDC64 \u0420.',students:'\uD83D\uDC65 \u0423.',lessons:'\uD83D\uDCCB \u0417.',payments:'\uD83D\uDCB3 \u041f.',subjects:'\uD83D\uDCDA \u041f.',comms:'\uD83D\uDCAC \u041a.',pricing_rules:'\uD83D\uDCB0 \u041f.',settings:'\u2699 \u041d.',profiles:'\uD83D\uDC64 \u041f.'};
+    var _eR=['\uD83D\uDCE4 \u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e:'];
+    Object.keys(backup.data).forEach(function(t){_eR.push((_eL[t]||t)+': '+(backup.data[t]||[]).length+' \u0437\u0430\u043f.');});
+    alert(_eR.join('\n'));
+  }catch(e){
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');
+  }
+  if(btn){ btn.disabled=false; btn.textContent='\u2b07 \u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438 \u0440\u0435\u0437\u0435\u0440\u0432\u043d\u0443 \u043a\u043e\u043f\u0456\u044e'; }
+}
+
+function importBackupClick(){
+  document.getElementById('backup-file-input').click();
+}
+
+async function importBackup(input){
+  var file = input.files[0];
+  if(!file){ return; }
+  var btn = document.getElementById('restore-btn');
+  if(btn){ btn.disabled=true; btn.textContent='\u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f...'; }
+
+  try{
+    var text = await file.text();
+    var backup = JSON.parse(text);
+
+    if(!backup.version || !backup.data){
+      mkToast('\u041d\u0435\u0432\u0456\u0440\u043d\u0438\u0439 \u0444\u043e\u0440\u043c\u0430\u0442 \u0444\u0430\u0439\u043b\u0443','error');
+      if(btn){btn.disabled=false;btn.textContent='\u2B06 \u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0437 \u043a\u043e\u043f\u0456\u0457';}
+      return;
+    }
+
+    var created = (backup.created||'').slice(0,10) || '\u043d\u0435\u0432\u0456\u0434\u043e\u043c\u043e';
+    if(!confirm('\u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0434\u0430\u043d\u0456 \u0437 \u043a\u043e\u043f\u0456\u0457 \u0432\u0456\u0434 '+created+'?\n\n\u26A0 \u0426\u0435 \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0438\u0448\u0435 \u0412\u0421\u0406 \u043f\u043e\u0442\u043e\u0447\u043d\u0456 \u0434\u0430\u043d\u0456!')){
+      if(btn){btn.disabled=false;btn.textContent='\u2B06 \u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0437 \u043a\u043e\u043f\u0456\u0457';}
+      input.value='';
+      return;
+    }
+
+    var stats = {};
+    var errors = [];
+    // Restore tables in correct order (deps first)
+    var order = ['branches','subjects','pricing_rules','tutors','students','lessons','payments','comms'];
+    for(var i=0;i<order.length;i++){
+      var table = order[i];
+      var rows  = backup.data[table];
+      if(!rows || !rows.length){ stats[table]=0; continue; }
+      // Upsert backup rows in chunks of 50 (без delete — щоб не блокувало RLS)
+      var inserted = 0;
+      for(var j=0;j<rows.length;j+=50){
+        var chunk = rows.slice(j,j+50);
+        var res = await _sb.from(table).upsert(chunk, {onConflict:'id'});
+        if(res.error){ errors.push(table+': '+res.error.message); }
+        else inserted += chunk.length;
+      }
+      stats[table] = inserted;
+    }
+
+    // Settings: single upsert (may not have id field)
+    if(backup.data.settings && backup.data.settings.length){
+      var sr = await _sb.from('settings').upsert(backup.data.settings, {onConflict:'id'});
+      if(sr.error) errors.push('settings: '+sr.error.message);
+      else stats.settings = backup.data.settings.length;
+    }
+
+    if(errors.length){
+      console.error('Backup import errors:', errors);
+      mkToast('\u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u0437 \u043f\u043e\u043c\u0438\u043b\u043a\u0430\u043c\u0438. \u0414\u0435\u0442\u0430\u043b\u0456 \u0432 \u043a\u043e\u043d\u0441\u043e\u043b\u0456 (F12)','error');
+    } else {
+      mkToast('\u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u2705');
+    }
+
+    // Reload all data and re-render
+    await loadAll();
+    nav(S.currentPage||'dashboard');
+
+    // Import summary
+    var _iL={branches:'\uD83C\uDFE2 \u0424\u0456\u043b\u0456\u0457',tutors:'\uD83D\uDC64 \u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438',students:'\uD83D\uDC65 \u0423\u0447\u043d\u0456',lessons:'\uD83D\uDCCB \u0417\u0430\u043d\u044f\u0442\u0442\u044f',payments:'\uD83D\uDCB3 \u041f\u043b\u0430\u0442\u0435\u0436\u0456',subjects:'\uD83D\uDCDA \u041f\u0440\u0435\u0434\u043c\u0435\u0442\u0438',comms:'\uD83D\uDCAC \u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0457',pricing_rules:'\uD83D\uDCB0 \u041f\u0440\u0430\u0432\u0438\u043b\u0430',settings:'\u2699\uFE0F \u041d\u0430\u043b\u0430\u0448\u0442.'};
+    var _iR=['\uD83D\uDCE5 \u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043e \u0437 \u043a\u043e\u043f\u0456\u0457 \u0432\u0456\u0434 '+created+':'];
+    Object.entries(stats).forEach(function(e){_iR.push((_iL[e[0]]||e[0])+': '+e[1]+' \u0437\u0430\u043f\u0438\u0441\u0456\u0432');});
+    if(errors.length) _iR.push('\n\u26A0\uFE0F \u041f\u043e\u043c\u0438\u043b\u043a\u0438: '+errors.join('; '));
+    alert(_iR.join('\n'));
+
+  }catch(e){
+    console.error('importBackup exception:', e);
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');
+  }
+  if(btn){btn.disabled=false;btn.textContent='\u2B06 \u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0437 \u043a\u043e\u043f\u0456\u0457';}
+  input.value='';
+}
+
+async function initApp(){
+  initTheme();
+  // ── TRAINING MODE: ігрова пісочниця для нових репетиторів (тестові дані, ніщо не пише в Supabase) ──
+  var _isTraining = window.location.search.includes('training=1');
+  if(_isTraining){ initTrainingMode(); return; }
+  // ── VIEWER MODE: відкриття резервної копії без Supabase ──
+  var _isViewer = window.location.search.includes('viewer=1');
+  if(_isViewer){
+    var _bkRaw = sessionStorage.getItem('crm_backup');
+    if(!_bkRaw){ document.body.innerHTML='<div style="padding:40px;text-align:center"><h2>Помилка</h2><p>Дані не знайдено. <a href="viewer.html">Відкрийте резервну копію знову</a></p></div>'; return; }
+    var _bk = JSON.parse(_bkRaw);
+    var _d  = _bk.data;
+    S.students     = (_d.students    ||[]).map(normalizeStudent);
+    S.tutors       = (_d.tutors      ||[]).map(normalizeTutor);
+    S.lessons      = (_d.lessons     ||[]).map(normalizeLesson);
+    S.payments     = (_d.payments    ||[]).map(normalizePayment);
+    S.comms        = (_d.comms       ||[]).map(normalizeComm);
+    S.branches     = _d.branches     ||[];
+    S.subjects     = _d.subjects     ||[];
+    S.pricingRules = (_d.pricing_rules||[]).map(normalizePricingRule);
+    S.tasks        = (_d.tasks       ||[]).map(normalizeTask);
+    S.payrollItems = (_d.payroll_items||[]).map(normalizePayrollItem);
+    S.settings     = (_d.settings    ||[{}])[0]||{};
+    S.users        = (_d.profiles||[]).map(normalizeUser);
+    // Мок поточного користувача — God-режим для перегляду всього
+    CU = { id:'viewer', fn:'Перегляд', ln:'(резервна копія)', role:'god', perms:{} };
+    applyGodConfig();
+    // Ховаємо форму логіну, показуємо головний екран
+    var asEl=document.getElementById('as'); if(asEl)asEl.style.display='block';
+    var lsEl=document.getElementById('ls'); if(lsEl)lsEl.style.display='none';
+    var setupEl=document.getElementById('setup'); if(setupEl)setupEl.style.display='none';
+    // Прибираємо лоадер якщо є
+    var loadDiv=document.getElementById('app-loading'); if(loadDiv)loadDiv.remove();
+    // Ін'єкція CSS для перемикання сторінок (як в startApp)
+    if(!document.getElementById('__pcss__')){
+      var _st=document.createElement('style');
+      _st.id='__pcss__';
+      _st.textContent='.page{display:none!important}.page.active{display:block!important;padding-bottom:40px}';
+      document.head.appendChild(_st);
+    }
+    window._viewerMode = true;
+    buildSidebar(); updateSBUser(); updateBranchSelector();
+    document.body.className = document.body.className.replace(/\brole-\w+\b/g,'');
+    document.body.classList.add('role-god');
+    // Показуємо банер "Режим перегляду"
+    var banner=document.createElement('div');
+    banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#f59e0b;color:#fff;text-align:center;padding:5px;font-size:12px;font-weight:700;pointer-events:none';
+    banner.textContent='\uD83D\uDC41 \u0420\u0415\u0416\u0418\u041c \u041f\u0415\u0420\u0415\u0413\u041b\u042f\u0414\u0423 \u2014 \u0420\u0435\u0437\u0435\u0440\u0432\u043d\u0430 \u043a\u043e\u043f\u0456\u044f \u0432\u0456\u0434 '+((_bk.created||'').slice(0,10))+' \u2014 \u0417\u043c\u0456\u043d\u0438 \u043d\u0435 \u0437\u0431\u0435\u0440\u0456\u0433\u0430\u044e\u0442\u044c\u0441\u044f';
+    document.body.appendChild(banner);
+    var contentEl=document.getElementById('content'); if(contentEl)contentEl.style.paddingTop='30px';
+    nav('dashboard');
+    return;
+  }
+  // Wait for Supabase SDK to load (retry up to 3s)
+  var sdkWait = 0;
+  while(typeof supabase === 'undefined' && sdkWait < 30){
+    await new Promise(function(r){setTimeout(r,100);});
+    sdkWait++;
+  }
+  if(typeof supabase === 'undefined'){
+    document.body.innerHTML = '<div style="padding:40px;font-family:Arial;text-align:center"><h2>❌ Помилка завантаження</h2><p>Не вдалось завантажити Supabase SDK. Перезавантажте сторінку.</p><button onclick="location.reload()" style="padding:10px 20px;background:#29abe2;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;margin-top:16px">🔄 Перезавантажити</button></div>';
+    return;
+  }
+  if(SUPABASE_URL === 'PASTE_YOUR_SUPABASE_URL'){
+    var s=document.getElementById('setup'); if(s) s.style.display='flex';
+    return;
+  }
+  var createClient = supabase.createClient;
+  _sb = createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false
+    }
+  });
+  var setupEl = document.getElementById('setup');
+  var lsEl    = document.getElementById('ls');
+  var asEl    = document.getElementById('as');
+  if(setupEl) setupEl.style.display = 'none';
+  // Show loading, hide both screens until session checked
+  if(lsEl) lsEl.style.display = 'none';
+  if(asEl) asEl.style.display = 'none';
+
+  // Show loading spinner
+  var loadDiv = document.createElement('div');
+  loadDiv.id = 'app-loading';
+  loadDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:var(--bg,#0f1117);z-index:9999;flex-direction:column;gap:16px';
+  loadDiv.innerHTML = '<div style="width:40px;height:40px;border:3px solid rgba(255,255,255,.1);border-top-color:#29abe2;border-radius:50%;animation:spin 0.8s linear infinite"></div>'
+    + '<div style="color:rgba(255,255,255,.5);font-size:13px;font-family:Karla,sans-serif">Завантаження...</div>';
+  var style = document.createElement('style');
+  style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+  document.head.appendChild(style);
+  document.body.appendChild(loadDiv);
+
+  function hideLoading(){
+    var el = document.getElementById('app-loading');
+    if(el) el.remove();
+  }
+
+  var _sess = await _sb.auth.getSession();
+  var session = _sess.data && _sess.data.session;
+
+  if(session){
+    CU = null;
+    await loadProfile(session.user);
+    hideLoading();
+    startApp();
+  } else {
+    hideLoading();
+    if(lsEl) lsEl.style.display = 'flex';
+  }
+
+  _sb.auth.onAuthStateChange(async function(event, session){
+    if(event === 'SIGNED_IN' && session){
+      await loadProfile(session.user);
+      hideLoading();
+      startApp();
+    } else if(event === 'TOKEN_REFRESHED' && session){
+      // Токен оновлено — нічого додаткового не потрібно, Supabase JS вже використовує новий
+      console.log('Token refreshed automatically');
+    } else if(event === 'SIGNED_OUT'){
+      CU = null;
+      stopChannels();
+      if(asEl) asEl.style.display = 'none';
+      if(lsEl) lsEl.style.display = 'flex';
+    }
+  });
+}
+
+// =
+// AUTH
+// =
+async function doLogin(){
+  var email=document.getElementById('lu').value.trim();
+  var pass=document.getElementById('lp').value;
+  var err=document.getElementById('lerr');
+  var btn=document.getElementById('lbtn');
+  if(err)err.style.display='none';
+  if(btn){btn.disabled=true;btn.textContent='Входжу...';}
+  if(!_sb){
+    if(err){err.textContent='Помилка ініціалізації';err.style.display='block';}
+    if(btn){btn.disabled=false;btn.textContent='Увійти';}
+    return;
+  }
+  try{
+    var res=await _sb.auth.signInWithPassword({email:email,password:pass});
+    if(res.error){
+      var msgs={'Invalid login credentials':'Невірний email або пароль','Email not confirmed':'Підтвердіть email','Too many requests':'Забагато спроб'};
+      if(err){err.textContent=msgs[res.error.message]||res.error.message;err.style.display='block';}
+      if(btn){btn.disabled=false;btn.textContent='Увійти';}
+    }
+  }catch(e){
+    if(err){err.textContent='Помилка: '+e.message;err.style.display='block';}
+    if(btn){btn.disabled=false;btn.textContent='Увійти';}
+  }
+}
+
+async function doLogout(){
+  stopChannels();
+  await _sb.auth.signOut();
+}
+
+async function loadProfile(authUser){
+  var _r2 = await _sb.from('profiles').select('*').eq('id', authUser.id).single(); var data = _r2.data;
+  if(data){ CU = normalizeUser(data); }
+  else {
+    const np = { id:authUser.id, email:authUser.email,
+      fn: authUser.email.split('@')[0], ln:'', role:'tutor', perms:{} };
+    await _sb.from('profiles').insert(np);
+    CU = normalizeUser(np);
+  }
+}
+
+function uid(){ return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2); }
+
+// =
+// SYNC INDICATOR
+// =
+function setSaving(){
+  window._pendingWrites = (window._pendingWrites||0) + 1;
+  var dot=document.getElementById('syncdot'), lbl=document.getElementById('sync-lbl');
+  if(dot) dot.className='sync-dot saving';
+  if(lbl){ lbl.textContent='\u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043D\u044F\u2026'; lbl.style.color='var(--warn)'; }
+  // Запобіжник: якщо через якийсь неврахований шлях setSynced не викличеться,
+  // не блокуємо закриття вкладки назавжди — знімаємо прапорець через 15с.
+  clearTimeout(window._pendingWritesSafety);
+  window._pendingWritesSafety = setTimeout(function(){ window._pendingWrites = 0; }, 15000);
+}
+function setSynced(){
+  window._pendingWrites = Math.max(0, (window._pendingWrites||1) - 1);
+  clearTimeout(_syncTimer);
+  var dot=document.getElementById('syncdot'), lbl=document.getElementById('sync-lbl');
+  if(dot) dot.className='sync-dot ok';
+  if(lbl){ lbl.textContent='\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0456\u0437\u043E\u0432\u0430\u043D\u043E'; lbl.style.color='var(--tut)'; }
+  _syncTimer = setTimeout(function(){ if(lbl){lbl.textContent='\u043E\u043D\u043B\u0430\u0439\u043D';lbl.style.color='var(--t3)';} }, 2500);
+}
+// Захист від втрати даних на iOS: якщо користувач намагається закрити вкладку
+// чи перезавантажити сторінку ПОКИ запис ще летить до бази — попереджаємо.
+// Це головний захист від "не зберігається на iPhone" — коли людина тисне
+// Зберегти і одразу згортає Safari/PWA, не чекаючи підтвердження.
+if(!window._unloadGuardSet){
+  window._unloadGuardSet = true;
+  window.addEventListener('beforeunload', function(e){
+    if(window._pendingWrites > 0){
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+}
+
+// =
+// DATA LOADING
+// =
+async function loadAll(){
+  setSaving();
+  try{
+  await ensureFreshSession(); // оновити токен завчасно, якщо він майже протермінований
+  const tables = [
+    { table:'branches',      key:'branches' },
+    { table:'tutors',        key:'tutors' },
+    { table:'students',      key:'students' },
+    { table:'lessons',       key:'lessons',  order:'date' },
+    { table:'payments',      key:'payments', order:'date' },
+    { table:'subjects',      key:'subjects' },
+    { table:'comms',         key:'comms',    order:'date' },
+    { table:'pricing_rules', key:'pricingRules' },
+    { table:'tasks',         key:'tasks' },
+    { table:'payroll_items', key:'payrollItems' },
+    { table:'act_log',       key:'actLog' },
+  ];
+  // Завантажуємо КОЖНУ таблицю посторінково.
+  // PostgREST за замовчуванням віддає максимум 1000 рядків. Раніше запит ішов
+  // без пагінації, тож щойно занять ставало більше 1000, найстаріші (сортування
+  // за датою у спадному порядку) просто переставали приходити — і зникали
+  // з розкладу "пластами", починаючи з найдавніших дат.
+  async function fetchTableAll(t){
+    var PAGE=1000, page=0, all=[], lastErr=null;
+    while(true){
+      var q = _sb.from(t.table).select('*');
+      if(t.order) q = q.order(t.order, { ascending:false });
+      q = q.range(page*PAGE, page*PAGE + PAGE - 1);
+      var res = await q;
+      if(res.error){ lastErr=res.error; break; }
+      var batch = res.data || [];
+      all = all.concat(batch);
+      if(batch.length < PAGE) break;
+      page++;
+      if(page > 200) break; // запобіжник
+    }
+    return { data: all, error: lastErr };
+  }
+  function fetchAll(){
+    return Promise.all(tables.map(fetchTableAll));
+  }
+  var results = await fetchAll();
+  // Якщо будь-який запит впав через протермінований токен — оновлюємо сесію і повторюємо весь батч
+  var jwtErr = results.find(function(r){ return r && r.error && (String((r.error.message||'')+(r.error.code||'')).includes('JWT')||String((r.error.message||'')).includes('expired')||r.error.status===401); });
+  if(jwtErr && await refreshIfExpired(jwtErr.error)){
+    results = await fetchAll();
+  }
+  tables.forEach(function(t, i){ if(results[i] && !results[i].error && Array.isArray(results[i].data)) S[t.key] = results[i].data; });
+
+  // Settings
+  var _set = await _sb.from('settings').select('*').eq('id','main').single(); var set = _set.data;
+  S.settings = set || {};
+
+  // Users (profiles)
+  var _users = await _sb.from('profiles').select('*'); var users = _users.data;
+  S.users = (users || []).map(normalizeUser);
+
+  // Normalize field names (snake_case  camelCase for UI compat)
+  S.students = S.students.map(normalizeStudent);
+  S.lessons  = S.lessons.map(normalizeLesson);
+  S.payments = S.payments.map(normalizePayment);
+  S.tutors   = S.tutors.map(normalizeTutor);
+  S.comms    = S.comms.map(normalizeComm);
+  S.pricingRules = S.pricingRules.map(normalizePricingRule);
+  S.tasks = (S.tasks||[]).map(normalizeTask);
+  S.payrollItems = (S.payrollItems||[]).map(normalizePayrollItem);
+  S.actLog = (S.actLog||[]).map(function(r){return Object.assign({},r,{studentId:r.student_id,sentBy:r.sent_by,signedAt:r.signed_at});});
+  try{ updateTaskAlert(); checkNewTaskNotifications(); }catch(e){}
+
+  } finally {
+    setSynced();
+  }
+}
+
+// Normalize DB rows to match UI field names
+function normalizeStudent(r){ 
+  var tutorIds = r.tutor_ids ? (Array.isArray(r.tutor_ids) ? r.tutor_ids : r.tutor_ids.split(',').filter(Boolean)) : (r.tutor_id ? [r.tutor_id] : []);
+  var bIds = r.branch_ids ? (Array.isArray(r.branch_ids) ? r.branch_ids : String(r.branch_ids).split(',').filter(Boolean)) : (r.branch_id ? [r.branch_id] : []);
+  return Object.assign({}, r, { tutorId:r.tutor_id, crmStage:r.crm_stage||null, crmResponsible:r.crm_responsible||null, crmDate:r.crm_date||null, tutorIds:tutorIds, branchId:r.branch_id, branchIds:bIds, parentFn:r.parent_fn, parentPhone:r.parent_phone }); 
+}
+// Нормалізація профілів (S.users) — раніше не існувала ВЗАГАЛІ, тому CU.branchId
+// завжди був undefined, і будь-який звичайний адмін помилково "прив'язувався" до
+// першої-ліпшої філії в списку (S.branches[0]) замість своєї реальної філії/філій.
+function normalizeUser(r){
+  var bIds = r.branch_ids ? (Array.isArray(r.branch_ids) ? r.branch_ids : String(r.branch_ids).split(',').filter(Boolean)) : (r.branch_id ? [r.branch_id] : []);
+  return Object.assign({}, r, { branchId:r.branch_id, branchIds:bIds });
+}
+// Статуси, що вважаються ПРОВЕДЕНИМ заняттям (оплачуються, входять в акти,
+// рахуються в статистиці). "testing" — тестування/діагностика рівня учня:
+// заняття реально відбулось, тому рахується як проведене.
+var DONE_STATUSES = ['done','completed','testing'];
+function isDoneLesson(l){
+  return DONE_STATUSES.indexOf(l && l.status) >= 0;
+}
+window.isDoneLesson = isDoneLesson;
+
+function normalizeLesson(r){  return Object.assign({}, r, { studentId:r.student_id, tutorId:r.tutor_id, branchId:r.branch_id, recurId:r.recur_id, recurType:r.recur_type, recurIndex:r.recur_index }); }
+function normalizePayment(r){ return Object.assign({}, r, { studentId:r.student_id, branchId:r.branch_id }); }
+function normalizeTutor(r){
+  var bIds = r.branch_ids ? (Array.isArray(r.branch_ids) ? r.branch_ids : String(r.branch_ids).split(',').filter(Boolean)) : (r.branch_id ? [r.branch_id] : []);
+  return Object.assign({}, r, { accId:r.acc_uid, branchId:r.branch_id, branchIds:bIds });
+}
+function normalizeComm(r){    return Object.assign({}, r, { tutorId:r.tutor_id, studentId:r.student_id, branchId:r.branch_id }); }
+function normalizePricingRule(r){ return Object.assign({}, r, { subjectMatch:r.subject_match, tutorId:r.tutor_id, gradeMatch:r.grade_match, durMin:r.dur_min }); }
+function normalizeTask(r){ return Object.assign({}, r, { assigneeId:r.assignee_id, creatorId:r.creator_id, branchId:r.branch_id, deadlineTime:r.deadline_time, doneAt:r.done_at }); }
+function normalizePayrollItem(r){ return Object.assign({}, r, { tutorId:r.tutor_id, adminId:r.admin_id, createdBy:r.created_by }); }
+
+// =
+// REALTIME
+// =
+function startChannels(){
+  var tableMap = {
+    students:'students', tutors:'tutors', lessons:'lessons',
+    payments:'payments', subjects:'subjects', comms:'comms',
+    pricing_rules:'pricingRules', branches:'branches', profiles:'users',
+    tasks:'tasks', payroll_items:'payrollItems'
+  };
+  Object.keys(tableMap).forEach(function(table){
+    var key = tableMap[table];
+    var ch = _sb.channel('rt:'+table)
+      .on('postgres_changes',{ event:'*', schema:'public', table:table }, function(payload){
+        handleChange(key, table, payload);
+      })
+      .subscribe();
+    _channels.push(ch);
+  });
+}
+
+function stopChannels(){
+  _channels.forEach(function(ch){ try{ _sb.removeChannel(ch); }catch(e){} });
+  _channels = [];
+}
+
+function handleChange(key, table, payload){
+  setSynced();
+  var ev  = payload.eventType;
+  var row = payload.new;
+  var old = payload.old;
+
+  // Normalize
+  var norm = { students:normalizeStudent, lessons:normalizeLesson,
+    payments:normalizePayment, tutors:normalizeTutor,
+    comms:normalizeComm, pricingRules:normalizePricingRule, tasks:normalizeTask, payrollItems:normalizePayrollItem };
+  if(norm[key] && row) row = norm[key](row);
+
+  if(ev==='INSERT')      S[key] = (S[key]||[]).concat([row]);
+  else if(ev==='UPDATE') S[key] = (S[key]||[]).map(function(r){ return r.id===row.id ? row : r; });
+  else if(ev==='DELETE') S[key] = (S[key]||[]).filter(function(r){ return r.id !== old.id; });
+
+  refreshPage(key);
+}
+
+function refreshPage(key){
+  try{updateTaskAlert();}catch(e){}
+  if(typeof S === 'undefined' || !S.currentPage) return;
+  var pg = S.currentPage;
+  if(key==='tasks'){ try{updateTaskAlert(); checkNewTaskNotifications();}catch(e){} }
+  if(key==='tasks' && pg==='tasks'){ try{renderTasks();}catch(e){} }
+  if(key==='payrollItems' && pg==='payroll'){ try{renderPayroll();}catch(e){} }
+  var map = {
+    students:['students','dashboard','profile','crm'],
+    tutors:['tutors','dashboard','profile'],
+    lessons:['lessons','schedule','dashboard','profile'],
+    payments:['payments','dashboard'],
+    comms:['dashboard','profile'],
+    subjects:['settings','lessons'],
+    pricingRules:['settings'],
+    branches:['settings'],
+    users:['users']
+  };
+  if(!(map[key]||[]).includes(pg)) return;
+  try {
+    if(pg==='dashboard'  && typeof renderDash      ==='function') renderDash();
+    else if(pg==='students'  && typeof renderStudents ==='function') renderStudents();
+    else if(pg==='tutors'    && typeof renderTutors   ==='function') renderTutors();
+    else if(pg==='schedule'  && typeof renderSch      ==='function') renderSch();
+    else if(pg==='lessons'   && typeof renderLessons  ==='function') renderLessons();
+    else if(pg==='payments'  && typeof renderPayments ==='function') renderPayments();
+    else if(pg==='settings'  && typeof renderSettings ==='function') renderSettings();
+    else if(pg==='users'     && typeof renderUsers    ==='function') renderUsers();
+    else if(pg==='profile'   && typeof renderProfile  ==='function') renderProfile();
+    else if(pg==='crm'       && typeof renderCrm      ==='function') renderCrm();
+  else if(pg==='telephony' && typeof renderTelephony==='function') renderTelephony();
+  } catch(e) { console.warn('refreshPage error:', e); }
+}
+
+// =
+// DB HELPERS
+// =
+
+// Дебаунс фонового оновлення таблиці: якщо кілька insert/update/delete
+// по одній таблиці відбуваються швидко поспіль (напр. видалення серії
+// занять), замість N окремих мережевих запитів робимо один.
+var _refreshTimers={};
+function scheduleTableRefresh(table, delay){
+  if(_refreshTimers[table]) clearTimeout(_refreshTimers[table]);
+  _refreshTimers[table]=setTimeout(function(){
+    delete _refreshTimers[table];
+    loadTableFresh(table);
+  }, delay);
+}
+
+async function loadTableFresh(table){
+  var tableMap = {
+    students:'students', tutors:'tutors', lessons:'lessons',
+    payments:'payments', subjects:'subjects', comms:'comms',
+    pricing_rules:'pricingRules', branches:'branches', tasks:'tasks', payroll_items:'payrollItems'
+  };
+  var key = tableMap[table];
+  if(!key) return;
+  var norm = {students:normalizeStudent,lessons:normalizeLesson,
+    payments:normalizePayment,tutors:normalizeTutor,
+    comms:normalizeComm,pricingRules:normalizePricingRule,tasks:normalizeTask,payrollItems:normalizePayrollItem};
+  // Посторінкове читання — та сама причина, що й у loadAll: без цього
+  // фонове оновлення обрізало б таблицю на 1000 записах і "загубило" решту.
+  var PAGE=1000, page=0, data=[], res=null;
+  while(true){
+    res = await _sb.from(table).select('*').range(page*PAGE, page*PAGE + PAGE - 1);
+    if(res.error && await refreshIfExpired(res.error)){
+      res = await _sb.from(table).select('*').range(page*PAGE, page*PAGE + PAGE - 1); // повтор після оновлення сесії
+    }
+    if(res.error) return;
+    var batch = res.data || [];
+    data = data.concat(batch);
+    if(batch.length < PAGE) break;
+    page++;
+    if(page > 200) break;
+  }
+  var fresh = norm[key] ? data.map(norm[key]) : data;
+  // Об'єднуємо замість повної заміни: якщо щойно збережений запис ще не встиг
+  // "доїхати" до цього select (мережева затримка/кешування), не втрачаємо його —
+  // інакше він на мить з'являється (з локального оптимістичного оновлення)
+  // і одразу зникає, коли ця фонова синхронізація перезаписує масив без нього.
+  var freshIds={}; fresh.forEach(function(r){ if(r&&r.id!=null) freshIds[r.id]=true; });
+  var kept=(S[key]||[]).filter(function(r){ return r&&r.id!=null && !freshIds[r.id]; });
+  S[key] = fresh.concat(kept);
+  setSynced();
+  refreshPage(key);
+}
+
+// Автоматично оновлює сесію якщо JWT протермінований
+async function refreshIfExpired(error){
+  if(!error) return false;
+  var msg = (error.message||'') + ' ' + (error.code||'') + ' ' + (error.hint||'');
+  if(msg.includes('JWT expired') || msg.includes('token is expired') || msg.includes('No API key') || msg.includes('PGRST301') || error.status === 401){
+    try{
+      var r = await _sb.auth.refreshSession();
+      if(r.error){
+        // Не вдалось оновити — пробуємо м'яко перезайти з наявною сесією
+        var s = await _sb.auth.getSession();
+        if(s.data && s.data.session) return true;
+        mkToast('\u0421\u0435\u0441\u0456\u044f \u0437\u0430\u043a\u0456\u043d\u0447\u0438\u043b\u0430\u0441\u044c. \u0423\u0432\u0456\u0439\u0434\u0456\u0442\u044c \u0437\u043d\u043e\u0432\u0443.','error');
+        return false;
+      }
+      return true; // успішно оновлено
+    }catch(e){ return false; }
+  }
+  return false;
+}
+
+// Читання з бази з автоповтором при протермінованому токені.
+// buildQuery — функція, що будує запит: (from)=>from('table').select('*')...
+async function sbSelect(buildQuery){
+  var res = await buildQuery(_sb.from.bind(_sb));
+  if(res && res.error && await refreshIfExpired(res.error)){
+    res = await buildQuery(_sb.from.bind(_sb)); // повтор після оновлення сесії
+  }
+  return res;
+}
+
+// Проактивне оновлення токена: якщо до закінчення < 5 хв — оновлюємо завчасно.
+// Викликається перед завантаженням даних і періодично, щоб не ловити "JWT expired".
+async function ensureFreshSession(){
+  try{
+    var s = await _sb.auth.getSession();
+    var sess = s.data && s.data.session;
+    if(!sess) return;
+    var expAt = sess.expires_at ? sess.expires_at*1000 : 0; // сек → мс
+    if(expAt && (expAt - Date.now() < 5*60*1000)){
+      await _sb.auth.refreshSession();
+    }
+  }catch(e){}
+}
+window.ensureFreshSession = ensureFreshSession;
+
+
+// ══════════ ЖУРНАЛ ЗМІН (AUDIT LOG) ══════════
+var AUDIT_TABLE_LABELS = {
+  students:'\u0423\u0447\u043D\u0456', lessons:'\u0417\u0430\u043D\u044F\u0442\u0442\u044F', payments:'\u041F\u043B\u0430\u0442\u0435\u0436\u0456',
+  comms:'\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0457', tutors:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438', subjects:'\u041F\u0440\u0435\u0434\u043C\u0435\u0442\u0438',
+  tasks:'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F', payroll_items:'\u0417\u0430\u0440\u043F\u043B\u0430\u0442\u0438', pricing_rules:'\u0426\u0456\u043D\u0438',
+  branches:'\u0424\u0456\u043B\u0456\u0457', profiles:'\u0410\u043A\u0430\u0443\u043D\u0442\u0438'
+};
+var AUDIT_ACTION_LABELS = { insert:'\u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E', update:'\u0437\u043C\u0456\u043D\u0435\u043D\u043E', delete:'\u0432\u0438\u0434\u0430\u043B\u0435\u043D\u043E' };
+
+// Короткий опис запису для журналу (щоб бачити ЩО саме змінили)
+// Мапа полів → людські назви + форматери значень для журналу змін
+var AUDIT_FIELD_LABELS = {
+  fn:'\u0406\u043C\u02BC\u044F', ln:'\u041F\u0440\u0456\u0437\u0432\u0438\u0449\u0435', phone:'\u0422\u0435\u043B\u0435\u0444\u043E\u043D', email:'Email',
+  subject:'\u041F\u0440\u0435\u0434\u043C\u0435\u0442', date:'\u0414\u0430\u0442\u0430', time:'\u0427\u0430\u0441', dur:'\u0422\u0440\u0438\u0432\u0430\u043B\u0456\u0441\u0442\u044C',
+  status:'\u0421\u0442\u0430\u0442\u0443\u0441', price:'\u0426\u0456\u043D\u0430', notes:'\u041D\u043E\u0442\u0430\u0442\u043A\u0438', hw:'\u0414\u043E\u043C\u0430\u0448\u043D\u0454', games:'\u0410\u0443\u0434\u0456\u044E\u0432\u0430\u043D\u043D\u044F/\u0456\u0433\u0440\u0438',
+  amount:'\u0421\u0443\u043C\u0430', method:'\u041C\u0435\u0442\u043E\u0434', grade:'\u041A\u043B\u0430\u0441', hourly_rate:'\u0421\u0442\u0430\u0432\u043A\u0430', tutor_id:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440',
+  student_id:'\u0423\u0447\u0435\u043D\u044C', title:'\u041D\u0430\u0437\u0432\u0430', descr:'\u041E\u043F\u0438\u0441', deadline:'\u0414\u0435\u0434\u043B\u0430\u0439\u043D', report:'\u0417\u0432\u0456\u0442',
+  label:'\u041F\u043E\u044F\u0441\u043D\u0435\u043D\u043D\u044F', percent:'\u0412\u0456\u0434\u0441\u043E\u0442\u043E\u043A', name:'\u041D\u0430\u0437\u0432\u0430', address:'\u0410\u0434\u0440\u0435\u0441\u0430',
+  type:'\u0422\u0438\u043F', note:'\u0422\u0435\u043A\u0441\u0442', assignee_id:'\u0412\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u043B\u044C\u043D\u0438\u0439', availability:'\u0420\u043E\u0431\u043E\u0447\u0456 \u0433\u043E\u0434\u0438\u043D\u0438'
+};
+var AUDIT_STATUS_LABELS = { planned:'\u0417\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u043E', done:'\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E', completed:'\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E', missed:'\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E', makeup:'\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E', makeup_planned:'\u0412\u0456\u0434\u043F\u0440. \u0437\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u043E', cancelled:'\u0421\u043A\u0430\u0441\u043E\u0432\u0430\u043D\u043E' };
+
+function auditFmtVal(field, v){
+  if(v==null||v==='') return '\u2014';
+  if(field==='status') return AUDIT_STATUS_LABELS[v]||v;
+  if(field==='tutor_id'){ var t=(S.tutors||[]).find(function(x){return x.id===v;}); return t?(t.fn+' '+t.ln):v; }
+  if(field==='student_id'){ var s=(S.students||[]).find(function(x){return x.id===v;}); return s?(s.fn+' '+s.ln):v; }
+  if(field==='assignee_id'){ var u=(S.users||[]).find(function(x){return x.id===v;}); return u?(u.fn+' '+u.ln):v; }
+  if(field==='availability') return '(\u043E\u043D\u043E\u0432\u043B\u0435\u043D\u043E)';
+  var sv=String(v); return sv.length>40?sv.slice(0,40)+'\u2026':sv;
+}
+
+// Порівнює новий об'єкт зі старим записом і повертає опис змін
+function auditDiff(table, id, newData){
+  try{
+    var stateKey={students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems',branches:'branches',profiles:'users'}[table];
+    var oldRec=stateKey?((S[stateKey]||[]).find(function(x){return x.id===id;})):null;
+    if(!oldRec) return null;
+    var parts=[], skip=['updated_at','created_at','id','branch_id','split_group_id','split_index','recurId','recur_id'];
+    Object.keys(newData||{}).forEach(function(k){
+      if(skip.indexOf(k)>=0) return;
+      // camelCase-дублікати в стані (tutorId vs tutor_id) — беремо snake з newData, порівнюємо з обома
+      var camel=k.replace(/_([a-z])/g,function(m,c){return c.toUpperCase();});
+      var oldV=(oldRec[k]!==undefined?oldRec[k]:oldRec[camel]);
+      var newV=newData[k];
+      var oldN=(oldV==null?'':String(oldV)), newN=(newV==null?'':String(newV));
+      if(oldN===newN) return;
+      var lbl=AUDIT_FIELD_LABELS[k]||k;
+      parts.push(lbl+': '+auditFmtVal(k,oldV)+' \u2192 '+auditFmtVal(k,newV));
+    });
+    return parts.length?parts.join(', '):null;
+  }catch(e){ return null; }
+}
+
+function auditDescribe(table, data, id){
+  try{
+    if(!data) return id||'';
+    if(table==='students'||table==='tutors'||table==='profiles') return ((data.fn||'')+' '+(data.ln||'')).trim()||id||'';
+    if(table==='lessons'){ var st=(S.students||[]).find(function(s){return s.id===(data.student_id||data.studentId);}); return (data.subject||'')+(st?' \u2014 '+st.fn+' '+st.ln:''); }
+    if(table==='payments'){ return (data.amount!=null?data.amount+'\u20B4':'')+(data.method?' ('+data.method+')':''); }
+    if(table==='comms'){ return data.type||''; }
+    if(table==='subjects'){ return data.name||''; }
+    if(table==='tasks'){ return data.title||''; }
+    if(table==='payroll_items'){ return (data.label||'')+(data.amount!=null?' '+data.amount+'\u20B4':''); }
+    if(table==='branches'){ return data.name||''; }
+    return data.name||data.title||data.label||id||'';
+  }catch(e){ return id||''; }
+}
+
+// Запис у журнал (не блокує основну дію, тихо ковтає помилки)
+async function auditLog(action, table, id, data, diffText){
+  try{
+    if(!CU||!_sb||window._viewerMode) return;
+    if(table==='audit_log') return; // без рекурсії
+    // Для update показуємо ЩО саме змінилось; для insert/delete — опис запису
+    var base=auditDescribe(table,data,id);
+    var descr = (action==='update' && diffText) ? (base?base+' \u00B7 '+diffText:diffText) : base;
+    var r=await _sb.from('audit_log').insert({
+      user_id:CU.id, user_name:((CU.fn||'')+' '+(CU.ln||'')).trim(), user_role:CU.role||'',
+      action:action, table_name:table, record_id:(id!=null?String(id):null),
+      descr:descr, branch_id:myBranchId()||null
+    });
+    if(r&&r.error) console.warn('[audit_log] insert error:', r.error.message);
+  }catch(e){ console.warn('[audit_log] insert exception:', e&&e.message); }
+}
+
+async function dbInsert(table, data){
+  if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
+  if(window._trainingMode){
+    var _tk=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table];
+    var _normFnsIns={students:normalizeStudent,lessons:normalizeLesson,payments:normalizePayment,tutors:normalizeTutor,comms:normalizeComm,tasks:normalizeTask,payroll_items:normalizePayrollItem};
+    if(_tk){
+      var _normed = _normFnsIns[table] ? _normFnsIns[table](data) : data;
+      S[_tk]=(S[_tk]||[]).concat([_normed]);
+      refreshPage(_tk);
+      if(S.currentPage==='schedule' && typeof renderSch==='function') renderSch();
+    }
+    setTimeout(function(){ try{trainingCheckProgress&&trainingCheckProgress();}catch(e){} }, 50);
+    return;
+  }
+  setSaving();
+  try{
+    var _ri = await _sb.from(table).insert(data); var error = _ri.error;
+    if(error && await refreshIfExpired(error)){
+      _ri = await _sb.from(table).insert(data); error = _ri.error;
+    }
+    if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
+    auditLog('insert', table, (data&&data.id)||null, data);
+    scheduleTableRefresh(table, 800);
+  } finally {
+    setSynced();
+  }
+}
+async function dbUpdate(table, id, data){
+  if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
+  if(window._trainingMode){
+    var _tk2=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table];
+    var _normFnsUpd={students:normalizeStudent,lessons:normalizeLesson,payments:normalizePayment,tutors:normalizeTutor,comms:normalizeComm,tasks:normalizeTask,payroll_items:normalizePayrollItem};
+    if(_tk2){
+      var _entry=(S[_tk2]||[]).find(function(x){return x.id===id;});
+      if(_entry){
+        Object.assign(_entry, data);
+        if(_normFnsUpd[table]) Object.assign(_entry, _normFnsUpd[table](_entry));
+      }
+      refreshPage(_tk2);
+      if(S.currentPage==='schedule' && typeof renderSch==='function') renderSch();
+    }
+    setTimeout(function(){ try{trainingCheckProgress&&trainingCheckProgress();}catch(e){} }, 50);
+    return;
+  }
+  var _diff = auditDiff(table, id, data); // рахуємо до апдейту, поки старий запис у стані
+  setSaving();
+  try{
+    // profiles table has no updated_at column
+    var noTimestamp = ['profiles'];
+    var updateData = noTimestamp.indexOf(table) >= 0 
+      ? Object.assign({}, data)
+      : Object.assign({}, data, {updated_at: new Date().toISOString()});
+    var _ru = await _sb.from(table).update(updateData).eq('id', id); var error = _ru.error;
+    if(error && await refreshIfExpired(error)){
+      _ru = await _sb.from(table).update(updateData).eq('id', id); error = _ru.error;
+    }
+    if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
+    auditLog('update', table, id, data, _diff);
+    // Патчимо локальний стан ОДРАЗУ — інакше редагування (заняття, учні, платежі тощо)
+    // не показувалось миттєво і чекало на фонове (дебаунсоване) оновлення за 800мс.
+    var _updKey=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table]||'';
+    var _normFns={students:normalizeStudent,lessons:normalizeLesson,payments:normalizePayment,tutors:normalizeTutor,comms:normalizeComm,tasks:normalizeTask,payroll_items:normalizePayrollItem};
+    if(_updKey){
+      var _entry=(S[_updKey]||[]).find(function(x){return x.id===id;});
+      if(_entry){
+        Object.assign(_entry, updateData);
+        if(_normFns[table]) Object.assign(_entry, _normFns[table](_entry));
+      }
+      refreshPage(_updKey);
+    }
+    scheduleTableRefresh(table, 800);
+  } finally {
+    setSynced();
+  }
+}
+async function dbDelete(table, id){
+  if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
+  if(window._trainingMode){
+    var _tk3=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table];
+    if(_tk3){
+      S[_tk3]=(S[_tk3]||[]).filter(function(x){return x.id!==id;});
+      refreshPage(_tk3);
+      if(S.currentPage==='schedule' && typeof renderSch==='function') renderSch();
+    }
+    setTimeout(function(){ try{trainingCheckProgress&&trainingCheckProgress();}catch(e){} }, 50);
+    return;
+  }
+  setSaving();
+  try{
+    var _delKey=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table]||'';
+    var _rd = await _sb.from(table).delete().eq('id',id); var error = _rd.error;
+    if(error && await refreshIfExpired(error)){
+      _rd = await _sb.from(table).delete().eq('id',id); error = _rd.error;
+    }
+    if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
+    auditLog('delete', table, id, (S[_delKey]||[]).find(function(x){return x.id===id;}));
+    // Прибираємо з локального стану ОДРАЗУ — інакше фонове злиття в loadTableFresh
+    // (яке зберігає локальні записи, відсутні у свіжій відповіді, щоб не губити щойно
+    // додані через затримку мережі) помилково "воскресить" щойно видалений запис.
+    if(_delKey) S[_delKey]=(S[_delKey]||[]).filter(function(x){return x.id!==id;});
+    refreshPage(_delKey);
+    scheduleTableRefresh(table, 500);
+  } finally {
+    setSynced();
+  }
+}
+
+// =
+// SAVE FUNCTIONS
+// =
+async function saveStudent(){
+  if(!can('students')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  var fn=document.getElementById('s-fn').value.trim(), ln=document.getElementById('s-ln').value.trim();
+  if(!fn||!ln){ mkToast("\u0406\u043C'\u044F \u0442\u0430 \u043F\u0440\u0456\u0437\u0432\u0438\u0449\u0435 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
+  var obj={
+    fn, ln,
+    age:    document.getElementById('s-age')?.value||null,
+    grade:  document.getElementById('s-grade')?.value||'',
+    rates: collectRateRows(),
+    phone:  document.getElementById('s-phone')?.value||'',
+    email:  document.getElementById('s-email')?.value||'',
+    // Предмет і репетитори виводяться з "Окремих ставок" (legacy-поля лишаються синхронізованими для таблиць/фільтрів/доступів)
+    subject:(function(){var rr=collectRateRows();var ss=[];rr.forEach(function(r){var s=(r.subject||'').trim();if(s&&ss.indexOf(s)<0)ss.push(s);});return ss.join(', ');})(),
+    tutor_id:(function(){var rr=collectRateRows();var f=rr.find(function(r){return r.tutor_id;});return f?f.tutor_id:null;})(),
+    tutor_ids:(function(){var rr=collectRateRows();var tt=[];rr.forEach(function(r){if(r.tutor_id&&tt.indexOf(r.tutor_id)<0)tt.push(r.tutor_id);});return tt.join(',');})(),
+    status: document.getElementById('s-status')?.value||'active',
+    src:    document.getElementById('s-src')?.value||'referral',
+    notes:  document.getElementById('s-notes')?.value||'',
+    parent_fn:   (document.getElementById('s-parent-fn')?.value||'').trim(),
+    parent_phone:(document.getElementById('s-parent-phone')?.value||'').trim(),
+    crm_stage: document.getElementById('s-crm-stage')?.value||'lead',
+    crm_responsible: document.getElementById('s-crm-resp')?.value||null,
+    branch_ids: (function(){ return Array.from(document.querySelectorAll('.s-branch-cb:checked')).map(function(el){return el.value;}).join(','); })(),
+    branch_id: (function(){ var ids=Array.from(document.querySelectorAll('.s-branch-cb:checked')).map(function(el){return el.value;}); return ids.length?ids[0]:(myBranchId()||null); })(),
+  };
+  // Auto-link to current tutor if none selected
+  if(R()==='tutor' && !obj.tutor_id){
+    var mt=myTutor();
+    if(mt){ obj.tutor_id=mt.id; obj.tutor_ids=mt.id;
+      if(!(obj.rates||[]).length) obj.rates=[{subject:'',tutor_id:mt.id,rate:0}];
+    }
+  }
+  window._saving = true;
+  try{
+    var saved;
+    if(S.editId){
+      saved = await dbUpdate('students',S.editId,obj);
+      var norm = normalizeStudent(Object.assign({id:S.editId},obj));
+      var i = S.students.findIndex(function(x){return x.id===S.editId;});
+      if(i>=0) S.students[i] = norm; else S.students.push(norm);
+      mkToast('\u0423\u0447\u043D\u044F \u043E\u043D\u043E\u0432\u043B\u0435\u043D\u043E');
+    } else {
+      var newId = uid();
+      var norm = normalizeStudent(Object.assign({id:newId},obj));
+      await dbInsert('students',Object.assign({id:newId},obj));
+      S.students.push(norm);
+      mkToast('\u0423\u0447\u043D\u044F \u0434\u043E\u0434\u0430\u043D\u043E');
+    }
+    closeM('mo-student'); S.editId=null;
+    window._saving=false; refreshPage('students');
+  }catch(e){ window._saving=false; mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+}
+
+/**
+ * Масове видалення лідів із телефонії, які так і не стали учнями.
+ * Номери одразу потрапляють до списку ігнорованих, тому синхронізація
+ * не створить їх повторно.
+ */
+async function cleanupPhoneLeads(){
+  if(!can('students')){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432','error'); return; }
+
+  // Лід із телефонії: стадія lead + типове імʼя, яке ставить інтеграція
+  var leads=(S.students||[]).filter(function(s){
+    var stage=s.crmStage||s.crm_stage;
+    var nm=((s.fn||'')+' '+(s.ln||'')).trim();
+    return stage==='lead' && /^(\u0414\u0437\u0432\u0456\u043d\u043e\u043a|\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434)/i.test(nm);
+  });
+
+  if(!leads.length){ mkToast('\u041b\u0456\u0434\u0456\u0432 \u0456\u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e'); return; }
+
+  if(!confirm('\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e '+leads.length+' \u043b\u0456\u0434\u0456\u0432 \u0456\u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457.\n\n'
+    +'\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0432\u0441\u0456\u0445 \u0456 \u0431\u0456\u043b\u044c\u0448\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u044e\u0432\u0430\u0442\u0438 \u0457\u0445 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e?\n\n'
+    +'\u0406\u0441\u0442\u043e\u0440\u0456\u044f \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u0417\u0410\u041b\u0418\u0428\u0418\u0422\u042c\u0421\u042f \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u044e\u0442\u044c\u0441\u044f \u043b\u0438\u0448\u0435 \u043a\u0430\u0440\u0442\u043a\u0438 \u0443\u0447\u043d\u0456\u0432.')) return;
+
+  var ok=0, fail=0;
+  for(var i=0;i<leads.length;i++){
+    var st=leads[i];
+    var tail=String(st.phone||st.parentPhone||st.parent_phone||'').replace(/\D/g,'').slice(-10);
+    try{
+      if(tail){
+        await _sb.from('ignored_phones').upsert({
+          phone: tail,
+          reason: '\u041c\u0430\u0441\u043e\u0432\u0435 \u043e\u0447\u0438\u0449\u0435\u043d\u043d\u044f \u043b\u0456\u0434\u0456\u0432',
+          created_by: CU?CU.id:null
+        });
+      }
+      await dbDelete('students', st.id);
+      ok++;
+    }catch(e){ fail++; console.warn('cleanupPhoneLeads:', st.id, e); }
+  }
+  mkToast('\u2705 \u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e '+ok+' \u043b\u0456\u0434\u0456\u0432'+(fail?(', \u043f\u043e\u043c\u0438\u043b\u043e\u043a: '+fail):''));
+  renderStudents();
+}
+window.cleanupPhoneLeads=cleanupPhoneLeads;
+
+async function delStudent(id){
+  if(!can('students')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  var st=(S.students||[]).find(function(x){return x.id===id;});
+  var isLead = st && (st.crmStage==='lead' || st.crm_stage==='lead');
+  var phone = st ? (st.phone||st.parentPhone||st.parent_phone||'') : '';
+  var tail = String(phone).replace(/\D/g,'').slice(-10);
+
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0443\u0447\u043D\u044F?')) return;
+
+  // Якщо видаляємо ЛІДА з телефонії — запамʼятовуємо номер, щоб скрипт
+  // синхронізації не створив його знову з історії дзвінків Київстару.
+  var addToIgnore = false;
+  if(isLead && tail){
+    addToIgnore = confirm('\u0426\u0435 \u043B\u0456\u0434 \u0456\u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457.\n\n'
+      +'\u0414\u043e\u0434\u0430\u0442\u0438 \u043d\u043e\u043c\u0435\u0440 '+phone+' \u0434\u043e \u0441\u043f\u0438\u0441\u043a\u0443 \u0456\u0433\u043d\u043e\u0440\u043e\u0432\u0430\u043d\u0438\u0445, '
+      +'\u0449\u043e\u0431 \u043b\u0456\u0434 \u041d\u0415 \u0441\u0442\u0432\u043e\u0440\u044e\u0432\u0430\u0432\u0441\u044f \u0437\u043d\u043e\u0432\u0443 \u043f\u0440\u0438 \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0456\u0439 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u0457?\n\n'
+      +'\u041e\u041a \u2014 \u0431\u0456\u043b\u044c\u0448\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u044e\u0432\u0430\u0442\u0438\n'
+      +'\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 \u2014 \u0432\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043b\u0438\u0448\u0435 \u0437\u0430\u0440\u0430\u0437');
+  }
+
+  try{
+    await dbDelete('students',id);
+    if(addToIgnore){
+      try{
+        await _sb.from('ignored_phones').upsert({
+          phone: tail,
+          reason: '\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u0438\u0439 \u043b\u0456\u0434: '+((st.fn||'')+' '+(st.ln||'')).trim(),
+          created_by: CU?CU.id:null
+        });
+        mkToast('\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e. \u041d\u043e\u043c\u0435\u0440 \u0431\u0456\u043b\u044c\u0448\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u044e\u0432\u0430\u0442\u0438\u043c\u0435 \u043b\u0456\u0434\u0456\u0432');
+      }catch(e){
+        mkToast('\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e, \u0430\u043b\u0435 \u043d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0434\u043e\u0434\u0430\u0442\u0438 \u0432 \u0441\u043f\u0438\u0441\u043e\u043a: '+(e.message||e),'error');
+      }
+    } else {
+      mkToast('\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e');
+    }
+  }catch(e){}
+}
+
+// ── ОБ'ЄДНАННЯ ДУБЛІКАТІВ УЧНІВ ──────────────────────
+// Знаходить учнів з однаковим ім'ям+прізвищем, зливає їх в один запис:
+// - репетитори обох записів об'єднуються (tutor_ids)
+// - порожні поля (телефон, клас, предмет тощо) заповнюються з дублікатів
+// - усі заняття, платежі, комунікації та лог рахунків переносяться на основний запис
+// - дублікати видаляються з бази
+// Нормалізація ПІБ: ігнорує регістр, зайві пробіли, порядок "ім'я/прізвище"
+// та латинські літери-двійники (i,o,a,e,c,p,x,y,k,m,t), випадково введені замість кириличних.
+function _normNameKey(s){
+  var raw=((s.fn||'')+' '+(s.ln||'')).toLowerCase();
+  var lookalike={'a':'\u0430','e':'\u0435','i':'\u0456','o':'\u043E','p':'\u0440','c':'\u0441','x':'\u0445','y':'\u0443','k':'\u043A','m':'\u043C','t':'\u0442','b':'\u0432','h':'\u043D','n':'\u043F'};
+  raw=raw.replace(/[a-z]/g,function(ch){return lookalike[ch]||ch;});
+  raw=raw.replace(/['\u2019\u02BC`\u0301-]/g,'').replace(/\s+/g,' ').trim();
+  // сортуємо слова — щоб "Вікторія Мілентьєва" і "Мілентьєва Вікторія" збігались
+  return raw.split(' ').filter(Boolean).sort().join(' ');
+}
+
+async function mergeDuplicateStudents(){
+  if(R()!=='god'&&R()!=='director'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0443','error'); return; }
+  if(window._viewerMode){ mkToast('\u0420\u0435\u0436\u0438\u043C \u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434\u0443 \u2014 \u0437\u043C\u0456\u043D\u0438 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0456','error'); return; }
+
+  var groups={};
+  (S.students||[]).forEach(function(s){
+    var key=_normNameKey(s);
+    if(!key) return;
+    (groups[key]=groups[key]||[]).push(s);
+  });
+  var dupKeys=Object.keys(groups).filter(function(k){return groups[k].length>1;});
+  console.log('[merge] \u0433\u0440\u0443\u043F \u0432\u0441\u044C\u043E\u0433\u043E:',Object.keys(groups).length,'\u0434\u0443\u0431\u043B\u0456\u043A\u0430\u0442\u0456\u0432:',dupKeys.length,dupKeys.map(function(k){return groups[k].map(function(s){return s.fn+' '+s.ln+' ['+s.id+']';});}));
+  if(!dupKeys.length){ mkToast('\u0414\u0443\u0431\u043B\u0456\u043A\u0430\u0442\u0456\u0432 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E. \u042F\u043A\u0449\u043E \u0432\u043E\u043D\u0438 \u0454 \u2014 \u043F\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u044F \u041F\u0406\u0411 (F12 > Console \u2014 \u0434\u0435\u0442\u0430\u043B\u0456)'); return; }
+
+  var summary=dupKeys.map(function(k){var g=groups[k];return '\u2022 '+g[0].fn+' '+g[0].ln+' \u2014 '+g.length+' \u0437\u0430\u043F\u0438\u0441\u0438(\u0456\u0432)';}).join('\n');
+  if(!confirm('\u0417\u043D\u0430\u0439\u0434\u0435\u043D\u043E \u0434\u0443\u0431\u043B\u0456\u043A\u0430\u0442\u0438:\n'+summary+'\n\n\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u0442\u0438? \u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438 \u0431\u0443\u0434\u0443\u0442\u044C \u043E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u0456, \u0432\u0441\u0456 \u0437\u0430\u043D\u044F\u0442\u0442\u044F, \u043F\u043B\u0430\u0442\u0435\u0436\u0456 \u0442\u0430 \u043A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u0457 \u043F\u0435\u0440\u0435\u043D\u0435\u0441\u0435\u043D\u043E \u043D\u0430 \u043E\u0434\u0438\u043D \u0437\u0430\u043F\u0438\u0441. \u0426\u0435 \u043D\u0435\u0437\u0432\u043E\u0440\u043E\u0442\u043D\u043E.')) return;
+
+  setSaving();
+  var merged=0, errors=[];
+  try{
+    for(var gi=0; gi<dupKeys.length; gi++){
+      var list=groups[dupKeys[gi]].slice().sort(function(a,b){
+        return String(a.created_at||a.createdAt||'').localeCompare(String(b.created_at||b.createdAt||''));
+      });
+      var primary=list[0], dups=list.slice(1);
+
+      // Об'єднуємо репетиторів з усіх записів (без повторів, зі збереженням порядку)
+      var tids=[];
+      list.forEach(function(s){
+        var st=(Array.isArray(s.tutorIds)&&s.tutorIds.length)?s.tutorIds:(s.tutorId?[s.tutorId]:[]);
+        st.forEach(function(t){ if(t&&tids.indexOf(t)<0) tids.push(t); });
+      });
+
+      // Об'єднуємо "Окремі ставки" (rates) з УСІХ записів — унікальні за парою предмет+репетитор.
+      // Без цього дублікат із власними ставками (інший предмет/репетитор) втрачав їх при об'єднанні.
+      var mergedRates=[];
+      list.forEach(function(s){
+        studentRateRules(s).forEach(function(r){
+          var key=(r.subject||'').trim().toLowerCase()+'|'+(r.tutor_id||'');
+          if(!mergedRates.some(function(x){return ((x.subject||'').trim().toLowerCase()+'|'+(x.tutor_id||''))===key;})) mergedRates.push(r);
+        });
+      });
+      var subjNames=[]; mergedRates.forEach(function(r){ if(r.subject && subjNames.indexOf(r.subject)<0) subjNames.push(r.subject); });
+      var tidsFromRates=[]; mergedRates.forEach(function(r){ if(r.tutor_id && tidsFromRates.indexOf(r.tutor_id)<0) tidsFromRates.push(r.tutor_id); });
+      var finalTutorIds=tidsFromRates.length?tidsFromRates:tids;
+
+      // Об'єднуємо філії (учень/репетитор може працювати в кількох одночасно)
+      var brIds=[];
+      list.forEach(function(s){
+        var bi=(Array.isArray(s.branchIds)&&s.branchIds.length)?s.branchIds:(s.branchId||s.branch_id?[s.branchId||s.branch_id]:[]);
+        bi.forEach(function(b){ if(b&&brIds.indexOf(b)<0) brIds.push(b); });
+      });
+
+      // Порожні поля основного запису заповнюємо даними з дублікатів
+      var patch={
+        tutor_ids: finalTutorIds.join(','), tutor_id: finalTutorIds[0]||null,
+        rates: mergedRates,
+        subject: mergedRates.length?subjNames.join(', '):undefined, // якщо є ставки — предмет виводиться з них
+        branch_ids: brIds.join(','), branch_id: brIds[0]||null
+      };
+      if(patch.subject===undefined) delete patch.subject; // без ставок — не чіпаємо legacy-поле subject нижче (заповниться з дублікатів як і раніше)
+      if(!mergedRates.length){
+        // Жодних "Окремих ставок" у жодного з дублікатів — об'єднуємо старе текстове поле subject
+        var subjSet=[];
+        list.forEach(function(s){ (s.subject||'').split(',').map(function(x){return x.trim();}).filter(Boolean).forEach(function(x){ if(subjSet.indexOf(x)<0) subjSet.push(x); }); });
+        if(subjSet.length) patch.subject=subjSet.join(', ');
+      }
+      var fields=[['phone','phone'],['email','email'],['grade','grade'],['age','age'],['notes','notes'],['parent_fn','parentFn'],['parent_phone','parentPhone'],['status','status']];
+      fields.forEach(function(f){
+        var col=f[0], camel=f[1];
+        if(!primary[camel]&&!primary[col]){
+          var d=dups.find(function(x){return x[camel]||x[col];});
+          if(d) patch[col]=d[camel]||d[col];
+        }
+      });
+
+      var ru=await _sb.from('students').update(patch).eq('id',primary.id);
+      if(ru.error && await refreshIfExpired(ru.error)) ru=await _sb.from('students').update(patch).eq('id',primary.id);
+      if(ru.error){ errors.push(primary.fn+' '+primary.ln+': '+ru.error.message); continue; }
+
+      // Переносимо пов'язані записи та видаляємо дублікати
+      var ok=true;
+      for(var di=0; di<dups.length; di++){
+        var dup=dups[di];
+        var tables=['lessons','payments','comms','invoice_log'];
+        for(var ti=0; ti<tables.length; ti++){
+          var up=await _sb.from(tables[ti]).update({student_id:primary.id}).eq('student_id',dup.id);
+          if(up.error && await refreshIfExpired(up.error)) up=await _sb.from(tables[ti]).update({student_id:primary.id}).eq('student_id',dup.id);
+          // invoice_log може бути відсутнім у частині інсталяцій — пропускаємо помилку "таблиці немає"
+          if(up.error && tables[ti]!=='invoice_log'){ errors.push(dup.fn+' '+dup.ln+' ('+tables[ti]+'): '+up.error.message); ok=false; break; }
+        }
+        if(!ok) break;
+        var del=await _sb.from('students').delete().eq('id',dup.id);
+        if(del.error && await refreshIfExpired(del.error)) del=await _sb.from('students').delete().eq('id',dup.id);
+        if(del.error){ errors.push(dup.fn+' '+dup.ln+': '+del.error.message); ok=false; break; }
+      }
+      if(ok) merged++;
+    }
+  }catch(e){ errors.push(e.message||String(e)); }
+
+  // Перезавантажуємо зачеплені таблиці та оновлюємо інтерфейс
+  await loadTableFresh('students');
+  await loadTableFresh('lessons');
+  await loadTableFresh('payments');
+  await loadTableFresh('comms');
+
+  if(errors.length){ console.error('[merge] \u043F\u043E\u043C\u0438\u043B\u043A\u0438:',errors); mkToast('\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u043E: '+merged+', \u043F\u043E\u043C\u0438\u043B\u043A\u0438: '+errors[0],'error'); }
+  else mkToast('\u041E\u0431\u02BC\u0454\u0434\u043D\u0430\u043D\u043E \u0433\u0440\u0443\u043F: '+merged);
+  setSynced();
+}
+
+// \u0411\u0435\u0437\u043f\u0435\u0447\u043d\u0435 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u043b\u0456\u0434\u0430 \u0437 CRM-\u0434\u043e\u0448\u043a\u0438:
+// - \u044f\u043a\u0449\u043e \u0446\u0435 \u0449\u0435 \u043d\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c (\u043d\u0435 status==='active') \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u0454\u043c\u043e\u0441\u044f \u0444\u0456\u0437\u0438\u0447\u043d\u043e
+// - \u044f\u043a\u0449\u043e \u0432\u0436\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u0443\u0447\u0435\u043d\u044c \u2014 \u043b\u0438\u0448\u0435 \u043f\u0440\u0438\u0431\u0438\u0440\u0430\u0454\u043c\u043e \u0437 CRM-\u0434\u043e\u0448\u043a\u0438 (\u0441\u0442\u0430\u0432\u0438\u043c\u043e \u0435\u0442\u0430\u043f lost), \u0441\u0430\u043c \u0443\u0447\u0435\u043d\u044c \u0437\u0430\u043b\u0438\u0448\u0430\u0454\u0442\u044c\u0441\u044f
+async function delLead(id){
+  if(!can('students')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  var s=(S.students||[]).find(function(x){return x.id===id;});
+  if(!s){mkToast('\u041b\u0456\u0434 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e','error');return;}
+
+  // \u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437 CRM \u043d\u0456\u043a\u043e\u043b\u0438 \u043d\u0435 \u0432\u0438\u0434\u0430\u043b\u044f\u0454 \u0441\u0430\u043c\u043e\u0433\u043e \u0443\u0447\u043d\u044f \u0437 \u0441\u0438\u0441\u0442\u0435\u043c\u0438.
+  // \u041c\u0438 \u043f\u0440\u043e\u0441\u0442\u043e \u043f\u043e\u0437\u043d\u0430\u0447\u0430\u0454\u043c\u043e crm_stage='removed' \u2014 \u0442\u0430\u043a\u0438\u0439 \u0437\u0430\u043f\u0438\u0441 \u0431\u0456\u043b\u044c\u0448\u0435 \u043d\u0435 \u0437'\u044f\u0432\u043b\u044f\u0454\u0442\u044c\u0441\u044f \u043d\u0456 \u0432 \u043e\u0434\u043d\u0456\u0439 \u043a\u043e\u043b\u043e\u043d\u0446\u0456 \u0434\u043e\u0448\u043a\u0438,
+  // \u0430\u043b\u0435 \u0441\u0430\u043c \u0443\u0447\u0435\u043d\u044c (\u0437 \u0443\u0441\u0456\u043c\u0430 \u0437\u0430\u043d\u044f\u0442\u0442\u044f\u043c\u0438/\u043f\u043b\u0430\u0442\u0435\u0436\u0430\u043c\u0438) \u043b\u0438\u0448\u0430\u0454\u0442\u044c\u0441\u044f \u0432 \u0441\u0438\u0441\u0442\u0435\u043c\u0456 \u0431\u0435\u0437 \u0437\u043c\u0456\u043d.
+  if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u00ab'+s.fn+' '+s.ln+'\u00bb \u0437 CRM-\u0434\u043e\u0448\u043a\u0438? \u0421\u0430\u043c \u0443\u0447\u0435\u043d\u044c \u0437\u0430\u043b\u0438\u0448\u0438\u0442\u044c\u0441\u044f \u0432 \u0441\u0438\u0441\u0442\u0435\u043c\u0456, \u0437\u043c\u0456\u043d\u044e\u0454\u0442\u044c\u0441\u044f \u043b\u0438\u0448\u0435 \u0439\u043e\u0433\u043e \u043f\u043e\u043b\u043e\u0436\u0435\u043d\u043d\u044f \u0432 CRM.')) return;
+  try{
+    setSaving();
+    var _u = await _sb.from('students').update({crm_stage:'removed', updated_at:new Date().toISOString()}).eq('id',id);
+    if(_u.error){ console.error('delLead update error:', _u.error); mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+_u.error.message,'error'); return; }
+    var idx=(S.students||[]).findIndex(function(x){return x.id===id;});
+    if(idx>=0){ S.students[idx].crmStage='removed'; S.students[idx].crm_stage='removed'; }
+    if(S.currentPage==='crm') renderCrm();
+    mkToast('\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e \u0437 CRM (\u0443\u0447\u0435\u043d\u044c \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e)');
+  }catch(e){ console.error('delLead exception:', e); mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+  finally{ setSynced(); }
+}
+window.delLead = delLead;
+
+async function saveTutor(){
+  var fn=document.getElementById('t-fn').value.trim(), ln=document.getElementById('t-ln').value.trim();
+  if(!fn||!ln){ mkToast("\u0406\u043C'\u044F \u0442\u0430 \u043F\u0440\u0456\u0437\u0432\u0438\u0449\u0435 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
+  var obj={
+    fn, ln,
+    phone:  document.getElementById('t-phone')?.value||'',
+    email:  document.getElementById('t-email')?.value||'',
+    subj:   document.getElementById('t-subj')?.value||'',
+    rate:   document.getElementById('t-rate')?.value||null,
+    bio:    document.getElementById('t-bio')?.value||'',
+    rating: parseInt(document.getElementById('t-rating')?.value)||5,
+    acc_uid: document.getElementById('t-acc')?.value||null,
+    branch_ids: (function(){ return Array.from(document.querySelectorAll('.t-branch-cb:checked')).map(function(el){return el.value;}).join(','); })(),
+    branch_id: (function(){ var ids=Array.from(document.querySelectorAll('.t-branch-cb:checked')).map(function(el){return el.value;}); return ids.length?ids[0]:(myBranchId()||null); })(),
+  };
+  window._saving = true;
+  try{
+    if(S.editId){ await dbUpdate('tutors',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }
+    else         { await dbInsert('tutors',Object.assign({id:uid()},obj)); mkToast('\u0412\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430 \u0434\u043E\u0434\u0430\u043D\u043E'); }
+    closeM('mo-tutor'); S.editId=null; window._saving=false; refreshPage('tutors');
+  }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
+}
+
+async function delTutor(id){
+  if(!can('tutors')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430?')) return;
+  try{ await dbDelete('tutors',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+}
+
+async function saveLesson(){
+  var stdEl=document.getElementById('l-std'); 
+  var dateEl=document.getElementById('l-date');
+  var studentId=stdEl?stdEl.value:''; 
+  var date=dateEl?dateEl.value:'';
+  if(!studentId||!date){ mkToast("\u0423\u0447\u0435\u043D\u044C \u0442\u0430 \u0434\u0430\u0442\u0430 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
+  // Попередження про неробочий час (не блокує)
+  var _wt=(S.tutors||[]).find(function(t){return t.id===(document.getElementById('l-tutor')?document.getElementById('l-tutor').value:null);});
+  var _wtime=document.getElementById('l-time')?document.getElementById('l-time').value:'';
+  if(_wt && _wtime && typeof tutorAvail==='function' && tutorAvail(_wt)){
+    var _wh=parseInt(_wtime.split(':')[0]);
+    if(!isNaN(_wh) && !isWorkingHour(_wt, dowMon1FromDate(date), _wh)){
+      if(!confirm('\u26A0 '+_wt.fn+' '+_wt.ln+' \u043F\u043E\u0437\u043D\u0430\u0447\u0438\u0432(\u043B\u0430) \u0446\u0435\u0439 \u0447\u0430\u0441 \u044F\u043A \u043D\u0435\u0440\u043E\u0431\u043E\u0447\u0438\u0439. \u0412\u0441\u0435 \u043E\u0434\u043D\u043E \u043F\u043E\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0443\u0440\u043E\u043A?')) return;
+    }
+  }
+  var recurType = document.getElementById('l-recur')?.value||'none';
+  var _stat = document.getElementById('l-stat')?.value||'planned';
+  var obj={
+    student_id: studentId,
+    tutor_id:   document.getElementById('l-tutor')?.value||null,
+    subject:    document.getElementById('l-subj')?.value||'',
+    date:       date,
+    time:       document.getElementById('l-time')?.value||'',
+    dur:        parseInt(document.getElementById('l-dur')?.value)||60,
+    price:      (function(){
+      // Ставка з картки учня за правилами (предмет/репетитор) на момент збереження — знімок
+      var _sid=document.getElementById('l-std')?.value;
+      var _st=_sid?(S.students||[]).find(function(s){return s.id===_sid;}):null;
+      var _computed=studentRate(_st, document.getElementById('l-subj')?.value||'', document.getElementById('l-tutor')?.value||'');
+      if(_computed>0) return _computed;
+      // Немає підходящого правила ставки (0) — при РЕДАГУВАННІ не затираємо вже існуючу
+      // коректну ціну заняття (напр. якщо міняли лише час/нотатки, а не предмет/репетитора).
+      if(S.editId){
+        var _existing=(S.lessons||[]).find(function(x){return x.id===S.editId;});
+        if(_existing && parseFloat(_existing.price)>0) return parseFloat(_existing.price);
+      }
+      return 0;
+    })(),
+    status:     _stat,
+    notes:      document.getElementById('l-notes')?.value||'',
+    branch_id:  myBranchId()||null,
+    missed_date: (_stat==='missed'||_stat==='makeup'||_stat==='makeup_planned') ? (document.getElementById('l-miss-date')?.value||null) : null,
+    makeup_date: (_stat==='makeup'||_stat==='makeup_planned') ? (document.getElementById('l-makeup-date')?.value||null) : null,
+    hw:          document.getElementById('l-hw')?.value||null,
+    games:       document.getElementById('l-games')?.value||null,
+  };
+  window._saving = true;
+  try{
+    if(S.editId){
+      if(recurType && recurType!=='none'){
+        // Перетворюємо вже існуюче одноразове заняття на серію повторюваних —
+        // раніше ця гілка просто ігнорувала вибір "Повторення" при редагуванні.
+        var endDate  = document.getElementById('l-recur-end')?.value;
+        var count    = parseInt(document.getElementById('l-recur-count')?.value)||10;
+        var interval = parseInt(document.getElementById('l-recur-interval')?.value)||1;
+        var dates    = genRecurDates(date, recurType, endDate, count, interval);
+        var recurId  = uid();
+        // Існуюче заняття стає 0-м записом серії (дата збігається, лише додаємо recur-поля)
+        var firstPatch = Object.assign({}, obj, {recur_id:recurId, recur_type:recurType, recur_index:0});
+        await dbUpdate('lessons', S.editId, firstPatch);
+        var _newRecurLessons=[];
+        for(var i=1;i<dates.length;i++){
+          var _lo2=Object.assign({id:uid()},obj,{date:dates[i],recur_id:recurId,recur_type:recurType,recur_index:i});
+          await dbInsert('lessons',_lo2);
+          _newRecurLessons.push(normalizeLesson(_lo2));
+        }
+        S.lessons=(S.lessons||[]).concat(_newRecurLessons);
+        mkToast('\u041F\u0435\u0440\u0435\u0442\u0432\u043E\u0440\u0435\u043D\u043E \u043D\u0430 \u0441\u0435\u0440\u0456\u044E: '+dates.length+' \u0437\u0430\u043D\u044F\u0442\u044C'); closeM('mo-lesson');
+        window._saving=false;
+        refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
+      } else {
+        await dbUpdate('lessons',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); closeM('mo-lesson'); window._saving=false; refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
+      }
+    }
+    else if(recurType && recurType!=='none'){
+      var endDate  = document.getElementById('l-recur-end')?.value;
+      var count    = parseInt(document.getElementById('l-recur-count')?.value)||10;
+      var interval = parseInt(document.getElementById('l-recur-interval')?.value)||1;
+      var dates    = genRecurDates(date, recurType, endDate, count, interval);
+      var recurId  = uid();
+      var newLessons=[];
+      for(var i=0;i<dates.length;i++){
+        var _lo=Object.assign({id:uid()},obj,{date:dates[i],recur_id:recurId,recur_type:recurType,recur_index:i});
+        await dbInsert('lessons',_lo);
+        newLessons.push(normalizeLesson(_lo));
+      }
+      // Одразу додаємо в локальний стан і перемальовуємо — не чекаємо фонового loadTableFresh
+      S.lessons=(S.lessons||[]).concat(newLessons);
+      mkToast('\u0414\u043E\u0434\u0430\u043D\u043E '+dates.length+' \u0437\u0430\u043D\u044F\u0442\u044C'); closeM('mo-lesson');
+      window._saving=false;
+      refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
+    } else {
+      var _newLesson=Object.assign({id:uid()},obj);
+      await dbInsert('lessons',_newLesson);
+      // Одразу додаємо в локальний стан і перемальовуємо — не чекаємо фонового loadTableFresh
+      S.lessons=(S.lessons||[]).concat([normalizeLesson(_newLesson)]);
+      mkToast('\u0417\u0430\u043D\u044F\u0442\u0442\u044F \u0434\u043E\u0434\u0430\u043D\u043E'); closeM('mo-lesson');
+      window._saving=false;
+      refreshPage('lessons'); if(S.currentPage==='schedule') renderSch();
+    }
+    S.editId=null;
+  }catch(e){ window._saving=false; }
+}
+
+async function delLesson(id){
+  if(!can('lessons')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  var l=(S.lessons||[]).find(function(x){return x.id===id;});
+  if(l && l.recurId){ S.editId=id; openM('mo-del-recur'); }
+  else{ if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F?')) return; try{ await dbDelete('lessons',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){} }
+}
+
+async function doDelLesson(mode){
+  var id=S.editId, l=(S.lessons||[]).find(function(x){return x.id===id;});
+  if(!l){ closeM('mo-del-recur'); return; }
+  closeM('mo-del-recur'); S.editId=null;
+  try{
+    if(mode==='one'){ await dbDelete('lessons',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }
+    else if(mode==='future'){
+      if(!l.recurId){ mkToast('\u0426\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u043D\u0435 \u043D\u0430\u043B\u0435\u0436\u0438\u0442\u044C \u0434\u043E \u0441\u0435\u0440\u0456\u0457 \u043f\u043e\u0432\u0442\u043e\u0440\u0435\u043d\u044c \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u044e \u043b\u0438\u0448\u0435 \u0439\u043e\u0433\u043e \u043e\u0434\u043d\u043e\u0433\u043e','error'); await dbDelete('lessons',id); return; }
+      var toDelete=(S.lessons||[]).filter(function(x){return x.recurId===l.recurId&&x.recurIndex>=l.recurIndex;});
+      for(var i=0;i<toDelete.length;i++) await dbDelete('lessons',toDelete[i].id);
+      mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E '+toDelete.length+' \u0437\u0430\u043D\u044F\u0442\u044C');
+    } else {
+      if(!l.recurId){ mkToast('\u0426\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u043D\u0435 \u043D\u0430\u043B\u0435\u0436\u0438\u0442\u044C \u0434\u043E \u0441\u0435\u0440\u0456\u0457 \u043f\u043e\u0432\u0442\u043e\u0440\u0435\u043d\u044c \u2014 \u0432\u0438\u0434\u0430\u043b\u044f\u044e \u043b\u0438\u0448\u0435 \u0439\u043e\u0433\u043e \u043e\u0434\u043d\u043e\u0433\u043e','error'); await dbDelete('lessons',id); return; }
+      var all=(S.lessons||[]).filter(function(x){return x.recurId===l.recurId;});
+      for(var i=0;i<all.length;i++) await dbDelete('lessons',all[i].id);
+      mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E \u0441\u0435\u0440\u0456\u044E ('+all.length+')');
+    }
+  }catch(e){}
+}
+
+async function savePayment(){
+  var studentId=document.getElementById('p-std')?.value, amount=parseFloat(document.getElementById('p-amt')?.value);
+  if(!studentId||!amount){ mkToast("\u0423\u0447\u0435\u043D\u044C \u0442\u0430 \u0441\u0443\u043C\u0430 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
+  var obj={
+    student_id:studentId, amount,
+    method: document.getElementById('p-mth')?.value||'cash',
+    date:   document.getElementById('p-date')?.value,
+    month:  document.getElementById('p-mon')?.value||'',
+    status: document.getElementById('p-stat')?.value||'paid',
+    note:   document.getElementById('p-note')?.value||'',
+    branch_id: myBranchId()||null,
+  };
+  window._saving = true;
+  try{
+    if(S.editId){ await dbUpdate('payments',S.editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }
+    else         { await dbInsert('payments',Object.assign({id:uid()},obj)); mkToast('\u0417\u0430\u043F\u0438\u0441\u0430\u043D\u043E'); }
+    closeM('mo-payment'); S.editId=null; window._saving=false; refreshPage('payments');
+  }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
+}
+
+async function delPay(id){
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u043F\u043B\u0430\u0442\u0456\u0436?')) return;
+  try{ await dbDelete('payments',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+}
+
+
+function updateParentInfo(){
+  var sel = document.getElementById('cm-student');
+  var wrap = document.getElementById('cm-parent-wrap');
+  var info = document.getElementById('cm-parent-info');
+  if(!sel || !wrap || !info) return;
+  var sid = sel.value;
+  var s = sid ? (S.students||[]).find(function(x){return x.id===sid;}) : null;
+  if(s && (s.parentFn||s.parent_fn||s.parentPhone||s.parent_phone)){
+    var fn = s.parentFn||s.parent_fn||'';
+    var ph = s.parentPhone||s.parent_phone||'';
+    info.innerHTML = (fn?'<strong>'+fn+'</strong>':'')+(ph?' — <a href="tel:'+ph+'">'+ph+'</a>':'');
+    wrap.style.display = 'block';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+async function saveComm(){
+  var tutorId=document.getElementById('cm-tutor')?.value, date=document.getElementById('cm-date')?.value;
+  if(!tutorId){ mkToast('\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430','error'); return; }
+  if(!date)   { mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0434\u0430\u0442\u0443','error'); return; }
+  window._saving = true;
+  var obj={ tutor_id:tutorId,
+    student_id:document.getElementById('cm-student')?.value||null,
+    date, type:document.getElementById('cm-type')?.value||'call',
+    note:document.getElementById('cm-note')?.value||'' };
+  try{
+    if(window._editCommId){
+      var _cid=window._editCommId;
+      await dbUpdate('comms',_cid,obj);
+      // Миттєве оновлення локального стану
+      var _lc=(S.comms||[]).find(function(c){return c.id===_cid;});
+      if(_lc) Object.assign(_lc,obj,{tutorId:obj.tutor_id,studentId:obj.student_id});
+      window._editCommId=null;
+      closeM('mo-comm'); mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E'); window._saving=false;
+    } else {
+      await dbInsert('comms',Object.assign({id:uid(),branch_id:myBranchId()||null},obj));
+      closeM('mo-comm'); mkToast('Записано'); window._saving=false;
+    }
+    // Add to local S.comms immediately
+    if(S.currentPage==='comms') renderCommsPage();
+    if(typeof renderCommLog==='function') renderCommLog();
+  }catch(e){ window._saving=false; mkToast('Помилка: '+(e.message||e),'error'); }
+}
+
+async function delComm(id){
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u043A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u044E?')) return;
+  try{
+    await dbDelete('comms',id);
+    S.comms=(S.comms||[]).filter(function(c){return c.id!==id;});
+    if(S.currentPage==='comms') renderCommsPage();
+    mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E');
+  }catch(e){}
+}
+
+async function saveSettings(){
+  try{
+    await _sb.from('settings').upsert({
+      id:'main',
+      name:    document.getElementById('set-name')?.value||'',
+      phone:   document.getElementById('set-phone')?.value||'',
+      email:   document.getElementById('set-email')?.value||'',
+      address: document.getElementById('set-addr')?.value||'',
+      payment_details: document.getElementById('set-payment')?.value||'',
+      unisender_key: document.getElementById('set-unisender-key')?.value||'',
+      viber_sender:  document.getElementById('set-viber-sender')?.value||'',
+      updated_at: new Date().toISOString()
+    });
+    mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E');
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430','error'); }
+}
+
+async function addSubj(){
+  var name=(document.getElementById('ns-name')?.value||'').trim();
+  if(!name){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443','error'); return; }
+  try{
+    await dbInsert('subjects',{id:uid(),name:name,branch_id:myBranchId()||null});
+    document.getElementById('ns-name').value='';
+    mkToast('\u0414\u043E\u0434\u0430\u043D\u043E');
+  }catch(e){}
+}
+
+async function delSubj(id){
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u043F\u0440\u0435\u0434\u043C\u0435\u0442?')) return;
+  try{
+    await dbDelete('subjects',id);
+    S.subjects=(S.subjects||[]).filter(function(s){return s.id!==id;});
+    if(typeof renderSettings==='function'&&S.currentPage==='settings') renderSettings();
+    mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E');
+  }catch(e){}
+}
+
+async function addBranch(){
+  var nm=(document.getElementById('new-branch-name')?.value||'').trim();
+  var addr=(document.getElementById('new-branch-addr')?.value||'').trim();
+  if(!nm){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443 \u0444\u0456\u043B\u0456\u0457','error'); return; }
+  try{
+    await dbInsert('branches',{id:'b'+uid(),name:nm,address:addr,phone:''});
+    document.getElementById('new-branch-name').value='';
+    document.getElementById('new-branch-addr').value='';
+    mkToast('\u0424\u0456\u043B\u0456\u044E \u0434\u043E\u0434\u0430\u043D\u043E');
+  }catch(e){}
+}
+
+async function delBranch(id){
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0444\u0456\u043B\u0456\u044E?')) return;
+  try{ await dbDelete('branches',id); if(S.currentBranchId===id)S.currentBranchId=null; mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+}
+
+async function editBranch(id){
+  openBranchM(id);
+}
+
+// Pricing rules
+async function savePriceRule(){
+  var name=(document.getElementById('pr-name')?.value||'').trim();
+  var price=parseFloat(document.getElementById('pr-price')?.value||0);
+  if(!name||!price){ mkToast("\u041D\u0430\u0437\u0432\u0430 \u0442\u0430 \u0446\u0456\u043D\u0430 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
+  var editId=document.getElementById('pr-edit-id')?.value||'';
+  var obj={
+    name, price,
+    subject_match: document.getElementById('pr-subj')?.value||'',
+    tutor_id:      document.getElementById('pr-tutor')?.value||'',
+    grade_match:   document.getElementById('pr-grade')?.value||'',
+    dur_min:       parseInt(document.getElementById('pr-dur')?.value)||null,
+    branch_id:     myBranchId()||null,
+  };
+  try{
+    if(editId){ await dbUpdate('pricing_rules',editId,obj); mkToast('\u041E\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); }
+    else       { await dbInsert('pricing_rules',Object.assign({id:uid()},obj)); mkToast('\u041F\u0440\u0430\u0432\u0438\u043B\u043E \u0434\u043E\u0434\u0430\u043D\u043E'); }
+    ['pr-name','pr-price','pr-subj','pr-grade','pr-dur'].forEach(function(f){ var el=document.getElementById(f);if(el)el.value=''; });
+    var pt=document.getElementById('pr-tutor');if(pt)pt.value='';
+    var pi=document.getElementById('pr-edit-id');if(pi)pi.value='';
+    var pb=document.getElementById('pr-save-btn');if(pb)pb.textContent='+ \u0414\u043E\u0434\u0430\u0442\u0438 \u043F\u0440\u0430\u0432\u0438\u043B\u043E';
+  }catch(e){}
+}
+
+async function editPriceRule(id){
+  var r=(S.pricingRules||[]).find(function(x){return x.id===id;});
+  if(!r) return;
+  var set=function(elId,val){var el=document.getElementById(elId);if(el)el.value=val||'';};
+  set('pr-name',r.name);set('pr-price',r.price);set('pr-subj',r.subjectMatch||r.subject_match);
+  set('pr-grade',r.gradeMatch||r.grade_match);set('pr-dur',r.durMin||r.dur_min);set('pr-edit-id',r.id);
+  var pt=document.getElementById('pr-tutor');if(pt)pt.value=r.tutorId||r.tutor_id||'';
+  var pb=document.getElementById('pr-save-btn');if(pb)pb.textContent='\uD83D\uDCBE \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u0437\u043C\u0456\u043D\u0438';
+}
+
+async function delPriceRule(id){
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u043F\u0440\u0430\u0432\u0438\u043B\u043E?')) return;
+  try{ await dbDelete('pricing_rules',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){}
+}
+
+// Users management (profiles table)
+async function renderUsers(){
+  var list=document.getElementById('ut-list');
+  if(!list) return;
+  list.innerHTML='<div class="empty"><div class="ei">\u23F3</div>\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F\u2026</div>';
+  var _users2 = await _sb.from('profiles').select('*'); var users = _users2.data;
+  S.users = (users || []).map(normalizeUser);
+  list.innerHTML='';
+  (users||[]).forEach(function(u){
+    var ro=ROLES[u.role]||ROLES.tutor;
+    var canEdit=R()==='god'||(R()==='director'&&u.role!=='god');
+    var canDel=(R()==='god'&&u.id!==CU?.id)||(R()==='director'&&u.role!=='god'&&u.id!==CU?.id);
+    var row=document.createElement('div'); row.className='ulr';
+    var av=document.createElement('div'); av.className='av uav';
+    av.style.cssText='background:'+ro.avatarBg+';width:38px;height:38px;font-size:14px;font-weight:700;flex-shrink:0;color:#fff';
+    av.textContent=(u.fn?.[0]||'?')+(u.ln?.[0]||'');
+    var info=document.createElement('div');info.className='uin';
+    info.innerHTML='<div class="uinn">'+u.fn+' '+(u.ln||'')+'</div><div class="uinm">'+(u.email||'\u2014')+'</div>';
+    var rpill=document.createElement('span');rpill.className='rpill '+u.role;
+    rpill.innerHTML=ro.icon+' '+ro.label;
+    var btns=document.createElement('div');btns.style.cssText='display:flex;gap:6px;margin-left:auto;align-items:center';
+    if(canEdit){
+      var eb=document.createElement('button');eb.className='btn btn-g btn-sm';eb.innerHTML='\u270F\uFE0F';
+      (function(id){eb.onclick=function(){openUserM(id);};})(u.id);btns.appendChild(eb);
+      var ab=document.createElement('button');ab.className='btn btn-p btn-sm';ab.textContent='\uD83D\uDD10 \u0414\u043E\u0441\u0442\u0443\u043F';
+      (function(id){ab.onclick=function(){openUserAccessM(id);};})(u.id);btns.appendChild(ab);
+    }
+    if(canDel){
+      var db=document.createElement('button');db.className='btn btn-sm btn-d';db.innerHTML='\uD83D\uDDD1';
+      (function(id){db.onclick=function(){delUser(id);};})(u.id);btns.appendChild(db);
+    }
+    row.appendChild(av);row.appendChild(info);row.appendChild(rpill);row.appendChild(btns);
+    list.appendChild(row);
+  });
+  if(!users?.length) list.innerHTML='<div class="empty"><div class="ei">\uD83D\uDC64</div>\u041D\u0435\u043C\u0430\u0454 \u0430\u043A\u0430\u0443\u043D\u0442\u0456\u0432</div>';
+}
+
+async function openUserM(id){
+  S.editId=id||null;
+  var u=id?(S.users||[]).find(function(x){return x.id===id;}):null;
+  if(id&&!u) return;
+
+  var titleEl=document.getElementById('mu-title');
+  if(titleEl) titleEl.textContent=id?'Редагувати акаунт':'Новий акаунт';
+
+  var fnEl=document.getElementById('u-fn');     if(fnEl)    fnEl.value=u?u.fn||'':'';
+  var lnEl=document.getElementById('u-ln');     if(lnEl)    lnEl.value=u?u.ln||'':'';
+  var emEl=document.getElementById('u-email');  if(emEl)  { emEl.value=u?u.email||'':''; emEl.disabled=!!id; emEl.style.opacity=id?'0.6':'1'; }
+  var roEl=document.getElementById('u-role');   if(roEl)    roEl.value=u?u.role||'tutor':'tutor';
+  toggleTutLink();
+  popSel('u-tlink',S.tutors,'id',function(t){return t.fn+' '+t.ln;},'\u041f\u0440\u0438\u0432\u2019\u044f\u0437\u0430\u0442\u0438 \u0434\u043e \u0432\u0438\u043a\u043b\u0430\u0434\u0430\u0447\u0430');
+  if(id){
+    var linked=(S.tutors||[]).find(function(t){return t.acc_uid===id||t.accId===id;});
+    if(linked){ var tlEl=document.getElementById('u-tlink'); if(tlEl) tlEl.value=linked.id; }
+  }
+  var brListU=document.getElementById('u-branch-list');
+  if(brListU){
+    var _preSelU=(u&&u.branchIds)||[];
+    brListU.innerHTML=(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+      .map(function(b){
+        var checked=_preSelU.indexOf(b.id)>=0?' checked':'';
+        return '<label class="af-day"><input type="checkbox" class="u-branch-cb" value="'+b.id+'"'+checked+'> '+b.name+'</label>';
+      }).join('') || '<span style="font-size:11px;color:var(--t3)">\u0424\u0456\u043B\u0456\u0439 \u0449\u0435 \u043D\u0435 \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E</span>';
+  }
+  openM('mo-user');
+}
+
+async function saveUser(){
+  var fn=document.getElementById('u-fn').value.trim();
+  var ln=document.getElementById('u-ln').value.trim();
+  var role=document.getElementById('u-role').value;
+  var email=document.getElementById('u-email').value.trim();
+  var branchIds=Array.from(document.querySelectorAll('.u-branch-cb:checked')).map(function(el){return el.value;});
+  var branchPatch={ branch_ids:branchIds.join(','), branch_id:branchIds[0]||null };
+
+  if(!fn){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0456\u043c\u2019\u044f','error'); return; }
+
+  try{
+    if(!S.editId){
+      // Новий акаунт — запрошуємо через Supabase Admin API
+      if(!email){ mkToast('\u0412\u0432\u0435\u0434\u0456\u0442\u044c email','error'); return; }
+      var _inv = await _sb.auth.admin.inviteUserByEmail(email, {
+        data:{ fn, ln, role }
+      });
+      if(_inv.error) throw _inv.error;
+      // Одразу оновимо профіль щойно створеного користувача
+      if(_inv.data?.user?.id){
+        await _sb.from('profiles').update(Object.assign({fn,ln,role},branchPatch)).eq('id',_inv.data.user.id);
+      }
+      mkToast('\u0417\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u043d\u044f \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043d\u043e \u043d\u0430 '+email);
+    } else {
+      // Редагування існуючого
+      await dbUpdate('profiles',S.editId,Object.assign({fn,ln,role},branchPatch));
+      var tutorId=document.getElementById('u-tlink')?.value;
+      if(role==='tutor'&&tutorId){
+        await _sb.from('tutors').update({acc_uid:S.editId}).eq('id',tutorId);
+      }
+      if(CU?.id===S.editId){ CU=Object.assign({},CU,{fn,ln,role},normalizeUser(branchPatch)); updateSBUser(); buildSidebar(); }
+      mkToast('\u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e');
+    }
+    closeM('mo-user'); S.editId=null; renderUsers();
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); console.error('saveUser error:',e); }
+}
+
+async function delUser(id){
+  if(id===CU?.id){ mkToast('\u041D\u0435 \u043C\u043E\u0436\u043D\u0430 \u0432\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0441\u0432\u0456\u0439 \u0430\u043A\u0430\u0443\u043D\u0442','error'); return; }
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0430\u043A\u0430\u0443\u043D\u0442?')) return;
+  try{ await dbDelete('profiles',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); renderUsers(); }catch(e){}
+}
+
+// Access editor
+var _uaUserId=null;
+async function openUserAccessM(id){
+  var u=(S.users||[]).find(function(x){return x.id===id;});
+  if(!u){ mkToast('\u041D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error'); return; }
+  _uaUserId=id;
+  document.querySelectorAll('.ua-tab').forEach(function(t,i){t.classList.toggle('active',i===0);});
+  document.querySelectorAll('.ua-panel').forEach(function(p,i){p.classList.toggle('active',i===0);});
+  try{ buildUAHeader(u); }catch(e){ console.error('buildUAHeader error:',e); }
+  try{ buildUAPerms(u); }catch(e){ console.error('buildUAPerms error:',e); }
+  try{ buildUANav(u); }catch(e){ console.error('buildUANav error:',e); }
+  try{ buildUASummary(u); }catch(e){ console.error('buildUASummary error:',e); }
+  openM('mo-user-access');
+}
+
+async function uaPermChange(key,val,roleDefault){
+  var u=(S.users||[]).find(function(x){return x.id===_uaUserId;});
+  if(!u) return;
+  var perms=JSON.parse(JSON.stringify(u.perms||{}));
+  if(!perms.can) perms.can={};
+  if(val===roleDefault) delete perms.can[key]; else perms.can[key]=val;
+  if(!Object.keys(perms.can).length) delete perms.can;
+  try{ await dbUpdate('profiles',_uaUserId,{perms}); if(CU?.id===_uaUserId)CU.perms=perms; }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); console.error('ua error:',e); return; }
+  var u2=(S.users||[]).find(function(x){return x.id===_uaUserId;}); if(u2){u2.perms=perms;buildUASummary(u2);}
+}
+
+async function uaResetPerm(key){
+  var u=(S.users||[]).find(function(x){return x.id===_uaUserId;});
+  if(!u) return;
+  var perms=JSON.parse(JSON.stringify(u.perms||{}));
+  if(perms.can){delete perms.can[key];if(!Object.keys(perms.can).length)delete perms.can;}
+  try{ await dbUpdate('profiles',_uaUserId,{perms}); if(CU?.id===_uaUserId)CU.perms=perms; }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); console.error('ua error:',e); return; }
+  var u2=(S.users||[]).find(function(x){return x.id===_uaUserId;}); if(u2){u2.perms=perms;buildUAPerms(u2);buildUASummary(u2);}
+}
+
+async function uaNavChange(pageId,show,isInRole){
+  var u=(S.users||[]).find(function(x){return x.id===_uaUserId;});
+  if(!u) return;
+  var perms=JSON.parse(JSON.stringify(u.perms||{}));
+  if(!perms.hideNav)perms.hideNav=[];if(!perms.showNav)perms.showNav=[];
+  if(show){
+    perms.hideNav=perms.hideNav.filter(function(p){return p!==pageId;});
+    if(!isInRole&&!perms.showNav.includes(pageId))perms.showNav.push(pageId);
+  } else {
+    perms.showNav=perms.showNav.filter(function(p){return p!==pageId;});
+    if(isInRole&&!perms.hideNav.includes(pageId))perms.hideNav.push(pageId);
+  }
+  if(!perms.hideNav.length)delete perms.hideNav;
+  if(!perms.showNav.length)delete perms.showNav;
+  try{ await dbUpdate('profiles',_uaUserId,{perms}); if(CU?.id===_uaUserId){CU.perms=perms;buildSidebar();} }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); console.error('ua error:',e); return; }
+  var u2=(S.users||[]).find(function(x){return x.id===_uaUserId;}); if(u2){u2.perms=perms;buildUASummary(u2);}
+}
+
+async function resetAllUserAccess(){
+  var u=(S.users||[]).find(function(x){return x.id===_uaUserId;});
+  if(!confirm('\u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u043D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u043D\u044F \u0434\u043B\u044F '+(u?.fn||'')+' '+(u?.ln||'')+' ?')) return;
+  try{
+    await dbUpdate('profiles',_uaUserId,{perms:{}});
+    if(CU?.id===_uaUserId){CU.perms={};buildSidebar();}
+    var u2=(S.users||[]).find(function(x){return x.id===_uaUserId;}); if(u2){u2.perms={};buildUAPerms(u2);buildUANav(u2);buildUASummary(u2);}
+    renderUsers(); mkToast('\u0421\u043A\u0438\u043D\u0443\u0442\u043E');
+  }catch(e){}
+}
+
+function setBranch(id){
+  S.currentBranchId = id||null;
+  updateBranchSelector();
+  renderSch && renderSch();
+  nav(S.currentPage||'dashboard');
+}
+
+// =
+// CLEAR DATA (god only)
+// =
+async function clearData(what){
+  if(R()!=='god'){mkToast('\u0422\u0456\u043B\u044C\u043A\u0438 \u0411\u043E\u0433','error');return;}
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 '+what+' \u0434\u0430\u043D\u0456? \u0426\u0435 \u043D\u0435\u0437\u0432\u043E\u0440\u043E\u0442\u043D\u043E!')) return;
+  var tables={lessons:['lessons'],payments:['payments'],all:['comms','payments','lessons','students','tutors']};
+  var toDelete=tables[what]||[];
+  try{
+    for(var _ti=0; _ti<toDelete.length; _ti++) await _sb.from(toDelete[_ti]).delete().neq('id','');
+    mkToast('\u041E\u0447\u0438\u0449\u0435\u043D\u043E');
+  }catch(e){mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430','error');}
+}
+
+// =
+// APP START
+// =
+// ── QUICK ACTION POPUP ──────────────────────
+var _quickLessonId = null;
+
+function showQuickPopup(lessonId, x, y){
+  _quickLessonId = lessonId;
+  var l = (S.lessons||[]).find(function(x){return x.id===lessonId;});
+  if(!l) return;
+  var s = (S.students||[]).find(function(st){return st.id===(l.studentId||l.student_id);});
+  var title = document.getElementById('qp-title');
+  if(title) title.textContent = (s?s.fn+' '+s.ln:'?')+' · '+(l.time||'');
+  var pop = document.getElementById('quick-popup');
+  if(!pop) return;
+  pop.style.display = 'block';
+  // Position near click
+  var pw = 190, ph = 200;
+  var lx = Math.min(x, window.innerWidth - pw - 10);
+  var ly = Math.min(y, window.innerHeight - ph - 10);
+  pop.style.left = lx + 'px';
+  pop.style.top = ly + 'px';
+  // Close on outside click
+  setTimeout(function(){
+    document.addEventListener('click', closeQuickPopup, {once:true});
+  }, 10);
+}
+
+function closeQuickPopup(){
+  var pop = document.getElementById('quick-popup');
+  if(pop) pop.style.display = 'none';
+}
+
+async function quickSetStatus(status){
+  closeQuickPopup();
+  if(!_quickLessonId) return;
+  try{
+    await dbUpdate('lessons', _quickLessonId, {status: status});
+    mkToast(status==='testing'?'🧪 Тестування':status==='done'?'✅ Проведено':status==='missed'?'❌ Пропущено':status==='cancelled'?'🚫 Скасовано':'📅 Заплановано');
+    if(S.currentPage==='schedule') renderSch();
+    if(S.currentPage==='lessons') renderLessons();
+  }catch(e){ mkToast('Помилка: '+e.message,'error'); }
+}
+
+function quickEdit(){
+  closeQuickPopup();
+  if(_quickLessonId) openLessM(_quickLessonId);
+}
+
+window.showQuickPopup = showQuickPopup;
+window.closeQuickPopup = closeQuickPopup;
+window.quickSetStatus = quickSetStatus;
+window.quickEdit = quickEdit;
+
+// ── CTRL+K GLOBAL SEARCH ────────────────────
+document.addEventListener('keydown', function(e){
+  if((e.ctrlKey||e.metaKey) && e.key==='k'){
+    e.preventDefault();
+    var gs = document.getElementById('gsearch');
+    if(gs){ gs.focus(); gs.select(); }
+  }
+  if(e.key==='Escape'){
+    closeQuickPopup();
+  }
+});
+
+// ── EXCEL EXPORT ────────────────────────────
+function exportToExcel(type){
+  if(R()!=='god'&&R()!=='director'){ mkToast('\u0415\u043A\u0441\u043F\u043E\u0440\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0438\u0439 \u043B\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0443','error'); return; }
+  var rows=[], headers=[], data=[];
+
+  if(type==='students'){
+    headers=['Імʼя','Прізвище','Телефон','Предмет','Статус','Клас','Нотатки'];
+    data=(S.students||[]).map(function(s){return [s.fn||'',s.ln||'',s.phone||'',s.subject||'',s.status||'',s.grade||'',s.notes||''];});
+  } else if(type==='lessons'){
+    headers=['Учень','Репетитор','Предмет','Дата','Час','Тривалість','Статус','Ціна','Тема уроку','Домашнє завдання','Аудіювання та ігри'];
+    data=myLessons().map(function(l){
+      var st=(S.students||[]).find(function(s){return s.id===(l.studentId||l.student_id);});
+      var tu=(S.tutors||[]).find(function(t){return t.id===(l.tutorId||l.tutor_id);});
+      return [(st?st.fn+' '+st.ln:''),(tu?tu.fn+' '+tu.ln:''),(l.subject||''),(l.date||''),(l.time||''),(l.dur||60)+' хв',(l.status||''),(l.price||''),(l.notes||''),(l.hw||''),(l.games||'')];
+    });
+  } else if(type==='payments'){
+    headers=['Учень','Сума','Дата','Статус','Нотатки'];
+    data=(S.payments||[]).map(function(p){
+      var st=(S.students||[]).find(function(s){return s.id===(p.studentId||p.student_id);});
+      return [(st?st.fn+' '+st.ln:''),(p.amount||''),(p.date||''),(p.status||''),(p.notes||'')];
+    });
+  }
+
+  // Build CSV (Excel-compatible UTF-8 BOM)
+  var csv='\uFEFF'+headers.join(';')+'\n';
+  data.forEach(function(row){
+    csv+=row.map(function(cell){
+      var s=String(cell||'').replace(/"/g,'""');
+      return '"'+s+'"';
+    }).join(';')+'\n';
+  });
+
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download='konstanta_'+type+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  mkToast('📊 Експорт завершено');
+}
+window.exportToExcel = exportToExcel;
+
+function toggleTheme(){
+  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  var newTheme=isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',newTheme==='dark'?'dark':'');
+  localStorage.setItem('crm_theme',newTheme);
+  var btn=document.getElementById('theme-btn');
+  if(btn) btn.textContent=newTheme==='dark'?'☀️':'🌙';
+}
+function initTheme(){
+  var saved=localStorage.getItem('crm_theme')||'light';
+  if(saved==='dark') document.documentElement.setAttribute('data-theme','dark');
+  var btn=document.getElementById('theme-btn');
+  if(btn) btn.textContent=saved==='dark'?'☀️':'🌙';
+}
+window.toggleTheme=toggleTheme;
+
+async function startApp(){
+  // Проактивне оновлення токена: періодично та при поверненні на вкладку/у застосунок.
+  // Це головний захист від "JWT expired" після сну ноутбука чи згорнутого PWA.
+  if(!window._sessTimersSet){
+    window._sessTimersSet=true;
+    setInterval(function(){ try{ ensureFreshSession(); }catch(e){} }, 4*60*1000); // кожні 4 хв
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState==='visible'){ try{ ensureFreshSession(); }catch(e){} }
+    });
+    window.addEventListener('focus', function(){ try{ ensureFreshSession(); }catch(e){} });
+    window.addEventListener('online', function(){ try{ ensureFreshSession(); }catch(e){} });
+  }
+  // Inject page visibility CSS
+  if(!document.getElementById('__pcss__')){
+    var _st=document.createElement('style');
+    _st.id='__pcss__';
+    _st.textContent='.page{display:none!important}.page.active{display:block!important;padding-bottom:40px}';
+    document.head.appendChild(_st);
+  }
+  document.getElementById('ls').style.display='none';
+  document.getElementById('as').style.display='block';
+
+  // Refresh helper — re-renders current page
+  function reRender(){
+    var pg = S.currentPage;
+    if(!pg) return;
+    try{
+      if(pg==='dashboard')  renderDash();
+      else if(pg==='students')  renderStudents();
+      else if(pg==='tutors')    renderTutors();
+      else if(pg==='schedule')  renderSch();
+      else if(pg==='lessons')   renderLessons();
+      else if(pg==='payments')  renderPayments();
+      else if(pg==='reports')   renderAllAnalytics();
+      else if(pg==='users')     renderUsers();
+      else if(pg==='settings')  renderSettings();
+      else if(pg==='profile')   renderProfile();
+      else if(pg==='comms')     renderCommsPage();
+      else if(pg==='missed')    renderMissedLessons();
+      else if(pg==='crm')       renderCrm();
+    }catch(e){ console.warn('reRender:', e); }
+  }
+
+  // Load data, build UI, navigate — all in one await
+  await loadAll();
+  startChannels();
+  buildSidebar(); updateSBUser(); updateBranchSelector();
+  document.body.className = document.body.className.replace(/\brole-\w+\b/g, '');
+  document.body.classList.add('role-' + (CU ? CU.role : 'tutor'));
+
+  var lastPage = '';
+  try{ lastPage = localStorage.getItem('sb_page')||''; }catch(e){}
+  var allowedPages = userNav();
+  // Відновлюємо останню відкриту сторінку (якщо вона досі доступна цій ролі),
+  // інакше відкриваємо дашборд за замовчуванням
+  var pageToOpen = (lastPage && allowedPages.indexOf(lastPage) >= 0) ? lastPage : 'dashboard';
+  try{ nav(pageToOpen); }catch(e){ try{ nav('dashboard'); }catch(e2){} }
+
+  // Second silent load to catch any data that arrived after first load
+  loadAll().then(function(){
+    buildSidebar(); updateSBUser();
+    try{renderDash();}catch(e){}
+    reRender();
+  }).catch(function(){});
+
+}  // startApp end
+
+// Keyboard
+
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&document.getElementById('ls').style.display!=='none') doLogin();
+  if(e.key==='Escape') document.querySelectorAll('.mo').forEach(function(m){m.style.display='none';});
+});
+
+// Expose key functions to window scope explicitly
+window.doLogin   = doLogin;
+window.doLogout  = doLogout;
+window.openStudM = openStudM;
+window.openTutM  = openTutM;
+window.openLessM = openLessM;
+window.openPayM  = openPayM;
+window.openCommM = openCommM;
+window.openUserM = openUserM;
+window.saveUser  = saveUser;
+window.saveStudent = saveStudent;
+window.saveTutor = saveTutor;
+window.saveLesson = saveLesson;
+window.savePayment = savePayment;
+window.saveComm  = saveComm;
+window.saveSettings = saveSettings;
+window.nav       = nav;
+window.closeM    = closeM;
+window.openM     = openM;
+window.delStudent = delStudent;
+
+// ══════════ ЗАВДАННЯ (TASKS) ══════════
+// Керівні ролі ставлять завдання з дедлайнами відповідальним адмінам/директорам.
+// Прострочене відкрите завдання підсвічує пункт меню відповідального червоним.
+function taskRoles(){ return ['god','director','admin','network_admin']; }
+// Хто може БУТИ відповідальним (отримувати завдання): керівники + репетитори
+function taskAssigneeRoles(){ return ['god','director','admin','network_admin','tutor']; }
+function canManageTasks(){ return taskRoles().indexOf(R())>=0; }
+
+function taskIsOverdue(t){
+  if(t.status==='done') return false;
+  if(!t.deadline) return false;
+  var dl=new Date(String(t.deadline).slice(0,10)+'T'+(t.deadlineTime||t.deadline_time||'23:59'));
+  return dl.getTime()<Date.now();
+}
+
+function taskAssigneeName(t){
+  var u=(S.users||[]).find(function(x){return x.id===(t.assigneeId||t.assignee_id);});
+  return u?(u.fn+' '+u.ln):'\u2014';
+}
+
+function taskCreatorName(t){
+  var cid=t.creatorId||t.creator_id;
+  if(!cid) return '\u2014';
+  var u=(S.users||[]).find(function(x){return x.id===cid;});
+  return u?(u.fn+' '+u.ln):'\u2014';
+}
+
+function renderTasks(){
+  var tbody=document.getElementById('tasks-tbody');
+  if(!tbody) return;
+  var isMgr=canManageTasks();
+  var fSt=(document.getElementById('tf-status')||{value:''}).value;
+  var fAs=(document.getElementById('tf-assignee')||{value:''}).value;
+
+  // Керівники ставлять завдання й фільтрують по відповідальному; репетитори — лише свої, без цих контролів
+  var asSel=document.getElementById('tf-assignee');
+  var addBtn=document.getElementById('task-add-btn');
+  if(addBtn) addBtn.style.display=isMgr?'inline-flex':'none';
+  if(asSel){
+    asSel.style.display=isMgr?'':'none';
+    if(isMgr){
+      var prev=asSel.value;
+      asSel.innerHTML='<option value="">Всі відповідальні</option>'
+        +(S.users||[]).filter(function(u){return taskAssigneeRoles().indexOf(u.role)>=0;})
+          .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+          .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
+      asSel.value=prev;
+    }
+  }
+
+  var list=(S.tasks||[]).slice();
+  // Репетитор (і будь-хто без прав керування) бачить ЛИШЕ призначені йому завдання
+  if(!isMgr) list=list.filter(function(t){return (t.assigneeId||t.assignee_id)===(CU&&CU.id);});
+  if(fAs) list=list.filter(function(t){return (t.assigneeId||t.assignee_id)===fAs;});
+  if(fSt==='open')    list=list.filter(function(t){return t.status!=='done'&&!taskIsOverdue(t);});
+  if(fSt==='overdue') list=list.filter(function(t){return taskIsOverdue(t);});
+  if(fSt==='done')    list=list.filter(function(t){return t.status==='done';});
+
+  // Сортування: прострочені → відкриті за дедлайном → виконані
+  list.sort(function(a,b){
+    var oa=taskIsOverdue(a)?0:(a.status==='done'?2:1);
+    var ob=taskIsOverdue(b)?0:(b.status==='done'?2:1);
+    if(oa!==ob) return oa-ob;
+    return String(a.deadline||'9999').localeCompare(String(b.deadline||'9999'));
+  });
+
+  if(!list.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">\u0417\u0430\u0432\u0434\u0430\u043D\u044C \u043D\u0435\u043C\u0430\u0454</td></tr>';
+    updateTaskAlert();
+    return;
+  }
+
+  tbody.innerHTML=list.map(function(t){
+    var over=taskIsOverdue(t);
+    var st=t.status==='done'
+      ?'<span class="badge bg">\u2713 \u0412\u0438\u043A\u043E\u043D\u0430\u043D\u043E</span>'
+      :(over?'<span class="badge br">\u26A0 \u041F\u0440\u043E\u0441\u0442\u0440\u043E\u0447\u0435\u043D\u043E</span>':'<span class="badge bb">\u25CB \u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0435</span>');
+    var dl=t.deadline?(fd(t.deadline)+((t.deadlineTime||t.deadline_time)?' '+(t.deadlineTime||t.deadline_time):'')):'\u2014';
+    var mine=(t.assigneeId||t.assignee_id)===(CU&&CU.id);
+    var canDel=(R()==='god'||R()==='director');
+    var doneBtn=t.status==='done'
+      ?'<button onclick="toggleTaskDone(\''+t.id+'\')" title="\u041F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u0438 \u0432 \u0440\u043E\u0431\u043E\u0442\u0443" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px">\u21A9</button>'
+      :'<button onclick="toggleTaskDone(\''+t.id+'\')" title="\u041F\u043E\u0437\u043D\u0430\u0447\u0438\u0442\u0438 \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u0438\u043C" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;color:var(--tut)">\u2705</button>';
+    return '<tr'+(over?' style="background:rgba(248,113,113,.07)"':'')+'>'
+      +'<td><div style="font-weight:600;font-size:13px'+(t.status==='done'?';text-decoration:line-through;opacity:.6':'')+'">'+(t.title||'\u2014')+'</div>'
+        +(t.descr?'<div style="font-size:11px;color:var(--t2);margin-top:2px">'+t.descr+'</div>':'')
+        +(t.report?'<div style="font-size:11px;color:var(--tut);margin-top:3px">\uD83D\uDCDD '+t.report+'</div>':'')+'</td>'
+      +'<td style="font-size:12px">'+taskCreatorName(t)
+        +(t.created_at||t.createdAt?'<div style="font-size:10px;color:var(--t3)">'+fd(String(t.created_at||t.createdAt).slice(0,10))+'</div>':'')+'</td>'
+      +'<td style="font-size:12px'+(mine?';font-weight:700':'')+'">'+taskAssigneeName(t)+(mine?' \uD83D\uDC64':'')+'</td>'
+      +'<td style="font-size:12px'+(over?';color:var(--danger);font-weight:700':'')+'">'+dl+'</td>'
+      +'<td>'+st+'</td>'
+      +'<td style="font-size:11px;color:var(--t3)">'+(t.doneAt||t.done_at?fd(String(t.doneAt||t.done_at).slice(0,10)):'\u2014')+'</td>'
+      +'<td style="text-align:right;white-space:nowrap">'+doneBtn
+        +'<button onclick="openTaskM(\''+t.id+'\')" title="\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438" style="border:none;background:none;cursor:pointer;font-size:13px;padding:4px 6px">\u270F\uFE0F</button>'
+        +(canDel?'<button onclick="delTask(\''+t.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" style="border:none;background:none;cursor:pointer;font-size:14px;padding:4px 6px;color:var(--danger)">\uD83D\uDDD1</button>':'')
+      +'</td></tr>';
+  }).join('');
+  updateTaskAlert();
+}
+
+function openTaskM(id){
+  if(!canManageTasks()){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  window._editTaskId=id||null;
+  var t=id?(S.tasks||[]).find(function(x){return x.id===id;}):null;
+  var ttl=document.querySelector('#mo-task .mdlt');
+  if(ttl) ttl.textContent=t?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F':'\u041D\u043E\u0432\u0435 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F';
+  var cInfo=document.getElementById('tk-creator-info');
+  if(cInfo){
+    if(t&&(t.creatorId||t.creator_id)){
+      cInfo.style.display='block';
+      cInfo.textContent='\uD83D\uDC64 \u041F\u043E\u0441\u0442\u0430\u0432\u0438\u0432: '+taskCreatorName(t)+(t.created_at||t.createdAt?' \u00B7 '+fd(String(t.created_at||t.createdAt).slice(0,10)):'');
+    } else cInfo.style.display='none';
+  }
+  var asSel=document.getElementById('tk-assignee');
+  if(asSel){
+    var _mgrs=(S.users||[]).filter(function(u){return taskRoles().indexOf(u.role)>=0;})
+      .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+    var _tuts=(S.users||[]).filter(function(u){return u.role==='tutor';})
+      .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+    var html='<option value="">\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u043B\u044C\u043D\u043E\u0433\u043E</option>';
+    if(_mgrs.length){
+      html+='<optgroup label="\u041A\u0435\u0440\u0456\u0432\u043D\u0438\u0446\u0442\u0432\u043E / \u0430\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0446\u0456\u044F">'
+        +_mgrs.map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('')
+        +'</optgroup>';
+    }
+    if(_tuts.length){
+      html+='<optgroup label="\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438">'
+        +_tuts.map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('')
+        +'</optgroup>';
+    }
+    asSel.innerHTML=html;
+    asSel.value=t?(t.assigneeId||t.assignee_id||''):'';
+  }
+  document.getElementById('tk-title').value=t?(t.title||''):'';
+  document.getElementById('tk-descr').value=t?(t.descr||''):'';
+  document.getElementById('tk-deadline').value=t?String(t.deadline||'').slice(0,10):localDateStr(new Date());
+  document.getElementById('tk-time').value=t?((t.deadlineTime||t.deadline_time)||''):'';
+  openM('mo-task');
+}
+
+async function saveTask(){
+  if(!canManageTasks()){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  var title=(document.getElementById('tk-title')||{value:''}).value.trim();
+  var assignee=(document.getElementById('tk-assignee')||{value:''}).value;
+  var deadline=(document.getElementById('tk-deadline')||{value:''}).value;
+  if(!title){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u043D\u0430\u0437\u0432\u0443 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F','error'); return; }
+  if(!assignee){ mkToast('\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u043B\u044C\u043D\u043E\u0433\u043E','error'); return; }
+  if(!deadline){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0434\u0435\u0434\u043B\u0430\u0439\u043D','error'); return; }
+  var obj={
+    title:title,
+    descr:(document.getElementById('tk-descr')||{value:''}).value||'',
+    assignee_id:assignee,
+    deadline:deadline,
+    deadline_time:(document.getElementById('tk-time')||{value:''}).value||null,
+    branch_id:myBranchId()||null
+  };
+  window._saving=true;
+  try{
+    if(window._editTaskId){
+      var _tid=window._editTaskId;
+      await dbUpdate('tasks',_tid,obj);
+      var _lt=(S.tasks||[]).find(function(x){return x.id===_tid;});
+      if(_lt) Object.assign(_lt,obj,normalizeTask(obj));
+      window._editTaskId=null;
+    } else {
+      var _new=Object.assign({id:uid(),status:'open',creator_id:CU?CU.id:null,created_at:new Date().toISOString()},obj);
+      await dbInsert('tasks',_new);
+      if(!(S.tasks||[]).some(function(x){return x.id===_new.id;})) S.tasks=(S.tasks||[]).concat([normalizeTask(_new)]);
+    }
+    closeM('mo-task'); mkToast('\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E'); window._saving=false;
+    renderTasks();
+  }catch(e){ window._saving=false; mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error'); }
+}
+
+async function toggleTaskDone(id){
+  var t=(S.tasks||[]).find(function(x){return x.id===id;});
+  if(!t) return;
+  if(t.status!=='done'){
+    // Позначення виконаним — через модалку з описом виконаної роботи
+    window._doneTaskId=id;
+    var rEl=document.getElementById('tk-report');
+    if(rEl) rEl.value=t.report||'';
+    var tEl=document.getElementById('tk-done-title');
+    if(tEl) tEl.textContent=t.title||'';
+    openM('mo-task-done');
+    return;
+  }
+  // Повернення в роботу — одразу (опис роботи зберігається в історії)
+  try{
+    await dbUpdate('tasks',id,{status:'open',done_at:null});
+    Object.assign(t,{status:'open',done_at:null,doneAt:null});
+    renderTasks();
+    mkToast('\u041F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u043E \u0432 \u0440\u043E\u0431\u043E\u0442\u0443');
+  }catch(e){}
+}
+
+async function confirmTaskDone(){
+  var id=window._doneTaskId;
+  var t=id?(S.tasks||[]).find(function(x){return x.id===id;}):null;
+  if(!t){ closeM('mo-task-done'); return; }
+  var patch={status:'done',done_at:new Date().toISOString(),report:(document.getElementById('tk-report')||{value:''}).value||''};
+  try{
+    await dbUpdate('tasks',id,patch);
+    Object.assign(t,patch,{doneAt:patch.done_at});
+    window._doneTaskId=null;
+    closeM('mo-task-done');
+    renderTasks();
+    mkToast('\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u043E \u2705');
+  }catch(e){}
+}
+
+async function delTask(id){
+  if(R()!=='god'&&R()!=='director'){ mkToast('\u0412\u0438\u0434\u0430\u043B\u044F\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F \u043C\u043E\u0436\u0443\u0442\u044C \u043B\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440 \u0442\u0430 \u0431\u043E\u0433','error'); return; }
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F?')) return;
+  try{
+    await dbDelete('tasks',id);
+    S.tasks=(S.tasks||[]).filter(function(x){return x.id!==id;});
+    renderTasks();
+    mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E');
+  }catch(e){}
+}
+
+// Червона підсвітка пункту меню відповідального, поки є прострочені завдання
+// Тристановий індикатор пункту "Завдання":
+// нема моїх завдань → без змін; є відкриті → жовто-синя пульсація; є прострочені → червона.
+function updateTaskAlert(){
+  var nel=document.getElementById('ni-tasks');
+  if(!nel) return;
+  var myId=CU&&CU.id;
+  var mine=(S.tasks||[]).filter(function(t){return (t.assigneeId||t.assignee_id)===myId;});
+  var myOpen=mine.filter(function(t){return t.status!=='done'&&!taskIsOverdue(t);}).length;
+  var myOver=mine.filter(function(t){return taskIsOverdue(t);}).length;
+
+  nel.classList.remove('ni-task-open','ni-task-alert');
+  var badge=nel.querySelector('.task-nbadge');
+  var activeCount=myOver+myOpen;
+  if(myOver>0){
+    nel.classList.add('ni-task-alert');       // червона пульсація (пропущені)
+  } else if(myOpen>0){
+    nel.classList.add('ni-task-open');         // жовто-синя пульсація (є відкриті)
+  }
+  if(activeCount>0){
+    if(!badge){ badge=document.createElement('span'); badge.className='task-nbadge'; nel.appendChild(badge); }
+    badge.textContent=activeCount;
+    badge.style.background = myOver>0 ? 'var(--danger)' : 'var(--adm)';
+  } else if(badge){ badge.remove(); }
+}
+
+// Push + тост про нові призначені мені завдання (порівнюємо з тим, що бачили раніше)
+function checkNewTaskNotifications(){
+  try{
+    var myId=CU&&CU.id; if(!myId) return;
+    var seen=window._seenTaskIds||null;
+    var mineNow=(S.tasks||[]).filter(function(t){return (t.assigneeId||t.assignee_id)===myId && t.status!=='done';});
+    var idsNow=mineNow.map(function(t){return t.id;});
+    if(seen===null){ window._seenTaskIds=idsNow; return; } // перший прохід — просто запам'ятати
+    var fresh=mineNow.filter(function(t){return seen.indexOf(t.id)<0;});
+    window._seenTaskIds=idsNow;
+    fresh.forEach(function(t){ notifyNewTask(t); });
+  }catch(e){}
+}
+
+function notifyNewTask(t){
+  var creator=(S.users||[]).find(function(u){return u.id===(t.creatorId||t.creator_id);});
+  var body=(t.title||'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F')
+    +(t.deadline?'\n\u0414\u0435\u0434\u043B\u0430\u0439\u043D: '+fd(t.deadline)+((t.deadlineTime||t.deadline_time)?' '+(t.deadlineTime||t.deadline_time):''):'')
+    +(creator?'\n\u0412\u0456\u0434: '+creator.fn+' '+creator.ln:'');
+  // Тост завжди
+  mkToast('\ud83d\udccb \u041D\u043E\u0432\u0435 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F: '+(t.title||''));
+  // Системний push, якщо дозволено
+  try{
+    if('Notification' in window){
+      if(Notification.permission==='granted'){
+        new Notification('\ud83d\udccb \u041D\u043E\u0432\u0435 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F', {body:body, tag:'task-'+t.id});
+      } else if(Notification.permission!=='denied'){
+        Notification.requestPermission().then(function(p){
+          if(p==='granted') new Notification('\ud83d\udccb \u041D\u043E\u0432\u0435 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F', {body:body, tag:'task-'+t.id});
+        });
+      }
+    }
+  }catch(e){}
+}
+
+setInterval(function(){ try{updateTaskAlert(); checkNewTaskNotifications(); if(S&&S.currentPage==='tasks')renderTasks();}catch(e){} }, 60000);
+
+window.renderTasks=renderTasks;
+window.openTaskM=openTaskM;
+window.saveTask=saveTask;
+window.toggleTaskDone=toggleTaskDone;
+window.confirmTaskDone=confirmTaskDone;
+window.delTask=delTask;
+window.updateTaskAlert=updateTaskAlert;
+
+// ══════════ ЗАРПЛАТИ РЕПЕТИТОРІВ ══════════
+// База = вартість проведених уроків (done/completed) + відпрацювань (makeup) за місяць,
+// помножена на коефіцієнт 0.4. Ручні пункти: сума ₴ (±) або % від бази.
+var PAYROLL_COEF_DEFAULT = 0.4;
+// Поточний коефіцієнт: з поля на сторінці → зі збереженого → 0.4 за замовчуванням
+function payrollCoef(){
+  var el=document.getElementById('pr-coef');
+  var v=el&&el.value!==''?parseFloat(el.value):NaN;
+  if(isNaN(v)){ try{ v=parseFloat(localStorage.getItem('payroll_coef')); }catch(e){} }
+  if(isNaN(v)||v<=0||v>1) v=PAYROLL_COEF_DEFAULT;
+  return v;
+}
+function prSetCoef(){
+  var el=document.getElementById('pr-coef');
+  if(el){ var v=parseFloat(el.value); if(!isNaN(v)&&v>0&&v<=1){ try{ localStorage.setItem('payroll_coef', String(v)); }catch(e){} } }
+  renderPayroll();
+}
+
+function canPayroll(){ return R()==='god'||R()==='director'; }
+
+function payrollPeriod(){
+  var el=document.getElementById('pr-period');
+  if(el&&el.value) return el.value;
+  var n=new Date();
+  return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
+}
+
+// Проведені уроки та відпрацювання репетитора за місяць period='YYYY-MM'
+function payrollBase(tutorId, period){
+  var done=[], makeup=[];
+  (S.lessons||[]).forEach(function(l){
+    if((l.tutorId||l.tutor_id)!==tutorId) return;
+    if(String(l.date||'').slice(0,7)!==period) return;
+    if(isDoneLesson(l)) done.push(l);
+    else if(l.status==='makeup') makeup.push(l);
+  });
+  function hrs(a){ return Math.round(a.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
+  function sum(a){ return Math.round(a.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100; }
+  var revenue=sum(done)+sum(makeup);
+  var k=payrollCoef();
+  var doneSalary=Math.round(sum(done)*k*100)/100;
+  var makeupSalary=Math.round(sum(makeup)*k*100)/100;
+  return {
+    doneCount:done.length, doneHours:hrs(done), doneSum:sum(done), doneSalary:doneSalary,
+    makeupCount:makeup.length, makeupHours:hrs(makeup), makeupSum:sum(makeup), makeupSalary:makeupSalary,
+    revenue:revenue,
+    base:Math.round((doneSalary+makeupSalary)*100)/100
+  };
+}
+
+function payrollItemsFor(tutorId, period){
+  return (S.payrollItems||[]).filter(function(i){
+    return (i.tutorId||i.tutor_id)===tutorId && !( i.adminId||i.admin_id ) && i.period===period;
+  });
+}
+
+// Пункти зарплати адміністратора — на адмінів НЕ поширюється коефіцієнт ×0.4,
+// у них немає "бази" з уроків, лише ручні пункти (сума як є).
+function payrollItemsForAdmin(adminId, period){
+  return (S.payrollItems||[]).filter(function(i){
+    return (i.adminId||i.admin_id)===adminId && i.period===period;
+  });
+}
+function payrollTotalAdmin(adminId, period){
+  var items=payrollItemsForAdmin(adminId, period);
+  var total=items.reduce(function(s,i){return s+payrollItemAmount(i);},0);
+  return { items:items, total:Math.round(total*100)/100 };
+}
+
+function payrollItemAmount(item, base){
+  return Math.round((parseFloat(item.amount)||0)*100)/100;
+}
+
+function payrollTotal(tutorId, period){
+  var b=payrollBase(tutorId, period);
+  var extra=payrollItemsFor(tutorId, period).reduce(function(s,i){return s+payrollItemAmount(i,b.base);},0);
+  return { base:b, extra:Math.round(extra*100)/100, total:Math.round((b.base+extra)*100)/100 };
+}
+
+function renderPayroll(){
+  var wrap=document.getElementById('payroll-body');
+  if(!wrap) return;
+  if(!canPayroll()){ wrap.innerHTML='<div style="padding:20px;color:var(--t3)">\u0414\u043E\u0441\u0442\u0443\u043F \u043B\u0438\u0448\u0435 \u0434\u043B\u044F \u0434\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0430</div>'; return; }
+  var per=payrollPeriod();
+  var perEl=document.getElementById('pr-period');
+  if(perEl&&!perEl.value) perEl.value=per;
+  var coefEl=document.getElementById('pr-coef');
+  if(coefEl&&coefEl.value==='') coefEl.value=payrollCoef();
+  var fT=(document.getElementById('pr-tutor-filter')||{value:''}).value;
+
+  var tSel=document.getElementById('pr-tutor-filter');
+  if(tSel){
+    var prev=tSel.value;
+    tSel.innerHTML='<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>'
+      +(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');
+    tSel.value=prev;
+  }
+
+  var tutors=(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+  if(fT) tutors=tutors.filter(function(t){return t.id===fT;});
+
+  // Кольори-акценти для аватарів (циклічно)
+  var AV=['#29abe2','#22b573','#f59e0b','#8b5cf6','#ec4899','#0ea5e9','#14b8a6','#f97316'];
+  function initials(t){ return ((t.fn||' ')[0]+(t.ln||' ')[0]).toUpperCase(); }
+  function money(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA'); }
+
+  // Спершу рахуємо все, щоб зробити зведення
+  var rows=[], grand=0, sumDone=0, sumMakeup=0, sumExtra=0, activeCount=0;
+  tutors.forEach(function(t){
+    var pt=payrollTotal(t.id, per), b=pt.base;
+    var hasData=b.doneCount||b.makeupCount||payrollItemsFor(t.id,per).length;
+    if(!hasData && fT==='') return;
+    grand+=pt.total; sumDone+=b.doneSalary; sumMakeup+=b.makeupSalary; sumExtra+=pt.extra;
+    if(hasData) activeCount++;
+    rows.push({t:t, pt:pt, b:b});
+  });
+
+  // Рахуємо адмінів ЗАЗДАЛЕГІДЬ (до зведеної панелі), щоб фонд угорі теж їх враховував
+  var _adminsPre=(S.users||[]).filter(function(u){return u.role==='admin';});
+  var _adminGrandPre=0, _adminActiveCount=0;
+  _adminsPre.forEach(function(a){
+    var pt=payrollTotalAdmin(a.id, per);
+    if(!pt.items.length && fT!=='') return;
+    _adminGrandPre+=pt.total;
+    if(pt.items.length) _adminActiveCount++;
+  });
+  grand+=_adminGrandPre;
+
+  var html='';
+
+  // ── Зведена панель ──
+  if(rows.length || _adminsPre.length){
+    var maxBar=Math.max(sumDone+sumMakeup, 1);
+    html+='<div class="pr-summary">'
+      +'<div class="pr-sum-main">'
+        +'<div class="pr-sum-label">\u0424\u043E\u043D\u0434 \u043E\u043F\u043B\u0430\u0442\u0438 \u0437\u0430 '+prMonthName(per)+'</div>'
+        +'<div class="pr-sum-grand">'+money(grand)+'<span class="pr-cur">\u20B4</span></div>'
+        +'<div class="pr-sum-sub">'+activeCount+' '+prPlural(activeCount,'\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440','\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438','\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432')+' \u00B7 \u043A\u043E\u0435\u0444. '+payrollCoef()+'</div>'
+      +'</div>'
+      +'<div class="pr-sum-break">'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#22b573"></span><span class="pr-break-lbl">\u0423\u0440\u043E\u043A\u0438</span><span class="pr-break-val">'+money(sumDone)+'\u20B4</span></div>'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#f59e0b"></span><span class="pr-break-lbl">\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F</span><span class="pr-break-val">'+money(sumMakeup)+'\u20B4</span></div>'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#8b5cf6"></span><span class="pr-break-lbl">\u0414\u043E\u0434\u0430\u0442\u043A\u043E\u0432\u0435</span><span class="pr-break-val" style="color:'+(sumExtra<0?'var(--danger)':'inherit')+'">'+(sumExtra>=0?'+':'')+money(sumExtra)+'\u20B4</span></div>'
+      +'</div>'
+    +'</div>';
+  }
+
+  // ── Картки репетиторів ──
+  html+='<div class="pr-grid">';
+  rows.forEach(function(r, idx){
+    var t=r.t, pt=r.pt, b=r.b;
+    var av=AV[idx % AV.length];
+    var items=payrollItemsFor(t.id, per);
+    var itemsHtml=items.map(function(i){
+      var amt=payrollItemAmount(i,b.base);
+      var neg=amt<0;
+      return '<div class="pr-item">'
+        +'<span class="pr-item-lbl">'+(i.label||'\u2014')+'</span>'
+        +'<span class="pr-item-amt '+(neg?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+'\u20B4'
+        +'<button onclick="delPayrollItem(\''+i.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" class="pr-item-del">\u2715</button></span>'
+      +'</div>';
+    }).join('');
+
+    // Прогрес-бар: частка уроків vs відпрацювань у базі
+    var baseSum=b.doneSalary+b.makeupSalary;
+    var donePct=baseSum>0?Math.round(b.doneSalary/baseSum*100):0;
+
+    html+='<div class="pr-card" style="--av:'+av+'">'
+      +'<div class="pr-card-head">'
+        +'<div class="pr-avatar" style="background:'+av+'">'+initials(t)+'</div>'
+        +'<div class="pr-name-wrap"><div class="pr-name">'+t.fn+' '+t.ln+'</div>'
+          +'<div class="pr-meta">'+b.doneCount+' \u0443\u0440\u043E\u043A\u0456\u0432 \u00B7 '+b.makeupCount+' \u0432\u0456\u0434\u043F\u0440.</div></div>'
+        +'<div class="pr-total-badge">'+money(pt.total)+'\u20B4</div>'
+      +'</div>'
+      +'<div class="pr-body">'
+        +'<div class="pr-line"><span class="pr-line-ico" style="color:#22b573">\u25CF</span><span class="pr-line-lbl">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432 <span class="pr-hrs">'+b.doneCount+' / '+b.doneHours+'\u0433 \u00D7'+payrollCoef()+'</span></span><span class="pr-line-val">'+money(b.doneSalary)+'\u20B4</span></div>'
+        +'<div class="pr-line"><span class="pr-line-ico" style="color:#f59e0b">\u25CF</span><span class="pr-line-lbl">\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E <span class="pr-hrs">'+b.makeupCount+' / '+b.makeupHours+'\u0433 \u00D7'+payrollCoef()+'</span></span><span class="pr-line-val">'+money(b.makeupSalary)+'\u20B4</span></div>'
+        +(baseSum>0?'<div class="pr-bar"><div class="pr-bar-done" style="width:'+donePct+'%"></div><div class="pr-bar-make" style="width:'+(100-donePct)+'%"></div></div>':'')
+        +(itemsHtml?'<div class="pr-items">'+itemsHtml+'</div>':'')
+      +'</div>'
+      +'<div class="pr-card-foot">'
+        +'<button class="btn btn-g btn-sm" onclick="openPayrollItemM(\''+t.id+'\')">+ \u041F\u0443\u043D\u043A\u0442</button>'
+        +'<button class="btn btn-g btn-sm" onclick="printPayroll(\''+t.id+'\')">\uD83D\uDDA8 \u0414\u0440\u0443\u043A</button>'
+        +'<div class="pr-foot-total">\u0420\u0430\u0437\u043E\u043C <b>'+money(pt.total)+'\u20B4</b></div>'
+      +'</div>'
+    +'</div>';
+  });
+  html+='</div>';
+
+  // ── Зарплати адміністраторів (без бази з уроків, без коефіцієнта ×0.4) ──
+  var admins=(S.users||[]).filter(function(u){return u.role==='admin';})
+    .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+  var adminRows=[];
+  if(admins.length){
+    var adminGrand=0;
+    admins.forEach(function(a,idx){
+      var pt=payrollTotalAdmin(a.id, per);
+      if(!pt.items.length && fT!=='') return;
+      adminGrand+=pt.total;
+      adminRows.push({a:a, pt:pt, av:AV[idx % AV.length]});
+    });
+    html+='<div style="margin:22px 0 10px;font-size:13px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px">\uD83D\uDC64 \u0417\u0430\u0440\u043F\u043B\u0430\u0442\u0438 \u0430\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0456\u0432 <span style="font-weight:400;color:var(--t3);text-transform:none">(\u0431\u0435\u0437 \u043A\u043E\u0435\u0444. \u00D70.4 \u2014 \u043B\u0438\u0448\u0435 \u0432\u0440\u0443\u0447\u043D\u0456 \u043F\u0443\u043D\u043A\u0442\u0438)</span></div>';
+    html+='<div class="pr-grid">';
+    adminRows.forEach(function(r){
+      var a=r.a, pt=r.pt, av=r.av;
+      var itemsHtml=pt.items.map(function(i){
+        var amt=payrollItemAmount(i);
+        var neg=amt<0;
+        return '<div class="pr-item">'
+          +'<span class="pr-item-lbl">'+(i.label||'\u2014')+'</span>'
+          +'<span class="pr-item-amt '+(neg?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+'\u20B4'
+          +'<button onclick="delPayrollItem(\''+i.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" class="pr-item-del">\u2715</button></span>'
+        +'</div>';
+      }).join('');
+      html+='<div class="pr-card" style="--av:'+av+'">'
+        +'<div class="pr-card-head">'
+          +'<div class="pr-avatar" style="background:'+av+'">'+initials(a)+'</div>'
+          +'<div class="pr-name-wrap"><div class="pr-name">'+a.fn+' '+a.ln+'</div>'
+            +'<div class="pr-meta">\uD83D\uDC64 \u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440</div></div>'
+          +'<div class="pr-total-badge">'+money(pt.total)+'\u20B4</div>'
+        +'</div>'
+        +'<div class="pr-body">'
+          +(itemsHtml?'<div class="pr-items">'+itemsHtml+'</div>':'<div style="font-size:12px;color:var(--t3);padding:4px 0">\u041D\u0435\u043C\u0430\u0454 \u043F\u0443\u043D\u043A\u0442\u0456\u0432 \u0437\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C</div>')
+        +'</div>'
+        +'<div class="pr-card-foot">'
+          +'<button class="btn btn-g btn-sm" onclick="openPayrollItemM(\''+a.id+'\',\'admin\')">+ \u041F\u0443\u043D\u043A\u0442</button>'
+          +'<button class="btn btn-g btn-sm" onclick="printPayroll(\''+a.id+'\',\'admin\')">\uD83D\uDDA8 \u0414\u0440\u0443\u043A</button>'
+          +'<div class="pr-foot-total">\u0420\u0430\u0437\u043E\u043C <b>'+money(pt.total)+'\u20B4</b></div>'
+        +'</div>'
+      +'</div>';
+    });
+    html+='</div>';
+  }
+
+  if(!rows.length && !adminRows.length) html='<div class="pr-empty"><div style="font-size:38px;margin-bottom:8px">\uD83D\uDCB0</div>\u0417\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u043D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C</div>';
+  wrap.innerHTML=html;
+}
+
+// Місяць прописом для періоду 'YYYY-MM'
+function prMonthName(per){
+  var p=String(per||'').split('-');
+  var m=['\u0441\u0456\u0447\u0435\u043D\u044C','\u043B\u044E\u0442\u0438\u0439','\u0431\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u043A\u0432\u0456\u0442\u0435\u043D\u044C','\u0442\u0440\u0430\u0432\u0435\u043D\u044C','\u0447\u0435\u0440\u0432\u0435\u043D\u044C','\u043B\u0438\u043F\u0435\u043D\u044C','\u0441\u0435\u0440\u043F\u0435\u043D\u044C','\u0432\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0436\u043E\u0432\u0442\u0435\u043D\u044C','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0433\u0440\u0443\u0434\u0435\u043D\u044C'][(parseInt(p[1])||1)-1];
+  return (m||'')+' '+(p[0]||'');
+}
+function prPlural(n, one, few, many){
+  var n10=n%10, n100=n%100;
+  if(n10===1&&n100!==11) return one;
+  if(n10>=2&&n10<=4&&(n100<10||n100>=20)) return few;
+  return many;
+}
+
+function openPayrollItemM(id, type){
+  if(!canPayroll()) return;
+  type=type||'tutor';
+  window._prItemType=type;
+  window._prItemTutor=type==='tutor'?id:null;
+  window._prItemAdmin=type==='admin'?id:null;
+  var person=type==='admin'?(S.users||[]).find(function(x){return x.id===id;}):(S.tutors||[]).find(function(x){return x.id===id;});
+  var nEl=document.getElementById('pri-tutor-name');
+  if(nEl) nEl.textContent=person?(person.fn+' '+person.ln+' \u00B7 '+payrollPeriod()):'';
+  document.getElementById('pri-label').value='';
+  document.getElementById('pri-amount').value='';
+  openM('mo-payroll-item');
+}
+
+async function savePayrollItem(){
+  if(!canPayroll()) return;
+  var label=(document.getElementById('pri-label')||{value:''}).value.trim();
+  var amount=(document.getElementById('pri-amount')||{value:''}).value;
+  if(!label){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u043F\u043E\u044F\u0441\u043D\u0435\u043D\u043D\u044F','error'); return; }
+  if(!amount){ mkToast('\u0412\u043A\u0430\u0436\u0456\u0442\u044C \u0441\u0443\u043C\u0443','error'); return; }
+  var obj={ id:uid(), tutor_id:window._prItemTutor||null, admin_id:window._prItemAdmin||null, period:payrollPeriod(),
+    label:label,
+    amount:amount!==''?parseFloat(amount):null,
+    created_by:CU?CU.id:null, created_at:new Date().toISOString() };
+  try{
+    await dbInsert('payroll_items',obj);
+    if(!(S.payrollItems||[]).some(function(x){return x.id===obj.id;}))
+      S.payrollItems=(S.payrollItems||[]).concat([normalizePayrollItem(obj)]);
+    closeM('mo-payroll-item'); mkToast('\u0414\u043E\u0434\u0430\u043D\u043E');
+    renderPayroll();
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error'); }
+}
+
+async function delPayrollItem(id){
+  if(!canPayroll()) return;
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u043F\u0443\u043D\u043A\u0442?')) return;
+  try{
+    await dbDelete('payroll_items',id);
+    S.payrollItems=(S.payrollItems||[]).filter(function(x){return x.id!==id;});
+    renderPayroll();
+  }catch(e){}
+}
+
+// Друк відомості: tutorId — один репетитор, null — усі разом
+function printPayroll(recipientId, type){
+  if(!canPayroll()) return;
+  var per=payrollPeriod();
+  var perLbl=(function(){ var p=per.split('-'); var m=['\u0441\u0456\u0447\u0435\u043D\u044C','\u043B\u044E\u0442\u0438\u0439','\u0431\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u043A\u0432\u0456\u0442\u0435\u043D\u044C','\u0442\u0440\u0430\u0432\u0435\u043D\u044C','\u0447\u0435\u0440\u0432\u0435\u043D\u044C','\u043B\u0438\u043F\u0435\u043D\u044C','\u0441\u0435\u0440\u043F\u0435\u043D\u044C','\u0432\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0436\u043E\u0432\u0442\u0435\u043D\u044C','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0433\u0440\u0443\u0434\u0435\u043D\u044C'][parseInt(p[1])-1]; return m+' '+p[0]; })();
+  var AV=['#29abe2','#22b573','#f59e0b','#8b5cf6','#ec4899','#0ea5e9','#14b8a6','#f97316'];
+  function initials(t){ return ((t.fn||' ')[0]+(t.ln||' ')[0]).toUpperCase(); }
+  function money(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA'); }
+
+  // Друк одного адміністратора: лише ручні пункти, без бази й коефіцієнта ×0.4
+  if(type==='admin'){
+    var admin=(S.users||[]).find(function(x){return x.id===recipientId;});
+    if(!admin){ mkToast('\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error'); return; }
+    var ptA=payrollTotalAdmin(recipientId, per);
+    var rowsA=ptA.items.map(function(i){
+      var amt=payrollItemAmount(i);
+      return '<tr><td class="ilbl">'+(i.label||'')+'</td><td class="r '+(amt<0?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+' \u20B4</td></tr>';
+    }).join('');
+    var w=window.open('','_blank');
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</title>'
+      +'<style>*{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:20px auto;color:#1a1a2e}'
+      +'.head{background:linear-gradient(135deg,#2e3192,#5b60d4);border-radius:16px;padding:22px 26px;color:#fff;margin-bottom:20px}'
+      +'.head h1{font-size:15px;margin:0 0 4px;font-weight:600;letter-spacing:.3px;opacity:.9;text-transform:uppercase}'
+      +'.head .sum{font-size:34px;font-weight:800;letter-spacing:-1px}'
+      +'.head .per{font-size:12px;opacity:.85;margin-top:2px}'
+      +'.card{border:1px solid #e2e2ea;border-radius:14px;overflow:hidden;position:relative}'
+      +'.card::before{content:"";position:absolute;top:0;left:0;bottom:0;width:4px;background:'+AV[0]+'}'
+      +'.chead{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}'
+      +'.avatar{width:36px;height:36px;border-radius:10px;background:'+AV[0]+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}'
+      +'.cname{flex:1;font-size:14px;font-weight:700}'
+      +'table.rows{width:100%;border-collapse:collapse;font-size:12px}'
+      +'table.rows td{padding:5px 16px;border-bottom:1px solid #f0f0f5}'
+      +'.r{text-align:right;white-space:nowrap;font-weight:700} .r.pos{color:#22b573} .r.neg{color:#e74c3c}'
+      +'.cfoot{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;margin-top:8px;background:#f7f7fb;font-size:12px;color:#555}'
+      +'.cfoot b{font-size:14px;color:#1a1a2e}'
+      +'.sign{padding:8px 16px 14px;font-size:10.5px;color:#888}'
+      +'@media print{.noprint{display:none}}</style></head><body>'
+      +'<div class="head"><h1>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u043D\u0430\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</h1><div class="sum">'+money(ptA.total)+' \u20B4</div>'
+        +'<div class="per">'+perLbl+' \u00B7 \u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440 \u00B7 \u0421\u0444\u043E\u0440\u043C\u043E\u0432\u0430\u043D\u043E: '+new Date().toLocaleDateString('uk-UA')+'</div></div>'
+      +'<div class="card"><div class="chead"><div class="avatar">'+initials(admin)+'</div><div class="cname">'+admin.fn+' '+admin.ln+'</div></div>'
+      +'<table class="rows">'+(rowsA||'<tr><td class="ilbl" style="color:#999">\u041D\u0435\u043C\u0430\u0454 \u043F\u0443\u043D\u043A\u0442\u0456\u0432</td><td></td></tr>')+'</table>'
+      +'<div class="cfoot"><span>\u0420\u0430\u0437\u043E\u043C \u0434\u043E \u0432\u0438\u043F\u043B\u0430\u0442\u0438</span><b>'+money(ptA.total)+' \u20B4</b></div>'
+      +'<div class="sign">\u041F\u0456\u0434\u043F\u0438\u0441 \u0430\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430: ______________________</div></div>'
+      +'<button class="noprint" onclick="window.print()" style="margin-top:20px;padding:10px 20px;font-size:14px;cursor:pointer;border-radius:8px;border:none;background:#2e3192;color:#fff">\uD83D\uDDA8 \u0414\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438</button>'
+      +'</body></html>');
+    w.document.close();
+    setTimeout(function(){ try{w.print();}catch(e){} }, 400);
+    return;
+  }
+
+  var tutorId=recipientId;
+  var tutors=tutorId?(S.tutors||[]).filter(function(t){return t.id===tutorId;})
+    :(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+  var grand=0, cards='', activeCount=0;
+  tutors.forEach(function(t,idx){
+    var pt=payrollTotal(t.id, per), b=pt.base;
+    if(!tutorId&&!b.doneCount&&!b.makeupCount&&!payrollItemsFor(t.id,per).length) return;
+    grand+=pt.total; activeCount++;
+    var av=AV[idx % AV.length];
+    var baseSum=b.doneSalary+b.makeupSalary;
+    var donePct=baseSum>0?Math.round(b.doneSalary/baseSum*100):0;
+    var itemsHtml=payrollItemsFor(t.id,per).map(function(i){
+      var amt=payrollItemAmount(i,b.base);
+      return '<tr><td class="ilbl">'+(i.label||'')+'</td>'
+        +'<td class="r '+(amt<0?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+' \u20B4</td></tr>';
+    }).join('');
+    cards+='<div class="card" style="--av:'+av+'">'
+      +'<div class="chead">'
+        +'<div class="avatar">'+initials(t)+'</div>'
+        +'<div class="cname"><b>'+t.fn+' '+t.ln+'</b><span class="cmeta">'+b.doneCount+' \u0443\u0440\u043E\u043A\u0456\u0432 \u00B7 '+b.makeupCount+' \u0432\u0456\u0434\u043F\u0440.</span></div>'
+        +'<div class="ctotal">'+money(pt.total)+' \u20B4</div>'
+      +'</div>'
+      +'<table class="rows">'
+        +'<tr><td class="ilbl">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432 <span class="muted">'+b.doneCount+' / '+b.doneHours+'\u0433 \u00D7'+payrollCoef()+'</span></td><td class="r pos">'+money(b.doneSalary)+' \u20B4</td></tr>'
+        +'<tr><td class="ilbl">\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E <span class="muted">'+b.makeupCount+' / '+b.makeupHours+'\u0433 \u00D7'+payrollCoef()+'</span></td><td class="r pos">'+money(b.makeupSalary)+' \u20B4</td></tr>'
+        +itemsHtml
+      +'</table>'
+      +(baseSum>0?'<div class="bar"><div class="bar-done" style="width:'+donePct+'%"></div><div class="bar-make" style="width:'+(100-donePct)+'%"></div></div>':'')
+      +'<div class="cfoot"><span>\u0420\u0430\u0437\u043E\u043C \u0434\u043E \u0432\u0438\u043F\u043B\u0430\u0442\u0438</span><b>'+money(pt.total)+' \u20B4</b></div>'
+      +'<div class="sign">\u041F\u0456\u0434\u043F\u0438\u0441 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430: ______________________</div>'
+    +'</div>';
+  });
+
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</title>'
+    +'<style>'
+    +'*{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;max-width:900px;margin:20px auto;color:#1a1a2e;background:#fff}'
+    +'.head{background:linear-gradient(135deg,#2e3192,#5b60d4);border-radius:16px;padding:22px 26px;color:#fff;margin-bottom:20px}'
+    +'.head h1{font-size:15px;margin:0 0 4px;font-weight:600;letter-spacing:.3px;opacity:.9;text-transform:uppercase}'
+    +'.head .sum{font-size:34px;font-weight:800;letter-spacing:-1px}'
+    +'.head .per{font-size:12px;opacity:.85;margin-top:2px}'
+    +'.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}'
+    +'.card{border:1px solid #e2e2ea;border-radius:14px;padding:0;overflow:hidden;position:relative;break-inside:avoid;page-break-inside:avoid}'
+    +'.card::before{content:"";position:absolute;top:0;left:0;bottom:0;width:4px;background:var(--av)}'
+    +'.chead{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}'
+    +'.avatar{width:36px;height:36px;border-radius:10px;background:var(--av);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}'
+    +'.cname{flex:1;display:flex;flex-direction:column;font-size:13px}'
+    +'.cname b{font-size:14px}'
+    +'.cmeta{font-size:10.5px;color:#888;margin-top:1px}'
+    +'.ctotal{font-weight:800;font-size:16px;color:var(--av);white-space:nowrap}'
+    +'table.rows{width:100%;border-collapse:collapse;font-size:11.5px;padding:0 16px}'
+    +'table.rows td{padding:4px 16px;border-bottom:1px solid #f0f0f5}'
+    +'.ilbl{color:#333} .muted{color:#999;font-size:10px}'
+    +'.r{text-align:right;white-space:nowrap;font-weight:700}'
+    +'.r.pos{color:#22b573} .r.neg{color:#e74c3c}'
+    +'.bar{display:flex;height:5px;margin:8px 16px 0;border-radius:10px;overflow:hidden;background:#eee}'
+    +'.bar-done{background:#22b573} .bar-make{background:#f59e0b}'
+    +'.cfoot{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;margin-top:8px;background:#f7f7fb;font-size:12px;color:#555}'
+    +'.cfoot b{font-size:14px;color:#1a1a2e}'
+    +'.sign{padding:8px 16px 14px;font-size:10.5px;color:#888}'
+    +'.grand{margin-top:22px;font-size:18px;font-weight:800;text-align:right;border-top:3px double #1a1a2e;padding-top:12px}'
+    +'@media print{.noprint{display:none} .card{box-shadow:none}}'
+    +'@media(max-width:600px){.grid{grid-template-columns:1fr}}'
+    +'</style></head><body>'
+    +'<div class="head"><h1>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u043D\u0430\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</h1>'
+      +'<div class="sum">'+money(grand)+' \u20B4</div>'
+      +'<div class="per">'+perLbl+' \u00B7 '+activeCount+' '+(activeCount===1?'\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440':'\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432')+' \u00B7 \u0421\u0444\u043E\u0440\u043C\u043E\u0432\u0430\u043D\u043E: '+new Date().toLocaleDateString('uk-UA')+'</div>'
+    +'</div>'
+    +'<div class="grid">'+cards+'</div>'
+    +(!tutorId&&tutors.length>1?'<div class="grand">\u0412\u0421\u042C\u041E\u0413\u041E \u0424\u041E\u041D\u0414 \u041E\u041F\u041B\u0410\u0422\u0418: '+money(grand)+' \u20B4</div>':'')
+    +'<button class="noprint" onclick="window.print()" style="margin-top:20px;padding:10px 20px;font-size:14px;cursor:pointer;border-radius:8px;border:none;background:#2e3192;color:#fff">\uD83D\uDDA8 \u0414\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438</button>'
+    +'</body></html>');
+  w.document.close();
+  setTimeout(function(){ try{w.print();}catch(e){} }, 400);
+}
+
+window.renderPayroll=renderPayroll;
+// ══════════ РЕНДЕР ЖУРНАЛУ ЗМІН ══════════
+async function renderAudit(){
+  var tbody=document.getElementById('audit-tbody');
+  if(!tbody) return;
+  if(R()!=='god'){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0431\u043E\u0433\u0443</td></tr>'; return; }
+
+  // Фільтр по користувачу
+  var uSel=document.getElementById('af-user');
+  if(uSel){
+    var prev=uSel.value;
+    uSel.innerHTML='<option value="">\u0412\u0441\u0456 \u043A\u043E\u0440\u0438\u0441\u0442\u0443\u0432\u0430\u0447\u0456</option>'
+      +(S.users||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
+    uSel.value=prev;
+  }
+  var fUser=(uSel||{value:''}).value;
+  var fAction=(document.getElementById('af-action')||{value:''}).value;
+
+  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--t3)">\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F...</td></tr>';
+  try{
+    function buildAQ(){ var q=_sb.from('audit_log').select('*').order('created_at',{ascending:false}).limit(500); if(fUser) q=q.eq('user_id',fUser); if(fAction) q=q.eq('action',fAction); return q; }
+    var res=await buildAQ();
+    if(res.error && await refreshIfExpired(res.error)) res=await buildAQ();
+    if(res.error) throw res.error;
+    var rows=res.data||[];
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">\u0417\u0430\u043F\u0438\u0441\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</td></tr>'; return; }
+    tbody.innerHTML=rows.map(function(r){
+      var when=r.created_at?new Date(r.created_at).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'\u2014';
+      var actLbl=AUDIT_ACTION_LABELS[r.action]||r.action||'';
+      var actColor=r.action==='delete'?'var(--danger)':r.action==='insert'?'var(--tut)':'var(--adm)';
+      var tblLbl=AUDIT_TABLE_LABELS[r.table_name]||r.table_name||'';
+      var rl=(ROLES[r.user_role]||{}).label||r.user_role||'';
+      return '<tr>'
+        +'<td style="font-size:11px;color:var(--t2);white-space:nowrap">'+when+'</td>'
+        +'<td style="font-size:12px"><b>'+(r.user_name||'\u2014')+'</b><div style="font-size:10px;color:var(--t3)">'+rl+'</div></td>'
+        +'<td><span style="font-size:11px;font-weight:700;color:'+actColor+'">'+actLbl+'</span> <span style="font-size:11px;color:var(--t2)">'+tblLbl+'</span></td>'
+        +'<td style="font-size:12px">'+(r.descr||'\u2014')+'</td>'
+        +'<td style="font-size:10px;color:var(--t3)">'+(r.record_id||'')+'</td>'
+        +'<td style="text-align:right"><button onclick="delAuditRow(\''+r.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0437\u0430\u043F\u0438\u0441" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:13px;padding:2px 6px">\uD83D\uDDD1</button></td>'
+        +'</tr>';
+    }).join('');
+  }catch(e){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--danger)">\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e)+'</td></tr>';
+  }
+}
+window.renderAudit=renderAudit;
+
+async function delAuditRow(id){
+  if(R()!=='god'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0431\u043E\u0433\u0443','error'); return; }
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0446\u0435\u0439 \u0437\u0430\u043F\u0438\u0441 \u0436\u0443\u0440\u043D\u0430\u043B\u0443?')) return;
+  try{
+    var r=await _sb.from('audit_log').delete().eq('id',id);
+    if(r.error && await refreshIfExpired(r.error)) r=await _sb.from('audit_log').delete().eq('id',id);
+    if(r.error){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+r.error.message,'error'); return; }
+    renderAudit();
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error'); }
+}
+
+async function clearAuditLog(){
+  if(R()!=='god'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043B\u0438\u0448\u0435 \u0431\u043E\u0433\u0443','error'); return; }
+  // Очищення враховує активні фільтри — щоб можна було чистити вибірково
+  var fUser=(document.getElementById('af-user')||{value:''}).value;
+  var fAction=(document.getElementById('af-action')||{value:''}).value;
+  var scope=(fUser||fAction)?'\u0432\u0456\u0434\u0444\u0456\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u043D\u0456 \u0437\u0430\u043F\u0438\u0441\u0438':'\u0412\u0421\u042E \u0456\u0441\u0442\u043E\u0440\u0456\u044E \u0437\u043C\u0456\u043D';
+  if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 '+scope+'? \u0426\u0435 \u043D\u0435\u0437\u0432\u043E\u0440\u043E\u0442\u043D\u043E.')) return;
+  try{
+    var q=_sb.from('audit_log').delete();
+    if(fUser) q=q.eq('user_id',fUser);
+    if(fAction) q=q.eq('action',fAction);
+    if(!fUser && !fAction) q=q.neq('id','00000000-0000-0000-0000-000000000000'); // видалити все
+    var r=await q;
+    if(r.error && await refreshIfExpired(r.error)){
+      q=_sb.from('audit_log').delete();
+      if(fUser) q=q.eq('user_id',fUser);
+      if(fAction) q=q.eq('action',fAction);
+      if(!fUser && !fAction) q=q.neq('id','00000000-0000-0000-0000-000000000000');
+      r=await q;
+    }
+    if(r.error){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+r.error.message,'error'); return; }
+    mkToast('\u0416\u0443\u0440\u043D\u0430\u043B \u043E\u0447\u0438\u0449\u0435\u043D\u043E');
+    renderAudit();
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error'); }
+}
+window.delAuditRow=delAuditRow;
+window.clearAuditLog=clearAuditLog;
+
+window.openPayrollItemM=openPayrollItemM;
+window.savePayrollItem=savePayrollItem;
+window.delPayrollItem=delPayrollItem;
+window.printPayroll=printPayroll;
+window.prSetCoef=prSetCoef;
+
+
+window.mergeDuplicateStudents = mergeDuplicateStudents;
+window.addRateRow = addRateRow;
+
+// ── Автозаповнення предмета/репетитора в занятті зі ставок обраного учня ──
+function lessApplyStudentRates(){
+  var sid=document.getElementById('l-std')?.value;
+  var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+  if(!st) return;
+  var rules=studentRateRules(st);
+  var subs=[],tuts=[];
+  rules.forEach(function(r){
+    if(r.subject&&subs.indexOf(r.subject)<0)subs.push(r.subject);
+    if(r.tutor_id&&tuts.indexOf(r.tutor_id)<0)tuts.push(r.tutor_id);
+  });
+  // Фолбек на старі поля, якщо ставки ще не заповнені
+  if(!subs.length&&st.subject) subs=String(st.subject).split(',').map(function(x){return x.trim();}).filter(Boolean);
+  if(!tuts.length){ var lt=(st.tutorIds&&st.tutorIds.length)?st.tutorIds:(st.tutorId?[st.tutorId]:[]); tuts=lt.slice(); }
+  // Підказки предметів: спочатку предмети учня, далі — загальний довідник
+  var dl=document.getElementById('subj-list-l');
+  if(dl&&subs.length){
+    dl.innerHTML=subs.map(function(x){return '<option value="'+x+'">';}).join('')
+      +(S.subjects||[]).filter(function(x){return subs.indexOf(x.name)<0;}).map(function(x){return '<option value="'+x.name+'">';}).join('');
+  }
+  var subjEl=document.getElementById('l-subj');
+  if(subjEl&&!subjEl.value&&subs.length===1) subjEl.value=subs[0];
+  var tEl=document.getElementById('l-tutor');
+  if(tEl&&tuts.length===1){ tEl.value=tuts[0]; if(tEl._updateSearch)tEl._updateSearch(); }
+  lessPickTutorForSubject();
+}
+
+// Коли обрано предмет — підбираємо репетитора за правилом ставок
+function lessPickTutorForSubject(){
+  var sid=document.getElementById('l-std')?.value;
+  var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+  if(!st) return;
+  var subj=(document.getElementById('l-subj')?.value||'').trim().toLowerCase();
+  if(!subj) return;
+  var rules=studentRateRules(st);
+  var match=rules.find(function(r){return (r.subject||'').trim().toLowerCase()===subj&&r.tutor_id;});
+  if(!match) match=rules.find(function(r){return !(r.subject||'').trim()&&r.tutor_id;});
+  if(match){
+    var tEl=document.getElementById('l-tutor');
+    if(tEl){ tEl.value=match.tutor_id; if(tEl._updateSearch)tEl._updateSearch(); }
+  }
+}
+// Усі відомі предмети: довідник + ставки учнів + наявні заняття
+function allKnownSubjects(){
+  var set=[];
+  function add(v){ v=(v||'').trim(); if(v&&set.indexOf(v)<0) set.push(v); }
+  (S.subjects||[]).forEach(function(x){ add(x&&x.name); });
+  return set.sort(function(a,b){return a.localeCompare(b,'uk');});
+}
+
+// Кастомний дропдаун підказок для текстового інпута (працює і на телефонах,
+// на відміну від нативного <datalist>). getOptions() повертає масив рядків.
+function makeSuggest(inputId, getOptions){
+  var inp=document.getElementById(inputId);
+  if(!inp||inp.dataset.suggest==='1') return;
+  inp.dataset.suggest='1';
+  // Прибираємо нативний datalist — щоб порожній браузерний попап не перекривав кастомний
+  inp.removeAttribute('list');
+  var wrap=document.createElement('div');
+  wrap.style.cssText='position:relative;display:block;width:100%;flex:1;min-width:0';
+  inp.parentNode.insertBefore(wrap,inp);
+  wrap.appendChild(inp);
+  var drop=document.createElement('div');
+  // Кладемо в body, а не у wrap: модалка (.mdl) має CSS-анімацію з transform,
+  // яка створює containing block для position:fixed — через це bottom-sheet
+  // обрізався і не скролився через overflow:hidden модалки. У body такої проблеми немає.
+  document.body.appendChild(drop);
+  var backdrop=null;
+
+  function isMobile(){ return window.innerWidth<=640; }
+
+  function ensureBackdrop(){
+    if(backdrop) return;
+    backdrop=document.createElement('div');
+    backdrop.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:none';
+    backdrop.addEventListener('mousedown',function(e){ e.preventDefault(); closeDrop(); });
+    document.body.appendChild(backdrop);
+  }
+
+  var isOpen=false;
+
+  function positionDrop(){
+    if(isMobile()){
+      ensureBackdrop();
+      // На мобільному — на весь екран знизу (bottom sheet), як нативний піквер репетиторів
+      drop.style.cssText='position:fixed;left:0;right:0;bottom:0;top:auto;max-height:65vh;min-height:200px;'
+        +'background:var(--s1);border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.25);'
+        +'z-index:10000;overflow-y:auto;padding:8px 0 max(8px,env(safe-area-inset-bottom))';
+    } else {
+      var r=inp.getBoundingClientRect();
+      drop.style.cssText='position:fixed;background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:200px;overflow-y:auto;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.18)';
+      drop.style.top=(r.bottom)+'px';
+      drop.style.left=(r.left)+'px';
+      drop.style.width=(r.width)+'px';
+    }
+    // Позиціонування не має чіпати видимість — інакше resize від появи клавіатури ховає щойно відкритий список
+    drop.style.display=isOpen?'block':'none';
+    if(backdrop) backdrop.style.display=isOpen?'block':'none';
+  }
+  function closeDrop(){
+    isOpen=false;
+    drop.style.display='none';
+    if(backdrop) backdrop.style.display='none';
+  }
+  positionDrop();
+
+  function render(q){
+    var opts=getOptions()||[];
+    var f=q?opts.filter(function(o){return o.toLowerCase().includes(q.toLowerCase());}):opts;
+    if(!f.length){ closeDrop(); return; }
+    var mob=isMobile();
+    drop.innerHTML='';
+    if(mob){
+      var handle=document.createElement('div');
+      handle.style.cssText='width:36px;height:4px;background:var(--b2);border-radius:4px;margin:2px auto 8px';
+      drop.appendChild(handle);
+    }
+    f.slice(0,40).forEach(function(o){
+      var it=document.createElement('div');
+      it.textContent=o;
+      it.style.cssText=mob
+        ? 'padding:14px 18px;cursor:pointer;font-size:15px;color:var(--t1);border-bottom:1px solid var(--s3)'
+        : 'padding:8px 12px;cursor:pointer;font-size:13px;color:var(--t1)';
+      it.addEventListener('mouseenter',function(){it.style.background='var(--s2)';});
+      it.addEventListener('mouseleave',function(){it.style.background='';});
+      it.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        inp.value=o;
+        closeDrop();
+        inp.dispatchEvent(new Event('change'));
+      });
+      drop.appendChild(it);
+    });
+    isOpen=true;
+    drop.style.display='block';
+    if(backdrop) backdrop.style.display='block';
+  }
+  inp.addEventListener('focus',function(){ positionDrop(); render(inp.value); });
+  inp.addEventListener('input',function(){ render(inp.value); });
+  inp.addEventListener('blur',function(){
+    if(isMobile()) return; // на мобільному закриває лише вибір пункту або тап по фону
+    setTimeout(function(){ closeDrop(); },200);
+  });
+  // На resize перебудовуємо лише розміри/позицію (fixed/absolute), не видимість —
+  // це головний фікс: відкриття клавіатури на мобільному теж генерує resize.
+  window.addEventListener('resize', positionDrop);
+}
+window.makeSuggest=makeSuggest;
+window.allKnownSubjects=allKnownSubjects;
+window.lessApplyStudentRates=lessApplyStudentRates;
+window.lessPickTutorForSubject=lessPickTutorForSubject;
+window.delTutor  = delTutor;
+window.delLesson = delLesson;
+window.delPay    = delPay;
+window.delComm   = delComm;
+window.openAdd   = openAdd;
+window.chWk      = chWk;
+window.schSetView = schSetView;
+window.toggleRecurOpts = toggleRecurOpts;
+window.previewRecur = previewRecur;
+window.sfilt     = sfilt;
+window.dashKpiWeek = dashKpiWeek;
+window.setBranch = setBranch;
+window.clearData = clearData;
+window.exportBackup = exportBackup;
+window.importBackupClick = importBackupClick;
+window.importBackup = importBackup;
+window.addSubj   = addSubj;
+window.delSubj   = delSubj;
+window.addBranch = addBranch;
+window.delBranch = delBranch;
+window.editBranch = editBranch;
+window.savePriceRule = savePriceRule;
+window.editPriceRule = editPriceRule;
+window.delPriceRule = delPriceRule;
+window.uaTab     = uaTab;
+window.openUserAccessM = openUserAccessM;
+window.resetAllUserAccess = resetAllUserAccess;
+window.gcTab     = gcTab;
+window.gcAddNavItem = gcAddNavItem;
+window.gcAddField = gcAddField;
+window.gcResetNav = gcResetNav;
+window.gcResetRoles = gcResetRoles;
+window.gcResetLabels = gcResetLabels;
+window.gcDelField = gcDelField;
+window.gcSaveLabels = gcSaveLabels;
+window.gSearch   = gSearch;
+window.toggleTutLink = toggleTutLink;
+window.updateParentInfo = updateParentInfo;
+window.toggleProfileEdit = toggleProfileEdit;
+window.saveProfileEdit = saveProfileEdit;
+window.doDelLesson = doDelLesson;
+window.saveCustomPageNotes = saveCustomPageNotes;
+window.renderAnalytics = renderAnalytics;
+
+function sRenderTutorTags(ids){
+  var list=document.getElementById('s-tutor-list');
+  if(!list) return;
+  list.innerHTML=(ids||[]).map(function(tid){
+    var t=(S.tutors||[]).find(function(x){return x.id===tid;});
+    if(!t) return '';
+    return '<span class="s-tutor-tag" data-id="'+tid+'" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--adm);border-radius:20px;background:rgba(41,171,226,.1);font-size:12px;color:var(--adm)">'
+      +t.fn+' '+t.ln
+      +'<button type="button" onclick="sRemoveTutor(\''+tid+'\')" style="background:none;border:none;cursor:pointer;color:var(--adm);font-size:14px;line-height:1;padding:0;margin-left:2px">×</button>'
+      +'</span>';
+  }).join('');
+}
+
+function sAddTutor(){
+  var input=document.getElementById('s-tutor-input');
+  if(!input||!input.value.trim()) return;
+  var val=input.value.trim();
+  // Шукаємо репетитора по імені
+  var t=(S.tutors||[]).find(function(x){return (x.fn+' '+x.ln).toLowerCase()===val.toLowerCase();});
+  if(!t){ mkToast('Репетитора не знайдено в списку','error'); return; }
+  // Перевіряємо чи вже доданий
+  var existing=Array.from(document.querySelectorAll('.s-tutor-tag')).map(function(el){return el.dataset.id;});
+  if(existing.indexOf(t.id)>=0){ mkToast('Вже доданий','error'); return; }
+  existing.push(t.id);
+  sRenderTutorTags(existing);
+  input.value='';
+}
+
+function sRemoveTutor(id){
+  var existing=Array.from(document.querySelectorAll('.s-tutor-tag')).map(function(el){return el.dataset.id;}).filter(function(x){return x!==id;});
+  sRenderTutorTags(existing);
+}
+
+window.sAddTutor=sAddTutor;
+window.sRemoveTutor=sRemoveTutor;
+
+function openStudM(id=null){
+  var _canEditStud = can('students');
+  // Без права редагування картку МОЖНА відкрити лише для ПЕРЕГЛЯДУ існуючого учня.
+  // Створення нового (id===null) залишається недоступним.
+  if(!_canEditStud && !id){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432 \u043D\u0430 \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043D\u044F \u0443\u0447\u043D\u0456\u0432','error'); return; }
+  S.editId=id;
+  document.getElementById('ms-title').textContent = !_canEditStud
+    ? '\uD83D\uDC41 \u041A\u0430\u0440\u0442\u043A\u0430 \u0443\u0447\u043D\u044F (\u043F\u0435\u0440\u0435\u0433\u043B\u044F\u0434)'
+    : (id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0443\u0447\u043D\u044F':'\u041D\u043E\u0432\u0438\u0439 \u0443\u0447\u0435\u043D\u044C');
+  // Populate subject datalist for student modal
+  var dl_s=document.getElementById('subj-list-s');
+  if(dl_s){dl_s.innerHTML=(S.subjects||[]).map(function(x){return '<option value="'+x.name+'">';}).join('');}
+  // Populate branch checkboxes (god/director/admin only, hidden for others via CSS)
+  var brListS=document.getElementById('s-branch-list');
+  var _preSelBranchesS=id?((S.students.find(x=>x.id===id)||{}).branchIds||[]):[];
+  if(brListS){
+    brListS.innerHTML=(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+      .map(function(b){
+        var checked=_preSelBranchesS.indexOf(b.id)>=0?' checked':'';
+        return '<label class="af-day"><input type="checkbox" class="s-branch-cb" value="'+b.id+'"'+checked+'> '+b.name+'</label>';
+      }).join('') || '<span style="font-size:11px;color:var(--t3)">\u0424\u0456\u043B\u0456\u0439 \u0449\u0435 \u043D\u0435 \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E</span>';
+  }
+  // Populate tutor datalist for searchable input
+  var tutorDl=document.getElementById('s-tutor-datalist');
+  if(tutorDl){tutorDl.innerHTML=(S.tutors||[]).map(function(t){return '<option value="'+t.fn+' '+t.ln+'" data-id="'+t.id+'">';}).join('');}
+  // Clear tutor tags and hidden select
+  var stList=document.getElementById('s-tutor-list');
+  var stInput=document.getElementById('s-tutor-input');
+  if(stList) stList.innerHTML='';
+  if(stInput) stInput.value='';
+  var stSel=document.getElementById('s-tutor');
+  if(stSel){stSel.innerHTML=(S.tutors||[]).map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('');}
+  // Populate CRM responsible select (admins/directors/god)
+  var respSel=document.getElementById('s-crm-resp');
+  if(respSel){
+    respSel.innerHTML='<option value="">\u2014 \u043d\u0435 \u043f\u0440\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u043e \u2014</option>'
+      +(S.users||[]).filter(function(u){return u.role==='god'||u.role==='director'||u.role==='admin';})
+        .map(function(u){return '<option value="'+u.id+'">'+u.fn+' '+u.ln+'</option>';}).join('');
+  }
+  const flds=['fn','ln','age','grade','phone','email','notes'];
+  const pflds=[];
+  if(id){const s=S.students.find(x=>x.id===id);if(s){flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value=s[f]||'';});
+  var _sSubjEl=document.getElementById('s-subj'); if(_sSubjEl)_sSubjEl.value=s.subject||'';
+  // Render tutor tags (legacy, if element exists)
+  var _tIds=s.tutorIds||(s.tutorId?[s.tutorId]:[]);
+  sRenderTutorTags(_tIds);document.getElementById('s-status').value=s.status||'active';document.getElementById('s-src').value=s.src||'referral';
+      var crmStEl=document.getElementById('s-crm-stage'); if(crmStEl) crmStEl.value=getCrmStage(s);
+      var crmRespEl=document.getElementById('s-crm-resp'); if(crmRespEl) crmRespEl.value=s.crmResponsible||'';
+      var pf=document.getElementById('s-parent-fn');if(pf)pf.value=s.parentFn||'';
+      var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';
+      var _rl=document.getElementById('s-rates-list');
+      if(_rl){_rl.innerHTML='';var _rr=studentRateRules(s);
+        if(!_rr.length){
+          // Міграція: у старого учня ставок ще немає — заповнюємо зі старих полів предмет/репетитори
+          var _lt=(s.tutorIds&&s.tutorIds.length)?s.tutorIds:(s.tutorId?[s.tutorId]:[]);
+          if(_lt.length) _rr=_lt.map(function(tid){return {subject:s.subject||'',tutor_id:tid,rate:(s.hourly_rate!=null?s.hourly_rate:null)};});
+          else if(s.subject) _rr=[{subject:s.subject,tutor_id:'',rate:(s.hourly_rate!=null?s.hourly_rate:null)}];
+        }
+        _rr.forEach(function(r){addRateRow(r);});}}}
+  else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';
+    var _rlN=document.getElementById('s-rates-list'); if(_rlN) _rlN.innerHTML='';
+    var crmStEl2=document.getElementById('s-crm-stage'); if(crmStEl2) crmStEl2.value='lead';
+    var crmRespEl2=document.getElementById('s-crm-resp'); if(crmRespEl2) crmRespEl2.value='';
+  }
+  renderCustomFields('student','mo-student-cf');
+  renderStudentCard(id);
+  var invBtn = document.getElementById('inv-btn');
+  if(invBtn) invBtn.style.display = (id && (R()==='god'||R()==='director')) ? 'inline-flex' : 'none';
+
+  // ── Режим лише перегляду (репетитор) ──────────────────────────
+  // Блокуємо всі поля картки й ховаємо "Зберегти", щоб дані було видно,
+  // але змінити їх було неможливо. Захист на рівні saveStudent() теж лишається.
+  var _mo = document.getElementById('mo-student');
+  if(_mo){
+    _mo.querySelectorAll('input, select, textarea').forEach(function(el){
+      el.disabled = !_canEditStud;
+      if(!_canEditStud) el.style.cursor='default';
+    });
+    // Кнопки додавання/видалення рядків ставок теж вимикаємо
+    _mo.querySelectorAll('.mdlb button').forEach(function(b){ b.disabled = !_canEditStud; });
+    var saveBtn=document.getElementById('ms-save-btn');
+    if(saveBtn) saveBtn.style.display = _canEditStud ? '' : 'none';
+    var cancelBtn=document.getElementById('ms-cancel-btn');
+    if(cancelBtn) cancelBtn.textContent = _canEditStud ? '\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438' : '\u0417\u0430\u043A\u0440\u0438\u0442\u0438';
+  }
+  openM('mo-student');
+}
+
+
+function renderStudentCard(id){
+  var card=document.getElementById('ms-card');
+  if(!card) return;
+  if(!id){ card.style.display='none'; return; }
+  var s=(S.students||[]).find(function(x){return x.id===id;});
+  if(!s){ card.style.display='none'; return; }
+  card.style.display='block';
+
+  // Аватар
+  var av=document.getElementById('ms-av');
+  if(av){ av.textContent=(s.fn||'?')[0]+(s.ln||'')[0]||''; }
+
+  // Ім'я та мета
+  var nm=document.getElementById('ms-fullname');
+  if(nm) nm.textContent=(s.fn||'')+' '+(s.ln||'');
+  var tutors=(s.tutorIds||[]).map(function(tid){
+    var t=(S.tutors||[]).find(function(x){return x.id===tid;});
+    return t?t.fn+' '+t.ln:'';
+  }).filter(Boolean).join(', ');
+  var meta=document.getElementById('ms-meta');
+  if(meta) meta.textContent=[s.subject,tutors,s.grade].filter(Boolean).join(' · ');
+
+  // Теги
+  var tags=document.getElementById('ms-tags');
+  if(tags){
+    var statusLabels={active:'Активний',trial:'Пробний',paused:'Призупинений',completed:'Завершив'};
+    var statusColors={active:'#eaf3de;color:#3B6D11',trial:'#e6f1fb;color:#185FA5',paused:'#faeeda;color:#854F0B',completed:'#f1efe8;color:#5f5e5a'};
+    var tagHtml='<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:'+(statusColors[s.status]||'#f1efe8;color:#444')+'">'+(statusLabels[s.status]||s.status)+'</span>';
+
+    // Пропуски
+    var missedCount=(S.lessons||[]).filter(function(l){return (l.studentId||l.student_id)===id&&l.status==='missed'&&!isCoveredMissed(l);}).length;
+    if(missedCount>0) tagHtml+='<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:#fcebeb;color:#A32D2D">'+missedCount+' пропуск'+(missedCount===1?'':'и')+'</span>';
+
+    tags.innerHTML=tagHtml;
+  }
+
+  // Таймлайн — події за останній місяць
+  var tl=document.getElementById('ms-timeline');
+  if(tl){
+    var events=[];
+    var monthAgo=new Date(); monthAgo.setMonth(monthAgo.getMonth()-1);
+    var monthAgoStr=monthAgo.toISOString().slice(0,10);
+
+    // Заняття за місяць
+    var sLessons=(S.lessons||[]).filter(function(l){
+      return (l.studentId||l.student_id)===id && (l.date||'')>=monthAgoStr;
+    }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var icons2={done:'\u2705',completed:'\u2705',makeup:'\uD83D\uDD04',missed:'\u274C',planned:'\uD83D\uDCC5',cancelled:'\uD83D\uDEAB'};
+    var lbls2={done:'\u0423\u0440\u043E\u043A \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E',completed:'\u0423\u0440\u043E\u043A \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E',makeup:'\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F',missed:'\u041F\u0440\u043E\u043F\u0443\u0441\u043A',planned:'\u0417\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u0438\u0439 \u0443\u0440\u043E\u043A',cancelled:'\u0421\u043A\u0430\u0441\u043E\u0432\u0430\u043D\u043E'};
+    var clr2={done:'var(--tut)',completed:'var(--tut)',makeup:'#f59e0b',missed:'var(--danger)',planned:'var(--adm)',cancelled:'var(--t3)'};
+    sLessons.forEach(function(l){
+      events.push({date:l.date,color:clr2[l.status]||'var(--t2)',
+        text:(icons2[l.status]||'\uD83D\uDCDA')+' '+(lbls2[l.status]||l.status)+' \u00B7 '+fd(l.date)+(l.time?' \u00B7 '+l.time:'')+(l.subject?' \u00B7 '+l.subject:'')});
+    });
+
+    // Комунікації за місяць
+    var sComms=(S.comms||[]).filter(function(c){
+      return (c.studentId||c.student_id)===id && (c.date||'')>=monthAgoStr;
+    }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,5);
+    sComms.forEach(function(c){
+      var ico={call:'\uD83D\uDCDE',message:'\uD83D\uDCAC',meeting:'\uD83E\uDD1D',email:'\uD83D\uDCE7'};
+      events.push({date:c.date,color:'var(--t2)',text:(ico[c.type]||'\uD83D\uDCCB')+' '+(c.note||c.type||'\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u044F')+' \u00B7 '+fd(c.date)});
+    });
+
+    events.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    events=events.slice(0,20);
+
+    tl.innerHTML=events.length
+      ? events.map(function(e){
+          return '<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:2px">'
+            +'<span style="width:8px;height:8px;border-radius:50%;background:'+(e.color||'var(--b1)')+';flex-shrink:0;margin-top:3px;margin-left:-14px;border:1.5px solid var(--s2)"></span>'
+            +'<span style="font-size:11px;color:var(--t2)">'+e.text+'</span></div>';
+        }).join('')
+      : '<div style="font-size:11px;color:var(--t3)">\u041F\u043E\u0434\u0456\u0439 \u0437\u0430 \u043E\u0441\u0442\u0430\u043D\u043D\u0456\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u043D\u0435\u043C\u0430\u0454</div>';
+  }
+}
+window.renderStudentCard = renderStudentCard;
+
+function openTutM(id=null){
+  if(!can('tutors')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
+  S.editId=id;document.getElementById('mt-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430':'\u041D\u043E\u0432\u0438\u0439 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447';
+
+  // Populate account select: only show users with role 'tutor' not already linked to another tutor
+  var accSel=document.getElementById('t-acc');
+  if(accSel){
+    var linkedIds=(S.tutors||[]).filter(function(t){return t.id!==id;}).map(function(t){return t.accId||t.acc_uid;}).filter(Boolean);
+    var opts=(S.users||[]).filter(function(u){
+      return u.role==='tutor' && linkedIds.indexOf(u.id)<0;
+    }).map(function(u){
+      return '<option value="'+u.id+'">'+(u.fn||'')+' '+(u.ln||'')+(u.username?' (@'+u.username+')':'')+'</option>';
+    }).join('');
+    accSel.innerHTML='<option value="">\u2014 \u043D\u0435 \u043F\u0440\u0438\u0432\'\u044F\u0437\u0430\u043D\u043E \u2014</option>'+opts;
+  }
+  // Populate branch checkboxes (god/director/admin only, hidden for others via CSS)
+  var brListT=document.getElementById('t-branch-list');
+  var _preSelBranches=id?((S.tutors.find(x=>x.id===id)||{}).branchIds||[]):[];
+  if(brListT){
+    brListT.innerHTML=(S.branches||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'','uk');})
+      .map(function(b){
+        var checked=_preSelBranches.indexOf(b.id)>=0?' checked':'';
+        return '<label class="af-day"><input type="checkbox" class="t-branch-cb" value="'+b.id+'"'+checked+'> '+b.name+'</label>';
+      }).join('') || '<span style="font-size:11px;color:var(--t3)">\u0424\u0456\u043B\u0456\u0439 \u0449\u0435 \u043D\u0435 \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E</span>';
+  }
+
+  if(id){const t=S.tutors.find(x=>x.id===id);if(t){['fn','ln','phone','email','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value=t[f]||'';});document.getElementById('t-subj').value=t.subj||'';if(document.getElementById('t-rate'))document.getElementById('t-rate').value=t.rate||'';
+    if(accSel) accSel.value=t.accId||t.acc_uid||'';
+  }}
+  else{['fn','ln','phone','email','subj','rate','bio'].forEach(f=>{const el=document.getElementById('t-'+f);if(el)el.value='';});if(accSel)accSel.value='';}
+  renderCustomFields('tutor','mo-tutor-cf');
+  openM('mo-tutor');
+}
+
+
+function openLessM(id, date, time){
+  if(!can('lessons')){mkToast('Немає прав','error');return;}
+  S.editId = id||null;
+
+  // Clear ALL fields first
+  ['l-std','l-subj','l-tutor','l-price','l-notes',
+   'l-miss-date','l-makeup-date','l-hw','l-games'].forEach(function(f){
+    var el=document.getElementById(f); if(el) el.value='';
+  });
+  // Автозаповнення предмета/репетитора зі ставок учня (слухачі вішаються один раз)
+  var _stdEl=document.getElementById('l-std');
+  if(_stdEl&&!_stdEl._ratesWired){ _stdEl._ratesWired=true; _stdEl.addEventListener('change',lessApplyStudentRates); }
+  var _sjEl=document.getElementById('l-subj');
+  if(_sjEl&&!_sjEl._ratesWired){ _sjEl._ratesWired=true; _sjEl.addEventListener('change',lessPickTutorForSubject); }
+  document.getElementById('l-dur').value = 60;
+  document.getElementById('l-stat').value = 'planned';
+  var re2=document.getElementById('l-recur'); if(re2) re2.value='none';
+  var re3=document.getElementById('l-recur-end'); if(re3) re3.value='';
+  var re4=document.getElementById('l-recur-count'); if(re4) re4.value='';
+  var re5=document.getElementById('l-recur-interval'); if(re5) re5.value='7';
+  ['l-miss-wrap','l-makeup-wrap','l-split-wrap','l-merge-wrap','recur-preview'].forEach(function(id2){
+    var el=document.getElementById(id2); if(el) el.style.display='none';
+  });
+
+  // Populate dropdowns after clearing
+  document.getElementById('ml-title').textContent = id ? 'Редагувати заняття' : 'Нове заняття';
+  popSel('l-std', myStudents(), 'id', function(s){return s.fn+' '+s.ln;}, 'Оберіть учня');
+  makeSearchable('l-std');
+  if(document.getElementById('l-std')._updateSearch) document.getElementById('l-std')._updateSearch();
+  var dl_l = document.getElementById('subj-list-l');
+  if(dl_l) dl_l.innerHTML = allKnownSubjects().map(function(x){return '<option value="'+x+'">';}).join('');
+  // Кастомний дропдаун (надійний на телефонах): предмети обраного учня першими, далі всі відомі
+  makeSuggest('l-subj', function(){
+    var sid=document.getElementById('l-std')?.value;
+    var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+    var mine=[];
+    if(st){
+      studentRateRules(st).forEach(function(r){ var v=(r.subject||'').trim(); if(v&&mine.indexOf(v)<0) mine.push(v); });
+      if(!mine.length&&st.subject) mine=String(st.subject).split(',').map(function(x){return x.trim();}).filter(Boolean);
+    }
+    return mine.concat(allKnownSubjects().filter(function(x){return mine.indexOf(x)<0;}));
+  });
+  popSel('l-tutor', S.tutors, 'id', function(t){return t.fn+' '+t.ln;}, 'Викладач');
+  makeSearchable('l-tutor'); if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
+  if(typeof toggleRecurOpts === 'function') toggleRecurOpts();
+
+  if(id){
+    var l = (S.lessons||[]).find(function(x){return x.id===id;});
+    if(l){
+      document.getElementById('l-std').value = l.studentId||l.student_id||'';
+      if(document.getElementById('l-std')._updateSearch) document.getElementById('l-std')._updateSearch();
+      document.getElementById('l-subj').value = l.subject||'';
+      document.getElementById('l-tutor').value = l.tutorId||l.tutor_id||'';
+      if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
+      document.getElementById('l-date').value = l.date||'';
+      document.getElementById('l-time').value = l.time||'10:00';
+      document.getElementById('l-dur').value = l.dur||60;
+      document.getElementById('l-stat').value = l.status||'planned';
+      var _lp=document.getElementById('l-price'); if(_lp) _lp.value = l.price||'';
+      document.getElementById('l-notes').value = l.notes||'';
+      var _lg=document.getElementById('l-games'); if(_lg) _lg.value = l.games||'';
+      // Load missed/makeup dates and hw
+      var missEl=document.getElementById('l-miss-date');
+      var autoMissDate = l.missed_date||'';
+      // Якщо це makeup і є split_group_id — автоматично знаходимо дату пропущеного
+      if(!autoMissDate && (l.status==='makeup'||l.status==='makeup_planned') && l.split_group_id){
+        var origMissed=(S.lessons||[]).find(function(x){
+          return x.id===l.split_group_id && x.status==='missed';
+        });
+        if(origMissed) autoMissDate=origMissed.date;
+      }
+      if(missEl) missEl.value=autoMissDate;
+      var makeupEl=document.getElementById('l-makeup-date');
+      if(makeupEl) makeupEl.value=l.makeup_date||'';
+      var hwEl=document.getElementById('l-hw');
+      if(hwEl) hwEl.value=l.hw||'';
+      if(typeof onLessStatChange==='function') onLessStatChange();
+      if(l.recurId){
+        var siblings = (S.lessons||[]).filter(function(x){return x.recurId===l.recurId;});
+        var box = document.getElementById('recur-preview');
+        if(box){box.style.display='block';box.innerHTML='<span style="color:var(--adm)">🔁 Повторюване</span> — серія з <b>'+siblings.length+'</b> занять.';}
+      }
+    }
+  } else {
+    document.getElementById('l-date').value = date||localDateStr(new Date());
+    document.getElementById('l-time').value = time||'10:00';
+    var mt = myTutor();
+    if(mt){ document.getElementById('l-tutor').value = mt.id; if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch(); }
+  }
+
+  if(typeof renderCustomFields==='function') renderCustomFields('lesson','mo-lesson-cf');
+  var db=document.getElementById('del-lesson-btn'); if(db) db.style.display=id?'inline-flex':'none';
+  var sb=document.getElementById('del-series-btn');
+  if(sb){var lr=id?(S.lessons||[]).find(function(l){return l.id===id;}):null;sb.style.display=(lr&&lr.recurId)?'inline-flex':'none';}
+  // Показуємо блок об'єднання і заповнюємо список
+  var mw=document.getElementById('l-merge-wrap');
+  if(mw) mw.style.display='block';
+  populateMergeSelect();
+  openM('mo-lesson');
+}
+
+
+function openPayM(id=null){
+  if(!can('payments')){mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error');return;}
+  S.editId=id;document.getElementById('mp-title').textContent=id?'\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043F\u043B\u0430\u0442\u0456\u0436':'\u041D\u043E\u0432\u0438\u0439 \u043F\u043B\u0430\u0442\u0456\u0436';
+  popSel('p-std',S.students,'id',function(s){return s.fn+' '+s.ln;},'\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F');
+  makeSearchable('p-std'); if(document.getElementById('p-std')._updateSearch) document.getElementById('p-std')._updateSearch();
+  const months=['\u0421\u0456\u0447\u0435\u043D\u044C','\u041B\u044E\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u041A\u0432\u0456\u0442\u0435\u043D\u044C','\u0422\u0440\u0430\u0432\u0435\u043D\u044C','\u0427\u0435\u0440\u0432\u0435\u043D\u044C','\u041B\u0438\u043F\u0435\u043D\u044C','\u0421\u0435\u0440\u043F\u0435\u043D\u044C','\u0412\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0416\u043E\u0432\u0442\u0435\u043D\u044C','\u041B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043D\u044C'];
+  document.getElementById('p-date').value=localDateStr(new Date());
+  document.getElementById('p-mon').value=months[new Date().getMonth()];
+  if(id){const p=S.payments.find(x=>x.id===id);if(p){document.getElementById('p-std').value=p.studentId||'';if(document.getElementById('p-std')&&document.getElementById('p-std')._updateSearch) document.getElementById('p-std')._updateSearch();;document.getElementById('p-amt').value=p.amount||'';document.getElementById('p-mth').value=p.method||'cash';document.getElementById('p-date').value=p.date||'';document.getElementById('p-stat').value=p.status||'paid';document.getElementById('p-mon').value=p.month||months[new Date().getMonth()];document.getElementById('p-note').value=p.note||'';}}
+  else{document.getElementById('p-std').value='';if(document.getElementById('p-std')&&document.getElementById('p-std')._updateSearch) document.getElementById('p-std')._updateSearch();;document.getElementById('p-amt').value='';document.getElementById('p-mth').value='cash';document.getElementById('p-stat').value='paid';document.getElementById('p-note').value='';}
+  renderCustomFields('payment','mo-payment-cf');
+  openM('mo-payment');
+}
+
+
+function openCommM(tutorId, commId){
+  // Allow all logged-in users to add comms
+  var mo=document.getElementById('mo-comm');
+  if(!mo){ console.error('mo-comm not found'); return; }
+  // Режим редагування: якщо передано commId — заповнюємо форму наявним записом
+  window._editCommId = commId || null;
+  var editC = commId ? (S.comms||[]).find(function(c){return c.id===commId;}) : null;
+  if(commId && !editC){ mkToast('\u0417\u0430\u043F\u0438\u0441 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error'); window._editCommId=null; return; }
+  if(editC && !tutorId) tutorId = editC.tutorId || editC.tutor_id;
+  var titleEl = mo.querySelector('.mdlt');
+  if(titleEl) titleEl.textContent = editC ? '\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u044E' : '\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u044F';
+  // Tutor select - hide for tutor role (pre-select own)
+  var tSel=document.getElementById('cm-tutor');
+  var tWrap=tSel?tSel.closest('.fgr'):null;
+  var mt=myTutor();
+  if(R()==='tutor'){
+    if(tWrap) tWrap.style.display='none';
+    if(tSel&&mt) tSel.innerHTML='<option value="'+mt.id+'">'+mt.fn+' '+mt.ln+'</option>';
+  } else {
+    if(tWrap) tWrap.style.display='';
+    if(tSel){
+      var selId=tutorId||(mt?mt.id:'');
+      tSel.innerHTML='<option value="">Оберіть репетитора</option>'
+        +(S.tutors||[]).map(function(t){
+          return '<option value="'+t.id+'"'+(t.id===selId?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';
+        }).join('');
+    }
+  }
+  // Student select - use myStudents()
+  var sSel=document.getElementById('cm-student');
+  if(sSel){
+    sSel.innerHTML='<option value="">Учень (необов\'язково)</option>'
+      +myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(s){return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';}).join('');
+    if(editC) sSel.value = editC.studentId || editC.student_id || '';
+  }
+  // Apply searchable to tutor+student selects
+  if(R()!=='tutor'){ makeSearchable('cm-tutor'); if(document.getElementById('cm-tutor')._updateSearch) document.getElementById('cm-tutor')._updateSearch(); }
+  makeSearchable('cm-student'); if(document.getElementById('cm-student')._updateSearch) document.getElementById('cm-student')._updateSearch();
+  // Type field (у старих записах тип може бути message/meeting — мапимо на значення селекта)
+  var typeEl=document.getElementById('cm-type');
+  if(typeEl){
+    var tmap={message:'msg',meeting:'meet'};
+    typeEl.value = editC ? (tmap[editC.type]||editC.type||'call') : 'call';
+  }
+  // Note field
+  var noteEl=document.getElementById('cm-note');
+  if(noteEl) noteEl.value = editC ? (editC.note||'') : '';
+  // Date = existing or today
+  var dateEl=document.getElementById('cm-date');
+  if(dateEl) dateEl.value = editC ? String(editC.date||'').slice(0,10) : localDateStr(new Date());
+  if(editC && typeof updateParentInfo==='function') updateParentInfo();
+  openM('mo-comm');
+}
+
+
+function nav(page){
+  // Allow custom pages (added by God constructor) and built-in allowed pages
+  const isCustomPage=page.startsWith('custom_');
+  if(!isCustomPage&&!userNav().includes(page)){mkToast('\u041D\u0435\u043C\u0430\u0454 \u0434\u043E\u0441\u0442\u0443\u043F\u0443 \u0434\u043E \u0446\u044C\u043E\u0433\u043E \u0440\u043E\u0437\u0434\u0456\u043B\u0443','error');return;}
+  document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display=''});
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  const pel=document.getElementById('pg-'+page);if(pel)pel.classList.add('active');
+  const nel=document.getElementById('ni-'+page);
+  if(nel){nel.classList.add('active');nel.className=nel.className.replace(/ (god|dir|tut)/g,'');if(R()==='god')nel.classList.add('god');else if(R()==='director')nel.classList.add('dir');else if(R()==='tutor')nel.classList.add('tut');}
+  document.getElementById('ptitle').textContent=(PLABELS[page]||page);
+
+
+  S.currentPage=page;
+  try{ localStorage.setItem('sb_page', page); }catch(e){}
+  const addMap={students:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0443\u0447\u043D\u044F',tutors:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0432\u0438\u043A\u043B\u0430\u0434\u0430\u0447\u0430',lessons:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F',payments:'\u0414\u043E\u0434\u0430\u0442\u0438 \u043F\u043B\u0430\u0442\u0456\u0436',schedule:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F',users:'\u0414\u043E\u0434\u0430\u0442\u0438 \u0430\u043A\u0430\u0443\u043D\u0442'};
+  const ab=document.getElementById('addbtn');
+  if(addMap[page]&&can(page==='users'?'users':page==='students'?'students':page==='tutors'?'tutors':page==='payments'?'payments':'lessons')){ab.textContent='+ '+addMap[page];ab.style.display='flex';}
+  else ab.style.display='none';
+  if(page==='dashboard'){
+    renderDash(); // render with existing data immediately
+  }
+  if(page==='students')renderStudents();
+  if(page==='tutors')renderTutors();
+  if(page==='schedule')renderSch();
+  if(page==='lessons')renderLessons();
+  if(page==='payments')renderPayments();
+  if(page==='reports')renderAllAnalytics();
+  if(page==='branches'){renderBranches();renderBranchStats();}
+  if(page==='users')renderUsers();
+  if(page==='settings')renderSettings();
+  if(page==='profile'){try{renderProfile();}catch(e){console.error('renderProfile:',e);}}
+  if(page==='comms'){try{renderCommsPage();}catch(e){console.error('renderCommsPage:',e);}}
+  if(page==='invoice'){ renderInvoicePage(); try{renderInvoiceStatus();}catch(e){} }
+  if(page==='invoice-log') renderInvoiceLog();
+  if(page==='missed') renderMissedLessons();
+  if(page==='tasks'){try{renderTasks();}catch(e){console.error('renderTasks:',e);}}
+  if(page==='payroll'){try{renderPayroll();}catch(e){console.error('renderPayroll:',e);}}
+  if(page==='audit'){try{renderAudit();}catch(e){console.error('renderAudit:',e);}}
+  if(page==='acts'){try{renderActsPage();}catch(e){console.error('renderActsPage:',e);}}
+  if(page==='telephony'){try{renderTelephony();}catch(e){console.error('renderTelephony:',e);}}
+  if(page==='invoice'){ renderInvoicePage(); try{renderInvoiceStatus();}catch(e){} }
+  if(page==='invoice-log') renderInvoiceLog();
+  var _crmEl=document.getElementById('pg-crm');
+  if(page==='crm'){if(_crmEl)_crmEl.style.display='flex';renderCrm();}
+  else{if(_crmEl)_crmEl.style.display='none';}
+    if(isCustomPage)renderCustomPage(page);
+  try{updateTaskAlert();}catch(e){}
+  if(window.innerWidth<=768)closeSidebar();
+}
+
+
+function openAdd(){
+  const p=S.currentPage;
+  if(p==='students')openStudM();
+  else if(p==='tutors')openTutM();
+  else if(p==='lessons'||p==='schedule')openLessM();
+  else if(p==='payments')openPayM();
+  else if(p==='users')openUserM();
+}
+
+
+function chWk(d){
+  const view=S.schView||'week';
+  if(view==='day'){if(d===0)S.dayOffset=0;else S.dayOffset=(S.dayOffset||0)+d;}
+  else if(view==='month'){if(d===0)S.monthOffset=0;else S.monthOffset=(S.monthOffset||0)+d;}
+  else{if(d===0)S.weekOffset=0;else S.weekOffset=(S.weekOffset||0)+d;}
+  renderSch();
+}
+
+
+function schSetView(v){
+  S.schView = v;
+  if(v === 'week') S.weekOffset = S.weekOffset || 0;
+  else if(v === 'month') S.monthOffset = S.monthOffset || 0;
+  else             S.dayOffset  = S.dayOffset  || 0;
+  renderSch();
+}
+
+
+function toggleRecurOpts(){
+  const v=document.getElementById('l-recur').value;
+  const none=v==='none';
+  document.getElementById('recur-interval-wrap').style.display=v==='custom'?'flex':'none';
+  document.getElementById('recur-end-wrap').style.display=none?'none':'flex';
+  document.getElementById('recur-count-wrap').style.display=none?'none':'flex';
+  document.getElementById('recur-preview').style.display='none';
+  document.getElementById('recur-preview-btn').style.display=none?'none':'flex';
+}
+
+
+function previewRecur(){
+  const date=document.getElementById('l-date').value;
+  const recur=document.getElementById('l-recur').value;
+  const endDate=document.getElementById('l-recur-end').value;
+  const count=document.getElementById('l-recur-count').value;
+  const interval=document.getElementById('l-recur-interval').value;
+  if(!date||recur==='none')return;
+  const dates=genRecurDates(date,recur,endDate,count||52,interval);
+  const allDates=[date,...dates];
+  const labels={daily:'\u0429\u043E\u0434\u043D\u044F',weekly:'\u0429\u043E\u0442\u0438\u0436\u043D\u044F',biweekly:'\u0427\u0435\u0440\u0435\u0437 \u0442\u0438\u0436\u0434\u0435\u043D\u044C',monthly:'\u0429\u043E\u043C\u0456\u0441\u044F\u0446\u044F (\u0434\u0430\u0442\u0430)','monthly-dow':'\u0429\u043E\u043C\u0456\u0441\u044F\u0446\u044F (\u0434\u0435\u043D\u044C \u0442\u0438\u0436\u043D\u044F)',custom:('\u041A\u043E\u0436\u043D\u0456 '+(interval)+' \u0434\u043D\u0456\u0432')};
+  const box=document.getElementById('recur-preview');
+  box.style.display='block';
+  box.innerHTML=('<div style="color:var(--adm);font-weight:600;margin-bottom:6px">\uD83D\uDD01 '+(labels[recur])+' \u2014 '+(allDates.length)+' \u0437\u0430\u043D\u044F\u0442\u044C:</div>')+
+    allDates.slice(0,10).map(d=>('<span style="display:inline-block;background:var(--s1);border:1px solid var(--b1);border-radius:5px;padding:2px 8px;margin:2px;font-family:JetBrains Mono,monospace;font-size:11px">'+(fd(d))+'</span>')).join('')+
+    (allDates.length>10?('<span style="margin-left:4px;color:var(--t3)">+'+(allDates.length-10)+' \u0449\u0435...</span>'):'');
+}
+
+
+function uaTab(id,el){
+  document.querySelectorAll('.ua-tab').forEach(function(t){t.classList.remove('active');});
+  document.querySelectorAll('.ua-panel').forEach(function(p){p.classList.remove('active');});
+  el.classList.add('active');
+  document.getElementById('uap-'+id).classList.add('active');
+}
+
+
+function toggleTutLink(){
+  const r=document.getElementById('u-role').value;
+  document.getElementById('u-tlink-wrap').style.display=r==='tutor'?'flex':'none';
+  var bw=document.getElementById('u-branch-wrap');
+  if(bw) bw.style.display=(r==='admin'||r==='director')?'flex':'none';
+}
+
+
+function toggleProfileEdit(){
+  var form = document.getElementById('pr-edit-form');
+  if(!form) return;
+  var mt = myTutor();
+  if(form.style.display === 'none'){
+    if(mt){
+      var set = function(id,val){ var el=document.getElementById(id); if(el) el.value=val||''; };
+      set('pr-fn', mt.fn); set('pr-ln', mt.ln); set('pr-phone', mt.phone);
+      set('pr-email', mt.email); set('pr-subj2', mt.subj);
+      set('pr-rate', mt.rate); set('pr-bio', mt.bio);
+    }
+    form.style.display = 'block';
+  } else {
+    form.style.display = 'none';
+  }
+}
+
+async function saveProfileEdit(){
+  var mt = myTutor();
+  if(!mt){ mkToast('Профіль репетитора не знайдено','error'); return; }
+  var get = function(id){ var el=document.getElementById(id); return el?el.value.trim():''; };
+  var obj = { fn:get('pr-fn'), ln:get('pr-ln'), phone:get('pr-phone'),
+    email:get('pr-email'), subj:get('pr-subj2'), bio:get('pr-bio') };
+  if(!obj.fn){ mkToast("Ім'я обов'язкове",'error'); return; }
+  try{
+    await dbUpdate('tutors', mt.id, obj);
+    if(CU){ await dbUpdate('profiles', CU.id, {fn:obj.fn, ln:obj.ln});
+      CU = Object.assign({}, CU, {fn:obj.fn, ln:obj.ln}); updateSBUser(); }
+    mkToast('Профіль оновлено');
+    document.getElementById('pr-edit-form').style.display = 'none';
+    renderProfile();
+  }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
+}
+
+function buildSidebar(){
+  const cfg=(S.godConfig)||{};
+  const navItems=cfg.navItems?[...cfg.navItems]:[...NAV_CFG];
+  const role=R();
+  const allowed=userNav();
+  let html='',lastSec='';
+  navItems.forEach(n=>{
+    const isBuiltin=allowed.includes(n.id);
+    const isCustom=n.custom;
+    const roleAllowed=(n.roles||[]).includes(role);
+    if(!isBuiltin&&!isCustom)return;
+    if(isCustom&&!roleAllowed)return;
+    if(n.sec!==lastSec){html+=('<div class="nsec">'+(n.sec)+'</div>');lastSec=n.sec;}
+    html+=('<div class="ni" id="ni-'+(n.id)+'" onclick="nav(\''+(n.id)+'\')"><span class="nico">'+(n.ico)+'</span>'+(n.lbl)+(n.badge?`<span class="nbadge" id="nb-s">0</span>`:'')+'</div>');
+  });
+  document.getElementById('sbnav').innerHTML=html;
+}
+
+
+
+var UA_PERMS = [
+  {k:'students',  lbl:'\u0423\u0447\u043d\u0456',           icon:'\u25CE'},
+  {k:'tutors',    lbl:'\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438',    icon:'\u25C8'},
+  {k:'lessons',   lbl:'\u0417\u0430\u043d\u044f\u0442\u0442\u044f',      icon:'\u25C9'},
+  {k:'payments',  lbl:'\u041e\u043f\u043b\u0430\u0442\u0430',       icon:'\u25C8'},
+  {k:'users',     lbl:'\u0410\u043a\u0430\u0443\u043d\u0442\u0438',      icon:'\u25CE'},
+  {k:'settings',  lbl:'\u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f', icon:'\u25C9'},
+  {k:'comms',     lbl:'\u041a\u043e\u043c\u0443\u043d\u0456\u043a\u0430\u0446\u0456\u0457', icon:'\u25CE'},
+  {k:'danger',    lbl:'\u041d\u0435\u0431\u0435\u0437\u043f\u0435\u0447\u043d\u0456 \u0434\u0456\u0457',  icon:'\u26A0\uFE0F'},
+  {k:'deleteAny', lbl:'\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f',    icon:'\uD83D\uDDD1'},
+  {k:'seeIncome', lbl:'\u0411\u0430\u0447\u0438\u0442\u0438 \u0434\u043e\u0445\u043e\u0434\u0438', icon:'\uD83D\uDCB0'},
+];
+// UA_PAGES ініціалізується з NAV_CFG при першому зверненні
+function getUAPages(){ return NAV_CFG.map(function(n){ return {id:n.id, lbl:n.lbl, ico:n.ico, sec:n.sec}; }); }
+
+function buildUAHeader(u){
+  var ro=ROLES[u.role];
+  var el=document.getElementById('ua-user-info');
+  if(!el)return;
+  el.innerHTML='';
+  var wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;align-items:center;gap:12px;margin-bottom:10px';
+  var av=document.createElement('div');
+  av.className='av';
+  av.style.cssText='width:44px;height:44px;flex-shrink:0;overflow:hidden;border-radius:50%';
+  var _mt2=myTutor();
+  if(_mt2&&_mt2.photo){
+    av.innerHTML='<img src="'+_mt2.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+  } else {
+    av.style.cssText+=(';background:'+ro.avatarBg+';font-size:17px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center');
+    av.textContent=(u.fn[0]||'')+(u.ln[0]||'');
+  }
+  var info=document.createElement('div');
+  info.innerHTML='<div style="font-weight:700;font-size:15px">'+u.fn+' '+u.ln+'</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-top:2px">'+(u.email||'')
+    +' &bull; <span class="rpill '+u.role+'" style="font-size:10px;padding:1px 8px">'+ro.icon+' '+ro.label+'</span></div>';
+  wrap.appendChild(av);wrap.appendChild(info);
+  var hint=document.createElement('div');
+  hint.style.cssText='font-size:11px;color:var(--t3);padding:8px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;line-height:1.5';
+  hint.innerHTML='\u26A1 \u0420\u043E\u043B\u044C \u0432\u0438\u0437\u043D\u0430\u0447\u0430\u0454 <strong style="color:var(--t1)">\u0431\u0430\u0437\u043E\u0432\u0456</strong> \u043F\u0440\u0430\u0432\u0430. \u0422\u0443\u0442 \u043C\u043E\u0436\u043D\u0430 \u0434\u043E\u0434\u0430\u0442\u0438 \u0430\u0431\u043E \u0437\u043D\u044F\u0442\u0438 \u0434\u043E\u0441\u0442\u0443\u043F \u0434\u043B\u044F <strong style="color:var(--dir)">\u0446\u044C\u043E\u0433\u043E \u043A\u043E\u043D\u043A\u0440\u0435\u0442\u043D\u043E\u0433\u043E \u0430\u043A\u0430\u0443\u043D\u0442\u0443</strong>.';
+  el.appendChild(wrap);el.appendChild(hint);
+}
+
+
+
+function buildUANav(u){
+  var ro=ROLES[u.role];
+  var roleNav=ro.nav||[];
+  var up=u.perms||{};
+  var hideNav=up.hideNav||[];
+  var showNav=up.showNav||[];
+  var el=document.getElementById('ua-nav-grid');
+  if(!el)return;
+  el.innerHTML='';
+  getUAPages().forEach(function(pg){
+    var inRole=roleNav.includes(pg.id);
+    var isOn=(inRole&&!hideNav.includes(pg.id))||showNav.includes(pg.id);
+    var item=document.createElement('div');
+    item.className='ua-nav-item'+(isOn?' checked':'');
+    var cb=document.createElement('input');cb.type='checkbox';cb.checked=isOn;
+    (function(pageId,isInRole){
+      cb.addEventListener('change',function(){
+        uaNavChange(pageId,this.checked,isInRole);
+        this.closest('.ua-nav-item').classList.toggle('checked',this.checked);
+      });
+    })(pg.id,inRole);
+    var ico=document.createElement('span');ico.className='ua-nav-ico';ico.textContent=pg.ico;
+    var info=document.createElement('div');info.style.flex='1';
+    info.innerHTML='<div class="ua-nav-lbl">'+pg.lbl+'</div>'
+      +'<div class="ua-nav-sec">'+pg.sec+(inRole?' \u00B7 \u0454 \u0432 \u0440\u043E\u043B\u0456':' \u00B7 \u043D\u0435 \u0432 \u0440\u043E\u043B\u0456')+'</div>';
+    item.appendChild(cb);item.appendChild(ico);item.appendChild(info);
+    el.appendChild(item);
+  });
+}
+
+
+
+function buildUAPerms(u){
+  var ro=ROLES[u.role];
+  var roleCan=ro.can||{};
+  var up=u.perms||{};
+  var custCan=up.can||{};
+  var el=document.getElementById('ua-perms-grid');
+  if(!el)return;
+  el.innerHTML='';
+  UA_PERMS.forEach(function(p){
+    var roleVal=!!(roleCan[p.k]||ro[p.k]);
+    var hasOverride=p.k in custCan;
+    var effectiveVal=hasOverride?custCan[p.k]:roleVal;
+
+    var item=document.createElement('div');item.className='ua-perm-row';
+
+    var left=document.createElement('div');
+    var lbl=document.createElement('div');lbl.className='ua-perm-label';lbl.textContent=p.lbl;
+    var sub=document.createElement('div');
+    sub.style.cssText='font-size:10px;margin-top:2px;display:flex;align-items:center;gap:4px';
+    if(hasOverride){
+      var sp=document.createElement('span');sp.style.color='var(--dir)';sp.textContent='\u2699 \u0456\u043D\u0434\u0438\u0432\u0456\u0434\u0443\u0430\u043B\u044C\u043D\u043E';
+      var rb=document.createElement('button');
+      rb.style.cssText='background:none;border:none;color:var(--t3);cursor:pointer;font-size:10px;padding:0';
+      rb.textContent='\u21BA \u0441\u043A\u0438\u043D\u0443\u0442\u0438';
+      (function(key){rb.addEventListener('click',function(){uaResetPerm(key);});})(p.k);
+      sub.appendChild(sp);sub.appendChild(rb);
+    } else {
+      sub.textContent='\u0437 \u0440\u043E\u043B\u0456: '+(roleVal?'\u2705 \u0442\u0430\u043A':'\u274C \u043D\u0456');
+      sub.style.color='var(--t3)';
+    }
+    left.appendChild(lbl);left.appendChild(sub);
+
+    var tgl=document.createElement('label');tgl.className='toggle';
+    var cb=document.createElement('input');cb.type='checkbox';cb.checked=effectiveVal;
+    (function(key,rv){
+      cb.addEventListener('change',function(){
+        uaPermChange(key,this.checked,rv);
+        // Rebuild this item's sub label
+        var subEl=this.closest('.ua-perm-row').querySelector('div > div:last-child');
+        subEl.innerHTML='';subEl.style.cssText='font-size:10px;margin-top:2px;display:flex;align-items:center;gap:4px';
+        var sp2=document.createElement('span');sp2.style.color='var(--dir)';sp2.textContent='\u2699 \u0456\u043D\u0434\u0438\u0432\u0456\u0434\u0443\u0430\u043B\u044C\u043D\u043E';
+        var rb2=document.createElement('button');rb2.style.cssText='background:none;border:none;color:var(--t3);cursor:pointer;font-size:10px;padding:0';
+        rb2.textContent='\u21BA \u0441\u043A\u0438\u043D\u0443\u0442\u0438';
+        (function(k){rb2.addEventListener('click',function(){uaResetPerm(k);});})(key);
+        subEl.appendChild(sp2);subEl.appendChild(rb2);
+      });
+    })(p.k,roleVal);
+    var sl=document.createElement('span');sl.className='toggle-slider';
+    tgl.appendChild(cb);tgl.appendChild(sl);
+    item.appendChild(left);item.appendChild(tgl);
+    el.appendChild(item);
+  });
+}
+
+
+
+function buildUASummary(u){
+  var el=document.getElementById('ua-summary');
+  if(!el)return;
+  var up=u.perms||{};
+  var ro=ROLES[u.role];
+  var roleCan=ro.can||{};
+  var custCan=up.can||{};
+  var hideNav=up.hideNav||[];
+  var showNav=up.showNav||[];
+  var html='';
+
+  if(Object.keys(custCan).length){
+    html+='<div style="font-weight:600;font-size:11px;color:var(--dir);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">\u2699 \u0406\u043D\u0434\u0438\u0432\u0456\u0434\u0443\u0430\u043B\u044C\u043D\u0456 \u043F\u0440\u0430\u0432\u0430:</div>';
+    html+='<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">';
+    Object.keys(custCan).forEach(function(k){
+      var def=UA_PERMS.find(function(p){return p.k===k;});
+      var lbl=def?def.lbl:k;
+      var rv=!!(roleCan[k]||ro[k]);
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--s2);border-radius:7px">'
+        +'<span>'+(custCan[k]?'\u2705':'\u274C')+'</span>'
+        +'<span style="flex:1;font-size:12px">'+lbl+'</span>'
+        +'<span style="font-size:10px;color:var(--t3)">\u0440\u043E\u043B\u044C: '+(rv?'\u2705':'\u274C')+'</span>'
+        +'<button class="ua-sum-reset" data-pkey="'+k+'" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:11px;padding:2px 4px">\u21BA</button>'
+        +'</div>';
+    });
+    html+='</div>';
+  }
+
+  if(hideNav.length||showNav.length){
+    html+='<div style="font-weight:600;font-size:11px;color:var(--dir);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">\uD83D\uDCCB \u041D\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u044F \u0437\u043C\u0456\u043D\u0435\u043D\u0430:</div>';
+    html+='<div style="display:flex;flex-direction:column;gap:3px">';
+    var _uap=getUAPages();
+    hideNav.forEach(function(p){var pg=_uap.find(function(x){return x.id===p;});html+='<div style="font-size:12px;color:var(--danger)">\u274C \u041F\u0440\u0438\u0445\u043E\u0432\u0430\u043D\u043E: '+(pg?pg.ico+' '+pg.lbl:p)+'</div>';});
+    showNav.forEach(function(p){var pg=_uap.find(function(x){return x.id===p;});html+='<div style="font-size:12px;color:var(--tut)">\u2705 \u0414\u043E\u0434\u0430\u043D\u043E: '+(pg?pg.ico+' '+pg.lbl:p)+'</div>';});
+    html+='</div>';
+  }
+
+  if(!html){html='<div style="color:var(--t3);font-size:12px;padding:8px 0">\u0406\u043D\u0434\u0438\u0432\u0456\u0434\u0443\u0430\u043B\u044C\u043D\u0438\u0445 \u043D\u0430\u043B\u0430\u0448\u0442\u0443\u0432\u0430\u043D\u044C \u043D\u0435\u043C\u0430\u0454 \u2014 \u0434\u0456\u044E\u0442\u044C \u043F\u0440\u0430\u0432\u0430 \u0440\u043E\u043B\u0456.</div>';}
+
+  el.innerHTML=html;
+  el.querySelectorAll('.ua-sum-reset').forEach(function(btn){
+    btn.addEventListener('click',function(){uaResetPerm(this.dataset.pkey);});
+  });
+
+  var rb=document.getElementById('ua-reset-all');
+  if(rb){var hasAny=!!(u.perms&&(Object.keys(u.perms.can||{}).length||(u.perms.hideNav||[]).length||(u.perms.showNav||[]).length));rb.style.display=hasAny?'flex':'none';}
+}
+
+
+
+function genRecurDates(startDate,recurType,endDate,count,interval){
+  const dates=[];
+  const start=new Date(startDate+'T12:00:00');
+  const end=endDate?new Date(endDate+'T23:59:59'):null;
+  const maxCount=count?Math.min(parseInt(count),200):104;
+  let cur=new Date(start);
+  while(dates.length<maxCount){
+    if(end&&cur>end)break;
+    dates.push(localDateStr(cur));
+    const next=new Date(cur);
+    if(recurType==='daily'){next.setDate(next.getDate()+1);}
+    else if(recurType==='weekly'){next.setDate(next.getDate()+7);}
+    else if(recurType==='biweekly'){next.setDate(next.getDate()+14);}
+    else if(recurType==='monthly'){next.setMonth(next.getMonth()+1);}
+    else if(recurType==='monthly-dow'){
+      const dow=start.getDay();const weekNum=Math.floor((start.getDate()-1)/7);
+      next.setMonth(next.getMonth()+1);next.setDate(1);
+      while(next.getDay()!==dow)next.setDate(next.getDate()+1);
+      next.setDate(next.getDate()+weekNum*7);
+    }
+    else if(recurType==='custom'){next.setDate(next.getDate()+Math.max(1,parseInt(interval)||7));}
+    else break;
+    if(end&&next>end)break;
+    cur=next;
+  }
+  return dates;
+}
+
+
+
+function renderBranches(){
+  var el=document.getElementById('branch-list');
+  if(!el)return;
+  var html='';
+  (S.branches||[]).forEach(function(b){
+    var bid=b.id;
+    var isActive=S.currentBranchId===bid;
+    var reqLines='';
+    if(b.pay_recipient) reqLines+='<div style="font-size:11px;color:var(--t2)">\uD83D\uDCB3 '+b.pay_recipient+'</div>';
+    if(b.pay_card)      reqLines+='<div style="font-size:11px;color:var(--t2)">'+b.pay_card+(b.pay_bank?' \u00B7 '+b.pay_bank:'')+'</div>';
+    html+='<div class="ms" style="flex-direction:column;align-items:stretch;gap:6px;padding:12px 0;border-bottom:1px solid var(--b1)">'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<div style="flex:1">'
+          +'<div style="font-weight:700;font-size:13px">'+(isActive?'\u2705 ':'')+b.name+'</div>'
+          +(b.address?'<div style="font-size:11px;color:var(--t2)">\uD83D\uDCCD '+b.address+'</div>':'')
+          +(b.phone?'<div style="font-size:11px;color:var(--t2)">\uD83D\uDCDE '+b.phone+'</div>':'')
+          +(b.email?'<div style="font-size:11px;color:var(--t2)">\u2709\uFE0F '+b.email+'</div>':'')
+          +(reqLines?'<div style="margin-top:4px">'+reqLines+'</div>':'')
+        +'</div>'
+        +'<div style="display:flex;gap:6px;flex-shrink:0">'
+          +'<button class="btn btn-g btn-sm" onclick="editBranch(this.dataset.id)" data-id="'+bid+'">\u270F\uFE0F</button>'
+          +(S.branches.length>1?'<button class="btn btn-sm btn-d" onclick="delBranch(this.dataset.id)" data-id="'+bid+'">\uD83D\uDDD1</button>':'')
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  });
+  el.innerHTML=html||'<div style="font-size:12px;color:var(--t3);padding:8px 0">\u041D\u0435\u043C\u0430\u0454 \u0444\u0456\u043B\u0456\u0439</div>';
+}
+
+
+
+function renderPricingRules(){
+  var el = document.getElementById('pricing-rules-list');
+  if(!el) return;
+  var rules = S.pricingRules || [];
+  if(!rules.length){
+    el.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:8px 0">\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432\u0438\u043B. \u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u043F\u0435\u0440\u0448\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u043E \u043D\u0438\u0436\u0447\u0435.</div>';
+    return;
+  }
+  el.innerHTML = rules.map(function(r){
+    var tags = [];
+    if(r.subjectMatch) tags.push('\uD83D\uDCDA '+r.subjectMatch);
+    if(r.tutorId){ var t=(S.tutors||[]).find(x=>x.id===r.tutorId); if(t) tags.push('\uD83D\uDC64 '+t.fn+' '+t.ln); }
+    if(r.gradeMatch) tags.push('\uD83C\uDFEB '+r.gradeMatch+' \u043A\u043B.');
+    if(r.durMin) tags.push('\u23F1 \u0432\u0456\u0434 '+r.durMin+' \u0445\u0432');
+    return '<div class="ms" style="align-items:center">'+
+      '<div style="flex:1">'+
+        '<div style="font-weight:600;font-size:13px">'+r.name+' \u2014 <span style="color:var(--tut)">'+r.price+' \u20B4</span></div>'+
+        '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+(tags.length?tags.join(' \u00B7 '):'\u0417\u0430\u0441\u0442\u043E\u0441\u043E\u0432\u0443\u0454\u0442\u044C\u0441\u044F \u0434\u043E \u0432\u0441\u0456\u0445')+'</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px">'+
+        '<button class="btn btn-g btn-sm" onclick="editPriceRule(r.id)">\u270F\uFE0F</button>'+
+        '<button class="btn btn-sm btn-d" onclick="delPriceRule(r.id)">\uD83D\uDDD1</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+
+
+function renderProfile(){
+  const mt = myTutor();
+  var _pi = document.getElementById('pr-info');
+  if(!_pi) return;
+
+  if(mt){
+    // Photo: show real photo or initials avatar
+    var photoHtml = mt.photo
+      ? '<img src="'+mt.photo+'" style="width:56px;height:56px;object-fit:cover;border-radius:50%">'
+      : '<div style="width:56px;height:56px;border-radius:50%;background:var(--adm2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;font-family:Syne,sans-serif">'+(mt.fn||'?')[0]+(mt.ln||'')[0]+'</div>';
+
+    var doneH = Math.round(myLessons().filter(function(l){
+      return isDoneLesson(l)||l.status==='makeup';
+    }).reduce(function(s,l){ return s+(parseFloat(l.dur)||60)/60; },0)*10)/10;
+
+    _pi.innerHTML =
+      '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+photoHtml
+      +'<div><div style="font-size:17px;font-weight:700;font-family:Syne,sans-serif">'+mt.fn+' '+mt.ln+'</div>'
+      +'<div style="font-size:12px;color:var(--t2);margin-top:2px">'+(mt.subj||'—')+'</div></div></div>'
+      +'<div class="ms"><span class="msl">Телефон</span><span class="msv" style="font-family:inherit">'+(mt.phone||'—')+'</span></div>'
+      +'<div class="ms"><span class="msl">Email</span><span class="msv" style="font-family:inherit">'+(mt.email||'—')+'</span></div>'
+      +'<div class="ms"><span class="msl">Занять проведено</span><span class="msv">'+doneH+'</span></div>'
+      +(mt.bio?'<div style="margin-top:12px;padding:10px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t2)">'+mt.bio+'</div>':'');
+  } else {
+    _pi.innerHTML = '<div class="empty"><div class="ei">🔗</div>Ваш акаунт не прив\'язаний до профілю викладача</div>';
+  }
+
+  // Pre-fill edit form fields
+  if(mt){
+    var setV = function(id,v){ var el=document.getElementById(id); if(el) el.value=v||''; };
+    setV('pr-fn', mt.fn); setV('pr-ln', mt.ln); setV('pr-phone', mt.phone);
+    setV('pr-email', mt.email); setV('pr-subj2', mt.subj); setV('pr-bio', mt.bio);
+    // Photo preview
+    var prev = document.getElementById('pr-photo-preview');
+    if(prev && mt.photo) prev.innerHTML = '<img src="'+mt.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+  }
+}
+/**
+ * Деталізація по кліку на сегмент діаграми.
+ * Показує конкретні заняття, з яких складається цифра —
+ * щоб можна було перевірити, звідки вона взялась.
+ */
+function anDrill(kind, key){
+  var ctx=window._anCtx||{};
+  var from=ctx.fromStr, to=ctx.toStr, selTutor=ctx.selTutor;
+  if(!from||!to) return;
+
+  var pool=filterByBranch((S.lessons||[]).filter(function(l){
+    return l.date>=from && l.date<=to;
+  }));
+  if(selTutor) pool=pool.filter(function(l){return (l.tutorId||l.tutor_id)===selTutor;});
+
+  var title='', list=[];
+  if(kind==='status'){
+    if(key==='done'){ list=pool.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}); title='\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f'; }
+    else if(key==='missed'){ list=uncoveredMissedFilter(pool.filter(function(l){return l.status!=='cancelled';})); title='\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f'; }
+    else if(key==='planned'){ list=pool.filter(function(l){return l.status==='planned'||l.status==='scheduled';}); title='\u0417\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f'; }
+    else { list=pool.filter(function(l){return l.status==='cancelled';}); title='\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f'; }
+  } else if(kind==='subject'){
+    list=pool.filter(function(l){
+      if(!(isDoneLesson(l)||l.status==='makeup')) return false;
+      var k=String(l.subject||'\u0406\u043d\u0448\u0435').trim().toLowerCase().replace(/\s+/g,' ');
+      return k===String(key).toLowerCase();
+    });
+    title='\u041f\u0440\u0435\u0434\u043c\u0435\u0442: '+(list[0]?(list[0].subject||key):key);
+  } else if(kind==='tutor'){
+    list=pool.filter(function(l){
+      return (isDoneLesson(l)||l.status==='makeup') && (l.tutorId||l.tutor_id)===key;
+    });
+    var t=(S.tutors||[]).find(function(x){return x.id===key;});
+    title='\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440: '+(t?t.fn+' '+t.ln:key);
+  }
+
+  list.sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+  var hrs=Math.round(list.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+
+  var rows=list.map(function(l){
+    var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+    var tu=(S.tutors||[]).find(function(x){return x.id===(l.tutorId||l.tutor_id);});
+    var d=String(l.date||'').split('-');
+    return '<tr style="cursor:pointer" onclick="closeM(\'mo-an-drill\');openLessM(\''+l.id+'\')">'
+      +'<td style="padding:6px 8px;font-family:JetBrains Mono,monospace;font-size:11.5px">'
+        +(d.length===3?d[2]+'.'+d[1]:l.date)+(l.time?' '+l.time:'')+'</td>'
+      +'<td style="padding:6px 8px">'+(st?st.fn+' '+st.ln:'\u2014')+'</td>'
+      +'<td style="padding:6px 8px;font-size:11.5px;color:var(--t2)">'+(l.subject||'\u2014')+'</td>'
+      +'<td style="padding:6px 8px;font-size:11.5px;color:var(--t2)">'+(tu?tu.fn+' '+tu.ln:'\u2014')+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:JetBrains Mono,monospace;font-size:11.5px">'
+        +Math.round((parseFloat(l.dur)||60)/60*10)/10+'\u0433</td>'
+      +'<td style="padding:6px 8px;text-align:center">'+bst(l.status)+'</td>'
+    +'</tr>';
+  }).join('');
+
+  var el=document.getElementById('mo-an-drill');
+  if(!el){
+    el=document.createElement('div');
+    el.className='mo'; el.id='mo-an-drill';
+    document.body.appendChild(el);
+  }
+  el.innerHTML='<div class="mdl" style="max-width:860px">'
+    +'<div class="mdlh"><div class="mdlt">'+title+'</div>'
+      +'<button class="xbtn" onclick="closeM(\'mo-an-drill\')">\u00d7</button></div>'
+    +'<div class="mdlb" style="max-height:70vh;overflow:auto">'
+      +'<div style="font-size:12px;color:var(--t3);margin-bottom:10px">'
+        +list.length+' \u0437\u0430\u043d\u044f\u0442\u044c \u00b7 '+hrs+'\u0433 \u00b7 '
+        +'<span style="opacity:.8">\u043a\u043b\u0456\u043a \u043f\u043e \u0440\u044f\u0434\u043a\u0443 \u2014 \u0432\u0456\u0434\u043a\u0440\u0438\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f</span></div>'
+      +(list.length
+        ? '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+          +'<thead><tr style="border-bottom:1px solid var(--b1)">'
+          +'<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--t3)">\u0414\u0410\u0422\u0410</th>'
+          +'<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--t3)">\u0423\u0427\u0415\u041d\u042c</th>'
+          +'<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--t3)">\u041f\u0420\u0415\u0414\u041c\u0415\u0422</th>'
+          +'<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--t3)">\u0420\u0415\u041f\u0415\u0422\u0418\u0422\u041e\u0420</th>'
+          +'<th style="text-align:right;padding:6px 8px;font-size:10px;color:var(--t3)">\u0413\u041e\u0414</th>'
+          +'<th style="text-align:center;padding:6px 8px;font-size:10px;color:var(--t3)">\u0421\u0422\u0410\u0422\u0423\u0421</th>'
+          +'</tr></thead><tbody>'+rows+'</tbody></table>'
+        : '<div class="empty"><div class="ei">\ud83d\udced</div>\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043d\u044f\u0442\u044c</div>')
+    +'</div></div>';
+  openM('mo-an-drill');
+}
+window.anDrill=anDrill;
+
+function renderAllAnalytics(){
+  renderAnalytics();
+  renderReports();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ТАЙМЛАЙН АНАЛІТИКИ — навігація в часі
+// ═══════════════════════════════════════════════════════════════
+// Зсув відносно поточного періоду: 0 = зараз, -1 = попередній тощо
+var rcOffset = 0;
+
+/** Стрілки «назад / вперед / зараз» */
+function rcShiftPeriod(dir){
+  if(dir===0) rcOffset=0;
+  else rcOffset += dir;
+  if(rcOffset>0) rcOffset=0;          // у майбутнє далі поточного не йдемо
+  if(rcOffset<-36) rcOffset=-36;      // і не глибше трьох років
+  renderAllAnalytics();
+}
+window.rcShiftPeriod=rcShiftPeriod;
+
+/** Перехід на конкретний місяць кліком по стовпчику */
+function rcGoToMonth(off){
+  rcOffset = off;
+  var sel=document.getElementById('rc-range');
+  if(sel) sel.value='month';          // клік по місяцю = режим місяця
+  renderAllAnalytics();
+}
+window.rcGoToMonth=rcGoToMonth;
+
+/**
+ * Малює смужки останніх 12 місяців: висота — кількість проведених годин.
+ * Дає одразу побачити сезонність і провали, а не гортати наосліп.
+ */
+function renderTimeline(){
+  var wrap=document.getElementById('rc-tl-bars');
+  var lblEl=document.getElementById('rc-tl-label');
+  if(!wrap) return;
+
+  var months=['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+  var now=new Date();
+  var base=new Date(now.getFullYear(), now.getMonth()+rcOffset, 1);
+
+  // Підпис поточного вибору
+  if(lblEl){
+    var sel=(document.getElementById('rc-range')||{value:'month'}).value;
+    var nm=months[base.getMonth()]+' '+base.getFullYear();
+    lblEl.textContent = rcOffset===0
+      ? (sel==='month' ? nm+' (поточний)' : 'Поточний період')
+      : nm;
+  }
+  var nextBtn=document.getElementById('rc-tl-next');
+  if(nextBtn) nextBtn.disabled = rcOffset>=0;
+
+  // Дані по 12 місяцях, що закінчуються обраним
+  var bars=[], maxH=1;
+  for(var i=11;i>=0;i--){
+    var d=new Date(base.getFullYear(), base.getMonth()-i, 1);
+    var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    var h=0;
+    myLessons().forEach(function(l){
+      if(String(l.date||'').slice(0,7)!==key) return;
+      if(!(isDoneLesson(l)||l.status==='makeup')) return;
+      h+=(parseFloat(l.dur)||60)/60;
+    });
+    h=Math.round(h*10)/10;
+    if(h>maxH) maxH=h;
+    bars.push({ off: rcOffset-i, key:key, h:h,
+      lbl:months[d.getMonth()], year:d.getFullYear(),
+      isFuture: d > new Date(now.getFullYear(), now.getMonth(), 1) });
+  }
+
+  wrap.innerHTML=bars.map(function(b){
+    var cls='rc-tl-bar'+(b.off===rcOffset?' cur':'')+(b.isFuture?' fut':'');
+    var hPct=Math.max(3, Math.round(b.h/maxH*100));
+    return '<div class="'+cls+'" onclick="rcGoToMonth('+b.off+')" title="'+b.lbl+' '+b.year+'">'
+      +'<span class="rc-tl-tip">'+b.h+'г</span>'
+      +'<div class="fill" style="height:'+hPct+'%"></div>'
+      +'<div class="lb">'+b.lbl+'</div>'
+    +'</div>';
+  }).join('');
+}
+window.renderTimeline=renderTimeline;
+
+function renderReports(){
+  // === Діапазон дат ===
+  var range = (document.getElementById('rc-range')||{value:'month'}).value;
+  // «now» зсувається таймлайном: rcOffset=-1 означає попередній місяць.
+  // Для місячних режимів беремо кінець зсунутого місяця, для решти — той самий день.
+  var realNow = new Date();
+  var now;
+  if(rcOffset===0){
+    now = realNow;
+  } else if(range==='month'||range==='3month'||range==='6month'){
+    now = new Date(realNow.getFullYear(), realNow.getMonth()+rcOffset+1, 0);
+  } else {
+    now = new Date(realNow.getFullYear(), realNow.getMonth()+rcOffset, realNow.getDate());
+  }
+  var fromDate = new Date(now);
+
+  if(range === 'week'){
+    var day = now.getDay()||7;
+    fromDate = new Date(now); fromDate.setDate(now.getDate() - day + 1);
+    fromDate.setHours(0,0,0,0);
+  } else if(range === '2week'){
+    fromDate.setDate(now.getDate() - 14);
+  } else if(range === '4week'){
+    fromDate.setDate(now.getDate() - 28);
+  } else if(range === 'month'){
+    fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if(range === '3month'){
+    fromDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+  } else if(range === '6month'){
+    fromDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+  } else if(range === 'year'){
+    fromDate = new Date(now.getFullYear(), 0, 1);
+  } else {
+    fromDate = new Date(0);
+  }
+  var fromStr = localDateStr(fromDate);
+  // Кінець періоду — не «сьогодні», а кінець обраного проміжку.
+  // Інакше заплановані заняття в майбутньому не потрапляли в розрахунок,
+  // і показник «Заплановано» був заниженим.
+  var toDate;
+  if(range==='month')       toDate = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  else if(range==='year')   toDate = new Date(now.getFullYear(), 11, 31);
+  else if(range==='3month'||range==='6month') toDate = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  else if(range==='all')    toDate = new Date(now.getFullYear()+5, 11, 31);
+  else                      toDate = now;
+  var toStr   = localDateStr(toDate);
+
+  // Підпис діапазону
+  var lbl = document.getElementById('rc-range-lbl');
+  if(lbl && range !== 'all'){
+    lbl.textContent = fromDate.toLocaleDateString('uk-UA',{day:'numeric',month:'short'})
+      + ' — ' + now.toLocaleDateString('uk-UA',{day:'numeric',month:'short',year:'numeric'});
+  } else if(lbl){ lbl.textContent = ''; }
+
+  // Ховаємо доходи для адміна
+  var incCard = document.getElementById('rc-income-card');
+  if(incCard) incCard.style.display = (R()==='admin') ? 'none' : '';
+
+  try{ renderTimeline(); }catch(e){ console.error('renderTimeline:',e); }
+
+  // === Фільтрація занять ===
+  var lessons = (S.lessons||[]).filter(function(l){
+    return l.date >= fromStr && l.date <= toStr && l.status !== 'cancelled';
+  });
+
+  function hrs(arr){ return Math.round(arr.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
+
+  // === Доходи по місяцях (₴) — всі проведені заняття року, незалежно від фільтра ===
+  var months = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+  var md = new Array(12).fill(0);
+  var curYear = new Date().getFullYear();
+  // Тестування теж оплачується (див. isDoneLesson), тому має входити в дохід
+  var validInc = ['done','completed','testing','makeup'];
+  myLessons().filter(function(l){
+    if(!l.date) return false;
+    if(validInc.indexOf(l.status)<0) return false;
+    return new Date(l.date).getFullYear() === curYear;
+  }).forEach(function(l){
+    var mon = new Date(l.date).getMonth();
+    var cost = 0;
+    if(l.price!=null && l.price!=='' && !isNaN(parseFloat(l.price))){
+      cost = lessonTotal(l);
+    } else {
+      // фолбек: поле amount з платежу відповідного заняття
+      var pay = (S.payments||[]).find(function(p){return p.lessonId===l.id||p.lesson_id===l.id;});
+      if(pay) cost = parseFloat(pay.amount)||0;
+    }
+    md[mon] += cost;
+  });
+  md = md.map(function(v){return Math.round(v);});
+  var maxI = Math.max.apply(null, md.concat([1]));
+  var incEl = document.getElementById('rc-income');
+  if(incEl) incEl.innerHTML = md.map(function(v,i){
+    var lbl = v>0 ? (v>=1000 ? (Math.round(v/100)/10)+'к' : v) : '';
+    return '<div class="bw"><div class="bar" style="height:'+(v/maxI*100)+'%;background:linear-gradient(180deg,var(--adm),var(--adm2))">'
+      +(lbl?'<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t2);white-space:nowrap;font-family:JetBrains Mono,monospace">'+lbl+'₴</div>':'')
+      +'</div><div class="blbl">'+months[i]+'</div></div>';
+  }).join('');
+  // === Заняття по предметах (год) ===
+  // Об'єднуємо предмети, що відрізняються лише регістром чи пробілами:
+  // «Англійська мова» і «англійська мова» — це один предмет, а не два.
+  var sc = {}, scLabel = {};
+  lessons.forEach(function(l){
+    if(!l.subject) return;
+    var key = String(l.subject).trim().toLowerCase().replace(/\s+/g,' ');
+    if(!key) return;
+    // Для показу лишаємо найпоширеніший варіант написання
+    if(!scLabel[key]) scLabel[key] = String(l.subject).trim();
+    sc[key] = (sc[key]||0) + (parseFloat(l.dur)||60)/60;
+  });
+  var totalSubjH = hrs(lessons) || 1;
+  var cols = ['var(--adm)','var(--tut)','var(--dir)','var(--god)','#a78bfa','#0ea5e9','#f59e0b','#ec4899'];
+  var subjEl = document.getElementById('rc-subj');
+  if(subjEl) subjEl.innerHTML = Object.entries(sc).sort(function(a,b){return b[1]-a[1];})
+    .map(function(e,i){
+      var s=scLabel[e[0]]||e[0], h=Math.round(e[1]*10)/10, pct=Math.round(e[1]/totalSubjH*100);
+      return '<div style="margin-bottom:10px">'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+        +'<span style="font-size:12px">'+s+'</span>'
+        +'<span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+h+'\u0433 ('+pct+'%)</span></div>'
+        +'<div class="pb"><div class="pf" style="width:'+(e[1]/totalSubjH*100)+'%;background:'+cols[i%cols.length]+'"></div></div></div>';
+    }).join('') || '<div class="empty"><div class="ei">\uD83D\uDCDA</div>\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445</div>';
+
+  // === Завантаженість репетиторів (год) ===
+  var tl = {};
+  lessons.forEach(function(l){
+    var tid = l.tutorId||l.tutor_id;
+    if(tid) tl[tid] = (tl[tid]||0) + (parseFloat(l.dur)||60)/60;
+  });
+  // Включаємо ВСІХ репетиторів, навіть з 0 годин у періоді
+  var entries = (S.tutors||[]).map(function(t){
+    return {id:t.id, h:Math.round((tl[t.id]||0)*10)/10};
+  }).sort(function(a,b){return b.h-a.h;});
+  var maxT = entries.length ? Math.max.apply(null, entries.map(function(e){return e.h;}).concat([1])) : 1;
+  var tloadEl = document.getElementById('rc-tload');
+  if(tloadEl) tloadEl.innerHTML = entries.map(function(e){
+    return '<div style="margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px">'
+      +'<span style="font-size:12px">'+tn(e.id)+'</span>'
+      +'<span style="font-size:11px;color:var(--t2);font-family:JetBrains Mono,monospace">'+e.h+'\u0433</span></div>'
+      +'<div class="pb"><div class="pf" style="width:'+(e.h/maxT*100)+'%;background:var(--adm)"></div></div></div>';
+  }).join('') || '<div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445</div>';
+
+  // === Загальна статистика ===
+  var doneL  = lessons.filter(function(l){return isDoneLesson(l)||l.status==='makeup';});
+  var missedL= uncoveredMissedFilter(lessons);
+  var doneH  = hrs(doneL);
+  var missedH= hrs(missedL);
+  var totalH = hrs(lessons);
+  var pct    = totalH>0 ? Math.round(doneH/totalH*100) : 0;
+  var totalInc = (S.payments||[]).filter(function(p){
+    return p.status==='paid' && p.date>=fromStr && p.date<=toStr;
+  }).reduce(function(a,p){return a+p.amount;},0);
+  var showIncome = P().seeIncome && R()!=='tutor' && R()!=='admin';
+
+  var genEl = document.getElementById('rc-gen');
+  if(genEl) genEl.innerHTML =
+    '<div class="ms"><span class="msl">\u0412\u0441\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(myStudents().length)+'</span></div>'
+    +'<div class="ms"><span class="msl">\u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0445 \u0443\u0447\u043d\u0456\u0432</span><span class="msv">'+(myStudents().filter(function(s){return s.status==='active'||s.status==='trial';}).length)+'</span></div>'
+    +'<div class="ms"><span class="msl">\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e (\u0433\u043e\u0434)</span><span class="msv" style="color:var(--tut)">'+doneH+'\u0433</span></div>'
+    +'<div class="ms"><span class="msl">\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u043e (\u0433\u043e\u0434)</span><span class="msv" style="color:var(--danger)">'+missedH+'\u0433</span></div>'
+    +'<div class="ms"><span class="msl">\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u043f\u043b\u0430\u043d\u0443</span><span class="msv" style="color:'+(pct>=80?'var(--tut)':pct>=50?'var(--dir)':'var(--danger)')+'">'+pct+'%</span></div>'
+    +(showIncome
+      ?'<div class="ms"><span class="msl">\u0414\u043e\u0445\u0456\u0434 \u0437\u0430 \u043f\u0435\u0440\u0456\u043e\u0434</span><span class="msv" style="color:var(--tut)">'+(totalInc.toLocaleString('uk-UA'))+'\u20b4</span></div>'
+      :'')
+    +'<div class="ms"><span class="msl">\u0412\u0438\u043a\u043b\u0430\u0434\u0430\u0447\u0456\u0432</span><span class="msv">'+(S.tutors.length)+'</span></div>';
+}
+
+
+function renderSch(){
+  const view = S.schView || 'week';
+  // Update UI
+  const btnW = document.getElementById('sch-btn-week');
+  const btnD = document.getElementById('sch-btn-day');
+  const btnM = document.getElementById('sch-btn-month');
+  const tf   = document.getElementById('sch-tutor-filter');
+  if(btnW) btnW.classList.toggle('active-view', view==='week');
+  if(btnD) btnD.classList.toggle('active-view', view==='day');
+  if(btnM) btnM.classList.toggle('active-view', view==='month');
+  // Фільтр по репетиторах доступний адмінам/директорам/богу в обох режимах (тиждень і день)
+  if(tf){
+    tf.style.display = R()!=='tutor' ? 'block' : 'none';
+    const prev = tf.value;
+    tf.innerHTML = '<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>' +
+      (S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');}).map(t=>('<option value="'+(t.id)+'">'+(t.fn)+' '+(t.ln)+'</option>')).join('');
+    tf.value = prev;
+  }
+  // Update prev/next labels
+  const prevBtn = document.getElementById('sch-prev');
+  const nextBtn = document.getElementById('sch-next');
+  if(prevBtn) prevBtn.textContent = view==='day' ? '\u2190 \u0412\u0447\u043E\u0440\u0430' : view==='month' ? '\u2190 \u041F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439 \u043C\u0456\u0441\u044F\u0446\u044C' : '\u2190 \u041F\u043E\u043F\u0435\u0440\u0435\u0434\u043D\u0456\u0439';
+  if(nextBtn) nextBtn.textContent = view==='day' ? '\u0417\u0430\u0432\u0442\u0440\u0430 \u2192' : view==='month' ? '\u041D\u0430\u0441\u0442\u0443\u043F\u043D\u0438\u0439 \u043C\u0456\u0441\u044F\u0446\u044C \u2192' : '\u041D\u0430\u0441\u0442\u0443\u043F\u043D\u0438\u0439 \u2192';
+
+  var schgEl=document.getElementById('schg'), schmEl=document.getElementById('schm');
+  if(view === 'month'){
+    if(schgEl) schgEl.style.display='none';
+    if(schmEl) schmEl.style.display='block';
+    renderSchMonth();
+  } else {
+    if(schmEl) schmEl.style.display='none';
+    if(schgEl) schgEl.style.display='grid';
+    if(view === 'week') renderSchWeek();
+    else                renderSchDay();
+  }
+
+  var _at=document.getElementById('avail-toggle-btn');
+  var _att=(typeof availTargetTutor==='function')?availTargetTutor():null;
+  var _fill=document.getElementById('avail-fill-btn'), _clr=document.getElementById('avail-clear-btn'), _hint=document.getElementById('avail-hint');
+  if(_at){
+    if(view!=='week' && S._availMode){ S._availMode=false; }
+    _at.style.display = view==='week' ? 'inline-flex' : 'none';
+    _at.classList.toggle('btn-p', !!S._availMode);
+    _at.textContent = S._availMode ? '\u2713 \u0413\u043E\u0442\u043E\u0432\u043E' : '\uD83D\uDD52 \u0420\u043E\u0431\u043E\u0447\u0456 \u0433\u043E\u0434\u0438\u043D\u0438';
+    var _editing = S._availMode && _att;
+    if(_fill) _fill.style.display = _editing ? 'inline-flex':'none';
+    if(_clr)  _clr.style.display  = _editing ? 'inline-flex':'none';
+    if(_hint){
+      _hint.style.display = S._availMode ? 'inline':'none';
+      _hint.textContent = _att ? ('\u041A\u043B\u0456\u043A\u0430\u0439\u0442\u0435 \u043F\u043E \u043A\u043B\u0456\u0442\u0438\u043D\u043A\u0430\u0445: '+_att.fn+' '+_att.ln) : '\u041E\u0431\u0435\u0440\u0456\u0442\u044C \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430 \u0443 \u0444\u0456\u043B\u044C\u0442\u0440\u0456';
+    }
+  }
+}
+
+
+
+function renderSchMonth(){
+  const now=new Date();
+  const offset=S.monthOffset||0;
+  const first=new Date(now.getFullYear(), now.getMonth()+offset, 1);
+  const monthNames=['\u0421\u0456\u0447\u0435\u043D\u044C','\u041B\u044E\u0442\u0438\u0439','\u0411\u0435\u0440\u0435\u0437\u0435\u043D\u044C','\u041A\u0432\u0456\u0442\u0435\u043D\u044C','\u0422\u0440\u0430\u0432\u0435\u043D\u044C','\u0427\u0435\u0440\u0432\u0435\u043D\u044C','\u041B\u0438\u043F\u0435\u043D\u044C','\u0421\u0435\u0440\u043F\u0435\u043D\u044C','\u0412\u0435\u0440\u0435\u0441\u0435\u043D\u044C','\u0416\u043E\u0432\u0442\u0435\u043D\u044C','\u041B\u0438\u0441\u0442\u043E\u043F\u0430\u0434','\u0413\u0440\u0443\u0434\u0435\u043D\u044C'];
+  const lblEl=document.getElementById('wklbl');
+  if(lblEl) lblEl.textContent=monthNames[first.getMonth()]+' '+first.getFullYear();
+
+  // Сітка з понеділка: скільки днів попереднього місяця показати перед 1-м числом
+  const firstDow=(first.getDay()===0?7:first.getDay()); // 1=Пн..7=Нд
+  const gridStart=new Date(first);
+  gridStart.setDate(first.getDate()-(firstDow-1));
+  const daysInGrid=42; // 6 тижнів — стабільна висота сітки для будь-якого місяця
+
+  const _schStat=(document.getElementById('sch-status-filter')||{value:''}).value;
+  const _schTut=(document.getElementById('sch-tutor-filter')||{value:''}).value;
+  const ml=myLessons().filter(function(l){
+    if(_schTut && (l.tutorId||l.tutor_id)!==_schTut) return false;
+    if(_schStat){
+      if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
+      if(_schStat==='completed') return isDoneLesson(l)||l.status==='makeup';
+      return l.status===_schStat;
+    }
+    return l.status!=='cancelled';
+  });
+  const byDate={};
+  ml.forEach(function(l){ (byDate[l.date]=byDate[l.date]||[]).push(l); });
+
+  const dnames=['\u041F\u043D','\u0412\u0442','\u0421\u0440','\u0427\u0442','\u041F\u0442','\u0421\u0431','\u041D\u0434'];
+  let html='<div class="schm-grid">';
+  dnames.forEach(function(dn){ html+='<div class="schm-head">'+dn+'</div>'; });
+
+  for(let i=0;i<daysInGrid;i++){
+    const d=new Date(gridStart); d.setDate(gridStart.getDate()+i);
+    const ds=localDateStr(d);
+    const isOther=d.getMonth()!==first.getMonth();
+    const isToday=d.toDateString()===now.toDateString();
+    const dayLessons=(byDate[ds]||[]).slice().sort(function(a,b){return (a.time||'').localeCompare(b.time||'');});
+    let evHtml='';
+    const MAX_SHOW=3;
+    dayLessons.slice(0,MAX_SHOW).forEach(function(l){
+      const isCov=l.status==='missed'&&isCoveredMissed(l);
+      const isPart=!isCov&&l.status==='missed'&&uncoveredMissedHours(l)*60<(parseFloat(l.dur)||60);
+      const ecl=isCov?'ec-covered':isPart?'ec-partial':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':l.status==='makeup_planned'?'ec-makeplan':l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done':'ec-plan';
+      evHtml+='<div class="schm-ev '+ecl+'" onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)" title="'+(l.time||'')+' '+snShort(l.studentId||l.student_id)+' '+(l.subject||'')+'">'
+        +'<b>'+(l.time||'')+'</b> '+snShort(l.studentId||l.student_id)+'</div>';
+    });
+    if(dayLessons.length>MAX_SHOW){
+      evHtml+='<div class="schm-more">+'+(dayLessons.length-MAX_SHOW)+' \u0449\u0435</div>';
+    }
+    html+='<div class="schm-cell'+(isOther?' other-month':'')+(isToday?' is-today':'')+'" onclick="schGoToDay(\''+ds+'\')">'
+      +'<div class="schm-daynum">'+d.getDate()+'</div>'
+      +evHtml
+      +'</div>';
+  }
+  html+='</div>';
+  var el=document.getElementById('schm');
+  if(el) el.innerHTML=html;
+}
+
+// Клік по клітинці місяця — переходимо в денний вигляд саме на цю дату
+function schGoToDay(ds){
+  var now=new Date(); now.setHours(0,0,0,0);
+  var target=new Date(ds+'T00:00:00');
+  var diffDays=Math.round((target-now)/86400000);
+  S.dayOffset=diffDays;
+  S.schView='day';
+  renderSch();
+}
+window.schGoToDay=schGoToDay;
+window.renderSchMonth=renderSchMonth;
+
+function renderSchDay(){
+  const now    = new Date();
+  const offset = S.dayOffset || 0;
+  const day    = new Date(now);
+  day.setDate(now.getDate() + offset);
+  day.setHours(0,0,0,0);
+  const ds = localDateStr(day);
+  const dnames = ['\u041D\u0435\u0434\u0456\u043B\u044F','\u041F\u043E\u043D\u0435\u0434\u0456\u043B\u043E\u043A','\u0412\u0456\u0432\u0442\u043E\u0440\u043E\u043A','\u0421\u0435\u0440\u0435\u0434\u0430','\u0427\u0435\u0442\u0432\u0435\u0440','\u041F\'\u044F\u0442\u043D\u0438\u0446\u044F','\u0421\u0443\u0431\u043E\u0442\u0430'];
+  document.getElementById('wklbl').textContent =
+    dnames[day.getDay()] + ', ' + day.toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
+
+  // Populate tutor filter
+  const tf = document.getElementById('sch-tutor-filter');
+  if(tf){
+    tf.style.display = R()==='tutor' ? 'none' : '';
+    const prev = tf.value;
+    tf.innerHTML = '<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>' +
+      (S.tutors||[]).map(t=>('<option value="'+(t.id)+'">'+(t.fn)+' '+(t.ln)+'</option>')).join('');
+    tf.value = prev;
+  }
+
+  // Determine tutors to show
+  const filterTutor = tf ? tf.value : '';
+  let tutors = P().seeAll ? (S.tutors||[]) : (S.tutors||[]).filter(function(t){
+    return t.accId===CU?.id || t.acc_uid===CU?.id;
+  });
+  if(filterTutor) tutors = tutors.filter(t=>t.id===filterTutor);
+
+
+  const START_H = 8, END_H = 21;
+  const ROW_H = 48;
+  const totalHrs = END_H - START_H;
+
+  const _schStat = (document.getElementById('sch-status-filter')||{value:''}).value;
+  const ml = myLessons().filter(function(l){
+    if(l.status==='cancelled') return false;
+    if(_schStat){
+      if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
+      if(_schStat==='completed') return isDoneLesson(l)||l.status==='makeup';
+      return l.status===_schStat;
+    }
+    return true;
+  });
+
+  const cols = tutors.length || 1;
+  let html = '<div class="schh" style="background:var(--s1)">\u0427\u0430\u0441</div>';
+  if(tutors.length === 0){
+    html += '<div class="schh">\u041D\u0435\u043C\u0430\u0454 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432</div>';
+  } else {
+    tutors.forEach(function(t){
+      html += '<div class="schh"><div style="font-weight:700;font-size:12px">'+t.fn+'</div><div style="font-size:10px;color:var(--t2)">'+t.ln+'</div></div>';
+    });
+  }
+
+  // Time column
+  html += '<div style="position:relative;height:'+(totalHrs*ROW_H)+'px;background:var(--s2);border-right:1px solid var(--b1)">';
+  for(var h=START_H;h<END_H;h++){
+    html += '<div style="position:absolute;top:'+((h-START_H)*ROW_H)+'px;height:'+ROW_H+'px;width:100%;display:flex;align-items:flex-start;padding-top:3px;justify-content:center;font-size:10px;color:var(--t3);font-family:JetBrains Mono,monospace;box-sizing:border-box;border-top:1px solid var(--b1)">'+String(h).padStart(2,'0')+':00</div>';
+  }
+  html += '</div>';
+
+  if(tutors.length === 0){
+    html += '<div style="position:relative;height:'+(totalHrs*ROW_H)+'px"></div>';
+  } else {
+    tutors.forEach(function(t){
+      const dayLessons = ml.filter(function(l){
+        return l.date===ds && (l.tutorId===t.id || l.tutor_id===t.id);
+      });
+      html += '<div style="position:relative;height:'+(totalHrs*ROW_H)+'px;border-right:1px solid var(--b1)">';
+      for(var hh=START_H;hh<END_H;hh++){
+        var slotOnclick = 'openLessM(null,\''+ds+'\',\''+String(hh).padStart(2,'0')+':00\')';
+        html += '<div onclick="'+slotOnclick+'" style="position:absolute;top:'+((hh-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer"></div>';
+      }
+      var laneMapD=schAssignLanes(dayLessons);
+      dayLessons.forEach(function(l){
+        const parts = (l.time||'08:00').split(':');
+        const lh = parseInt(parts[0])||8;
+        const lm = parseInt(parts[1])||0;
+        const dur = parseFloat(l.dur)||60;
+        const topPx = (lh-START_H)*ROW_H + (lm/60)*ROW_H;
+        const heightPx = Math.max((dur/60)*ROW_H, 18);
+        if(lh<START_H||lh>=END_H) return;
+        var _isCov = l.status==='missed' && isCoveredMissed(l);
+        var _unHrs = l.status==='missed'?uncoveredMissedHours(l):0;
+        var _isPartial = !_isCov && l.status==='missed' && _unHrs*60 < (parseFloat(l.dur)||60);
+        var ecl = _isCov ? 'ec-covered'
+          : _isPartial ? 'ec-partial'
+          : l.status==='missed'  ? 'ec-miss'
+          : l.status==='makeup'  ? 'ec-make'
+          : l.status==='makeup_planned' ? 'ec-makeplan'
+          : l.status==='testing' ? 'ec-testing' : isDoneLesson(l) ? 'ec-done'
+          : 'ec-plan';
+        var liD=laneMapD.get(l.id)||{lane:0,count:1};
+        var wPctD=100/liD.count;
+        var posCssD='left:calc('+(liD.lane*wPctD)+'% + 2px);width:calc('+wPctD+'% - 4px);';
+        var canDel = can('lessons');
+        html += '<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCssD+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
+          +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
+          +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'\uD83D\uDD01 ':'')+snShort(l.studentId||l.student_id)+'</div>'
+          +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
+          +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' \u00B7 '+Math.floor(dur/60)+'\u0433'+(dur%60?dur%60+'\u0445\u0432':''):'\u00B7 '+dur+'\u0445\u0432')+'</div>':'')
+          +(_isPartial&&heightPx>52?'<div style="font-size:9px;font-weight:700">\u26A0 \u0437\u0430\u043B\u0438\u0448\u0438\u043B\u043E\u0441\u044C '+_unHrs+'\u0433</div>':'')
+          +(canDel?'<span onclick="event.stopPropagation();delLesson(\''+l.id+'\')" style="position:absolute;top:2px;right:3px;font-size:10px;opacity:.6;cursor:pointer;line-height:1" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438">\u2715</span>':'')
+          +'</div>';
+      });
+      html += '</div>';
+    });
+  }
+
+  const g = document.getElementById('schg');
+  // При багатьох репетиторах даємо колонкам фіксовану мін. ширину і вмикаємо горизонтальний скрол,
+  // інакше 1fr стискає всіх у ширину екрана і підписи/уроки не влазять.
+  var colW = cols>=4 ? '150px' : '1fr';
+  g.style.gridTemplateColumns = '52px repeat('+cols+','+colW+')';
+  g.style.gridTemplateRows    = 'auto '+(totalHrs*ROW_H)+'px';
+  g.style.minWidth = cols>=4 ? (52 + cols*150) + 'px' : '';
+  g.innerHTML = html;
+}
+
+
+
+
+// ══════════ ДОСТУПНІСТЬ РЕПЕТИТОРІВ (робочі години) ══════════
+function tutorAvail(t){
+  if(!t) return null;
+  var a=t.availability;
+  if(a==null||a==='') return null;
+  try{ a=(typeof a==='string')?JSON.parse(a):a; }catch(e){ return null; }
+  if(!a||typeof a!=='object') return null;
+  var any=Object.keys(a).some(function(k){return Array.isArray(a[k])&&a[k].length;});
+  return any?a:null;
+}
+function isWorkingHour(t, dowMon1, hour){
+  var a=tutorAvail(t);
+  if(!a) return true;
+  var arr=a[String(dowMon1)]||[];
+  return arr.indexOf(hour)>=0;
+}
+function dowMon1FromDate(ds){
+  var d=new Date(ds+'T00:00:00'); var g=d.getDay(); return g===0?7:g;
+}
+function availTargetTutor(){
+  var _sf=document.getElementById('sch-tutor-filter');
+  var _schTut=_sf?_sf.value:'';
+  if(R()==='tutor'){ var mt=myTutor(); return mt||null; }
+  if(_schTut) return (S.tutors||[]).find(function(t){return t.id===_schTut;})||null;
+  return null;
+}
+function toggleAvailMode(){
+  if(!S._availMode){
+    var tgt=availTargetTutor();
+    if(!tgt){ mkToast('Спочатку оберіть репетитора у фільтрі','error'); return; }
+  }
+  S._availMode=!S._availMode;
+  renderSch();
+}
+async function availToggleCell(dowMon1, hour){
+  var t=availTargetTutor();
+  if(!t) return;
+  var a=tutorAvail(t)||{};
+  a=JSON.parse(JSON.stringify(a));
+  var key=String(dowMon1);
+  a[key]=a[key]||[];
+  var idx=a[key].indexOf(hour);
+  if(idx>=0) a[key].splice(idx,1); else a[key].push(hour);
+  a[key].sort(function(x,y){return x-y;});
+  t.availability=a;
+  renderSch();
+  try{ await dbUpdate('tutors', t.id, {availability:JSON.stringify(a)}); }catch(e){}
+}
+function openAvailFillM(){
+  var t=availTargetTutor();
+  if(!t){ mkToast('Оберіть репетитора','error'); return; }
+  openM('mo-avail-fill');
+}
+async function availApplyFill(){
+  var t=availTargetTutor();
+  if(!t){ mkToast('Оберіть репетитора','error'); return; }
+  var days=Array.from(document.querySelectorAll('#af-days input:checked')).map(function(c){return c.value;});
+  if(!days.length){ mkToast('Оберіть хоча б один день','error'); return; }
+  var from=parseInt((document.getElementById('af-from')||{value:'9'}).value);
+  var to=parseInt((document.getElementById('af-to')||{value:'18'}).value);
+  if(isNaN(from)||isNaN(to)||from>=to){ mkToast('Некоректний діапазон годин','error'); return; }
+  var replace=(document.getElementById('af-replace')||{checked:true}).checked;
+  var a=replace?{}:JSON.parse(JSON.stringify(tutorAvail(t)||{}));
+  days.forEach(function(dw){
+    var arr=replace?[]:(a[dw]||[]);
+    for(var h=from;h<to;h++){ if(arr.indexOf(h)<0) arr.push(h); }
+    arr.sort(function(x,y){return x-y;});
+    a[dw]=arr;
+  });
+  t.availability=a;
+  closeM('mo-avail-fill');
+  renderSch();
+  mkToast('Робочі години оновлено');
+  try{ await dbUpdate('tutors', t.id, {availability:JSON.stringify(a)}); }catch(e){}
+}
+window.openAvailFillM=openAvailFillM;
+window.availApplyFill=availApplyFill;
+async function availClear(){
+  var t=availTargetTutor();
+  if(!t){ mkToast('Оберіть репетитора','error'); return; }
+  if(!confirm('Очистити всі робочі години?')) return;
+  t.availability=null; renderSch();
+  try{ await dbUpdate('tutors', t.id, {availability:null}); }catch(e){}
+}
+window.toggleAvailMode=toggleAvailMode;
+window.availToggleCell=availToggleCell;
+window.availClear=availClear;
+
+function renderSchWeek(){
+  const now=new Date(), sow=new Date(now);
+  const dy=now.getDay()===0?6:now.getDay()-1;
+  sow.setDate(now.getDate()-dy+S.weekOffset*7); sow.setHours(0,0,0,0);
+  const days=Array.from({length:7},(_,i)=>{const d=new Date(sow);d.setDate(sow.getDate()+i);return d;});
+  const dnames=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+  document.getElementById('wklbl').textContent=days[0].toLocaleDateString('uk-UA',{day:'numeric',month:'short'})+' — '+days[6].toLocaleDateString('uk-UA',{day:'numeric',month:'short'});
+
+  const ROW_H = 48; // px per hour
+  const _schStat=(document.getElementById('sch-status-filter')||{value:''}).value;
+  const _schTut=(document.getElementById('sch-tutor-filter')||{value:''}).value;
+  const ml=myLessons().filter(function(l){
+    if(l.status==='cancelled') return false;
+    if(_schTut && (l.tutorId||l.tutor_id)!==_schTut) return false;
+    if(_schStat){
+      if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
+      if(_schStat==='completed') return isDoneLesson(l)||l.status==='makeup';
+      return l.status===_schStat;
+    }
+    return true;
+  });
+
+  const START_H = 8, END_H = 21;
+  const totalHrs = END_H - START_H;
+
+  // Build header
+  let html = '<div class="schh" style="background:var(--s1)">Час</div>';
+  days.forEach(function(d,i){
+    const today=d.toDateString()===now.toDateString();
+    html+='<div class="schh" style="'+(today?'color:var(--adm);border-bottom:2px solid var(--adm)':'')+'">'
+      +dnames[i]+'<br><span style="font-size:9px;font-weight:400;color:var(--t3);font-family:JetBrains Mono,monospace">'
+      +d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'</span></div>';
+  });
+
+  // Time column + day columns using position:relative inside fixed-height container
+  // Time slots column
+  html += '<div style="position:relative;height:'+(totalHrs*ROW_H)+'px;background:var(--s2);border-right:1px solid var(--b1)">';
+  for(var h=START_H;h<END_H;h++){
+    html+='<div style="position:absolute;top:'+(( h-START_H)*ROW_H)+'px;height:'+ROW_H+'px;width:100%;display:flex;align-items:flex-start;padding-top:3px;justify-content:center;font-size:10px;color:var(--t3);font-family:JetBrains Mono,monospace;box-sizing:border-box;border-top:1px solid var(--b1)">'
+      +String(h).padStart(2,'0')+':00</div>';
+  }
+  html += '</div>';
+
+  // Day columns
+  var _availTut = availTargetTutor();
+  var _availMode = S._availMode && !!_availTut;
+  days.forEach(function(d){
+    const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const dow=dowMon1FromDate(ds);
+    const dayLessons=ml.filter(function(l){return l.date===ds;});
+    html+='<div style="position:relative;height:'+(totalHrs*ROW_H)+'px;border-right:1px solid var(--b1)">';
+    // Hour grid lines
+    for(var h=START_H;h<END_H;h++){
+      var _working = _availTut ? isWorkingHour(_availTut, dow, h) : true;
+      var _offBg = (_availTut && !_working)
+        ? 'background:repeating-linear-gradient(45deg,rgba(148,163,184,.14),rgba(148,163,184,.14) 6px,rgba(148,163,184,.05) 6px,rgba(148,163,184,.05) 12px);'
+        : (_availTut && _working ? 'background:rgba(34,197,94,.07);' : '');
+      var _cellClick = _availMode
+        ? ('availToggleCell('+dow+','+h+')')
+        : ('openLessM(null,\''+ds+'\',\''+String(h).padStart(2,'0')+':00\')');
+      html+='<div class="'+(_availMode?'avail-cell':'')+'" onclick="event.stopPropagation();'+_cellClick+'" style="position:absolute;top:'+((h-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer;'+_offBg+'">'
+        +(_availMode&&_working?'<span style="position:absolute;top:2px;left:3px;font-size:9px;color:#16a34a;opacity:.7">\u2713</span>':'')
+        +'</div>';
+    }
+    // Lessons — уроки, що перетинаються в часі, ділять клітинку по вертикалі
+    var laneMap=schAssignLanes(dayLessons);
+    dayLessons.forEach(function(l){
+      const parts=(l.time||'08:00').split(':');
+      const lh=parseInt(parts[0])||8;
+      const lm=parseInt(parts[1])||0;
+      const dur=parseFloat(l.dur)||60;
+      const topPx=(lh-START_H)*ROW_H + (lm/60)*ROW_H;
+      const heightPx=Math.max((dur/60)*ROW_H, 18);
+      if(lh<START_H||lh>=END_H) return;
+      var _isCov=l.status==='missed'&&isCoveredMissed(l);
+      var _unHrs=l.status==='missed'?uncoveredMissedHours(l):0;
+      var _isPartial=!_isCov&&l.status==='missed'&&_unHrs*60<(parseFloat(l.dur)||60);
+      var ecl=_isCov?'ec-covered'
+        :_isPartial?'ec-partial'
+        :l.status==='missed'?'ec-miss'
+        :l.status==='makeup'?'ec-make'
+        :l.status==='makeup_planned'?'ec-makeplan'
+        :l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done'
+        :'ec-plan';
+      var li=laneMap.get(l.id)||{lane:0,count:1};
+      var wPct=100/li.count;
+      var posCss='left:calc('+(li.lane*wPct)+'% + 2px);width:calc('+wPct+'% - 4px);';
+      var canDel=can('lessons');
+      html+='<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCss+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
+        +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
+        +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'🔁 ':'')+snShort(l.studentId||l.student_id)+'</div>'
+        +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
+        +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' · '+Math.floor(dur/60)+'г'+(dur%60?dur%60+'хв':''):' · '+dur+'хв')+'</div>':'')
+        +(_isPartial&&heightPx>52?'<div style="font-size:9px;font-weight:700">⚠ залишилось '+_unHrs+'г</div>':'')
+        +(canDel?'<span onclick="event.stopPropagation();delLesson(\''+l.id+'\')" style="position:absolute;top:2px;right:3px;font-size:10px;opacity:.6;cursor:pointer;line-height:1" title="Видалити">✕</span>':'')
+        +'</div>';
+    });
+    html+='</div>';
+  });
+
+  const g=document.getElementById('schg');
+  g.style.gridTemplateColumns='52px repeat(7,1fr)';
+  g.style.gridTemplateRows='auto '+(totalHrs*ROW_H)+'px';
+  g.innerHTML=html;
+}
+
+
+
+
+function renderTutors(){
+  var isAdmin=R()==='god'||R()==='director'||R()==='admin'||R()==='network_admin';
+  var ce=can('tutors');
+  var rows='';
+  S.tutors.forEach(function(t){
+    var acc=S.users.find(function(u){return u.id===t.accId||u.id===t.acc_uid;});
+    var cnt=S.students.filter(function(s){
+      return (s.tutorId===t.id||s.tutor_id===t.id||(s.tutorIds&&s.tutorIds.indexOf(t.id)>=0))&&s.status==='active';
+    }).length;
+    var canSeeBranches=isSuperAdmin()||R()==='director'||R()==='admin';
+    var branchBadge=canSeeBranches
+      ?((t.branchIds&&t.branchIds.length)
+        ? t.branchIds.map(function(bid){return '<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px;margin:1px 3px 1px 0;display:inline-block">'+branchName(bid)+'</span>';}).join('')
+        : (t.branchId||t.branch_id ? '<span class="badge" style="background:rgba(167,139,250,.12);color:#a78bfa;font-size:10px">'+branchName(t.branchId||t.branch_id)+'</span>' : ''))
+      :'';
+    var editBtns=isAdmin
+      ?('<div style="display:inline-flex;gap:4px;margin-left:8px">'
+        +'<button class="btn btn-g btn-sm" onclick="openTutM(\'' +t.id+ '\')" title="\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438">\u270f\ufe0f</button>'
+        +(ce?('<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delTutor(\'' +t.id+ '\')" title="\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438">\uD83D\uDDD1</button>'):'')
+        +'</div>')
+      :'';
+    var accHtml=acc
+      ?('<div style="display:flex;align-items:center;gap:6px">'+mkAv(acc.fn||'?',acc.ln||'',24)
+        +'<div><div style="font-size:12px;font-weight:600">'+(acc.fn||'')+' '+(acc.ln||'')+'</div>'
+        +'<div style="font-size:10px;color:var(--t2)">'+(acc.email||'')+'</div></div>'
+        +'<span class="rpill '+acc.role+'" style="font-size:10px;padding:2px 8px">'+ROLES[acc.role].icon+' '+ROLES[acc.role].label+'</span>'
+        +'</div>')
+      :'<span style="font-size:11px;color:var(--t3)">\u2014 \u0430\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u0440\u0438\u0432\u2019\u044f\u0437\u0430\u043d\u043e</span>';
+    rows+='<tr>'
+      +'<td><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,36,t.photo)
+      +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
+      +(t.subj?'<div style="font-size:11px;color:var(--t2)">'+t.subj+'</div>':'')
+      +(branchBadge?'<div style="margin-top:3px">'+branchBadge+'</div>':'')
+      +'</div></div></td>'
+      +'<td>'+accHtml+'</td>'
+      +'<td style="text-align:center"><span class="badge bb">'+cnt+'</span></td>'
+      +'<td style="text-align:right">'+editBtns+'</td>'
+      +'</tr>';
+  });
+  document.getElementById('tt-table').innerHTML=rows||
+    '<tr><td colspan="4"><div class="empty"><div class="ei">\uD83E\uDDD1\u200D\uD83C\uDFEB</div>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0456\u0432 \u043d\u0435\u043c\u0430\u0454</div></td></tr>';
+}
+
+function updateBranchSelector(){
+  var el=document.getElementById('branch-sel');
+  if(!el) return;
+  var bid=S.currentBranchId;
+  el.innerHTML='<option value="">\uD83C\uDF10 \u0412\u0441\u0456 \u0444\u0456\u043B\u0456\u0457</option>'+
+    (S.branches||[]).map(function(b){
+      return '<option value="'+b.id+'"'+(bid===b.id?' selected':'')+'>'+b.name+'</option>';
+    }).join('');
+}
+
+
+
+function updateSBUser(){
+  if(!CU)return;
+  const r=ROLES[CU.role];
+  const av=document.getElementById('sb-av');
+  var _mt=myTutor();
+  if(_mt&&_mt.photo){
+    av.style.background='none';av.style.width='34px';av.style.height='34px';av.style.padding='0';av.style.overflow='hidden';
+    av.innerHTML='<img src="'+_mt.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+  } else {
+    av.style.background=r.avatarBg;av.style.width='34px';av.style.height='34px';av.style.fontSize='13px';av.style.color=CU.role==='director'?'#1b1464':'#fff';av.style.fontFamily="'Syne',sans-serif";av.style.fontWeight='700';
+    av.textContent=(CU.fn[0]||'')+(CU.ln[0]||'');
+  }
+  document.getElementById('sb-name').textContent=CU.fn+' '+CU.ln;
+  document.getElementById('sb-rpill').innerHTML=('<span class="rpill '+(CU.role)+'">'+(r.icon)+' '+(r.label)+'</span>');
+}
+
+
+
+// CRM KANBAN
+var CRM_COLS = [
+  {id:'lead',     lbl:'Новий лід',                   ico:'⬤', color:'#f59e0b'},
+  {id:'request',  lbl:'Запит',                                       ico:'✉', color:'#3b82f6'},
+  {id:'trial',    lbl:'Тестовий урок', ico:'◎', color:'#8b5cf6'},
+  {id:'contract', lbl:'Підписання договору', ico:'✍', color:'#06b6d4'},
+  {id:'invoice',  lbl:'Виставлення рахунку', ico:'▤', color:'#f97316'},
+  {id:'payment',  lbl:'Оплата',                                 ico:'◈', color:'#10b981'},
+  {id:'won',      lbl:'Успішно реалізовано', ico:'✅', color:'#22c55e'},
+  {id:'lost',     lbl:'Не реалізовано', ico:'❌', color:'#ef4444'},
+];
+
+function getCrmStage(s){
+  if(!s) return 'lead';
+  if(s.crmStage) return s.crmStage;
+  var map={active:'won',trial:'trial',paused:'lost',completed:'won'};
+  return map[s.status]||'lead';
+}
+
+async function setCrmStage(studentId, stage){
+  var i=(S.students||[]).findIndex(function(s){return s.id===studentId;});
+  var prev=i>=0?(S.students[i].crmStage||S.students[i].crm_stage):null;
+  if(i>=0){S.students[i].crmStage=stage;S.students[i].crm_stage=stage;}
+  renderCrm();
+  try{
+    await dbUpdate('students',studentId,{crm_stage:stage});
+    mkToast('Етап оновлено');
+  }catch(e){
+    if(i>=0){S.students[i].crmStage=prev;S.students[i].crm_stage=prev;}
+    renderCrm();
+    mkToast('Помилка: '+e.message,'error');
+  }
+}
+
+function openAddLead(){
+  openStudM(null);
+  document.getElementById('ms-title').textContent='\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434';
+  document.getElementById('s-status').value='trial';
+  var crmStEl=document.getElementById('s-crm-stage'); if(crmStEl) crmStEl.value='lead';
+}
+
+
+function renderCrm(){
+  var el = document.getElementById('crm-board');
+  if(!el) return;
+
+  var fStage = (document.getElementById('crm-f-stage')||{value:''}).value||'';
+  var fMonth = (document.getElementById('crm-f-month')||{value:''}).value||'';
+  var fResp  = (document.getElementById('crm-f-resp') ||{value:''}).value||'';
+
+  // Populate responsible select on first render
+  var respSel = document.getElementById('crm-f-resp');
+  if(respSel && respSel.options.length <= 1){
+    (S.users||[]).filter(function(u){ return u.role==='god'||u.role==='director'||u.role==='admin'; })
+      .forEach(function(u){
+        var o = document.createElement('option');
+        o.value = u.id; o.textContent = u.fn+' '+u.ln;
+        respSel.appendChild(o);
+      });
+    respSel.value = fResp;
+  }
+
+  var students = (S.students||[]).filter(function(s){
+    if(getCrmStage(s)==='removed') return false; // приховано з CRM-дошки, учень лишається в системі
+    if(fStage && getCrmStage(s) !== fStage) return false;
+    if(fMonth && (s.crmDate||'').slice(0,7) !== fMonth) return false;
+    if(fResp  && s.crmResponsible !== fResp) return false;
+    return true;
+  });
+
+  var groups = {};
+  CRM_COLS.forEach(function(c){ groups[c.id] = []; });
+  students.forEach(function(s){
+    var st = getCrmStage(s);
+    if(!groups[st]) st = 'lead';
+    groups[st].push(s);
+  });
+
+  var cols = fStage ? CRM_COLS.filter(function(c){ return c.id===fStage; }) : CRM_COLS;
+
+  // Update stats bar
+  var statsEl = document.getElementById('crm-stats');
+  if(statsEl){
+    var total = students.length;
+    var won   = students.filter(function(s){ return getCrmStage(s)==='won'; }).length;
+    var lost  = students.filter(function(s){ return getCrmStage(s)==='lost'; }).length;
+    var conv  = total>0 ? Math.round(won/total*100) : 0;
+    statsEl.innerHTML =
+      '<span style="background:var(--s2);border:1px solid var(--b1);border-radius:20px;padding:5px 14px">\u0412\u0441\u044c\u043e\u0433\u043e: <b>'+total+'</b></span>'
+      +'<span style="background:var(--tut-bg);border:1px solid rgba(34,181,115,.25);border-radius:20px;padding:5px 14px;color:var(--tut)">\u0423\u0441\u043f\u0456\u0448\u043d\u043e: <b>'+won+'</b></span>'
+      +'<span style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);border-radius:20px;padding:5px 14px;color:var(--danger)">\u041d\u0435 \u0440\u0435\u0430\u043b.: <b>'+lost+'</b></span>'
+      +'<span style="background:var(--adm-bg);border:1px solid rgba(41,171,226,.25);border-radius:20px;padding:5px 14px;color:var(--adm)">\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0456\u044f: <b>'+conv+'%</b></span>';
+  }
+
+  el.innerHTML = '';
+
+  cols.forEach(function(col){
+    var cards = groups[col.id]||[];
+
+    var colDiv = document.createElement('div');
+    colDiv.className = 'crm-col';
+    colDiv.addEventListener('dragover',  function(e){ crmDragOver(e); });
+    colDiv.addEventListener('dragleave', function(e){ crmDragLeave(e); });
+    colDiv.addEventListener('drop',      function(e){ crmDrop(e, col.id); });
+
+    var hdr = document.createElement('div');
+    hdr.className = 'crm-col-hdr';
+    hdr.style.borderTop = '3px solid ' + col.color;
+    hdr.innerHTML = '<span class="crm-col-hdr-ico">'+col.ico+'</span>'
+      + '<span class="crm-col-lbl">'+col.lbl+'</span>'
+      + '<span class="crm-col-cnt">'+cards.length+'</span>';
+    colDiv.appendChild(hdr);
+
+    var body = document.createElement('div');
+    body.className = 'crm-col-body';
+
+    if(!cards.length){
+      var empty = document.createElement('div');
+      empty.className = 'crm-empty-col';
+      empty.textContent = '\u041f\u043e\u0440\u043e\u0436\u043d\u044c\u043e';
+      body.appendChild(empty);
+    }
+
+    cards.forEach(function(s){
+      var tutor = s.tutorId ? (S.tutors||[]).find(function(t){ return t.id===s.tutorId; }) : null;
+      var resp  = s.crmResponsible ? (S.users||[]).find(function(u){ return u.id===s.crmResponsible; }) : null;
+      var lc    = (S.comms||[]).filter(function(c){ return c.studentId===s.id; })
+                    .sort(function(a,b){ return (b.date||'')>(a.date||'')?1:-1; })[0];
+
+      var card = document.createElement('div');
+      card.className = 'crm-card';
+      card.draggable = true;
+
+      var sid = s.id;
+      card.addEventListener('dragstart', function(e){ crmDragStart(e, sid); });
+      card.addEventListener('dragend',   crmDragEnd);
+
+      var info = document.createElement('div');
+      info.innerHTML =
+        '<div class="crm-card-name">'+s.fn+' '+s.ln+'</div>'
+        +(s.subject ? '<div class="crm-card-subj">'+s.subject+'</div>' : '')
+        +(tutor ? '<div class="crm-card-meta">◈ '+tutor.fn+' '+tutor.ln+'</div>' : '')
+        +(resp  ? '<div class="crm-card-meta" style="color:var(--dir)">★ '+resp.fn+' '+resp.ln+'</div>' : '')
+        +((s.phone||s.parentPhone) ? '<div class="crm-card-meta">☎ '+(s.phone||s.parentPhone)+'</div>' : '')
+        +(s.crmDate ? '<div class="crm-card-comm">▣ '+fd(s.crmDate)+'</div>' : '')
+        +(lc ? '<div class="crm-card-comm">◎ '+fd(lc.date)+'</div>' : '');
+      info.querySelector('.crm-card-name').addEventListener('click', function(){ openStudM(sid); });
+      card.appendChild(info);
+
+      // Action buttons
+      var acts = document.createElement('div');
+      acts.className = 'crm-card-actions';
+
+      var editBtn = document.createElement('button');
+      editBtn.className = 'crm-mv-btn';
+      editBtn.title = 'Редагувати';
+      editBtn.textContent = '✏';
+      editBtn.addEventListener('click', function(e){ e.stopPropagation(); openCrmCard(sid); });
+      acts.appendChild(editBtn);
+
+      CRM_COLS.filter(function(c){ return c.id !== col.id; }).forEach(function(c){
+        var btn = document.createElement('button');
+        btn.className = 'crm-mv-btn';
+        btn.title = '→ ' + c.lbl;
+        btn.textContent = c.ico;
+        (function(cid){ btn.addEventListener('click', function(e){ e.stopPropagation(); setCrmStage(sid, cid); }); })(c.id);
+        acts.appendChild(btn);
+      });
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'crm-mv-btn crm-del-btn';
+      delBtn.title = 'Видалити лід';
+      delBtn.textContent = '🗑';
+      delBtn.addEventListener('click', function(e){ e.stopPropagation(); delLead(sid); });
+      acts.appendChild(delBtn);
+
+      card.appendChild(acts);
+      body.appendChild(card);
+    });
+
+    colDiv.appendChild(body);
+    el.appendChild(colDiv);
+  });
+  setTimeout(crmInitScroll, 50);
+}
+
+
+async function setCrmStage(studentId, stage){
+  var i=(S.students||[]).findIndex(function(s){return s.id===studentId;});
+  var prev=i>=0?(S.students[i].crmStage||S.students[i].crm_stage):null;
+  if(i>=0){S.students[i].crmStage=stage;S.students[i].crm_stage=stage;}
+  renderCrm();
+  try{
+    await dbUpdate('students',studentId,{crm_stage:stage});
+    mkToast('Етап оновлено');
+  }catch(e){
+    if(i>=0){S.students[i].crmStage=prev;S.students[i].crm_stage=prev;}
+    renderCrm();
+    mkToast('Помилка: '+e.message,'error');
+  }
+}
+
+
+function openCrmCard(studentId){
+  var s=(S.students||[]).find(function(x){return x.id===studentId;});
+  if(!s)return;
+  var mo=document.getElementById('mo-crm-card');
+  if(!mo){openStudM(studentId);return;}
+  document.getElementById('crm-card-name').textContent=s.fn+' '+s.ln;
+  var stageSel=document.getElementById('crm-card-stage');
+  if(stageSel)stageSel.value=getCrmStage(s);
+  var respSel=document.getElementById('crm-card-resp');
+  if(respSel){
+    respSel.innerHTML='<option value="">—</option>'
+      +(S.users||[]).filter(function(u){return u.role==='god'||u.role==='director'||u.role==='admin';})
+        .map(function(u){return '<option value="'+u.id+'"'+(s.crmResponsible===u.id?' selected':'')+'>'+u.fn+' '+u.ln+'</option>';}).join('');
+  }
+  var dateSel=document.getElementById('crm-card-date');
+  if(dateSel)dateSel.value=s.crmDate||'';
+  var notesSel=document.getElementById('crm-card-notes');
+  if(notesSel)notesSel.value=s.crm_notes||'';
+  S._crmEditId=studentId;
+  openM('mo-crm-card');
+}
+
+async function saveCrmCard(){
+  var id=S._crmEditId;if(!id)return;
+  var stage=document.getElementById('crm-card-stage').value;
+  var resp=document.getElementById('crm-card-resp').value;
+  var date=document.getElementById('crm-card-date').value;
+  var notes=document.getElementById('crm-card-notes').value;
+  var i=(S.students||[]).findIndex(function(s){return s.id===id;});
+  if(i>=0){
+    S.students[i].crmStage=stage;S.students[i].crm_stage=stage;
+    S.students[i].crmResponsible=resp||null;S.students[i].crm_responsible=resp||null;
+    S.students[i].crmDate=date||null;S.students[i].crm_date=date||null;
+    S.students[i].crm_notes=notes||null;
+  }
+  closeM('mo-crm-card');renderCrm();
+  try{
+    await dbUpdate('students',id,{crm_stage:stage,crm_responsible:resp||null,crm_date:date||null,crm_notes:notes||null});
+    mkToast('Збережено');
+  }catch(e){mkToast('Помилка: '+e.message,'error');}
+}
+
+function crmClearFilters(){
+  var s=document.getElementById('crm-f-stage'),m=document.getElementById('crm-f-month'),r=document.getElementById('crm-f-resp');
+  if(s)s.value='';if(m)m.value='';if(r)r.value='';
+  renderCrm();
+}
+
+var _crmDragId=null;
+function crmDragStart(e,id){_crmDragId=id;e.dataTransfer.effectAllowed='move';setTimeout(function(){if(e.target)e.target.style.opacity='0.4';},0);}
+function crmDragEnd(e){if(e.target)e.target.style.opacity='1';document.querySelectorAll('.crm-col').forEach(function(c){c.classList.remove('crm-over');});}
+function crmDragOver(e){e.preventDefault();document.querySelectorAll('.crm-col').forEach(function(c){c.classList.remove('crm-over');});e.currentTarget.classList.add('crm-over');}
+function crmDragLeave(e){if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('crm-over');}
+function crmDrop(e,colId){e.preventDefault();document.querySelectorAll('.crm-col').forEach(function(c){c.classList.remove('crm-over');});if(_crmDragId){setCrmStage(_crmDragId,colId);_crmDragId=null;}}
+
+function crmScroll(dir){
+  var el = document.getElementById('crm-board-scroll');
+  if(!el) return;
+  el.scrollBy({left: dir * 240, behavior: 'smooth'});
+}
+
+function crmUpdateScrollBtns(){
+  var el = document.getElementById('crm-board-scroll');
+  var btnL = document.getElementById('crm-scroll-left');
+  var btnR = document.getElementById('crm-scroll-right');
+  if(!el || !btnL || !btnR) return;
+  var atLeft  = el.scrollLeft <= 10;
+  var atRight = el.scrollLeft >= el.scrollWidth - el.clientWidth - 10;
+  btnL.classList.toggle('visible', !atLeft);
+  btnR.classList.toggle('visible', !atRight);
+}
+
+function crmInitScroll(){
+  var el = document.getElementById('crm-board-scroll');
+  if(!el || el._crmScrollInit) return;
+  el._crmScrollInit = true;
+
+  // Mouse wheel horizontal scroll (no Shift needed)
+  el.addEventListener('wheel', function(e){
+    if(Math.abs(e.deltaX) < Math.abs(e.deltaY)){
+      e.preventDefault();
+      el.scrollBy({left: e.deltaY * 2, behavior: 'auto'});
+    }
+    crmUpdateScrollBtns();
+  }, {passive: false});
+
+  // Update arrow visibility on scroll
+  el.addEventListener('scroll', crmUpdateScrollBtns);
+
+  // Touch swipe
+  var touchX = 0;
+  el.addEventListener('touchstart', function(e){ touchX = e.touches[0].clientX; }, {passive:true});
+  el.addEventListener('touchmove', function(e){
+    var dx = touchX - e.touches[0].clientX;
+    el.scrollLeft += dx;
+    touchX = e.touches[0].clientX;
+    crmUpdateScrollBtns();
+  }, {passive:true});
+
+  crmUpdateScrollBtns();
+}
+
+// ═══════════════════════════════════════
+// INVOICE (РАХУНОК-ФАКТУРА)
+// ═══════════════════════════════════════
+
+function openInvoicePanel(){
+  if(R()!=='god' && R()!=='director'){
+    mkToast('Доступ заборонено','error'); return;
+  }
+  var card = document.getElementById('inv-card');
+  if(!card) return;
+
+  // Populate student select
+  var sel = document.getElementById('inv-student');
+  if(sel){
+    sel.innerHTML = '<option value="">— оберіть учня —</option>'
+      + (S.students||[]).map(function(s){
+          return '<option value="'+s.id+'">'+s.fn+' '+s.ln+'</option>';
+        }).join('');
+  }
+
+  // Default period: current month
+  var now = new Date();
+  var y = now.getFullYear(), m = now.getMonth();
+  document.getElementById('inv-date-from').value = y+'-'+String(m+1).padStart(2,'0')+'-01';
+  document.getElementById('inv-date-to').value   = y+'-'+String(m+1).padStart(2,'0')+'-'+new Date(y,m+1,0).getDate();
+  document.getElementById('inv-price').value     = '';
+  document.getElementById('inv-email').value     = '';
+  document.getElementById('inv-notes').value     = '';
+
+  // Load saved payment details
+  var cfg = S.settings||{};
+  var payEl = document.getElementById('inv-payment');
+  if(payEl) payEl.value = cfg.payment_details||'';
+
+  document.getElementById('inv-preview').innerHTML = '';
+  card.style.display = 'block';
+  card.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+
+function calcInvoiceLessons(){
+  var selEl = document.getElementById('inv-student');
+  var sid   = selEl ? selEl.value : (S._invoiceStudentId||'');
+  var from  = document.getElementById('inv-date-from').value;
+  var to    = document.getElementById('inv-date-to').value;
+  var price = parseFloat(document.getElementById('inv-price').value)||0;
+
+  // Count PLANNED (not yet conducted) lessons
+  var lessons = (S.lessons||[]).filter(function(l){
+    return (l.studentId===sid||l.student_id===sid)
+      && (l.status==='planned'||l.status==='scheduled')
+      && l.date >= from && l.date <= to;
+  });
+
+  var totalHours = Math.round(lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+  var total = Math.round(totalHours * price * 10)/10;
+  var el = document.getElementById('inv-preview');
+  if(!el) return;
+
+  if(!lessons.length){
+    el.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:8px 0">'
+      +'\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u0445 \u0443\u0440\u043e\u043a\u0456\u0432 \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434</div>';
+    return;
+  }
+
+  // Sort by date+time
+  lessons.sort(function(a,b){ return (a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||'')); });
+
+  var rows = lessons.map(function(l, i){
+    var tutor = l.tutorId ? (S.tutors||[]).find(function(t){return t.id===l.tutorId;}) : null;
+    return '<tr>'
+      +'<td>'+(i+1)+'</td>'
+      +'<td>'+fd(l.date)+'</td>'
+      +'<td>'+(l.time||'\u2014')+'</td>'
+      +'<td>'+(l.subject||l.notes||'\u2014')+'</td>'
+      +'<td>'+(tutor ? tutor.fn+' '+tutor.ln : '\u2014')+'</td>'
+      +'<td style="text-align:right">'+(price ? price+' \u0433\u0440\u043d' : '\u2014')+'</td>'
+      +'</tr>';
+  }).join('');
+
+  el.innerHTML = '<table class="inv-table">'
+    +'<thead><tr>'
+    +'<th style="width:28px">#</th>'
+    +'<th>\u0414\u0430\u0442\u0430</th>'
+    +'<th>\u0427\u0430\u0441</th>'
+    +'<th>\u041f\u0440\u0435\u0434\u043c\u0435\u0442</th>'
+    +'<th>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440</th>'
+    +'<th style="text-align:right">\u0421\u0443\u043c\u0430</th>'
+    +'</tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'<tfoot><tr>'
+    +'<td colspan="5" style="font-weight:700">'
+      +'\u0420\u0410\u0417\u041e\u041c: '+lessons.length+' \u0443\u0440\u043e\u043a'+'\u0456\u0432'
+    +'</td>'
+    +'<td style="text-align:right;font-weight:700;color:var(--adm)">'
+      +(price ? total+' \u0433\u0440\u043d' : '\u2014')
+    +'</td>'
+    +'</tr></tfoot>'
+    +'</table>';
+}
+
+function sendInvoiceEmail(){
+  var m = window._invMeta || {};
+  var s = m.studentId ? (S.students||[]).find(function(x){return x.id===m.studentId;}) : null;
+  if(!s){ mkToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f','error'); return; }
+  var email = (s.email||s.parent_email||'').trim();
+  if(!email){
+    email = prompt('Email \u043e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447\u0430 (\u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e \u0432 \u043a\u0430\u0440\u0442\u0446\u0456):', '');
+    if(!email) return;
+  }
+  var cfg = S.settings||{};
+  var subj = '\u0420\u0430\u0445\u0443\u043d\u043e\u043a \u043d\u0430 \u043e\u043f\u043b\u0430\u0442\u0443'
+    + (cfg.name?' \u2014 '+cfg.name:'')
+    + (m.from||m.to?' ('+(m.from?fd(m.from)+' \u2013 ':'')+(m.to?fd(m.to):'')+')':'');
+  var body = window._invText || '';
+  _logInvoiceSend('email', email);
+  var href = 'mailto:'+encodeURIComponent(email)
+    + '?subject='+encodeURIComponent(subj)
+    + '&body='+encodeURIComponent(body);
+  window.location.href = href;
+  mkToast('\u0412\u0456\u0434\u043a\u0440\u0438\u0432\u0430\u0454\u043c\u043e \u043f\u043e\u0448\u0442\u043e\u0432\u0438\u0439 \u043a\u043b\u0456\u0454\u043d\u0442\u2026');
+}
+
+window.calcInvoiceLessons = calcInvoiceLessons;
+window.sendInvoiceEmail = sendInvoiceEmail;
+window.openInvoicePanel = openInvoicePanel;
+window.updateInvPhone = updateInvPhone;
+// Boot
+function calcPrice(subjectName, tutorId, grade, dur){
+  // Match rules by specificity: most specific wins
+  const rules = S.pricingRules || [];
+  if(!rules.length){
+    // Fallback: subject base price
+    const subj = (S.subjects||[]).find(s=>s.name===subjectName);
+    return subj && subj.price ? parseFloat(subj.price) : 0;
+  }
+  // Score each rule: +3 subject, +2 tutor, +1 grade, +1 dur
+  let best = null, bestScore = -1;
+  rules.forEach(function(r){
+    if(!r.price) return;
+    var score = 0, match = true;
+    if(r.subjectMatch){
+      if(subjectName && subjectName.toLowerCase().includes(r.subjectMatch.toLowerCase())) score+=3;
+      else { match=false; }
+    }
+    if(r.tutorId){
+      if(r.tutorId === tutorId) score+=2;
+      else { match=false; }
+    }
+    if(r.gradeMatch){
+      var g = String(grade||'');
+      if(g && g.toLowerCase().includes(r.gradeMatch.toLowerCase())) score+=1;
+      else { match=false; }
+    }
+    if(r.durMin){
+      if(parseInt(dur||60) >= parseInt(r.durMin)) score+=1;
+      else { match=false; }
+    }
+    if(match && score >= bestScore){
+      bestScore = score; best = r;
+    }
+  });
+  return best ? parseFloat(best.price) : 0;
+}
+
+
+var RIGHTS_MATRIX = [
+  ['Дія', 'Бог', 'Директор', 'Адмін', 'Репетитор'],
+  ['Учні — перегляд',        '✅','✅','✅','✅'],
+  ['Учні — редагування',     '✅','✅','✅','❌'],
+  ['Репетитори — перегляд',  '✅','✅','✅','❌'],
+  ['Репетитори — редагування','✅','✅','✅','❌'],
+  ['Заняття — перегляд',     '✅','✅','✅','✅'],
+  ['Заняття — редагування',  '✅','✅','✅','✅'],
+  ['Оплата — перегляд',      '✅','✅','❌','❌'],
+  ['Оплата — редагування',   '✅','✅','❌','❌'],
+  ['Комунікації',            '✅','✅','✅','✅'],
+  ['CRM-дошка',              '✅','✅','✅','❌'],
+  ['Акаунти',                '✅','✅','❌','❌'],
+  ['Налаштування',           '✅','✅','❌','❌'],
+  ['Видалення будь-чого',    '✅','✅','✅','❌'],
+  ['Небезпечна зона',        '✅','❌','❌','❌'],
+];
+
+// ── Резервне копіювання: статус, ручний запуск, список копій ──
+async function renderBackupStatus(){
+  var dot=document.getElementById('backup-status-dot'), txt=document.getElementById('backup-status-txt');
+  if(!dot||!txt) return;
+  try{
+    var _r=await _sb.from('backup_log').select('*').order('created_at',{ascending:false}).limit(1);
+    var last=(_r.data||[])[0];
+    if(!last){
+      dot.style.background='#ef4444'; txt.textContent='\u0429\u0435 \u0436\u043E\u0434\u043D\u043E\u0457 \u043A\u043E\u043F\u0456\u0457 \u043D\u0435 \u0431\u0443\u043B\u043E \u0437\u0440\u043E\u0431\u043B\u0435\u043D\u043E';
+      return;
+    }
+    var when=new Date(last.created_at);
+    var hoursAgo=(Date.now()-when.getTime())/3600000;
+    var totalRows=Object.values(last.row_counts||{}).reduce(function(s,n){return s+(n||0);},0);
+    var sizeKb=Math.round((last.file_size_bytes||0)/1024);
+    if(last.status==='error'){
+      dot.style.background='#ef4444';
+      txt.textContent='\u041E\u0441\u0442\u0430\u043D\u043D\u044F \u0441\u043F\u0440\u043E\u0431\u0430 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u043B\u0430\u0441\u044C \u043F\u043E\u043C\u0438\u043B\u043A\u043E\u044E: '+(last.error_message||'');
+    } else if(hoursAgo>26){
+      dot.style.background='#f59e0b';
+      txt.textContent='\u26A0\uFE0F \u041E\u0441\u0442\u0430\u043D\u043D\u044F \u043A\u043E\u043F\u0456\u044F \u0431\u0443\u043B\u0430 '+when.toLocaleString('uk-UA')+' \u2014 \u0434\u0430\u0432\u043D\u0456\u0448\u0435 \u0434\u043E\u0431\u0438 24 \u0433\u043E\u0434\u0438\u043D. \u041F\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 cron-\u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F';
+    } else {
+      dot.style.background='#22c55e';
+      txt.textContent='\u2705 \u041E\u0441\u0442\u0430\u043D\u043D\u044F \u043A\u043E\u043F\u0456\u044F: '+when.toLocaleString('uk-UA')+' \u00B7 '+totalRows+' \u0437\u0430\u043F\u0438\u0441\u0456\u0432 \u00B7 '+sizeKb+' \u041A\u0411'+(last.github_committed?' \u00B7 \uD83D\uDCE6 GitHub \u2713':' \u00B7 \u26A0\uFE0F GitHub \u043D\u0435 \u043D\u0430\u043B\u0430\u0448\u0442\u043E\u0432\u0430\u043D\u043E');
+    }
+  }catch(e){
+    dot.style.background='#ef4444'; txt.textContent='\u041D\u0435 \u0432\u0434\u0430\u043B\u043E\u0441\u044F \u043F\u0435\u0440\u0435\u0432\u0456\u0440\u0438\u0442\u0438 \u0441\u0442\u0430\u0442\u0443\u0441: '+(e.message||e);
+  }
+}
+
+async function triggerBackupNow(){
+  if(R()!=='god'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F \u043B\u0438\u0448\u0435 \u0434\u043B\u044F \u0431\u043E\u0433\u0430 \u0441\u0438\u0441\u0442\u0435\u043C\u0438','error'); return; }
+  var btn=document.getElementById('backup-now-btn');
+  if(btn){ btn.disabled=true; btn.textContent='\u23F3 \u0421\u0442\u0432\u043E\u0440\u0435\u043D\u043D\u044F \u043A\u043E\u043F\u0456\u0457...'; }
+  try{
+    var _sess=await _sb.auth.getSession();
+    var jwt=_sess?.data?.session?.access_token;
+    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/supabase-functions-deploy-daily-backup',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+      body:JSON.stringify({trigger:'manual'})
+    });
+    var data=await res.json();
+    if(!res.ok) throw new Error(data.error||'\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430');
+    mkToast('\u2705 \u041A\u043E\u043F\u0456\u044E \u0441\u0442\u0432\u043E\u0440\u0435\u043D\u043E: '+Object.values(data.rowCounts||{}).reduce(function(s,n){return s+(n||0);},0)+' \u0437\u0430\u043F\u0438\u0441\u0456\u0432');
+    renderBackupStatus();
+  }catch(e){
+    mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e),'error');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='\uD83D\uDCBE \u0417\u0440\u043E\u0431\u0438\u0442\u0438 \u043A\u043E\u043F\u0456\u044E \u0437\u0430\u0440\u0430\u0437'; }
+  }
+}
+
+async function renderBackupList(){
+  var wrap=document.getElementById('backup-list');
+  if(!wrap) return;
+  wrap.innerHTML='<div style="padding:10px;color:var(--t3);font-size:12px">\u0417\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F\u2026</div>';
+  try{
+    var _r=await _sb.from('backup_log').select('*').order('created_at',{ascending:false}).limit(30);
+    var rows=_r.data||[];
+    if(!rows.length){ wrap.innerHTML='<div style="padding:10px;color:var(--t3);font-size:12px">\u041A\u043E\u043F\u0456\u0439 \u0449\u0435 \u043D\u0435\u043C\u0430\u0454</div>'; return; }
+    var html='<table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">\u0414\u0430\u0442\u0430</th><th>\u0417\u0430\u043F\u0438\u0441\u0456\u0432</th><th>\u0420\u043E\u0437\u043C\u0456\u0440</th><th>GitHub</th><th></th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var totalRows=Object.values(r.row_counts||{}).reduce(function(s,n){return s+(n||0);},0);
+      var sizeKb=Math.round((r.file_size_bytes||0)/1024);
+      html+='<tr>'
+        +'<td>'+new Date(r.created_at).toLocaleString('uk-UA')+'</td>'
+        +'<td style="text-align:center">'+(r.status==='error'?'\u274C':totalRows)+'</td>'
+        +'<td style="text-align:center">'+sizeKb+' \u041A\u0411</td>'
+        +'<td style="text-align:center">'+(r.github_committed?'\u2705':'\u2014')+'</td>'
+        +'<td style="text-align:center"><button class="btn btn-g btn-sm" onclick="downloadBackup(\''+r.file_path+'\')">\u2B07</button> <button class="btn btn-p btn-sm" onclick="restoreFromBackup(\''+r.file_path+'\')">\u267B\uFE0F</button></td>'
+      +'</tr>';
+    });
+    html+='</tbody></table>';
+    wrap.innerHTML=html;
+  }catch(e){ wrap.innerHTML='<div style="padding:10px;color:var(--danger);font-size:12px">\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+(e.message||e)+'</div>'; }
+}
+
+async function downloadBackup(filePath){
+  try{
+    var _r=await _sb.storage.from('backups').createSignedUrl(filePath,60);
+    if(_r.error) throw _r.error;
+    window.open(_r.data.signedUrl,'_blank');
+  }catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0437\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D\u044F: '+(e.message||e),'error'); }
+}
+
+async function restoreFromBackup(filePath){
+  if(R()!=='god'){ mkToast('\u0414\u043E\u0441\u0442\u0443\u043F \u043B\u0438\u0448\u0435 \u0434\u043B\u044F \u0431\u043E\u0433\u0430 \u0441\u0438\u0441\u0442\u0435\u043C\u0438','error'); return; }
+  if(!confirm('\u0412\u0456\u0434\u043D\u043E\u0432\u0438\u0442\u0438 \u0434\u0430\u043D\u0456 \u0437 \u0446\u0456\u0454\u0457 \u043A\u043E\u043F\u0456\u0457?\n\n'
+    +'\u0426\u0435 \u0411\u0415\u0417\u041F\u0415\u0427\u041D\u041E: \u0431\u0443\u0434\u0443\u0442\u044C \u043F\u043E\u0432\u0435\u0440\u043D\u0435\u043D\u0456 \u041B\u0418\u0428\u0415 \u0442\u0456 \u0437\u0430\u043F\u0438\u0441\u0438, \u044F\u043A\u0438\u0445 \u0417\u0410\u0420\u0410\u0417 \u041D\u0415\u041C\u0410\u0404 \u0432 \u0431\u0430\u0437\u0456 (\u0437\u0430 id). '
+    +'\u0406\u0441\u043D\u0443\u044E\u0447\u0456 \u0437\u0430\u043F\u0438\u0441\u0438 \u041D\u0415 \u0431\u0443\u0434\u0443\u0442\u044C \u043F\u0435\u0440\u0435\u043F\u0438\u0441\u0430\u043D\u0456 \u0447\u0438 \u0437\u0430\u0434\u0432\u043E\u0454\u043D\u0456. \u041D\u0456\u0447\u043E\u0433\u043E \u043D\u0435 \u0432\u0438\u0434\u0430\u043B\u044F\u0454\u0442\u044C\u0441\u044F.')) return;
+
+  var loadingToast=mkToast('\u23F3 \u0412\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u044F...');
+  try{
+    var _sess=await _sb.auth.getSession();
+    var jwt=_sess?.data?.session?.access_token;
+    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/restore-backup',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+      body:JSON.stringify({file_path:filePath})
+    });
+    var data=await res.json();
+    if(!res.ok) throw new Error(data.error||'\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430');
+
+    var restored=data.restoredCounts||{};
+    var totalRestored=Object.values(restored).reduce(function(s,n){return s+(n||0);},0);
+    var details=Object.keys(restored).filter(function(t){return restored[t]>0;})
+      .map(function(t){return t+': +'+restored[t];}).join(', ');
+
+    if(totalRestored===0){
+      mkToast('\u2139\uFE0F \u041D\u0456\u0447\u043E\u0433\u043E \u0432\u0456\u0434\u043D\u043E\u0432\u043B\u044E\u0432\u0430\u0442\u0438 \u2014 \u0443\u0441\u0456 \u0437\u0430\u043F\u0438\u0441\u0438 \u0437 \u0446\u0456\u0454\u0457 \u043A\u043E\u043F\u0456\u0457 \u0432\u0436\u0435 \u0454 \u0432 \u0431\u0430\u0437\u0456');
+    } else {
+      mkToast('\u2705 \u0412\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043E '+totalRestored+' \u0437\u0430\u043F\u0438\u0441\u0456\u0432 ('+details+'). \u041E\u043D\u043E\u0432\u043B\u044E\u044E \u0435\u043A\u0440\u0430\u043D\u2026');
+    }
+    // КРИТИЧНО: сервер уже дописав рядки в базу, але локальний стан (S.lessons тощо)
+    // у браузері про це нічого не знає — без явного перезавантаження таблиць
+    // розклад/списки продовжать показувати старі (кешовані) дані, ніби нічого
+    // не відновилось, хоча в базі все вже на місці.
+    var tablesToReload=Object.keys(restored).filter(function(t){return restored[t]>0;});
+    for(var i=0;i<tablesToReload.length;i++){
+      try{ await loadTableFresh(tablesToReload[i]); }catch(e){ console.warn('[restore] reload failed for', tablesToReload[i], e); }
+    }
+    // Оновлюємо видиму сторінку, щоб одразу побачити повернуті дані (напр. розклад)
+    if(typeof nav==='function' && S.currentPage) nav(S.currentPage);
+    if(S.currentPage==='schedule' && typeof renderSch==='function') renderSch();
+  }catch(e){
+    mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430 \u0432\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u044F: '+(e.message||e),'error');
+  }
+}
+window.restoreFromBackup=restoreFromBackup;
+window.triggerBackupNow=triggerBackupNow;
+window.renderBackupList=renderBackupList;
+window.downloadBackup=downloadBackup;
+
+function renderSettings(){
+  var gcWrap = document.getElementById('god-constructor-wrap');
+  if(gcWrap) gcWrap.style.display = (R()==='god') ? 'block' : 'none';
+  var setNameEl=document.getElementById('set-name'); if(setNameEl) setNameEl.value=S.settings.name||'';
+  var setSubjEl=document.getElementById('set-subj-list'); if(setSubjEl) setSubjEl.innerHTML=S.subjects.map((s,i)=>('<div class="ms"><span class="msl">'+(s.name)+'</span><div style="display:flex;align-items:center;gap:8px"><button class="btn btn-sm btn-d" style="padding:2px 6px" onclick="delSubj(\''+(s.id)+'\')">\u00D7</button></div></div>')).join('');
+  // God-only sections
+  const isGod=R()==='god';
+  var gbEl=document.getElementById('god-banner-settings'); if(gbEl) gbEl.style.display=isGod?'flex':'none';
+  var rsEl=document.getElementById('rights-section'); if(rsEl) rsEl.style.display=isGod?'block':'none';
+  var dzEl=document.getElementById('danger-zone'); if(dzEl) dzEl.style.display=isGod?'block':'none';
+  var bkEl=document.getElementById('backup-card'); if(bkEl) bkEl.style.display=isGod?'block':'none';
+  try{ renderJournalReviewerSetting(); }catch(e){ console.error('renderJournalReviewerSetting:',e); }
+  if(isGod){ try{ renderBackupStatus(); }catch(e){} }
+  if(isGod){
+    // Build rights matrix
+    let rt='<thead><tr>'+RIGHTS_MATRIX[0].map((h,i)=>('<th style="'+(i===1?'color:var(--god)':i===2?'color:var(--dir)':i===3?'color:var(--adm)':i===4?'color:var(--tut)':'')+'">'+(h)+'</th>')).join('')+'</tr></thead><tbody>';
+    for(let i=1;i<RIGHTS_MATRIX.length;i++){
+      rt+='<tr>'+RIGHTS_MATRIX[i].map((c,j)=>('<td style="'+(c.startsWith('\u2705')?'color:var(--tut)':c.startsWith('\u274C')?'color:var(--danger)':'')+'">'+(c)+'</td>')).join('')+'</tr>';
+    }
+    rt+='</tbody>';
+    document.getElementById('rights-table').innerHTML=rt;
+  }
+  renderBranches();
+}
+
+
+
+async function uploadTutorPhoto(input){
+  var file=input.files[0];
+  if(!file)return;
+  if(file.size>2*1024*1024){mkToast('Файл занадто великий (макс 2MB)','error');return;}
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    var dataUrl=e.target.result;
+    var mt=myTutor();
+    if(!mt){mkToast('Профіль не знайдено','error');return;}
+    try{
+      await dbUpdate('tutors',mt.id,{photo:dataUrl});
+      // Update local
+      var idx=S.tutors.findIndex(function(t){return t.id===mt.id;});
+      if(idx>=0) S.tutors[idx].photo=dataUrl;
+      // Update photo preview in form
+      var prev=document.getElementById('pr-photo-preview');
+      if(prev) prev.innerHTML='<img src="'+dataUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+      mkToast('Фото збережено ✅');
+      renderProfile();
+    }catch(err){mkToast('Помилка: '+err.message,'error');}
+  };
+  reader.readAsDataURL(file);
+}
+window.uploadTutorPhoto=uploadTutorPhoto;
+
+
+// ═══════════════════════════════════
+// SEARCHABLE SELECT UTILITY
+// ═══════════════════════════════════
+function makeSearchable(selectId){
+  var sel=document.getElementById(selectId);
+  if(!sel) return;
+
+  // Already initialized — just re-sync options into dropdown
+  if(sel.dataset.searchable==='1'){
+    sel._updateSearch && sel._updateSearch();
+    return;
+  }
+  sel.dataset.searchable='1';
+  sel.style.display='none';
+
+  var wrap=document.createElement('div');
+  wrap.className='srch-wrap';
+  wrap.style.cssText='position:relative;display:inline-block;width:100%';
+  sel.parentNode.insertBefore(wrap,sel);
+  wrap.appendChild(sel);
+
+  var inp=document.createElement('input');
+  inp.placeholder=sel.options[0]?sel.options[0].text:'Пошук...';
+  inp.style.cssText='width:100%;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);font-size:13px;box-sizing:border-box;color:var(--t1)';
+  inp.setAttribute('autocomplete','off');
+  wrap.insertBefore(inp,sel);
+
+  var drop=document.createElement('div');
+  // У body, не у wrap: інакше overflow:hidden модалки (.mdl) обрізає й блокує скрол списку,
+  // бо CSS-анімація модалки з transform створює containing block для position:fixed/absolute нащадків.
+  document.body.appendChild(drop);
+  function positionSearchDrop(){
+    var r=inp.getBoundingClientRect();
+    drop.style.position='fixed';
+    drop.style.top=r.bottom+'px';
+    drop.style.left=r.left+'px';
+    drop.style.width=r.width+'px';
+  }
+  drop.style.cssText='background:var(--s1);border:1px solid var(--b1);border-radius:8px;max-height:220px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.18)';
+  positionSearchDrop();
+  window.addEventListener('resize', function(){ if(drop.style.display!=='none') positionSearchDrop(); });
+  window.addEventListener('scroll', function(){ if(drop.style.display!=='none') positionSearchDrop(); }, true);
+
+  function renderDrop(q){
+    drop.innerHTML='';
+    var opts=Array.from(sel.options);
+    var filtered=q?opts.filter(function(o){return o.text.toLowerCase().includes(q.toLowerCase());}):opts;
+    if(!filtered.length){ drop.style.display='none'; return; }
+    filtered.forEach(function(o){
+      var item=document.createElement('div');
+      item.textContent=o.text;
+      item.dataset.val=o.value;
+      item.style.cssText='padding:8px 12px;cursor:pointer;font-size:13px;color:var(--t1)';
+      item.addEventListener('mouseenter',function(){item.style.background='var(--s2)';});
+      item.addEventListener('mouseleave',function(){item.style.background='';});
+      item.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        sel.value=o.value;
+        inp.value=o.value?o.text:'';
+        drop.style.display='none';
+        inp.placeholder=sel.options[0]?sel.options[0].text:'Пошук...';
+        sel.dispatchEvent(new Event('change'));
+      });
+      drop.appendChild(item);
+    });
+    drop.style.display='block';
+  }
+
+  inp.addEventListener('focus',function(){ inp.select(); positionSearchDrop(); renderDrop(''); });
+  inp.addEventListener('input',function(){ sel.value=''; renderDrop(inp.value); });
+  inp.addEventListener('blur',function(){ setTimeout(function(){ drop.style.display='none'; },200); });
+
+  // Called after options are refreshed externally
+  sel._updateSearch=function(){
+    var opt=sel.value?Array.from(sel.options).find(function(o){return o.value===sel.value;}):null;
+    inp.value=opt?opt.text:'';
+    inp.placeholder=sel.options[0]?sel.options[0].text:'Пошук...';
+  };
+  sel._updateSearch();
+}
+window.makeSearchable=makeSearchable;
+
+document.addEventListener('DOMContentLoaded', initApp);
+
+// Tutor checkbox visual feedback
+document.addEventListener('change', function(e){
+  if(e.target && e.target.classList.contains('st-tutor-cb')){
+    var lbl = e.target.closest('label');
+    if(lbl){
+      lbl.style.background = e.target.checked ? 'rgba(41,171,226,.15)' : 'var(--s1)';
+      lbl.style.borderColor = e.target.checked ? 'var(--adm)' : 'var(--b1)';
+    }
+  }
+});
+
+
+// Перевіряє чи пропущений урок є відпрацьованим
+// (є makeup_date АБО є урок зі статусом makeup для того ж учня в тих самих даних)
+// Перевіряє чи makeup-урок є парою до якогось пропущеного (зворотній зв'язок)
+function isMakeupForMissed(l){
+  if(l.status!=='makeup') return false;
+  if(l.missed_date) return true;
+  var sid = l.studentId||l.student_id;
+  var tid = l.tutorId||l.tutor_id;
+  return (S.lessons||[]).some(function(x){
+    if(x.status!=='missed') return false;
+    if((x.studentId||x.student_id)!==sid) return false;
+    if((x.tutorId||x.tutor_id)!==tid) return false;
+    return x.makeup_date===l.date || x.split_group_id===l.id || l.split_group_id===x.id;
+  });
+}
+
+// Сума хвилин ПРОВЕДЕНИХ відпрацювань, пов'язаних із цим пропущеним уроком
+function coveredMissedMinutes(l){
+  var sid = l.studentId||l.student_id;
+  var ldate = l.date;
+
+  // Усі пропущені заняття ЦЬОГО учня в ЦЕЙ САМЕ день — незалежно від того, чи це
+  // частини одного розбитого уроку (split_group_id), чи два зовсім різні уроки,
+  // що просто збіглися датою. Раніше зіставлення йшло лише за датою (missed_date),
+  // тому одне відпрацювання "бачили" одразу всі пропуски того дня і кожен вважав
+  // себе покритим повністю. Тепер пул хвилин відпрацювань розподіляється між ними
+  // ПОСЛІДОВНО (за часом), а не роздається кожному окремо.
+  var sameDayParts = (S.lessons||[]).filter(function(x){
+    return x.status==='missed' && x.date===ldate && ((x.studentId||x.student_id)===sid);
+  }).sort(function(a,b){
+    var ai=(a.split_index!=null?a.split_index:999), bi=(b.split_index!=null?b.split_index:999);
+    if(ai!==bi) return ai-bi;
+    return String(a.time||'').localeCompare(String(b.time||''));
+  });
+
+  // Пул відпрацювань, пов'язаних із цим днем: за explicit missed_date, за split_group_id
+  // будь-якої з частин, або за посиланням makeup_date з боку пропущеного уроку.
+  var groupIds=[]; sameDayParts.forEach(function(p){ if(p.split_group_id&&groupIds.indexOf(p.split_group_id)<0) groupIds.push(p.split_group_id); });
+  var makeupDates=[]; sameDayParts.forEach(function(p){ if(p.makeup_date&&makeupDates.indexOf(p.makeup_date)<0) makeupDates.push(p.makeup_date); });
+  var makeups = (S.lessons||[]).filter(function(x){
+    if(x.status!=='makeup') return false; // рахуються лише ПРОВЕДЕНІ відпрацювання
+    if((x.studentId||x.student_id)!==sid) return false;
+    if(x.missed_date===ldate) return true;
+    if(x.split_group_id && groupIds.indexOf(x.split_group_id)>=0) return true;
+    if(makeupDates.indexOf(x.date)>=0) return true;
+    return false;
+  });
+  var pool = makeups.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
+
+  // Розподіляємо пул послідовно між усіма пропусками цього дня; повертаємо частку саме l.
+  for(var i=0;i<sameDayParts.length;i++){
+    var need = parseFloat(sameDayParts[i].dur)||60;
+    var give = Math.min(pool, need);
+    pool -= give;
+    if(sameDayParts[i].id===l.id) return give;
+  }
+  return 0; // l не знайдено серед власних пропусків цього дня (не мало б статись)
+}
+
+// Пропуск вважається покритим ЛИШЕ коли сума годин відпрацювань >= пропущених годин.
+// (Раніше makeup_date давав "покрито" без порівняння тривалостей — 2 пропущені години
+//  "закривались" 1 годиною відпрацювання.)
+function isCoveredMissed(l){
+  if(l.status!=='missed') return false;
+  return coveredMissedMinutes(l) >= (parseFloat(l.dur)||60);
+}
+
+function getUncoveredMissed(lessons){
+  return (lessons||[]).filter(function(l){
+    return (l.status==='missed') && !isCoveredMissed(l);
+  });
+}
+
+// Фільтр для дашборду: пропущені без відпрацювання
+// Повертає непокриту тривалість пропущеного уроку в годинах
+function uncoveredMissedHours(l){
+  if(l.status!=='missed') return 0;
+  var uncovered=Math.max(0,(parseFloat(l.dur)||60)-coveredMissedMinutes(l));
+  return Math.round(uncovered/60*10)/10;
+}
+
+function uncoveredMissedFilter(lessons){
+  return (lessons||[]).filter(function(l){
+    return (l.status==='missed'||l.status==='absent') && !isCoveredMissed(l);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
+
+// Tutor checkbox visual feedback
+document.addEventListener('change', function(e){
+  if(e.target && e.target.classList.contains('st-tutor-cb')){
+    var lbl = e.target.closest('label');
+    if(lbl){
+      lbl.style.background = e.target.checked ? 'rgba(41,171,226,.15)' : 'var(--s1)';
+      lbl.style.borderColor = e.target.checked ? 'var(--adm)' : 'var(--b1)';
+    }
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════
+// TELEPHONY MODULE
+// ═══════════════════════════════════════════════════════
+
+var TEL_SETTINGS_KEY = 'crm_tel_settings';
+var TEL_LOG_KEY      = 'crm_tel_log';
+
+function telGetSettings(){
+  try{ return JSON.parse(localStorage.getItem(TEL_SETTINGS_KEY)||'{}'); }catch(e){ return {}; }
+}
+function telSaveSettingsLocal(obj){
+  localStorage.setItem(TEL_SETTINGS_KEY, JSON.stringify(obj));
+}
+async function telGetLog(filter){
+  if(!_sb) return [];
+  try{
+    var q = _sb.from('call_logs').select('*').order('created_at',{ascending:false}).limit(200);
+    if(filter) q = q.eq('direction', filter);
+    var _r = await q;
+    return _r.data || [];
+  }catch(e){ console.error('telGetLog:',e); return []; }
+}
+async function telAddLog(entry){
+  if(!_sb) return;
+  try{
+    await _sb.from('call_logs').insert({
+      direction:   entry.direction||'inbound',
+      phone:       entry.phone||'',
+      caller_name: entry.callerName||null,
+      duration:    entry.duration||0,
+      status:      entry.status||'completed',
+      record_url:  entry.recordUrl||null,
+      student_id:  entry.studentId||null,
+      zadarma_id:  entry.zadarmaId||null,
+    });
+  }catch(e){ console.error('telAddLog:',e); }
+}
+
+function renderTelephony(){
+  // Access guard — дзвінки може слухати бог/директор/адмін; НАЛАШТУВАННЯ (нижче) — лише бог
+  var r = R();
+  if(r !== 'god' && r !== 'director' && r !== 'admin'){
+    document.getElementById('pg-telephony').innerHTML =
+      '<div class="empty" style="padding:60px"><div class="ei">🔒</div>Доступ лише для адміністраторів та директора</div>';
+    return;
+  }
+
+  // Кнопка "⚙ Налаштування" (провайдер, API-ключі, вебхук) — виключно для бога системи
+  var canSettings = r==='god';
+  var settingsBtn = document.getElementById('tel-settings-toggle-btn');
+  if(settingsBtn) settingsBtn.style.display = canSettings ? '' : 'none';
+  var syncHint = document.getElementById('tel-sync-hint');
+  if(syncHint) syncHint.style.display = canSettings ? 'block' : 'none';
+  var diagBtn = document.getElementById('tel-diag-btn');
+  if(diagBtn) diagBtn.style.display = canSettings ? '' : 'none';
+
+  var cfg = telGetSettings();
+
+  // Populate fields
+  var setV = function(id,v){ var el=document.getElementById(id); if(el && v!==undefined) el.value=v||''; };
+  var setCh = function(id,v){ var el=document.getElementById(id); if(el) el.checked=!!v; };
+  setV('tel-provider', cfg.provider);
+  setV('tel-url',      cfg.url);
+  setV('tel-key',      cfg.key);
+  setV('tel-secret',   cfg.secret);
+  setV('tel-did',      cfg.did);
+  setV('tel-ivr',      cfg.ivr);
+  setCh('tel-record',  cfg.record);
+  setCh('tel-popup',   cfg.popup !== false);
+  setCh('tel-autolog', cfg.autolog !== false);
+
+  // Webhook URL
+  var whEl = document.getElementById('tel-webhook-url');
+  var _wUrls={kyivstar:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',zadarma:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook'};
+  if(whEl) whEl.value = _wUrls[cfg.provider]||'';
+
+  telProviderChange();
+  telUpdateStatus(cfg.provider && cfg.key ? 'configured' : 'none');
+  renderTelLog();
+}
+
+function telProviderChange(){
+  var prov = (document.getElementById('tel-provider')||{value:''}).value;
+  var rowUrl = document.getElementById('tel-row-url');
+  var rowWh  = document.getElementById('tel-row-webhook');
+  if(rowUrl) rowUrl.style.display = (prov==='zadarma'||prov==='binotel'||prov==='ringostat'||prov==='kyivstar') ? 'none' : '';
+  if(rowWh)  rowWh.style.display  = prov ? '' : 'none';
+
+  // Оновлюємо саме значення webhook URL під ЩОЙНО обраного провайдера — раніше це
+  // поле оновлювалось лише один раз при відкритті модалки (за старим збереженим
+  // провайдером), тому вибір "Київстар" не оновлював URL, доки не збережеш і не
+  // відкриєш налаштування знову.
+  var _wUrls={kyivstar:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',zadarma:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook'};
+  var whEl = document.getElementById('tel-webhook-url');
+  if(whEl) whEl.value = _wUrls[prov] || '';
+
+  // Show provider-specific hints
+  var hints = {
+    kyivstar: 'Київстар Бізнес АТС: отримайте FMC Token на fmc.kyivstar.ua/crm-integration. Скопіюйте Webhook URL нижче і вставте в поле «URL віддаленої системи» в кабінеті Київстару',
+    zadarma:  'Zadarma: отримайте API Key та Secret в особистому кабінеті → Налаштування → API',
+    binotel:  'Binotel: API ключ у Binotel кабінеті → Інтеграції → API',
+    ringostat:'Ringostat: токен у розділі Інтеграції → API',
+    asterisk: 'Asterisk AMI: вкажіть хост:порт (наприклад 192.168.1.10:5038), логін та пароль з /etc/asterisk/manager.conf',
+    custom:   'Вкажіть URL вашого API та ключ автентифікації'
+  };
+  var hintEl = document.getElementById('tel-provider-hint');
+  if(!hintEl){
+    hintEl = document.createElement('div');
+    hintEl.id = 'tel-provider-hint';
+    hintEl.style.cssText = 'font-size:11px;color:var(--t3);margin-top:6px;padding:8px;background:var(--s2);border-radius:6px';
+    var provRow = document.getElementById('tel-provider');
+    if(provRow && provRow.closest('.fgr')) provRow.closest('.fgr').appendChild(hintEl);
+  }
+  hintEl.textContent = hints[prov]||'';
+  hintEl.style.display = hints[prov] ? '' : 'none';
+}
+
+function telSaveSettings(){
+  if(R()!=='god'){ mkToast('\u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456 \u043b\u0438\u0448\u0435 \u0431\u043e\u0433\u0443 \u0441\u0438\u0441\u0442\u0435\u043c\u0438','error'); return; }
+  var get  = function(id){ var el=document.getElementById(id); return el?el.value.trim():''; };
+  var getCh = function(id){ var el=document.getElementById(id); return el?el.checked:false; };
+  var cfg = {
+    provider: get('tel-provider'),
+    url:      get('tel-url'),
+    key:      get('tel-key'),
+    secret:   get('tel-secret'),
+    did:      get('tel-did'),
+    ivr:      get('tel-ivr'),
+    record:   getCh('tel-record'),
+    popup:    getCh('tel-popup'),
+    autolog:  getCh('tel-autolog'),
+    autolead: getCh('tel-autolead'),
+  };
+  if(!cfg.provider){ mkToast('Оберіть провайдера','error'); return; }
+  if(!cfg.key){ mkToast('Введіть API Key / Token','error'); return; }
+  telSaveSettingsLocal(cfg);
+  mkToast('Налаштування збережено ✅');
+  telUpdateStatus('configured');
+  closeM('mo-tel-settings');
+}
+
+async function telTestConn(){
+  if(R()!=='god'){ mkToast('\u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456 \u043b\u0438\u0448\u0435 \u0431\u043e\u0433\u0443 \u0441\u0438\u0441\u0442\u0435\u043c\u0438','error'); return; }
+  var cfg = telGetSettings();
+  if(!cfg.provider||!cfg.key){ mkToast('Спочатку збережіть налаштування','error'); return; }
+  mkToast('Перевіряємо з\'єднання…');
+  telUpdateStatus('checking');
+  // Simulate check (real integration requires server-side proxy due to CORS)
+  await new Promise(function(r){setTimeout(r,1500);});
+  // In real implementation: call provider API via backend proxy
+  var ok = !!(cfg.key && cfg.provider);
+  telUpdateStatus(ok ? 'configured' : 'error');
+  mkToast(ok
+    ? 'Налаштування збережено. Реальний тест відбудеться при першому дзвінку через Zadarma.'
+    : '❌ Заповніть API Key та провайдера', ok?'':'error');
+}
+
+function telUpdateStatus(state){
+  var dot = document.getElementById('tel-status-dot');
+  var lbl = document.getElementById('tel-status-lbl');
+  if(!dot||!lbl) return;
+  var states = {
+    none:       {color:'var(--t3)',  text:'Не налаштовано'},
+    configured: {color:'#f59e0b',   text:'Налаштовано (не перевірено)'},
+    checking:   {color:'#60a5fa',   text:'Перевірка…'},
+    ok:         {color:'#22c55e',   text:'Підключено'},
+    error:      {color:'#ef4444',   text:'Помилка з\'єднання'},
+  };
+  var s = states[state]||states.none;
+  dot.style.background = s.color;
+  lbl.textContent = s.text;
+  lbl.style.color = s.color;
+}
+
+function telCopyWebhook(){
+  var el = document.getElementById('tel-webhook-url');
+  if(!el) return;
+  navigator.clipboard.writeText(el.value).then(function(){
+    mkToast('URL скопійовано 📋');
+  }).catch(function(){
+    el.select(); document.execCommand('copy'); mkToast('URL скопійовано 📋');
+  });
+}
+
+function telToggleSettings(){
+  if(R()!=='god'){ mkToast('\u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456 \u043b\u0438\u0448\u0435 \u0431\u043e\u0433\u0443 \u0441\u0438\u0441\u0442\u0435\u043c\u0438','error'); return; }
+  var cfg = telGetSettings();
+  // Заповнюємо модалку поточними налаштуваннями
+  if(cfg.provider){
+    document.getElementById('tel-provider').value = cfg.provider;
+    telSelectProv(cfg.provider);
+  }
+  var fields = {
+    'tel-url': cfg.url||'',
+    'tel-key': cfg.key||'',
+    'tel-secret': cfg.secret||'',
+    'tel-did': cfg.did||'',
+    'tel-ivr': cfg.ivr||''
+  };
+  Object.entries(fields).forEach(function(kv){
+    var el=document.getElementById(kv[0]); if(el) el.value=kv[1];
+  });
+  var checks = {'tel-record':cfg.record,'tel-popup':cfg.popup,'tel-autolog':cfg.autolog,'tel-autolead':cfg.autolead};
+  Object.entries(checks).forEach(function(kv){
+    var el=document.getElementById(kv[0]); if(el) el.checked=!!kv[1];
+  });
+  // Webhook URL
+  var _wUrls={kyivstar:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/kyivstar-webhook',zadarma:'https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/zadarma-webhook'};
+  var whEl=document.getElementById('tel-webhook-url');
+  if(whEl) whEl.value=_wUrls[cfg.provider]||'';
+  // Синхронізуємо статус
+  var dot=document.getElementById('tel-modal-dot');
+  var lbl=document.getElementById('tel-modal-status-lbl');
+  var pill=document.getElementById('tel-modal-status-pill');
+  var sdot=document.getElementById('tel-status-dot');
+  var slbl=document.getElementById('tel-status-lbl');
+  if(dot&&sdot) dot.style.background=sdot.style.background;
+  if(lbl&&slbl) lbl.textContent=slbl.textContent;
+  openM('mo-tel-settings');
+}
+window.telToggleSettings = telToggleSettings;
+
+function telSelectProv(prov){
+  document.getElementById('tel-provider').value = prov;
+  document.querySelectorAll('.prov-card').forEach(function(c){
+    c.classList.toggle('sel', c.dataset.prov===prov);
+  });
+  telProviderChange();
+}
+window.telSelectProv = telSelectProv;
+
+// Завантажує запис розмови через серверну функцію (браузер не може
+// звертатись до API Київстару напряму — там секретний токен) і одразу
+// підставляє програвач у ту саму клітинку таблиці.
+// Запускає серверну синхронізацію з Київстаром: підтягує реальну тривалість,
+// record_id (для записів розмов), час дзвінка до відповіді та код завершення.
+// Показує діагностику, якщо базову адресу чи спосіб авторизації ще не визначено.
+// Діагностика зʼєднання з API Київстару. Показує, чи Supabase взагалі
+// може достукатись до їхніх серверів, чи проблема в токені/параметрах.
+async function diagnoseKyivstar(){
+  if(R()!=='god'){ mkToast('\u0414\u043e\u0441\u0442\u0443\u043f \u043b\u0438\u0448\u0435 \u0434\u043b\u044f \u0431\u043e\u0433\u0430','error'); return; }
+  mkToast('\u23f3 \u041f\u0435\u0440\u0435\u0432\u0456\u0440\u043a\u0430 \u0437\u2019\u0454\u0434\u043d\u0430\u043d\u043d\u044f\u2026');
+  try{
+    var _sess=await _sb.auth.getSession();
+    var jwt=_sess?.data?.session?.access_token;
+    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/sync-call-history',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+      body:JSON.stringify({diagnose:true})
+    });
+    var data=await res.json();
+    console.log('[\u0434\u0456\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u043a\u0430]', data);
+    var txt=(data.diagnostics||[data.error||'\u043d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445']).join('\n');
+    alert('\u0414\u0456\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u043a\u0430 \u0437\u2019\u0454\u0434\u043d\u0430\u043d\u043d\u044f \u0437 \u041a\u0438\u0457\u0432\u0441\u0442\u0430\u0440\u043e\u043c:\n\n'+txt);
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+}
+window.diagnoseKyivstar=diagnoseKyivstar;
+
+async function syncCallHistory(){
+  if(R()!=='god'){ mkToast('\u0414\u043e\u0441\u0442\u0443\u043f \u043b\u0438\u0448\u0435 \u0434\u043b\u044f \u0431\u043e\u0433\u0430 \u0441\u0438\u0441\u0442\u0435\u043c\u0438','error'); return; }
+  var btn=document.getElementById('tel-sync-btn');
+  if(btn){ btn.disabled=true; btn.textContent='\u23f3 \u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u044f\u2026'; }
+  try{
+    var _sess=await _sb.auth.getSession();
+    var jwt=_sess?.data?.session?.access_token;
+    var res=await fetch('https://rndxbvwisppxnhvrzwqi.supabase.co/functions/v1/sync-call-history',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+jwt},
+      body:JSON.stringify({hours:24})
+    });
+    var data=await res.json();
+    console.log('[sync-call-history] \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u044c:', data);
+
+    if(!res.ok){
+      // Показуємо докладну діагностику — які адреси й способи авторизації пробувались
+      var att=((data.attempts||[]).concat(data.log||[])).join('\n')||'(\u043f\u043e\u0440\u043e\u0436\u043d\u044c\u043e)';
+      alert('\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0437\u0432\u0435\u0440\u043d\u0443\u0442\u0438\u0441\u044c \u0434\u043e API \u041a\u0438\u0457\u0432\u0441\u0442\u0430\u0440\u0443.\n\n'
+        +(data.error||'')+'\n\n'+(data.hint||'')+'\n\n\u0421\u043f\u0440\u043e\u0431\u0438:\n'+att);
+      throw new Error(data.error||'\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430');
+    }
+
+    mkToast('\u2705 \u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e '+(data.updated||0)+' \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432, \u0456\u0437 \u0437\u0430\u043f\u0438\u0441\u043e\u043c: '+(data.withRecording||0));
+    if(data.connectivity) alert('\u0414\u0456\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u043a\u0430 \u0437\u0432\'\u044f\u0437\u043a\u0443:\n\n'+data.connectivity+'\n\n\u0416\u0443\u0440\u043d\u0430\u043b:\n'+((data.log||[]).join('\n')));
+    // Підказуємо, які значення варто зберегти секретами, щоб не перебирати щоразу
+    if(data.apiBase && data.authMode){
+      console.log('%c[\u041a\u0438\u0457\u0432\u0441\u0442\u0430\u0440] \u0417\u0431\u0435\u0440\u0435\u0436\u0456\u0442\u044c \u0441\u0435\u043a\u0440\u0435\u0442\u0430\u043c\u0438: KYIVSTAR_API_BASE='+data.apiBase+'  KYIVSTAR_AUTH_MODE='+data.authMode,'font-weight:bold;color:#22c55e');
+    }
+    await renderTelLog();
+  }catch(e){
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='\ud83d\udd04 \u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u043f\u0438\u0441\u0438'; }
+  }
+}
+window.syncCallHistory=syncCallHistory;
+
+async function playCallRecord(callLogId){
+  var cell=document.getElementById('rec-cell-'+callLogId);
+  if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--t3)">\u23f3\u2026</span>';
+  try{
+    // Знаходимо шлях до вже завантаженого файлу в нашому сховищі.
+    // Напряму до Київстару не звертаємось: по-перше, там потрібен секретний
+    // токен, по-друге, сервери Supabase не мають до нього мережевого доступу.
+    var _r=await _sb.from('call_logs').select('*').eq('id',callLogId).limit(1);
+    var row=(_r.data||[])[0];
+    if(!row||!row.recording_path)
+      throw new Error('\u0417\u0430\u043f\u0438\u0441 \u0449\u0435 \u043d\u0435 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043e. \u0417\u0430\u043f\u0443\u0441\u0442\u0456\u0442\u044c konstanta-sync.js');
+
+    var _s=await _sb.storage.from('call-records').createSignedUrl(row.recording_path,3600);
+    if(_s.error||!_s.data?.signedUrl) throw new Error(_s.error?.message||'\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 \u043f\u043e\u0441\u0438\u043b\u0430\u043d\u043d\u044f');
+    if(cell) cell.innerHTML='<audio controls autoplay style="height:28px;max-width:180px"><source src="'+_s.data.signedUrl+'" type="audio/mpeg"></audio>';
+  }catch(e){
+    if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--danger)">\u274c</span>';
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error');
+  }
+}
+window.playCallRecord=playCallRecord;
+
+// Поточне сортування журналу дзвінків
+var telSort = { col:'date', dir:'desc' };
+
+function telSetSort(col){
+  if(telSort.col===col) telSort.dir = telSort.dir==='desc' ? 'asc' : 'desc';
+  else { telSort.col=col; telSort.dir='desc'; }
+  renderTelLog();
+}
+window.telSetSort = telSetSort;
+
+async function renderTelLog(){
+  var body = document.getElementById('tel-log-body');
+  if(!body) return;
+  var typeF   = (document.getElementById('tel-log-filter')||{value:''}).value;
+  var periodF = (document.getElementById('tel-period')||{value:''}).value;
+  var q       = ((document.getElementById('tel-search')||{value:''}).value||'').toLowerCase().trim();
+
+  body.innerHTML = '<div class="tel-empty">\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</div>';
+
+  // Напрямок фільтруємо на сервері, решту — локально
+  var srvFilter = (typeF==='inbound'||typeF==='outbound') ? typeF : null;
+  var log = await telGetLog(srvFilter);
+
+  try{ await telAutoCreateLeads(log); }catch(e){ console.warn('[telAutoCreateLeads]', e); }
+
+  // ── Фільтрація ──
+  var now = Date.now();
+  var rows = (log||[]).filter(function(e){
+    var isMissed = e.status==='missed' || (!e.duration && e.status!=='alerting');
+    if(typeF==='missed' && !isMissed) return false;
+    if(typeF==='hasrec' && !e.recording_path && !e.recording_url && !e.record_url) return false;
+
+    if(periodF){
+      var t = new Date(e.created_at||0).getTime();
+      if(periodF==='today'){
+        var d0=new Date(); d0.setHours(0,0,0,0);
+        if(t < d0.getTime()) return false;
+      } else {
+        if(now - t > parseInt(periodF)*86400000) return false;
+      }
+    }
+
+    if(q){
+      var sid=e.studentId||e.student_id;
+      var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+      var hay=[(e.caller_phone||''),(e.callee_phone||''),(e.phone||''),(e.caller_name||''),
+               st?(st.fn+' '+st.ln):''].join(' ').toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+
+  // ── Сортування ──
+  rows.sort(function(a,b){
+    var v;
+    if(telSort.col==='dur')      v=(parseInt(a.duration)||0)-(parseInt(b.duration)||0);
+    else if(telSort.col==='who'){
+      var nm=function(e){
+        var sid=e.studentId||e.student_id;
+        var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+        return (st?st.fn+' '+st.ln:(e.caller_name||'\uffff')).toLowerCase();
+      };
+      v=nm(a).localeCompare(nm(b),'uk');
+    }
+    else if(telSort.col==='type') v=String(a.direction||'').localeCompare(String(b.direction||''));
+    else v=new Date(a.created_at||0)-new Date(b.created_at||0);
+    return telSort.dir==='desc' ? -v : v;
+  });
+
+  // ── Зведення ──
+  var sum=document.getElementById('tel-summary');
+  if(sum){
+    var inC=0,outC=0,missC=0,totalSec=0,recC=0;
+    rows.forEach(function(e){
+      var isMissed = e.status==='missed' || (!e.duration && e.status!=='alerting');
+      if(isMissed) missC++;
+      else if(String(e.direction)==='outbound') outC++;
+      else inC++;
+      totalSec += parseInt(e.duration)||0;
+      if(e.recording_path) recC++;
+    });
+    var mins=Math.floor(totalSec/60);
+    sum.innerHTML =
+       '<span class="tel-sum-item">\ud83d\udcca \u0423\u0441\u044c\u043e\u0433\u043e <b>'+rows.length+'</b></span>'
+      +'<span class="tel-sum-item" style="color:#16a34a">\ud83d\udce5 \u0412\u0445\u0456\u0434\u043d\u0456 <b>'+inC+'</b></span>'
+      +'<span class="tel-sum-item" style="color:#2563eb">\ud83d\udce4 \u0412\u0438\u0445\u0456\u0434\u043d\u0456 <b>'+outC+'</b></span>'
+      +'<span class="tel-sum-item" style="color:#dc2626">\u274c \u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0456 <b>'+missC+'</b></span>'
+      +'<span class="tel-sum-item">\u23f1 \u0420\u043e\u0437\u043c\u043e\u0432 <b>'+mins+'</b> \u0445\u0432</span>'
+      +'<span class="tel-sum-item">\ud83c\udfa7 \u0417\u0430\u043f\u0438\u0441\u0456\u0432 <b>'+recC+'</b></span>';
+  }
+
+  if(!rows.length){
+    body.innerHTML='<div class="tel-empty"><div style="font-size:34px;margin-bottom:8px">\ud83d\udcde</div>'
+      +((q||typeF||periodF)
+        ? '\u0417\u0430 \u0446\u0438\u043c\u0438 \u0444\u0456\u043b\u044c\u0442\u0440\u0430\u043c\u0438 \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u043d\u0435\u043c\u0430\u0454'
+        : '\u0416\u0443\u0440\u043d\u0430\u043b \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u043f\u043e\u0440\u043e\u0436\u043d\u0456\u0439')+'</div>';
+    return;
+  }
+
+  // ── Заголовок таблиці із сортуванням ──
+  function th(col,label,extra){
+    var on = telSort.col===col;
+    var ico = on ? (telSort.dir==='desc'?'\u25bc':'\u25b2') : '\u21c5';
+    return '<th class="sortable'+(on?' sorted':'')+'" onclick="telSetSort(\''+col+'\')"'+(extra||'')+'>'
+      +label+'<span class="sort-ico">'+ico+'</span></th>';
+  }
+
+  var html='<div style="overflow-x:auto;max-height:70vh"><table class="tel-tbl"><thead><tr>'
+    +th('type','\u0422\u0438\u043f')
+    +'<th>\u041d\u043e\u043c\u0435\u0440</th>'
+    +th('who','\u0423\u0447\u0435\u043d\u044c / \u043a\u043b\u0456\u0454\u043d\u0442')
+    +th('dur','\u0422\u0440\u0438\u0432\u0430\u043b\u0456\u0441\u0442\u044c')
+    +th('date','\u0414\u0430\u0442\u0430')
+    +'<th>\u0417\u0430\u043f\u0438\u0441</th><th></th></tr></thead><tbody>';
+
+  html += rows.map(function(e){
+    var sid=e.studentId||e.student_id;
+    var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+    var isMissed = e.status==='missed' || (!e.duration && e.status!=='alerting');
+    var isOut = String(e.direction)==='outbound';
+
+    var dirHtml = isMissed
+      ? '<span class="tel-dir tel-dir-miss">\u274c \u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0438\u0439</span>'
+      : (isOut ? '<span class="tel-dir tel-dir-out">\ud83d\udce4 \u0412\u0438\u0445\u0456\u0434\u043d\u0438\u0439</span>'
+               : '<span class="tel-dir tel-dir-in">\ud83d\udce5 \u0412\u0445\u0456\u0434\u043d\u0438\u0439</span>');
+
+    var phone = e.caller_phone||e.phone||e.callee_phone||'';
+    var secs = parseInt(e.duration)||0;
+    var dur = secs ? (Math.floor(secs/60)+'\u0445\u0432 '+String(secs%60).padStart(2,'0')+'\u0441') : '\u2014';
+
+    var d=new Date(e.created_at||0);
+    var dateHtml = isNaN(d.getTime()) ? '\u2014'
+      : '<span class="tel-date"><b>'+String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getFullYear()).slice(2)+'</b>'
+        +String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+'</span>';
+
+    var whoTxt = st ? (st.fn+' '+st.ln) : (e.caller_name||'\u2014');
+    var isLead = !st && /\u041d\u043e\u0432\u0438\u0439 \u043b\u0456\u0434|\u0414\u0437\u0432\u0456\u043d\u043e\u043a/.test(whoTxt);
+    var whoHtml = st
+      ? '<span class="tel-who">'+whoTxt+'</span>'
+      : '<span class="tel-who'+(isLead?' tel-who-lead':'')+'">'+whoTxt+'</span>';
+
+    var recUrl = e.recording_url || e.record_url || e.recordUrl;
+    var recHtml = recUrl
+      ? '<audio controls style="height:28px;max-width:170px"><source src="'+recUrl+'"></audio>'
+      : (e.recording_path
+        ? '<button class="btn btn-g btn-sm" onclick="playCallRecord(\''+e.id+'\')">\ud83c\udfa7 \u0421\u043b\u0443\u0445\u0430\u0442\u0438</button>'
+        : ((e.record_id||e.recordId)
+          ? '<span style="color:var(--t3);font-size:11px" title="\u0417\u0430\u043f\u0443\u0441\u0442\u0456\u0442\u044c konstanta-sync.js">\u23f3 \u043d\u0435 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043e</span>'
+          : '<span style="color:var(--t3);font-size:11px">\u2014</span>'));
+
+    return '<tr class="'+(isMissed?'row-miss':(isOut?'row-out':'row-in'))+'">'
+      +'<td>'+dirHtml+'</td>'
+      +'<td><a class="tel-num" href="tel:'+phone+'">'+phone+'</a></td>'
+      +'<td>'+whoHtml+'</td>'
+      +'<td class="tel-dur"'+(isMissed?' style="color:var(--t3)"':'')+'>'+dur+'</td>'
+      +'<td>'+dateHtml+'</td>'
+      +'<td id="rec-cell-'+e.id+'">'+recHtml+'</td>'
+      +'<td style="text-align:right">'
+        +(sid ? '<button class="btn btn-g btn-sm" onclick="openStudM(\''+sid+'\')" title="\u041a\u0430\u0440\u0442\u043a\u0430 \u0443\u0447\u043d\u044f">\ud83d\udc64</button>'
+              : '<button class="btn btn-g btn-sm" onclick="telLinkStudent(\''+e.id+'\',\''+phone+'\')" title="\u041f\u0440\u0438\u0432\'\u044f\u0437\u0430\u0442\u0438 \u0434\u043e \u0443\u0447\u043d\u044f">\ud83d\udd17</button>')
+      +'</td></tr>';
+  }).join('');
+
+  html += '</tbody></table></div>';
+  body.innerHTML = html;
+}
+
+
+// Автоматичне створення нового ліда в CRM з дзвінка від невідомого номера.
+// Раніше перемикач "Автостворення ліда" в налаштуваннях телефонії існував
+// в інтерфейсі, але ніде не використовувався — дзвінки ніяк не потрапляли в CRM.
+async function telAutoCreateLeads(log){
+  var cfg = telGetSettings();
+  if(cfg.autolead===false) return; // перемикач вимкнено — нічого не робимо
+  if(!log||!log.length) return;
+  for(var i=0;i<log.length;i++){
+    var e=log[i];
+    if(e.student_id||e.studentId) continue; // вже прив'язано до когось
+    var phone=(e.caller_phone||e.phone||'').trim();
+    if(!phone) continue;
+    var digits=phone.replace(/\D/g,'');
+    if(!digits) continue;
+    // Може, номер уже відповідає комусь із наявних учнів/лідів — тоді просто прив'язуємо
+    var existing=(S.students||[]).find(function(s){
+      return (s.phone&&s.phone.replace(/\D/g,'')===digits) || (s.parentPhone&&s.parentPhone.replace(/\D/g,'')===digits);
+    });
+    try{
+      if(existing){
+        await _sb.from('call_logs').update({student_id:existing.id, caller_name:existing.fn+' '+existing.ln}).eq('id',e.id);
+        e.student_id=existing.id; e.caller_name=existing.fn+' '+existing.ln;
+        continue;
+      }
+      // Номер невідомий — створюємо новий лід автоматично
+      var newLead={
+        id:uid(), fn:e.caller_name||e.callerName||'\u0414\u0437\u0432\u0456\u043d\u043e\u043a \u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457', ln:'',
+        phone:phone, status:'trial', crm_stage:'lead', crm_date:new Date().toISOString().slice(0,10),
+        notes:'\u0410\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e \u0437 '+((e.direction==='outbound')?'\u0432\u0438\u0445\u0456\u0434\u043d\u043e\u0433\u043e':'\u0432\u0445\u0456\u0434\u043d\u043e\u0433\u043e')+' \u0434\u0437\u0432\u0456\u043d\u043a\u0430',
+        branch_id: myBranchId()||null
+      };
+      await dbInsert('students', newLead);
+      if(!(S.students||[]).some(function(x){return x.id===newLead.id;}))
+        S.students=(S.students||[]).concat([normalizeStudent(newLead)]);
+      await _sb.from('call_logs').update({student_id:newLead.id, caller_name:newLead.fn}).eq('id',e.id);
+      e.student_id=newLead.id; e.caller_name=newLead.fn; // одразу відображаємо без повторного запиту
+    }catch(err){ console.warn('[telAutoCreateLeads] помилка для дзвінка', e.id, err); }
+  }
+}
+
+async function telLinkStudent(logId, phone){
+  var found = (S.students||[]).find(function(s){
+    return s.phone && s.phone.replace(/\D/g,'') === phone.replace(/\D/g,'');
+  });
+  if(found){
+    try{
+      await _sb.from('call_logs').update({student_id:found.id, caller_name:found.fn+' '+found.ln}).eq('id',logId);
+      mkToast('\u041f\u0440\u0438\u0432\u02bc\u044f\u0437\u0430\u043d\u043e \u0434\u043e '+found.fn+' '+found.ln);
+      renderTelLog();
+    }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error'); }
+  } else {
+    mkToast('\u0423\u0447\u043d\u044f \u0437 \u0442\u0430\u043a\u0438\u043c \u043d\u043e\u043c\u0435\u0440\u043e\u043c \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e. \u041f\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u043d\u043e\u043c\u0435\u0440 \u0432 \u043a\u0430\u0440\u0442\u0446\u0456 \u0443\u0447\u043d\u044f.','error');
+  }
+}
+window.telLinkStudent = telLinkStudent;
+
+// ══════════════════════════════════════════════════════════
+// НАВЧАЛЬНИЙ РЕЖИМ (ПІСОЧНИЦЯ) — ігровий тур для нових репетиторів
+// Активується через ?training=1. Усі дані тестові, живуть лише в
+// пам'яті вкладки (S), жоден запис ніколи не йде в Supabase.
+// ══════════════════════════════════════════════════════════
+
+var TRAINING_QUESTS = [
+  { id:'schedule',  icon:'\uD83D\uDCC5', badge:'\uD83D\uDCC5', title:'\u041F\u0435\u0440\u0448\u0438\u0439 \u043F\u043E\u0433\u043B\u044F\u0434',
+    descr:'\u0412\u0456\u0434\u043A\u0440\u0438\u0439\u0442\u0435 \u0441\u0432\u0456\u0439 \u0440\u043E\u0437\u043A\u043B\u0430\u0434',
+    check:function(){ return TR._visited.schedule===true; } },
+  { id:'student',   icon:'\uD83D\uDC64', badge:'\uD83E\uDDD1\u200D\uD83C\uDF93', title:'\u0417\u043D\u0430\u0439\u043E\u043C\u0441\u0442\u0432\u043E \u0437 \u0443\u0447\u043D\u0435\u043C',
+    descr:'\u0412\u0456\u0434\u043A\u0440\u0438\u0439\u0442\u0435 \u043A\u0430\u0440\u0442\u043A\u0443 \u0431\u0443\u0434\u044C-\u044F\u043A\u043E\u0433\u043E \u0443\u0447\u043D\u044F',
+    check:function(){ return TR._visited.student===true; } },
+  { id:'donelesson',icon:'\u2705', badge:'\u2705', title:'\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0437\u0430\u043D\u044F\u0442\u0442\u044F',
+    descr:'\u041F\u043E\u0437\u043D\u0430\u0447\u0442\u0435 \u0431\u0443\u0434\u044C-\u044F\u043A\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u044F\u043A "\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E"',
+    check:function(){ return (S.lessons||[]).some(function(l){return l.status==='done' && l.id!=='tr-l3';}); } },
+  { id:'missedlesson',icon:'\u274C', badge:'\uD83D\uDD34', title:'\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F',
+    descr:'\u041F\u043E\u0437\u043D\u0430\u0447\u0442\u0435 \u0431\u0443\u0434\u044C-\u044F\u043A\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u044F\u043A "\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E" \u0432 \u0440\u043E\u0437\u043A\u043B\u0430\u0434\u0456',
+    check:function(){ return (S.lessons||[]).some(function(l){return l.status==='missed' && l.id!=='tr-l5';}); } },
+  { id:'makeup',icon:'\uD83D\uDD01', badge:'\uD83D\uDD01', title:'\u0417\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u0435 \u0432\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F',
+    descr:'\u0414\u043B\u044F \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E\u0433\u043E \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u043F\u043E\u0441\u0442\u0430\u0432\u0442\u0435 \u0432\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F (\u0441\u0442\u0430\u0442\u0443\u0441 "\u0412\u0456\u0434\u043F\u0440. \u0437\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u043E")',
+    check:function(){ return (S.lessons||[]).some(function(l){return l.status==='makeup_planned'||l.status==='makeup';}); } },
+  { id:'monthplan_recur', icon:'\uD83D\uDD01', badge:'\uD83D\uDCC6', title:'\u041C\u0456\u0441\u044F\u0447\u043D\u0438\u0439 \u043F\u043B\u0430\u043D \u0456\u0437 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u043D\u044F\u043C',
+    descr:'\u0412\u0456\u0434\u043A\u0440\u0438\u0439\u0442\u0435 "\u0417\u0430\u043D\u044F\u0442\u0442\u044F" \u2192 "+ \u0414\u043E\u0434\u0430\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F" \u2192 \u043E\u0431\u0435\u0440\u0456\u0442\u044C \u0443\u0447\u043D\u044F \u0456 \u0447\u0430\u0441 \u2192 \u0443 \u043F\u043E\u043B\u0456 "\u041F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u043D\u044F" \u043E\u0431\u0435\u0440\u0456\u0442\u044C "\u0429\u043E\u0442\u0438\u0436\u043D\u044F" \u0456 \u0432\u043A\u0430\u0436\u0456\u0442\u044C \u043A\u0456\u043B\u044C\u043A\u0456\u0441\u0442\u044C \u043F\u043E\u0432\u0442\u043E\u0440\u0456\u0432 (\u043D\u0430\u043F\u0440. 4, \u043D\u0430 \u0432\u0435\u0441\u044C \u043C\u0456\u0441\u044F\u0446\u044C) \u2192 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438. \u0421\u0442\u0432\u043E\u0440\u0438\u0442\u044C\u0441\u044F \u043E\u0434\u0440\u0430\u0437\u0443 \u043A\u0456\u043B\u044C\u043A\u0430 \u0437\u0430\u043D\u044F\u0442\u044C \u043D\u0430\u043F\u0435\u0440\u0435\u0434 \u2014 \u043D\u0435 \u0442\u0440\u0435\u0431\u0430 \u0434\u043E\u0434\u0430\u0432\u0430\u0442\u0438 \u043A\u043E\u0436\u043D\u0435 \u043E\u043A\u0440\u0435\u043C\u043E.',
+    check:function(){ return (S.lessons||[]).some(function(l){return !!(l.recurId||l.recur_id);}); } },
+  { id:'monthplan_single', icon:'\u2795', badge:'\uD83D\uDCCC', title:'\u041E\u0434\u043D\u043E\u0440\u0430\u0437\u043E\u0432\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u0431\u0435\u0437 \u043F\u043E\u0432\u0442\u043E\u0440\u0443',
+    descr:'\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u0449\u0435 \u043E\u0434\u043D\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u0434\u043B\u044F \u0431\u0443\u0434\u044C-\u044F\u043A\u043E\u0433\u043E \u0443\u0447\u043D\u044F, \u0430\u043B\u0435 \u0446\u044C\u043E\u0433\u043E \u0440\u0430\u0437\u0443 \u0437\u0430\u043B\u0438\u0448\u0456\u0442\u044C \u043F\u043E\u043B\u0435 "\u041F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u043D\u044F" = "\u0411\u0435\u0437 \u043F\u043E\u0432\u0442\u043E\u0440\u0443" \u2014 \u0442\u0430\u043A \u0434\u043E\u0434\u0430\u044E\u0442\u044C \u0440\u0430\u0437\u043E\u0432\u0456, \u043D\u0435\u0440\u0435\u0433\u0443\u043B\u044F\u0440\u043D\u0456 \u0437\u0430\u043D\u044F\u0442\u0442\u044F.',
+    check:function(){ return (S.lessons||[]).some(function(l){return !l.recurId && !l.recur_id && TR._seedLessonIds.indexOf(l.id)<0 && l.id!=='tr-l-mk-partial';}); } },
+  { id:'partial_coverage', icon:'\uD83D\uDFE3', badge:'\uD83C\uDFA8', title:'\u0427\u0430\u0441\u0442\u043A\u043E\u0432\u0435 \u0432\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F \u0456 \u043A\u043E\u043B\u044C\u043E\u0440\u0438',
+    descr:'\u0423 \u0411\u043E\u0433\u0434\u0430\u043D\u0430 \u0454 \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u0435 \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u043D\u0430 2 \u0433\u043E\u0434\u0438\u043D\u0438 (\u0447\u0435\u0440\u0432\u043E\u043D\u0435 \u2014 ❌ \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E). \u0421\u0442\u0432\u043E\u0440\u0456\u0442\u044C \u0432\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F \u043D\u0430 1 \u0433\u043E\u0434\u0438\u043D\u0443 \u0434\u043B\u044F \u0446\u044C\u043E\u0433\u043E \u0436 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0443 (\u0432\u043A\u0430\u0436\u0456\u0442\u044C \u0442\u0443 \u0441\u0430\u043C\u0443 \u0434\u0430\u0442\u0443 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0443 \u0443 \u043F\u043E\u043B\u0456 "\u0414\u0430\u0442\u0430 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0443"). \u0417\u0432\u0435\u0440\u043D\u0456\u0442\u044C \u0443\u0432\u0430\u0433\u0443 \u2014 \u043A\u043E\u043B\u0456\u0440 \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E\u0433\u043E \u0437\u0430\u043D\u044F\u0442\u0442\u044F \u0437\u043C\u0456\u043D\u0438\u0442\u044C\u0441\u044F \u0437 \u0447\u0435\u0440\u0432\u043E\u043D\u043E\u0433\u043E \u043D\u0430 \u0444\u0456\u043E\u043B\u0435\u0442\u043E\u0432\u0438\u0439 \u043F\u0443\u043D\u043A\u0442\u0438\u0440\u043D\u0438\u0439 (\u2014 \u0432\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E \u0447\u0430\u0441\u0442\u043A\u043E\u0432\u043E), \u0430 \u041D\u0415 \u043D\u0430 \u0437\u0435\u043B\u0435\u043D\u0438\u0439/\u0444\u0456\u043E\u043B\u0435\u0442\u043E\u0432\u0438\u0439 \u0441\u0443\u0446\u0456\u043B\u044C\u043D\u0438\u0439 \u2014 \u0431\u043E \u043F\u043E\u043A\u0440\u0438\u0442\u043E \u043B\u0438\u0448\u0435 1 \u0433\u043E\u0434\u0438\u043D\u0443 \u0437 2.',
+    check:function(){
+      var missed=(S.lessons||[]).find(function(l){return l.id==='tr-l5';});
+      if(!missed) return false;
+      try{
+        var covered = isCoveredMissed(missed);
+        var uncH = uncoveredMissedHours(missed);
+        return !covered && uncH>0 && uncH*60 < (parseFloat(missed.dur)||120);
+      }catch(e){ return false; }
+    } },
+  { id:'homework',  icon:'\uD83D\uDCDD', badge:'\uD83D\uDCDA', title:'\u0414\u043E\u0434\u0430\u043D\u043E \u0434\u043E\u043C\u0430\u0448\u043D\u0454 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F',
+    descr:'\u0417\u0430\u043F\u043E\u0432\u043D\u0456\u0442\u044C \u043F\u043E\u043B\u0435 "\u0414\u043E\u043C\u0430\u0448\u043D\u0454 \u0437\u0430\u0432\u0434\u0430\u043D\u043D\u044F" \u0432 \u0431\u0443\u0434\u044C-\u044F\u043A\u043E\u043C\u0443 \u0437\u0430\u043D\u044F\u0442\u0442\u0456',
+    check:function(){ return (S.lessons||[]).some(function(l){return (l.hw||'').trim().length>0;}); } },
+  { id:'comm',      icon:'\uD83D\uDCAC', badge:'\uD83D\uDDE8\uFE0F', title:'\u041F\u0435\u0440\u0448\u0435 \u043F\u043E\u0432\u0456\u0434\u043E\u043C\u043B\u0435\u043D\u043D\u044F',
+    descr:'\u0414\u043E\u0434\u0430\u0439\u0442\u0435 \u0437\u0430\u043F\u0438\u0441 \u0443 "\u041A\u043E\u043C\u0443\u043D\u0456\u043A\u0430\u0446\u0456\u044F\u0445" \u0434\u043B\u044F \u0431\u0443\u0434\u044C-\u044F\u043A\u043E\u0433\u043E \u0443\u0447\u043D\u044F',
+    check:function(){ return (S.comms||[]).length>0; } },
+  { id:'task',      icon:'\u2611\uFE0F', badge:'\uD83C\uDFC6', title:'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u043E',
+    descr:'\u0412\u0456\u0434\u043A\u0440\u0438\u0439\u0442\u0435 "\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F" \u0456 \u043F\u043E\u0437\u043D\u0430\u0447\u0442\u0435 \u043E\u0434\u043D\u0435 \u044F\u043A \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u0435',
+    check:function(){ return (S.tasks||[]).some(function(t){return t.status==='done';}); } },
+  { id:'profile',   icon:'\uD83D\uDC64', badge:'\u2B50', title:'\u041E\u0441\u043E\u0431\u0438\u0441\u0442\u0438\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C',
+    descr:'\u0417\u0430\u0439\u0434\u0456\u0442\u044C \u0443 "\u041C\u0456\u0439 \u043F\u0440\u043E\u0444\u0456\u043B\u044C" \u0456 \u0437\u0430\u043F\u043E\u0432\u043D\u0456\u0442\u044C \u043A\u043E\u0440\u043E\u0442\u043A\u0443 \u0431\u0456\u043E\u0433\u0440\u0430\u0444\u0456\u044E',
+    check:function(){ return TR._visited.profile===true; } }
+];
+
+var TR = { _visited:{}, _done:{}, _lastCheck:0 };
+
+function trainingSeedData(){
+  var today=new Date();
+  var ds=function(off){ var d=new Date(today); d.setDate(today.getDate()+off); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  var tutorId='tr-tut-1';
+  S.tutors=[{id:tutorId,accId:tutorId,acc_uid:tutorId,fn:'\u0422\u0440\u0435\u043D\u0443\u0432\u0430\u043B\u044C\u043D\u0438\u0439',ln:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440',phone:'',email:'',subj:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',branchIds:[]}];
+  S.students=[
+    {id:'tr-s1',fn:'\u0410\u043D\u043D\u0430',ln:'\u041F\u0440\u0438\u043A\u043B\u0430\u0434',status:'active',grade:'7 \u043A\u043B\u0430\u0441',phone:'+380501112233',tutorId:tutorId,tutorIds:[tutorId],rates:[{subject:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',tutor_id:tutorId,rate:400}]},
+    {id:'tr-s2',fn:'\u0411\u043E\u0433\u0434\u0430\u043D',ln:'\u0417\u0440\u0430\u0437\u043E\u043A',status:'active',grade:'9 \u043A\u043B\u0430\u0441',phone:'+380501112234',tutorId:tutorId,tutorIds:[tutorId],rates:[{subject:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',tutor_id:tutorId,rate:400}]}
+  ];
+  S.lessons=[
+    {id:'tr-l1',studentId:'tr-s1',student_id:'tr-s1',tutorId:tutorId,tutor_id:tutorId,subject:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',date:ds(0),time:'10:00',dur:60,price:400,status:'planned'},
+    {id:'tr-l2',studentId:'tr-s2',student_id:'tr-s2',tutorId:tutorId,tutor_id:tutorId,subject:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',date:ds(1),time:'14:00',dur:60,price:400,status:'planned'},
+    {id:'tr-l3',studentId:'tr-s1',student_id:'tr-s1',tutorId:tutorId,tutor_id:tutorId,subject:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',date:ds(-2),time:'10:00',dur:60,price:400,status:'done'},
+    {id:'tr-l5',studentId:'tr-s2',student_id:'tr-s2',tutorId:tutorId,tutor_id:tutorId,subject:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430',date:ds(-3),time:'12:00',dur:120,price:400,status:'missed'}
+  ];
+  S.tasks=[
+    {id:'tr-t1',title:'\u041F\u0435\u0440\u0435\u0432\u0456\u0440\u0438\u0442\u0438 \u0434\u043E\u043C\u0430\u0448\u043D\u044E \u0440\u043E\u0431\u043E\u0442\u0443 \u0410\u043D\u043D\u0438',assigneeId:tutorId,assignee_id:tutorId,creatorId:'tr-dir',status:'open',deadline:ds(2)}
+  ];
+  S.payments=[]; S.comms=[]; S.branches=[]; S.subjects=[{name:'\u041C\u0430\u0442\u0435\u043C\u0430\u0442\u0438\u043A\u0430'}]; S.pricingRules=[]; S.payrollItems=[]; S.settings={name:'\u041A\u043E\u043D\u0441\u0442\u0430\u043D\u0442\u0430 (\u043D\u0430\u0432\u0447\u0430\u043D\u043D\u044F)'};
+  S.users=[{id:tutorId,fn:'\u0422\u0440\u0435\u043D\u0443\u0432\u0430\u043B\u044C\u043D\u0438\u0439',ln:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440',role:'tutor'}];
+  CU={ id:tutorId, fn:'\u0422\u0440\u0435\u043D\u0443\u0432\u0430\u043B\u044C\u043D\u0438\u0439', ln:'\u0420\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440', role:'tutor', perms:{} };
+  TR._seedLessonIds = (S.lessons||[]).map(function(l){return l.id;});
+}
+
+function initTrainingMode(){
+  trainingSeedData();
+  window._trainingMode = true;
+  window._viewerMode = false; // записи ДОЗВОЛЕНІ, просто локальні (перехоплюються нижче)
+
+  var asEl=document.getElementById('as'); if(asEl)asEl.style.display='block';
+  var lsEl=document.getElementById('ls'); if(lsEl)lsEl.style.display='none';
+  var setupEl=document.getElementById('setup'); if(setupEl)setupEl.style.display='none';
+  var loadDiv=document.getElementById('app-loading'); if(loadDiv)loadDiv.remove();
+  if(!document.getElementById('__pcss__')){
+    var _st=document.createElement('style'); _st.id='__pcss__';
+    _st.textContent='.page{display:none!important}.page.active{display:block!important;padding-bottom:40px}';
+    document.head.appendChild(_st);
+  }
+  buildSidebar(); updateSBUser();
+  document.body.className = document.body.className.replace(/\brole-\w+\b/g,'');
+  document.body.classList.add('role-tutor');
+
+  var banner=document.createElement('div');
+  banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#8b5cf6,#ec4899);color:#fff;text-align:center;padding:6px;font-size:12px;font-weight:700';
+  banner.innerHTML='\uD83C\uDF93 НАВЧАЛЬНИЙ РЕЖИМ — тестові дані, нічого не впливає на реальну CRM';
+  document.body.appendChild(banner);
+  var contentEl=document.getElementById('content'); if(contentEl)contentEl.style.paddingTop='34px';
+
+  trainingBuildPanel();
+  nav('dashboard');
+  setTimeout(trainingCheckProgress, 500);
+  setInterval(trainingCheckProgress, 2000);
+}
+
+function trainingBuildPanel(){
+  if(document.getElementById('tr-panel')) return;
+  var done=trainingLoadProgress();
+  var doneCount=Object.keys(done).filter(function(k){return done[k];}).length;
+  var wrap=document.createElement('div');
+  wrap.id='tr-panel';
+  wrap.style.cssText='position:fixed;right:16px;bottom:16px;width:280px;background:var(--s1);border:1px solid var(--b1);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.18);z-index:9998;font-family:inherit;overflow:hidden;transition:transform .25s';
+  wrap.innerHTML =
+    '<div id="tr-head" style="background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">'
+      +'<div><b style="font-size:13px">\uD83C\uDFAE Навчальні квести</b><div id="tr-progress-txt" style="font-size:11px;opacity:.9">'+doneCount+' / '+TRAINING_QUESTS.length+' виконано</div></div>'
+      +'<span id="tr-toggle-ico" style="font-size:16px">\u2212</span>'
+    +'</div>'
+    +'<div style="height:5px;background:rgba(255,255,255,.25);margin-top:-5px">'
+      +'<div id="tr-bar" style="height:100%;background:#fff;width:'+Math.round(doneCount/TRAINING_QUESTS.length*100)+'%;transition:width .4s"></div>'
+    +'</div>'
+    +'<div id="tr-body" style="max-height:320px;overflow-y:auto;padding:8px"></div>'
+    +'<div id="tr-legend" style="padding:8px 10px;border-top:1px solid var(--b1)">'
+      +'<div style="font-size:10.5px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:5px">\uD83C\uDFA8 \u041A\u043E\u043B\u044C\u043E\u0440\u0438 \u0437\u0430\u043D\u044F\u0442\u044C</div>'
+      +'<div style="display:flex;flex-direction:column;gap:3px;font-size:11px">'
+        +'<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#29abe2;margin-right:6px"></span>\u0417\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u043E</div>'
+        +'<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#22c55e;margin-right:6px"></span>\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E</div>'
+        +'<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#ef4444;margin-right:6px"></span>\u041F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E</div>'
+        +'<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#8b5cf6;margin-right:6px"></span>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E \u043F\u043E\u0432\u043D\u0456\u0441\u0442\u044E</div>'
+        +'<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#c4b5fd;border:1px dashed #7c3aed;margin-right:6px"></span>\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E \u0447\u0430\u0441\u0442\u043A\u043E\u0432\u043E</div>'
+        +'<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#94a3b8;margin-right:6px"></span>\u0412\u0456\u0434\u043F\u0440. \u0437\u0430\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u043D\u043E</div>'
+      +'</div>'
+    +'</div>'
+    +'<div id="tr-badges" style="display:flex;gap:4px;flex-wrap:wrap;padding:8px 10px;border-top:1px solid var(--b1)"></div>'
+    +'<div style="padding:8px 10px;border-top:1px solid var(--b1)">'
+      +'<button id="tr-reset-btn" style="width:100%;padding:7px;font-size:11.5px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t2);cursor:pointer">\uD83D\uDD04 \u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u043F\u0440\u043E\u0433\u0440\u0435\u0441 \u0456 \u043F\u043E\u0447\u0430\u0442\u0438 \u0437\u0430\u043D\u043E\u0432\u043E</button>'
+    +'</div>';
+  document.body.appendChild(wrap);
+  document.getElementById('tr-head').onclick=function(){
+    var body=document.getElementById('tr-body'), badges=document.getElementById('tr-badges'), legend=document.getElementById('tr-legend'), ico=document.getElementById('tr-toggle-ico');
+    var collapsed = body.style.display==='none';
+    body.style.display = collapsed?'block':'none';
+    badges.style.display = collapsed?'flex':'none';
+    if(legend) legend.style.display = collapsed?'block':'none';
+    ico.textContent = collapsed?'\u2212':'+';
+  };
+  var resetBtn=document.getElementById('tr-reset-btn');
+  if(resetBtn) resetBtn.onclick=function(e){
+    e.stopPropagation();
+    if(!confirm('\u0421\u043A\u0438\u043D\u0443\u0442\u0438 \u0432\u0435\u0441\u044C \u043F\u0440\u043E\u0433\u0440\u0435\u0441 \u0456 \u043F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u0438 \u0442\u0435\u0441\u0442\u043E\u0432\u0456 \u0434\u0430\u043D\u0456 \u0434\u043E \u043F\u043E\u0447\u0430\u0442\u043A\u043E\u0432\u043E\u0433\u043E \u0441\u0442\u0430\u043D\u0443? \u0412\u0441\u0456 \u0432\u0430\u0448\u0456 \u0442\u0435\u0441\u0442\u043E\u0432\u0456 \u0437\u043C\u0456\u043D\u0438 \u0431\u0443\u0434\u0435 \u0432\u0442\u0440\u0430\u0447\u0435\u043D\u043E.')) return;
+    localStorage.removeItem('training_progress');
+    TR._done={}; TR._visited={};
+    trainingSeedData();
+    if(typeof nav==='function') nav(S.currentPage||'dashboard');
+    trainingRenderQuestList();
+    mkToast('\uD83D\uDD04 \u041F\u0440\u043E\u0433\u0440\u0435\u0441 \u0441\u043A\u0438\u043D\u0443\u0442\u043E, \u0442\u0435\u0441\u0442\u043E\u0432\u0456 \u0434\u0430\u043D\u0456 \u043F\u043E\u0432\u0435\u0440\u043D\u0435\u043D\u043E');
+  };
+  trainingRenderQuestList();
+}
+
+function trainingLoadProgress(){
+  try{ return JSON.parse(localStorage.getItem('training_progress')||'{}'); }catch(e){ return {}; }
+}
+function trainingSaveProgress(done){
+  try{ localStorage.setItem('training_progress', JSON.stringify(done)); }catch(e){}
+}
+
+function trainingRenderQuestList(){
+  var body=document.getElementById('tr-body');
+  if(!body) return;
+  var done=trainingLoadProgress();
+  body.innerHTML = TRAINING_QUESTS.map(function(q){
+    var isDone = !!done[q.id];
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:8px;'+(isDone?'opacity:.55':'')+'">'
+      +'<span style="font-size:16px">'+(isDone?'\u2705':q.icon)+'</span>'
+      +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;'+(isDone?'text-decoration:line-through':'')+'">'+q.title+'</div>'
+      +'<div style="font-size:10.5px;color:var(--t3)">'+q.descr+'</div></div>'
+    +'</div>';
+  }).join('');
+  var badgesEl=document.getElementById('tr-badges');
+  if(badgesEl){
+    badgesEl.innerHTML = TRAINING_QUESTS.filter(function(q){return done[q.id];})
+      .map(function(q){return '<span title="'+q.title+'" style="font-size:20px">'+q.badge+'</span>';}).join('')
+      || '<span style="font-size:11px;color:var(--t3)">Бейджі з\'являться тут</span>';
+  }
+}
+
+function trainingCelebrate(quest){
+  var pop=document.createElement('div');
+  pop.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.6);z-index:10001;background:var(--s1);border:2px solid #8b5cf6;border-radius:20px;padding:28px 36px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1)';
+  pop.innerHTML='<div style="font-size:48px">'+quest.badge+'</div><div style="font-weight:800;font-size:16px;margin-top:8px">Квест виконано!</div><div style="font-size:13px;color:var(--t2);margin-top:2px">'+quest.title+'</div>';
+  document.body.appendChild(pop);
+  requestAnimationFrame(function(){ pop.style.opacity='1'; pop.style.transform='translate(-50%,-50%) scale(1)'; });
+  setTimeout(function(){ pop.style.opacity='0'; pop.style.transform='translate(-50%,-50%) scale(0.6)'; setTimeout(function(){pop.remove();}, 350); }, 1800);
+  try{ mkToast('\uD83C\uDF89 Квест "'+quest.title+'" виконано!'); }catch(e){}
+}
+
+function trainingCheckProgress(){
+  if(!window._trainingMode) return;
+  var done=trainingLoadProgress();
+  var changed=false;
+  TRAINING_QUESTS.forEach(function(q){
+    if(done[q.id]) return;
+    var ok=false;
+    try{ ok=!!q.check(); }catch(e){}
+    if(ok){ done[q.id]=true; changed=true; trainingCelebrate(q); }
+  });
+  if(changed){
+    trainingSaveProgress(done);
+    trainingRenderQuestList();
+    var doneCount=Object.keys(done).filter(function(k){return done[k];}).length;
+    var txt=document.getElementById('tr-progress-txt'); if(txt) txt.textContent=doneCount+' / '+TRAINING_QUESTS.length+' виконано';
+    var bar=document.getElementById('tr-bar'); if(bar) bar.style.width=Math.round(doneCount/TRAINING_QUESTS.length*100)+'%';
+    if(doneCount===TRAINING_QUESTS.length){
+      setTimeout(function(){ mkToast('\uD83C\uDFC6 Вітаємо! Ви пройшли весь навчальний тур!'); }, 2000);
+    }
+  }
+}
+
+// Позначаємо відвідування сторінок (для квестів schedule/student/profile)
+var _trainingOrigNav = window.nav;
+window.nav = function(page){
+  var r = _trainingOrigNav.apply(this, arguments);
+  if(window._trainingMode){
+    if(page==='schedule') TR._visited.schedule=true;
+    if(page==='profile') TR._visited.profile=true;
+    trainingCheckProgress();
+  }
+  return r;
+};
+var _trainingOrigOpenStudM = window.openStudM;
+if(_trainingOrigOpenStudM){
+  window.openStudM = function(id){
+    var r=_trainingOrigOpenStudM.apply(this, arguments);
+    if(window._trainingMode && id){ TR._visited.student=true; trainingCheckProgress(); }
+    return r;
+  };
+}
