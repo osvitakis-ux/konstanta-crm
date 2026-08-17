@@ -2080,7 +2080,7 @@ function journalRedFlags(tutorId, period){
     if(d !== null && d > 7) flags.longDelay.push(l);
   });
 
-  // Скільки унікальних занять під підозрою
+  // Скільки унікальних занять потребує уваги
   var flagged = {};
   Object.keys(flags).forEach(function(k){
     flags[k].forEach(function(l){ flagged[l.id]=true; });
@@ -2378,7 +2378,7 @@ function renderRatingBlock(){
       +'<div style="overflow-x:auto"><table><thead><tr>'
       +'<th>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440</th><th style="text-align:center">\u0420\u0435\u0439\u0442\u0438\u043d\u0433</th>'
       +'<th style="text-align:center">\u0422\u0435\u043c\u0430</th><th style="text-align:center">\u0414\u0417</th>'
-      +'<th style="text-align:center">\u0412\u0447\u0430\u0441\u043d\u043e</th><th style="text-align:center">\u041d\u0435 \u0432\u0456\u0434\u0437\u043d\u0430\u0447\u0435\u043d\u043e</th><th style="text-align:center">\u041f\u0456\u0434\u043e\u0437\u0440\u0456\u043b\u0456</th>'
+      +'<th style="text-align:center">\u0412\u0447\u0430\u0441\u043d\u043e</th><th style="text-align:center">\u041d\u0435 \u0432\u0456\u0434\u0437\u043d\u0430\u0447\u0435\u043d\u043e</th><th style="text-align:center">\u041f\u043e\u0442\u0440\u0435\u0431\u0443\u0454 \u0443\u0432\u0430\u0433\u0438</th>'
       +'</tr></thead><tbody>';
     rows.forEach(function(x){
       var col=ratingColor(x.r.score);
@@ -9646,6 +9646,18 @@ async function syncCallHistory(){
 }
 window.syncCallHistory=syncCallHistory;
 
+/** Перемикає швидкість відтворення запису: 1× → 1.5× → 2× → 1× */
+function telSpeed(id, btn){
+  var a=document.getElementById('aud-'+id);
+  if(!a) return;
+  var steps=[1,1.5,2];
+  var cur=steps.indexOf(a.playbackRate);
+  var next=steps[(cur+1)%steps.length];
+  a.playbackRate=next;
+  btn.textContent=next+'\u00d7';
+}
+window.telSpeed=telSpeed;
+
 async function playCallRecord(callLogId){
   var cell=document.getElementById('rec-cell-'+callLogId);
   if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--t3)">\u23f3\u2026</span>';
@@ -9660,7 +9672,15 @@ async function playCallRecord(callLogId){
 
     var _s=await _sb.storage.from('call-records').createSignedUrl(row.recording_path,3600);
     if(_s.error||!_s.data?.signedUrl) throw new Error(_s.error?.message||'\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 \u043f\u043e\u0441\u0438\u043b\u0430\u043d\u043d\u044f');
-    if(cell) cell.innerHTML='<audio controls autoplay style="height:28px;max-width:180px"><source src="'+_s.data.signedUrl+'" type="audio/mpeg"></audio>';
+    // preload="metadata" дає повзунок перемотування одразу;
+    // кнопка швидкості — щоб довгі розмови можна було прослухати швидше
+    if(cell) cell.innerHTML=
+       '<div style="display:flex;align-items:center;gap:5px">'
+      +'<audio id="aud-'+callLogId+'" controls autoplay preload="metadata" controlsList="nodownload">'
+        +'<source src="'+_s.data.signedUrl+'" type="audio/mpeg"></audio>'
+      +'<button class="btn btn-g btn-sm" style="padding:2px 6px;font-size:10px" '
+        +'onclick="telSpeed(\''+callLogId+'\',this)" title="\u0428\u0432\u0438\u0434\u043a\u0456\u0441\u0442\u044c \u0432\u0456\u0434\u0442\u0432\u043e\u0440\u0435\u043d\u043d\u044f">1\u00d7</button>'
+      +'</div>';
   }catch(e){
     if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--danger)">\u274c</span>';
     mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error');
@@ -9777,7 +9797,7 @@ async function renderTelLog(){
 
   var html='<div style="overflow-x:auto;max-height:70vh"><table class="tel-tbl"><thead><tr>'
     +th('type','\u0422\u0438\u043f')
-    +'<th>\u041d\u043e\u043c\u0435\u0440</th>'
+    +'<th>\u0417\u0432\u0456\u0434\u043a\u0438</th><th>\u041a\u0443\u0434\u0438</th>'
     +th('who','\u0423\u0447\u0435\u043d\u044c / \u043a\u043b\u0456\u0454\u043d\u0442')
     +th('dur','\u0422\u0440\u0438\u0432\u0430\u043b\u0456\u0441\u0442\u044c')
     +th('date','\u0414\u0430\u0442\u0430')
@@ -9794,7 +9814,11 @@ async function renderTelLog(){
       : (isOut ? '<span class="tel-dir tel-dir-out">\ud83d\udce4 \u0412\u0438\u0445\u0456\u0434\u043d\u0438\u0439</span>'
                : '<span class="tel-dir tel-dir-in">\ud83d\udce5 \u0412\u0445\u0456\u0434\u043d\u0438\u0439</span>');
 
-    var phone = e.caller_phone||e.phone||e.callee_phone||'';
+    // Розділяємо номери: хто дзвонив і кому дзвонили.
+    // Для вхідного «звідки» — номер клієнта, «куди» — номер центру.
+    var fromPhone = e.caller_phone||e.phone||'';
+    var toPhone   = e.callee_phone||'';
+    var phone = fromPhone||toPhone;
     var secs = parseInt(e.duration)||0;
     var dur = secs ? (Math.floor(secs/60)+'\u0445\u0432 '+String(secs%60).padStart(2,'0')+'\u0441') : '\u2014';
 
@@ -9810,8 +9834,10 @@ async function renderTelLog(){
       : '<span class="tel-who'+(isLead?' tel-who-lead':'')+'">'+whoTxt+'</span>';
 
     var recUrl = e.recording_url || e.record_url || e.recordUrl;
+    // preload="metadata" — щоб браузер одразу знав тривалість і повзунок
+    // перемотування працював без повного завантаження файлу
     var recHtml = recUrl
-      ? '<audio controls style="height:28px;max-width:170px"><source src="'+recUrl+'"></audio>'
+      ? '<audio controls preload="metadata" controlsList="nodownload"><source src="'+recUrl+'" type="audio/mpeg"></audio>'
       : (e.recording_path
         ? '<button class="btn btn-g btn-sm" onclick="playCallRecord(\''+e.id+'\')">\ud83c\udfa7 \u0421\u043b\u0443\u0445\u0430\u0442\u0438</button>'
         : ((e.record_id||e.recordId)
@@ -9820,7 +9846,12 @@ async function renderTelLog(){
 
     return '<tr class="'+(isMissed?'row-miss':(isOut?'row-out':'row-in'))+'">'
       +'<td>'+dirHtml+'</td>'
-      +'<td><a class="tel-num" href="tel:'+phone+'">'+phone+'</a></td>'
+      +'<td>'+(fromPhone
+          ? '<a class="tel-num" href="tel:'+fromPhone+'">'+fromPhone+'</a>'
+          : '<span style="color:var(--t3)">\u2014</span>')+'</td>'
+      +'<td>'+(toPhone
+          ? '<a class="tel-num" href="tel:'+toPhone+'">'+toPhone+'</a>'
+          : '<span style="color:var(--t3)">\u2014</span>')+'</td>'
       +'<td>'+whoHtml+'</td>'
       +'<td class="tel-dur"'+(isMissed?' style="color:var(--t3)"':'')+'>'+dur+'</td>'
       +'<td>'+dateHtml+'</td>'
