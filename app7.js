@@ -9265,8 +9265,16 @@ function coveredMissedMinutes(l){
   // тому одне відпрацювання "бачили" одразу всі пропуски того дня і кожен вважав
   // себе покритим повністю. Тепер пул хвилин відпрацювань розподіляється між ними
   // ПОСЛІДОВНО (за часом), а не роздається кожному окремо.
+  // ВАЖЛИВО: враховуємо ще й РЕПЕТИТОРА. Один учень може мати в один день
+  // заняття у двох різних репетиторів і пропустити обидва. Відпрацювання,
+  // яке провів один репетитор, не має закривати пропуск іншого —
+  // раніше зіставлення йшло лише за учнем і датою, тож пропуски
+  // "закривались" чужими відпрацюваннями.
+  var tid = l.tutorId||l.tutor_id;
   var sameDayParts = (S.lessons||[]).filter(function(x){
-    return x.status==='missed' && x.date===ldate && ((x.studentId||x.student_id)===sid);
+    return x.status==='missed' && x.date===ldate
+        && ((x.studentId||x.student_id)===sid)
+        && ((x.tutorId||x.tutor_id)===tid);
   }).sort(function(a,b){
     var ai=(a.split_index!=null?a.split_index:999), bi=(b.split_index!=null?b.split_index:999);
     if(ai!==bi) return ai-bi;
@@ -9280,6 +9288,9 @@ function coveredMissedMinutes(l){
   var makeups = (S.lessons||[]).filter(function(x){
     if(x.status!=='makeup') return false; // рахуються лише ПРОВЕДЕНІ відпрацювання
     if((x.studentId||x.student_id)!==sid) return false;
+    // Відпрацювання зараховується лише ТОМУ САМОМУ репетитору, який провів
+    // пропущене заняття. Інакше урок Осєтрової закривав би пропуск Когута.
+    if((x.tutorId||x.tutor_id)!==tid) return false;
     if(x.missed_date===ldate) return true;
     if(x.split_group_id && groupIds.indexOf(x.split_group_id)>=0) return true;
     if(makeupDates.indexOf(x.date)>=0) return true;
