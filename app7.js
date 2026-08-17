@@ -9672,12 +9672,20 @@ async function playCallRecord(callLogId){
 
     var _s=await _sb.storage.from('call-records').createSignedUrl(row.recording_path,3600);
     if(_s.error||!_s.data?.signedUrl) throw new Error(_s.error?.message||'\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 \u043f\u043e\u0441\u0438\u043b\u0430\u043d\u043d\u044f');
-    // preload="metadata" дає повзунок перемотування одразу;
-    // кнопка швидкості — щоб довгі розмови можна було прослухати швидше
+    // Завантажуємо файл ПОВНІСТЮ в памʼять браузера і віддаємо програвачу
+    // локальне посилання. Це єдиний спосіб зробити перемотування миттєвим:
+    // при потоковому відтворенні браузер має щоразу довантажувати шматки з
+    // сервера, і повзунок або не рухається, або стрибає з великою затримкою.
+    if(cell) cell.innerHTML='<span style="font-size:11px;color:var(--t3)">\u23f3 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</span>';
+    var resp=await fetch(_s.data.signedUrl);
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    var blob=await resp.blob();
+    var localUrl=URL.createObjectURL(blob);
+
     if(cell) cell.innerHTML=
        '<div style="display:flex;align-items:center;gap:5px">'
-      +'<audio id="aud-'+callLogId+'" controls autoplay preload="metadata" controlsList="nodownload">'
-        +'<source src="'+_s.data.signedUrl+'" type="audio/mpeg"></audio>'
+      +'<audio id="aud-'+callLogId+'" controls autoplay preload="auto" controlsList="nodownload">'
+        +'<source src="'+localUrl+'" type="audio/mpeg"></audio>'
       +'<button class="btn btn-g btn-sm" style="padding:2px 6px;font-size:10px" '
         +'onclick="telSpeed(\''+callLogId+'\',this)" title="\u0428\u0432\u0438\u0434\u043a\u0456\u0441\u0442\u044c \u0432\u0456\u0434\u0442\u0432\u043e\u0440\u0435\u043d\u043d\u044f">1\u00d7</button>'
       +'</div>';
