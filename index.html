@@ -258,13 +258,16 @@ textarea{resize:vertical;min-height:72px}
 .rc-tl-tip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--t1);color:var(--s1);font-size:10px;padding:3px 7px;border-radius:5px;white-space:nowrap;opacity:0;pointer-events:none;transition:.15s;z-index:5}
 .rc-tl-bar:hover .rc-tl-tip{opacity:1}
 /* Мінімальні ширини — щоб колонки не тиснулись і не обрізались */
-.tel-tbl{min-width:820px}
-.tel-tbl th:nth-child(1),.tel-tbl td:nth-child(1){min-width:110px}
-.tel-tbl th:nth-child(2),.tel-tbl td:nth-child(2){min-width:140px}
-.tel-tbl th:nth-child(3),.tel-tbl td:nth-child(3){min-width:150px}
-.tel-tbl th:nth-child(4),.tel-tbl td:nth-child(4){min-width:95px;text-align:right}
-.tel-tbl th:nth-child(5),.tel-tbl td:nth-child(5){min-width:90px}
-.tel-tbl th:nth-child(6),.tel-tbl td:nth-child(6){min-width:120px}
+.tel-tbl{min-width:1000px}
+.tel-tbl th:nth-child(1),.tel-tbl td:nth-child(1){min-width:110px}   /* тип */
+.tel-tbl th:nth-child(2),.tel-tbl td:nth-child(2){min-width:135px}   /* звідки */
+.tel-tbl th:nth-child(3),.tel-tbl td:nth-child(3){min-width:135px}   /* куди */
+.tel-tbl th:nth-child(4),.tel-tbl td:nth-child(4){min-width:150px}   /* учень */
+.tel-tbl th:nth-child(5),.tel-tbl td:nth-child(5){min-width:95px;text-align:right} /* тривалість */
+.tel-tbl th:nth-child(6),.tel-tbl td:nth-child(6){min-width:90px}    /* дата */
+.tel-tbl th:nth-child(7),.tel-tbl td:nth-child(7){min-width:210px}   /* запис */
+/* Програвач запису — ширший, щоб було зручно перемотувати */
+.tel-tbl audio{height:32px;width:200px;max-width:200px}
 .tel-tbl th:last-child,.tel-tbl td:last-child{width:52px;text-align:center}
 /* Смужка кольору напрямку зліва — швидше зчитується оком */
 .tel-tbl tbody tr td:first-child{border-left:3px solid transparent}
@@ -281,7 +284,7 @@ textarea{resize:vertical;min-height:72px}
 .tel-date b{display:block;color:var(--t1);font-weight:600}
 .tel-empty{padding:40px;text-align:center;color:var(--t3)}
 @media(max-width:768px){
-  .tel-tbl th:nth-child(4),.tel-tbl td:nth-child(4){display:none}
+  .tel-tbl th:nth-child(3),.tel-tbl td:nth-child(3){display:none}
   #tel-search{width:120px!important}
 }
 /* ── Рейтинг репетитора ── */
@@ -2143,7 +2146,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=makeupfix1"></script>
+<script src="app7.js?v=attention1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
