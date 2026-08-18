@@ -4768,6 +4768,13 @@ async function cleanupPhoneLeads(){
           created_by: CU?CU.id:null
         });
       }
+      // ВАЖЛИВО: спершу відв'язуємо дзвінки від картки, яку видаляємо.
+      // Інакше база видаляє їх разом з учнем (каскадне видалення),
+      // і журнал телефонії втрачає записи.
+      try{
+        await _sb.from('call_logs').update({student_id:null}).eq('student_id', st.id);
+      }catch(e){ console.warn('unlink calls:', e); }
+
       await dbDelete('students', st.id);
       ok++;
     }catch(e){ fail++; console.warn('cleanupPhoneLeads:', st.id, e); }
@@ -4798,6 +4805,11 @@ async function delStudent(id){
   }
 
   try{
+    // Відв'язуємо дзвінки, щоб вони не зникли разом із карткою
+    try{
+      await _sb.from('call_logs').update({student_id:null}).eq('student_id', id);
+    }catch(e){ console.warn('unlink calls:', e); }
+
     await dbDelete('students',id);
     if(addToIgnore){
       try{
