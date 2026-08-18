@@ -1834,7 +1834,24 @@ function popSelSearch(id,arr,valKey,lblFn,placeholder){
     if(el.value!==savedVal) el.value='';
   }
   makeSearchable(id);
-  if(el&&el._updateSearch) el._updateSearch();
+  // Оновлюємо підказку ПІСЛЯ наповнення списку — інакше поле лишається
+  // візуально порожнім і незрозуміло, що це фільтр
+  var el2=document.getElementById(id);
+  if(el2){
+    var w=el2.closest('.srch-wrap');
+    var inp=w?w.querySelector('input'):null;
+    if(inp){
+      // Беремо перший НЕПОРОЖНІЙ пункт: popSel додає попереду порожній,
+      // через нього поле виглядало без підказки й здавалось зламаним
+      var ph='';
+      for(var oi=0;oi<el2.options.length;oi++){
+        var t=(el2.options[oi].text||'').trim();
+        if(t){ ph=t; break; }
+      }
+      inp.placeholder = ph || '\u041f\u043e\u0448\u0443\u043a\u2026';
+    }
+    if(el2._updateSearch) el2._updateSearch();
+  }
 }
 
 function openM(id){
@@ -2267,14 +2284,14 @@ function renderRatingBlock(){
         +'<div class="rt-title">\ud83d\udcd6 \u0412\u0435\u0434\u0435\u043d\u043d\u044f \u0436\u0443\u0440\u043d\u0430\u043b\u0443</div>'
         +'<div class="rt-sub" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
           +'<span style="display:inline-flex;gap:3px">'
-            +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
-            +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
+            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
+            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
           +'</span>'
           +'<span style="display:inline-flex;gap:3px;align-items:center">'
-            +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(-1)">\u2190</button>'
+            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(-1)">\u2190</button>'
             +'<b style="min-width:110px;text-align:center">'+P.label+'</b>'
-            +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(1)">\u2192</button>'
-            +(rtOffset!==0?'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
+            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(1)">\u2192</button>'
+            +(rtOffset!==0?'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
           +'</span>'
           +'<span>\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043d\u044f\u0442\u044c \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434</span>'
         +'</div>'
@@ -2337,14 +2354,14 @@ function renderRatingBlock(){
         +'<div class="rt-title">\ud83d\udcd6 \u0412\u0435\u0434\u0435\u043d\u043d\u044f \u0436\u0443\u0440\u043d\u0430\u043b\u0443</div>'
         +'<div class="rt-sub" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
           +'<span style="display:inline-flex;gap:3px">'
-            +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
-            +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
+            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
+            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
           +'</span>'
           +'<span style="display:inline-flex;gap:3px;align-items:center">'
-            +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(-1)">\u2190</button>'
+            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(-1)">\u2190</button>'
             +'<b style="min-width:110px;text-align:center">'+P.label+'</b>'
-            +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(1)">\u2192</button>'
-            +(rtOffset!==0?'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
+            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(1)">\u2192</button>'
+            +(rtOffset!==0?'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
           +'</span>'
           +'<span>'+r.doneCount+' \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u0438\u0445 \u0437 '+r.lessonsTotal+'</span>'
         +'</div>'
@@ -2368,12 +2385,12 @@ function renderRatingBlock(){
     var html='<div class="card" style="margin-bottom:16px"><div class="ch">'
       +'<span class="ct">\ud83d\udcd6 \u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u0432\u0435\u0434\u0435\u043d\u043d\u044f \u0436\u0443\u0440\u043d\u0430\u043b\u0456\u0432</span>'
       +'<span style="display:inline-flex;gap:3px;align-items:center;margin-left:auto">'
-        +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
-        +'<button class="btn btn-g btn-sm" style="padding:2px 9px;font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
-        +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(-1)">\u2190</button>'
+        +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
+        +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
+        +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(-1)">\u2190</button>'
         +'<b style="font-size:11px;min-width:105px;text-align:center">'+P2.label+'</b>'
-        +'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(1)">\u2192</button>'
-        +(rtOffset!==0?'<button class="btn btn-g btn-sm" style="padding:2px 8px;font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
+        +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(1)">\u2192</button>'
+        +(rtOffset!==0?'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
       +'</span></div>'
       +'<div style="overflow-x:auto"><table><thead><tr>'
       +'<th>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440</th><th style="text-align:center">\u0420\u0435\u0439\u0442\u0438\u043d\u0433</th>'
@@ -9164,7 +9181,11 @@ function makeSearchable(selectId){
   wrap.appendChild(sel);
 
   var inp=document.createElement('input');
-  inp.placeholder=sel.options[0]?sel.options[0].text:'Пошук...';
+  // Підказку беремо з першого пункту списку. Якщо на момент створення
+  // список ще порожній — ставимо загальну, інакше поле виглядає порожнім
+  // і незрозуміло, що це фільтр.
+  inp.placeholder=(sel.options[0] && sel.options[0].text) ? sel.options[0].text : '\u041f\u043e\u0448\u0443\u043a\u2026';
+  inp.dataset.autoPlaceholder='1';
   inp.style.cssText='width:100%;padding:6px 10px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);font-size:13px;box-sizing:border-box;color:var(--t1)';
   inp.setAttribute('autocomplete','off');
   wrap.insertBefore(inp,sel);
@@ -9218,7 +9239,12 @@ function makeSearchable(selectId){
   sel._updateSearch=function(){
     var opt=sel.value?Array.from(sel.options).find(function(o){return o.value===sel.value;}):null;
     inp.value=opt?opt.text:'';
-    inp.placeholder=sel.options[0]?sel.options[0].text:'Пошук...';
+    var ph2='';
+    for(var pi=0;pi<sel.options.length;pi++){
+      var tt=(sel.options[pi].text||'').trim();
+      if(tt){ ph2=tt; break; }
+    }
+    inp.placeholder = ph2 || '\u041f\u043e\u0448\u0443\u043a\u2026';
   };
   sel._updateSearch();
 }
