@@ -245,6 +245,117 @@ textarea{resize:vertical;min-height:72px}
 .tel-who-lead{color:#8b5cf6;font-weight:600}
 /* ── Таймлайн аналітики ── */
 .an-lg-row:hover{background:var(--s2)}
+
+/* ═══════════════════════════════════════════════════════════
+   МОБІЛЬНА ВЕРСІЯ — зручність дотику
+   Мінімальна ціль для пальця — 44px (рекомендація Apple/Google).
+   До цього кнопки й фільтри були 18–28px, у них важко поціляти.
+   ═══════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* Android малює блакитний прямокутник при кожному тапі — прибираємо,
+     бо він блимає на кожній кнопці й виглядає неохайно */
+  *{-webkit-tap-highlight-color:transparent}
+  /* Замість нього — власний, коротший відгук на натискання */
+  .btn:active,.chip:active,.rt-issue:active,.an-lg-row:active{opacity:.65;transform:scale(.98)}
+
+  /* Плавне гортання таблиць пальцем */
+  [style*="overflow-x"],[style*="overflow:auto"],.mdlb{
+    -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+
+  /* Кнопка меню — повноцінна ціль для пальця */
+  .hamburger{min-width:44px!important;min-height:44px!important;font-size:22px}
+
+  /* Кнопки */
+  .btn{min-height:42px;padding:9px 14px;font-size:14px}
+  .btn-sm{min-height:38px;padding:8px 12px;font-size:13px}
+  .xbtn{min-width:42px;min-height:42px;font-size:22px}
+
+  /* Поля вводу й списки — 16px, щоб iOS не зумив сторінку при фокусі */
+  input,select,textarea{font-size:16px!important;min-height:42px}
+  select{padding-right:30px;background-position:right 8px center}
+  textarea{min-height:80px}
+
+  /* Чипи-фільтри */
+  .chip{min-height:38px;padding:9px 15px;font-size:13px;display:inline-flex;align-items:center}
+  #sfchips{gap:8px!important}
+
+  /* Дії в таблицях — кнопки не тиснуться */
+  td .btn-sm{min-width:42px;min-height:38px}
+  td>div[style*="display:flex"]{gap:6px!important}
+
+  /* Заголовки карток переносяться, а не стискаються */
+  .ch{flex-wrap:wrap;gap:9px;padding:13px 15px}
+  .ct{font-size:14px;width:100%}
+
+  /* Фільтри в шапці — по два в ряд, а не кожен на всю ширину.
+     Інакше на сторінці «Заняття» три фільтри займали пів екрана. */
+  .ch input,.ch select{flex:1 1 calc(50% - 5px)!important;min-width:130px!important;
+                        width:auto!important;max-width:none!important}
+  .ch .btn,.ch .btn-sm{flex:0 0 auto}
+  /* Пошук — на всю ширину, він найважливіший */
+  .ch input[type="text"],.ch input[placeholder*="Пошук"],.ch input[placeholder*="пошук"]{
+    flex:1 1 100%!important}
+
+  /* Модальні вікна на весь екран — зручніше заповнювати */
+  .mdl{max-width:100%!important;width:100%;margin:0;border-radius:14px 14px 0 0;
+       max-height:94vh;position:fixed;bottom:0;left:0;right:0}
+  .mo{align-items:flex-end}
+  .mdlb{max-height:74vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .mdlf{position:sticky;bottom:0;background:var(--s1);border-top:1px solid var(--b1);
+        padding:11px 15px;gap:8px;z-index:2}
+  .mdlf .btn{flex:1;min-height:46px}
+
+  /* Форми в один стовпчик */
+  .fg{grid-template-columns:1fr!important;gap:13px}
+
+  /* Картки статистики — компактні, по дві в ряд */
+  .sgrid{grid-template-columns:repeat(2,1fr)!important;gap:9px}
+  .sc{padding:12px 13px!important}
+  .sval{font-size:21px;line-height:1.15}
+  .ssub,.slbl{font-size:10.5px}
+  .sico{display:none}   /* декоративна іконка забирає місце */
+
+  /* Таблиці зручніше гортати */
+  table{font-size:13px}
+  td,th{padding:11px 9px}
+
+  /* Стрілки й перемикачі періоду — квадратні, зручні для пальця */
+  .rt-nav-btn{min-width:44px!important;min-height:44px!important;padding:8px 12px!important;font-size:14px!important}
+
+  /* Кнопки-піктограми (стрілки, оновити, налаштування) — Android-браузери
+     не додають власних відступів, тому задаємо розмір явно */
+  .btn-sm:not(.xls-btn){min-width:44px}
+  .ch .btn-sm{min-width:44px;min-height:44px}
+  .rt-sub{gap:10px!important}
+  .rt-sub b{font-size:12.5px}
+
+  /* Рейтинг журналу */
+  .rt-card{padding:15px;gap:14px}
+  .rt-dial{width:88px;height:88px;margin:0 auto}
+  .rt-score{font-size:23px}
+  .rt-bar-lbl{width:96px;font-size:11px}
+  .rt-issue{padding:11px 12px;font-size:13px}
+
+  /* Таймлайн аналітики — вищий, легше поціляти */
+  .rc-tl-bars{height:66px;gap:3px}
+  .rc-tl-bar .lb{font-size:8.5px}
+
+  /* Програвач запису на всю ширину клітинки */
+  .tel-tbl audio{width:100%!important;min-width:200px!important;max-width:none!important;height:38px}
+  .tel-tbl th:nth-child(7),.tel-tbl td:nth-child(7){min-width:240px}
+}
+
+/* Дуже вузькі екрани */
+@media(max-width:400px){
+  /* Два стовпчики лишаємо навіть тут — інакше дашборд стає надто довгим */
+  .sgrid{grid-template-columns:repeat(2,1fr)!important;gap:8px}
+  .sval{font-size:19px}
+  .slbl{font-size:9.5px;letter-spacing:.2px}
+  .ct{font-size:13px}
+  .btn-sm{padding:8px 10px;font-size:12.5px}
+  /* Навігація тижнями не має вилазити за край */
+  #pg-dashboard .ch .btn-sm{flex:0 0 auto}
+}
 .rc-tl-bars{display:flex;gap:4px;align-items:flex-end;height:60px}
 .rc-tl-bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;cursor:pointer;position:relative;min-width:0;height:100%}
 .rc-tl-bar .fill{width:100%;background:var(--b1);border-radius:4px 4px 0 0;transition:.18s;min-height:3px}
@@ -660,9 +771,11 @@ textarea{resize:vertical;min-height:72px}
 }
 
 @media(max-width:420px){
-  .sgrid{grid-template-columns:1fr!important}
-  .kpi-grid{grid-template-columns:1fr!important}
-  .sval{font-size:22px!important}
+  /* Дві картки в ряд навіть на вузьких екранах — в один стовпчик
+     дашборд стає надто довгим і доводиться довго гортати */
+  .sgrid{grid-template-columns:repeat(2,1fr)!important;gap:8px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)!important;gap:8px}
+  .sval{font-size:19px!important}
   .topbar{padding-left:54px}
 }
 
@@ -2150,7 +2263,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=telaudio2"></script>
+<script src="app7.js?v=android1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
