@@ -1663,6 +1663,30 @@ body.role-tutor .comm-add-btn { display: none !important; }
       
 
       <!-- ── TELEPHONY ── -->
+      <!-- ── ЛІДИ З ДЗВІНКІВ ── -->
+      <div class="page" id="pg-leads">
+        <div class="card" style="margin-bottom:0">
+          <div class="ch" style="flex-wrap:wrap;gap:10px;align-items:center">
+            <span class="ct">☎ Ліди з дзвінків</span>
+            <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-left:auto;justify-content:flex-end">
+              <input id="lead-search" class="tel-inp" placeholder="🔍 Номер…" oninput="renderLeads()" style="width:170px">
+              <select id="lead-filter" class="tel-inp" onchange="renderLeads()" style="min-width:135px">
+                <option value="new">Нові</option>
+                <option value="contacted">В роботі</option>
+                <option value="converted">Стали учнями</option>
+                <option value="dismissed">Видалені</option>
+                <option value="">Усі</option>
+              </select>
+              <button class="btn btn-g btn-sm" onclick="renderLeads()" title="Оновити">↻</button>
+            </div>
+          </div>
+          <div id="lead-summary" style="display:flex;gap:14px;padding:8px 18px;border-bottom:1px solid var(--b1);flex-wrap:wrap;font-size:12px"></div>
+          <div id="leads-body" style="padding:0 18px 18px">
+            <div class="empty"><div class="ei">☎</div>Лідів поки немає</div>
+          </div>
+        </div>
+      </div>
+
       <div class="page" id="pg-telephony">
 
           <!-- Журнал — головна картка -->
@@ -2263,7 +2287,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=leadfix2"></script>
+<script src="app7.js?v=leads1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
