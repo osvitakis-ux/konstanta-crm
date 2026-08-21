@@ -342,12 +342,25 @@ function populateMissedSelect(){
   var stat=(document.getElementById('l-stat')||{value:''}).value;
   var cur=sel.value;   // збережемо поточний вибір
 
-  // Для статусу «Пропущене» список не потрібен — це саме заняття і є пропуском
+  // Для статусу «Пропущене» дата пропуску = дата самого заняття.
+  // Вводити її вручну немає сенсу, тому підставляємо автоматично
+  // і робимо поле недоступним для редагування.
   if(stat==='missed'){
-    sel.innerHTML='<option value="">\u2014</option>';
-    if(hint) hint.textContent='';
+    var ld=(document.getElementById('l-date')||{value:''}).value||'';
+    if(ld){
+      var dp=ld.split('-');
+      var lbl=dp.length===3 ? dp[2]+'.'+dp[1]+'.'+dp[0] : ld;
+      sel.innerHTML='<option value="'+ld+'">'+lbl+'</option>';
+      sel.value=ld;
+      if(hint) hint.textContent='\u0414\u0430\u0442\u0430 \u043f\u0456\u0434\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u0430 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u0437 \u0434\u0430\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f';
+    } else {
+      sel.innerHTML='<option value="">\u0421\u043f\u0435\u0440\u0448\u0443 \u0432\u043a\u0430\u0436\u0456\u0442\u044c \u0434\u0430\u0442\u0443 \u0437\u0430\u043d\u044f\u0442\u0442\u044f</option>';
+      if(hint) hint.textContent='';
+    }
+    sel.disabled=true;
     return;
   }
+  sel.disabled=false;
 
   if(!sid){
     sel.innerHTML='<option value="">\u0421\u043f\u0435\u0440\u0448\u0443 \u043e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f</option>';
@@ -420,7 +433,60 @@ function onLessStatChange(){
   if(splitInput && canSplit && !splitInput.value) splitInput.value='30, 60';
   if(canSplit) updateSplitPreview();
   try{ populateMissedSelect(); }catch(e){ console.error('populateMissedSelect:',e); }
+  try{ autoFillMakeupDates(); }catch(e){ console.error('autoFillMakeupDates:',e); }
 }
+
+/**
+ * Автоматично підставляє дати, які система вже знає:
+ *  • для ВІДПРАЦЮВАННЯ — дату найсвіжішого непокритого пропуску
+ *  • для ПРОПУЩЕНОГО  — дату відпрацювання, якщо воно вже заплановане
+ *  • для відпрацювання без дати — сьогоднішню (або дату самого заняття)
+ * Заповнює лише ПОРОЖНІ поля, введене вручну не перетирає.
+ */
+function autoFillMakeupDates(){
+  // Не чіпаємо, поки картка ще завантажується — інакше автопідстановка
+  // перетирає збережені значення наявного заняття
+  if(window._lessLoading) return;
+  var stat=(document.getElementById('l-stat')||{value:''}).value;
+  var sid=(document.getElementById('l-std')||{value:''}).value;
+  var tid=(document.getElementById('l-tutor')||{value:''}).value;
+  var lessonDate=(document.getElementById('l-date')||{value:''}).value;
+  var missEl=document.getElementById('l-miss-date');
+  var mkEl=document.getElementById('l-makeup-date');
+  if(!sid) return;
+
+  // ── Відпрацювання: підставляємо пропуск, який ще не покрито ──
+  if((stat==='makeup'||stat==='makeup_planned') && missEl && !missEl.value){
+    var cand=(S.lessons||[]).filter(function(x){
+      if(x.status!=='missed') return false;
+      if((x.studentId||x.student_id)!==sid) return false;
+      if(tid && (x.tutorId||x.tutor_id)!==tid) return false;
+      if(S.editId && x.id===S.editId) return false;
+      if(lessonDate && String(x.date||'') > lessonDate) return false;
+      try{ return uncoveredMissedHours(x) > 0; }catch(e){ return true; }
+    }).sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+    if(cand.length){
+      missEl.value=cand[0].date;
+      var hint=document.getElementById('l-miss-hint');
+      if(hint) hint.textContent='\u2713 \u041f\u0456\u0434\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043e \u043d\u0430\u0439\u0441\u0432\u0456\u0436\u0456\u0448\u0438\u0439 \u043d\u0435\u043f\u043e\u043a\u0440\u0438\u0442\u0438\u0439 \u043f\u0440\u043e\u043f\u0443\u0441\u043a';
+    }
+    // Дата самого відпрацювання = дата заняття
+    if(mkEl && !mkEl.value && lessonDate) mkEl.value=lessonDate;
+  }
+
+  // ── Пропущене: якщо відпрацювання вже є — показуємо його дату ──
+  if(stat==='missed' && mkEl && !mkEl.value){
+    var mk=(S.lessons||[]).filter(function(x){
+      if(x.status!=='makeup' && x.status!=='makeup_planned') return false;
+      if((x.studentId||x.student_id)!==sid) return false;
+      if(tid && (x.tutorId||x.tutor_id)!==tid) return false;
+      if(S.editId && x.missed_date===lessonDate) return true;
+      return S.editId ? x.split_group_id===S.editId : false;
+    }).sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+    if(mk.length) mkEl.value=mk[0].date;
+  }
+}
+window.autoFillMakeupDates=autoFillMakeupDates;
 
 function renderCommsPage(){
   var tbody=document.getElementById('comms-tbody');
@@ -1757,8 +1823,8 @@ function mkAv(fn,ln,sz,photo){
 }
 
 function bst(s){
-  var m={active:'bg',trial:'bb',paused:'by',completed:'br',inactive:'bn',request:'bb',planned:'bb',done:'bg',testing:'bp',cancelled:'br',missed:'br',makeup:'by',makeup_planned:'bn',paid:'bg',pending:'by',overdue:'br'};
-  var l={active:'Активний',trial:'Пробне',paused:'Призупин.',completed:'Завершив',inactive:'Неактивний',request:'Запит',planned:'Планов.',done:'Проведено',testing:'Тестування',cancelled:'Скасов.',missed:'Пропущено',makeup:'Відпрацьовано',makeup_planned:'План. відпрац.',paid:'Оплачено',pending:'Очікується',overdue:'Прострочено'};
+  var m={active:'bg',trial:'bb',paused:'by',completed:'br',inactive:'bn',request:'bb',planned:'bb',done:'bg',testing:'bp',burned:'bo',cancelled:'br',missed:'br',makeup:'by',makeup_planned:'bn',paid:'bg',pending:'by',overdue:'br'};
+  var l={active:'Активний',trial:'Пробне',paused:'Призупин.',completed:'Завершив',inactive:'Неактивний',request:'Запит',planned:'Планов.',done:'Проведено',testing:'Тестування',burned:'\uD83D\uDD25 Згоріле',cancelled:'Скасов.',missed:'Пропущено',makeup:'Відпрацьовано',makeup_planned:'План. відпрац.',paid:'Оплачено',pending:'Очікується',overdue:'Прострочено'};
   return '<span class="badge '+(m[s]||'bb')+'">'+( l[s]||s)+'</span>';
 }
 
@@ -2108,7 +2174,9 @@ function markDelayDays(l){
  */
 function journalRedFlags(tutorId, period){
   var all = ratingLessons(tutorId, period);
-  var done = all.filter(isDoneLesson);
+  // Згорілі заняття виключаємо: журнал для них заповнювати нічого,
+  // тож вимагати тему й ДЗ було б несправедливо
+  var done = all.filter(function(l){ return isDoneLesson(l) && !isBurnedLesson(l); });
 
   var flags = {
     beforeStart: [],   // відмічено ДО початку заняття
@@ -2199,7 +2267,9 @@ function tutorRating(tutorId, period){
   var todayStr = localDateStr(new Date());
 
   // Проведені — саме їх журнал і має бути заповнений
-  var done = all.filter(isDoneLesson);
+  // Згорілі заняття виключаємо: журнал для них заповнювати нічого,
+  // тож вимагати тему й ДЗ було б несправедливо
+  var done = all.filter(function(l){ return isDoneLesson(l) && !isBurnedLesson(l); });
   // Забуті: дата минула, а статус досі "заплановане"
   var forgotten = all.filter(function(l){
     return (l.status==='planned'||l.status==='scheduled'||!l.status)
@@ -4371,7 +4441,13 @@ function normalizeUser(r){
 // Статуси, що вважаються ПРОВЕДЕНИМ заняттям (оплачуються, входять в акти,
 // рахуються в статистиці). "testing" — тестування/діагностика рівня учня:
 // заняття реально відбулось, тому рахується як проведене.
-var DONE_STATUSES = ['done','completed','testing'];
+var DONE_STATUSES = ['done','completed','testing','burned'];
+
+// «Згоріле» заняття: учень не прийшов і не попередив.
+// Оплачується як проведене (репетитор чекав), але журнал для нього
+// заповнювати нічого — тож у перевірці ведення журналу воно не бере участі.
+function isBurnedLesson(l){ return !!l && l.status==='burned'; }
+window.isBurnedLesson = isBurnedLesson;
 function isDoneLesson(l){
   return DONE_STATUSES.indexOf(l && l.status) >= 0;
 }
@@ -5634,7 +5710,7 @@ async function quickSetStatus(status){
   if(!_quickLessonId) return;
   try{
     await dbUpdate('lessons', _quickLessonId, {status: status});
-    mkToast(status==='testing'?'🧪 Тестування':status==='done'?'✅ Проведено':status==='missed'?'❌ Пропущено':status==='cancelled'?'🚫 Скасовано':'📅 Заплановано');
+    mkToast(status==='burned'?'🔥 Згоріле':status==='testing'?'🧪 Тестування':status==='done'?'✅ Проведено':status==='missed'?'❌ Пропущено':status==='cancelled'?'🚫 Скасовано':'📅 Заплановано');
     if(S.currentPage==='schedule') renderSch();
     if(S.currentPage==='lessons') renderLessons();
   }catch(e){ mkToast('Помилка: '+e.message,'error'); }
@@ -7122,21 +7198,67 @@ function openLessM(id, date, time){
       var _lg=document.getElementById('l-games'); if(_lg) _lg.value = l.games||'';
       var _ll=document.getElementById('l-lit'); if(_ll) _ll.value = l.literature||'';
       // Load missed/makeup dates and hw
+      window._lessLoading=true;   // блокуємо автопідстановку під час завантаження
       var missEl=document.getElementById('l-miss-date');
+      var makeupEl=document.getElementById('l-makeup-date');
+      var _sid=l.studentId||l.student_id, _tid=l.tutorId||l.tutor_id;
+
+      // ── Дата ПРОПУСКУ (для відпрацювання) ──────────────────────
       var autoMissDate = l.missed_date||'';
-      // Якщо це makeup і є split_group_id — автоматично знаходимо дату пропущеного
+      // 1) Через прив'язку розбитого заняття
       if(!autoMissDate && (l.status==='makeup'||l.status==='makeup_planned') && l.split_group_id){
         var origMissed=(S.lessons||[]).find(function(x){
           return x.id===l.split_group_id && x.status==='missed';
         });
         if(origMissed) autoMissDate=origMissed.date;
       }
+      // 2) Якщо прив'язки немає — підставляємо найсвіжіший НЕПОКРИТИЙ пропуск
+      //    цього ж учня в цього ж репетитора. Це рятує від ручного вводу
+      //    й від помилкових дат, коли пропуску насправді не було.
+      if(!autoMissDate && (l.status==='makeup'||l.status==='makeup_planned') && _sid){
+        var cand=(S.lessons||[]).filter(function(x){
+          if(x.status!=='missed') return false;
+          if((x.studentId||x.student_id)!==_sid) return false;
+          if(_tid && (x.tutorId||x.tutor_id)!==_tid) return false;
+          if(String(x.date||'') > String(l.date||'')) return false;   // пропуск має бути РАНІШЕ
+          try{ return uncoveredMissedHours(x) > 0; }catch(e){ return true; }
+        }).sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+        if(cand.length) autoMissDate=cand[0].date;
+      }
       if(missEl) missEl.value=autoMissDate;
-      var makeupEl=document.getElementById('l-makeup-date');
-      if(makeupEl) makeupEl.value=l.makeup_date||'';
+
+      // ── Дата ВІДПРАЦЮВАННЯ (для пропущеного заняття) ───────────
+      var autoMakeupDate = l.makeup_date||'';
+      // Для самого відпрацювання дата відпрацювання — це його ж дата
+      if(!autoMakeupDate && (l.status==='makeup'||l.status==='makeup_planned')) autoMakeupDate=l.date||'';
+      // Якщо не вказана — шукаємо реальне відпрацювання цього пропуску
+      if(!autoMakeupDate && l.status==='missed' && _sid){
+        var mk=(S.lessons||[]).filter(function(x){
+          if(x.status!=='makeup' && x.status!=='makeup_planned') return false;
+          if((x.studentId||x.student_id)!==_sid) return false;
+          if(_tid && (x.tutorId||x.tutor_id)!==_tid) return false;
+          // Прив'язка або за датою пропуску, або через розбиття
+          return x.missed_date===l.date || x.split_group_id===l.id;
+        }).sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+        if(mk.length) autoMakeupDate=mk[0].date;
+      }
+      if(makeupEl) makeupEl.value=autoMakeupDate;
       var hwEl=document.getElementById('l-hw');
       if(hwEl) hwEl.value=l.hw||'';
       if(typeof onLessStatChange==='function') onLessStatChange();
+      // Список пропусків перебудувався — повертаємо збережене значення
+      if(missEl && autoMissDate){
+        missEl.value=autoMissDate;
+        if(!missEl.value){
+          // Пропущеного заняття вже немає в списку — додаємо окремим пунктом
+          var _d=String(autoMissDate).split('-');
+          var _ds=_d.length===3?_d[2]+'.'+_d[1]+'.'+_d[0].slice(2):autoMissDate;
+          missEl.insertAdjacentHTML('beforeend','<option value="'+autoMissDate+'">'+_ds+'</option>');
+          missEl.value=autoMissDate;
+        }
+      }
+      if(makeupEl && autoMakeupDate) makeupEl.value=autoMakeupDate;
+      window._lessLoading=false;
       if(l.recurId){
         var siblings = (S.lessons||[]).filter(function(x){return x.recurId===l.recurId;});
         var box = document.getElementById('recur-preview');
@@ -8158,9 +8280,9 @@ function renderSchMonth(){
     dayLessons.slice(0,MAX_SHOW).forEach(function(l){
       const isCov=l.status==='missed'&&isCoveredMissed(l);
       const isPart=!isCov&&l.status==='missed'&&uncoveredMissedHours(l)*60<(parseFloat(l.dur)||60);
-      const ecl=isCov?'ec-covered':isPart?'ec-partial':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':l.status==='makeup_planned'?'ec-makeplan':l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done':'ec-plan';
+      const ecl=isCov?'ec-covered':isPart?'ec-partial':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':l.status==='makeup_planned'?'ec-makeplan':l.status==='burned'?'ec-burned':l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done':'ec-plan';
       evHtml+='<div class="schm-ev '+ecl+'" onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)" title="'+(l.time||'')+' '+snShort(l.studentId||l.student_id)+' '+(l.subject||'')+'">'
-        +'<b>'+(l.time||'')+'</b> '+snShort(l.studentId||l.student_id)+'</div>';
+        +'<b>'+(l.time||'')+'</b> '+(l.status==='burned'?'\ud83d\udd25 ':'')+snShort(l.studentId||l.student_id)+'</div>';
     });
     if(dayLessons.length>MAX_SHOW){
       evHtml+='<div class="schm-more">+'+(dayLessons.length-MAX_SHOW)+' \u0449\u0435</div>';
@@ -8277,7 +8399,7 @@ function renderSchDay(){
           : l.status==='missed'  ? 'ec-miss'
           : l.status==='makeup'  ? 'ec-make'
           : l.status==='makeup_planned' ? 'ec-makeplan'
-          : l.status==='testing' ? 'ec-testing' : isDoneLesson(l) ? 'ec-done'
+          : l.status==='burned' ? 'ec-burned' : l.status==='testing' ? 'ec-testing' : isDoneLesson(l) ? 'ec-done'
           : 'ec-plan';
         var liD=laneMapD.get(l.id)||{lane:0,count:1};
         var wPctD=100/liD.count;
@@ -8285,7 +8407,7 @@ function renderSchDay(){
         var canDel = can('lessons');
         html += '<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCssD+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
           +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
-          +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'\uD83D\uDD01 ':'')+snShort(l.studentId||l.student_id)+'</div>'
+          +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.status==='burned'?'\uD83D\uDD25 ':'')+(l.recurId?'\uD83D\uDD01 ':'')+snShort(l.studentId||l.student_id)+'</div>'
           +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
           +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' \u00B7 '+Math.floor(dur/60)+'\u0433'+(dur%60?dur%60+'\u0445\u0432':''):'\u00B7 '+dur+'\u0445\u0432')+'</div>':'')
           +(_isPartial&&heightPx>52?'<div style="font-size:9px;font-weight:700">\u26A0 \u0437\u0430\u043B\u0438\u0448\u0438\u043B\u043E\u0441\u044C '+_unHrs+'\u0433</div>':'')
@@ -8479,7 +8601,7 @@ function renderSchWeek(){
         :l.status==='missed'?'ec-miss'
         :l.status==='makeup'?'ec-make'
         :l.status==='makeup_planned'?'ec-makeplan'
-        :l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done'
+        :l.status==='burned'?'ec-burned':l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done'
         :'ec-plan';
       var li=laneMap.get(l.id)||{lane:0,count:1};
       var wPct=100/li.count;
@@ -8487,7 +8609,7 @@ function renderSchWeek(){
       var canDel=can('lessons');
       html+='<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCss+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
         +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
-        +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.recurId?'🔁 ':'')+snShort(l.studentId||l.student_id)+'</div>'
+        +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.status==='burned'?'🔥 ':'')+(l.recurId?'🔁 ':'')+snShort(l.studentId||l.student_id)+'</div>'
         +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
         +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' · '+Math.floor(dur/60)+'г'+(dur%60?dur%60+'хв':''):' · '+dur+'хв')+'</div>':'')
         +(_isPartial&&heightPx>52?'<div style="font-size:9px;font-weight:700">⚠ залишилось '+_unHrs+'г</div>':'')
