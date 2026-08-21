@@ -323,6 +323,84 @@ function localDateStr(d){
   return y+'-'+m+'-'+dd;
 }
 
+/**
+ * Заповнює список «Дата пропуску» реальними пропущеними заняттями
+ * САМЕ цього учня й САМЕ цього репетитора.
+ *
+ * Раніше дата вводилась вручну, і легко було помилитись — вказати
+ * день, коли пропуску не було, або пропуск іншого репетитора.
+ * Тепер обирається зі списку, тож відпрацювання завжди прив'язується
+ * до справжнього пропуску.
+ */
+function populateMissedSelect(){
+  var sel=document.getElementById('l-miss-date');
+  var hint=document.getElementById('l-miss-hint');
+  if(!sel) return;
+
+  var sid=(document.getElementById('l-std')||{value:''}).value;
+  var tid=(document.getElementById('l-tutor')||{value:''}).value;
+  var stat=(document.getElementById('l-stat')||{value:''}).value;
+  var cur=sel.value;   // збережемо поточний вибір
+
+  // Для статусу «Пропущене» список не потрібен — це саме заняття і є пропуском
+  if(stat==='missed'){
+    sel.innerHTML='<option value="">\u2014</option>';
+    if(hint) hint.textContent='';
+    return;
+  }
+
+  if(!sid){
+    sel.innerHTML='<option value="">\u0421\u043f\u0435\u0440\u0448\u0443 \u043e\u0431\u0435\u0440\u0456\u0442\u044c \u0443\u0447\u043d\u044f</option>';
+    if(hint) hint.textContent='';
+    return;
+  }
+
+  // Пропущені заняття цього учня в цього репетитора, ще не покриті повністю
+  var miss=(S.lessons||[]).filter(function(l){
+    if(l.status!=='missed') return false;
+    if((l.studentId||l.student_id)!==sid) return false;
+    if(tid && (l.tutorId||l.tutor_id)!==tid) return false;
+    // Виключаємо себе (якщо редагуємо існуюче заняття)
+    if(S.editId && l.id===S.editId) return false;
+    return true;
+  }).sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+
+  if(!miss.length){
+    sel.innerHTML='<option value="">\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0438\u0445 \u0437\u0430\u043d\u044f\u0442\u044c</option>';
+    if(hint) hint.textContent='\u0423 \u0446\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u044f \u043d\u0435\u043c\u0430\u0454 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0456\u0432 \u0443 \u0446\u044c\u043e\u0433\u043e \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430';
+    return;
+  }
+
+  sel.innerHTML='<option value="">\u2014 \u043e\u0431\u0435\u0440\u0456\u0442\u044c \u043f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0435 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u2014</option>'
+    + miss.map(function(l){
+        var d=String(l.date||'').split('-');
+        var ds=d.length===3 ? d[2]+'.'+d[1]+'.'+d[0].slice(2) : l.date;
+        var hrs=Math.round((parseFloat(l.dur)||60)/60*10)/10;
+        // Скільки ще лишилось відпрацювати
+        var unc=0;
+        try{ unc=uncoveredMissedHours(l); }catch(e){ unc=hrs; }
+        var mark = unc<=0 ? ' \u2705 \u0432\u0456\u0434\u043f\u0440\u0430\u0446\u044c\u043e\u0432\u0430\u043d\u043e'
+                 : (unc<hrs ? ' \u2014 \u0437\u0430\u043b\u0438\u0448\u0438\u043b\u043e\u0441\u044c '+unc+'\u0433' : '');
+        return '<option value="'+l.date+'">'+ds+' \u00b7 '+(l.time||'')
+             +' \u00b7 '+hrs+'\u0433'+(l.subject?' \u00b7 '+l.subject:'')+mark+'</option>';
+      }).join('');
+
+  // Повертаємо попередній вибір, якщо він досі є у списку
+  if(cur){
+    sel.value=cur;
+    if(!sel.value && cur){
+      // Дата збереглась, але заняття вже немає — додаємо як окремий пункт,
+      // щоб не втратити прив'язку при редагуванні
+      var d2=String(cur).split('-');
+      var ds2=d2.length===3 ? d2[2]+'.'+d2[1]+'.'+d2[0].slice(2) : cur;
+      sel.insertAdjacentHTML('beforeend','<option value="'+cur+'">'+ds2+' (\u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u0430 \u0434\u0430\u0442\u0430)</option>');
+      sel.value=cur;
+    }
+  }
+  if(hint) hint.textContent='\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0456\u0432: '+miss.length;
+}
+window.populateMissedSelect=populateMissedSelect;
+
 function onLessStatChange(){
   var stat=(document.getElementById('l-stat')||{value:''}).value;
   var dur=parseInt((document.getElementById('l-dur')||{value:'60'}).value)||60;
@@ -341,6 +419,7 @@ function onLessStatChange(){
   var splitInput=document.getElementById('split-parts-input');
   if(splitInput && canSplit && !splitInput.value) splitInput.value='30, 60';
   if(canSplit) updateSplitPreview();
+  try{ populateMissedSelect(); }catch(e){ console.error('populateMissedSelect:',e); }
 }
 
 function renderCommsPage(){
@@ -3021,8 +3100,9 @@ function renderLessons(){
       +'<td style="font-size:11px;color:var(--t2);max-width:220px">'
         +(l.notes?'<div>📌 '+l.notes+'</div>':'')
         +(l.hw?'<div style="margin-top:2px">📝 '+l.hw+'</div>':'')
+        +(l.literature?'<div style="margin-top:2px;color:#8b5cf6">📚 '+l.literature+'</div>':'')
         +(l.games?'<div style="color:var(--adm);margin-top:2px">🎧 '+l.games+'</div>':'')
-        +(!l.notes&&!l.hw&&!l.games?'—':'')
+        +(!l.notes&&!l.hw&&!l.games&&!l.literature?'—':'')
       +'</td>'
       +'<td>'+bst(l.status)+'</td>'
       +'<td><div style="display:flex;gap:3px">'+btns+'</div></td></tr>';
@@ -5056,6 +5136,7 @@ async function saveLesson(){
     makeup_date: (_stat==='makeup'||_stat==='makeup_planned') ? (document.getElementById('l-makeup-date')?.value||null) : null,
     hw:          document.getElementById('l-hw')?.value||null,
     games:       document.getElementById('l-games')?.value||null,
+    literature:  document.getElementById('l-lit')?.value||null,
   };
   window._saving = true;
   try{
@@ -5590,11 +5671,11 @@ function exportToExcel(type){
     headers=['Імʼя','Прізвище','Телефон','Предмет','Статус','Клас','Нотатки'];
     data=(S.students||[]).map(function(s){return [s.fn||'',s.ln||'',s.phone||'',s.subject||'',s.status||'',s.grade||'',s.notes||''];});
   } else if(type==='lessons'){
-    headers=['Учень','Репетитор','Предмет','Дата','Час','Тривалість','Статус','Ціна','Тема уроку','Домашнє завдання','Аудіювання та ігри'];
+    headers=['Учень','Репетитор','Предмет','Дата','Час','Тривалість','Статус','Ціна','Тема уроку','Домашнє завдання','Література','Аудіювання та ігри'];
     data=myLessons().map(function(l){
       var st=(S.students||[]).find(function(s){return s.id===(l.studentId||l.student_id);});
       var tu=(S.tutors||[]).find(function(t){return t.id===(l.tutorId||l.tutor_id);});
-      return [(st?st.fn+' '+st.ln:''),(tu?tu.fn+' '+tu.ln:''),(l.subject||''),(l.date||''),(l.time||''),(l.dur||60)+' хв',(l.status||''),(l.price||''),(l.notes||''),(l.hw||''),(l.games||'')];
+      return [(st?st.fn+' '+st.ln:''),(tu?tu.fn+' '+tu.ln:''),(l.subject||''),(l.date||''),(l.time||''),(l.dur||60)+' хв',(l.status||''),(l.price||''),(l.notes||''),(l.hw||''),(l.literature||''),(l.games||'')];
     });
   } else if(type==='payments'){
     headers=['Учень','Сума','Дата','Статус','Нотатки'];
@@ -6984,7 +7065,7 @@ function openLessM(id, date, time){
 
   // Clear ALL fields first
   ['l-std','l-subj','l-tutor','l-price','l-notes',
-   'l-miss-date','l-makeup-date','l-hw','l-games'].forEach(function(f){
+   'l-miss-date','l-makeup-date','l-hw','l-games','l-lit'].forEach(function(f){
     var el=document.getElementById(f); if(el) el.value='';
   });
   // Автозаповнення предмета/репетитора зі ставок учня (слухачі вішаються один раз)
@@ -7039,6 +7120,7 @@ function openLessM(id, date, time){
       var _lp=document.getElementById('l-price'); if(_lp) _lp.value = l.price||'';
       document.getElementById('l-notes').value = l.notes||'';
       var _lg=document.getElementById('l-games'); if(_lg) _lg.value = l.games||'';
+      var _ll=document.getElementById('l-lit'); if(_ll) _ll.value = l.literature||'';
       // Load missed/makeup dates and hw
       var missEl=document.getElementById('l-miss-date');
       var autoMissDate = l.missed_date||'';
