@@ -186,6 +186,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
 .by{background:rgba(245,158,11,.15);color:var(--dir)}
 .br{background:rgba(248,113,113,.15);color:var(--danger)}
 .bp{background:rgba(167,139,250,.15);color:#a78bfa}
+.bo{background:rgba(249,115,22,.15);color:#f97316}
 .bn{background:rgba(148,163,184,.18);color:#64748b}
 .av{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700;flex-shrink:0;font-family:'Syne',sans-serif}
 
@@ -219,6 +220,7 @@ textarea{resize:vertical;min-height:72px}
 .qp-btn:hover{background:var(--s2)!important}
 .ec-done{background:rgba(34,197,94,.18);border-left:3px solid #22c55e;color:#16a34a}
 .ec-testing{background:rgba(20,184,166,.18);border-left:3px solid #14b8a6;color:#0d9488}
+.ec-burned{background:rgba(249,115,22,.16);border-left:3px solid #f97316;color:#c2410c}
 /* ── Журнал дзвінків ── */
 .tel-inp{font-size:12px;padding:5px 9px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1);outline:none;transition:.15s;width:auto!important;flex:0 0 auto!important;max-width:220px}
 .tel-inp:focus{border-color:var(--adm);background:var(--s1)}
@@ -1144,7 +1146,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <span class="ct">Заняття</span>
             <select id="lf-student" onchange="renderLessons()" style="width:180px;font-size:12px;padding:5px 8px;margin-right:4px"><option value="">Всі учні</option></select>
             <select id="lf-tutor" class="tutor-hidden" onchange="renderLessons()" style="width:180px;font-size:12px;padding:5px 8px;margin-right:4px"><option value="">Всі репетитори</option></select>
-            <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="missed">Пропущені</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select>
+            <select id="lf-stat" onchange="renderLessons()" style="width:auto;font-size:12px;padding:5px 8px"><option value="">Всі статуси</option><option value="planned">Заплановані</option><option value="done">Проведені</option><option value="burned">🔥 Згорілі</option><option value="missed">Пропущені</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select>
             <select id="lf-period" onchange="lfSetPeriod()" style="width:auto;font-size:12px;padding:5px 8px;margin-left:4px"><option value="">Увесь час</option><option value="week">Тиждень</option><option value="month">Місяць</option></select>
             <span id="lf-nav" style="display:none;align-items:center;gap:5px;margin-left:4px">
               <button class="btn btn-g btn-sm" onclick="lfShift(-1)" title="Попередній">←</button>
@@ -1742,6 +1744,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   <div id="qp-title" style="font-size:12px;font-weight:600;color:var(--t2);padding:4px 8px 8px;border-bottom:1px solid var(--b1);margin-bottom:4px"></div>
   <button class="qp-btn" onclick="quickSetStatus('done')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--tut)">✅ Проведено</button>
   <button class="qp-btn" onclick="quickSetStatus('testing')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:#14b8a6">🧪 Тестування</button>
+  <button class="qp-btn" onclick="quickSetStatus('burned')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:#f97316">🔥 Згоріле</button>
   <button class="qp-btn" onclick="quickSetStatus('missed')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--danger)">❌ Пропущено</button>
   <button class="qp-btn" onclick="quickSetStatus('planned')" style="width:100%;text-align:left;padding:7px 10px;border:none;background:none;cursor:pointer;border-radius:7px;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--adm)">📅 Заплановано</button>
   <div style="border-top:1px solid var(--b1);margin-top:4px;padding-top:4px">
@@ -1996,7 +1999,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
         </div></div>
       <div class="fgr"><label>Репетитор</label><select id="l-tutor" onchange="try{populateMissedSelect()}catch(e){}"></select></div>
       <div class="fgr"><label>Тривалість</label><select id="l-dur" onchange="onLessStatChange()"><option value="15">15 хв</option><option value="30">30 хв</option><option value="45">45 хв</option><option value="60" selected>1 год</option><option value="75">1 год 15 хв</option><option value="90">1 год 30 хв</option><option value="105">1 год 45 хв</option><option value="120">2 год</option><option value="135">2 год 15 хв</option><option value="150">2 год 30 хв</option><option value="165">2 год 45 хв</option><option value="180">3 год</option></select></div>
-      <div class="fgr"><label>Дата *</label><input id="l-date" type="date"></div>
+      <div class="fgr"><label>Дата *</label><input id="l-date" type="date" onchange="try{populateMissedSelect()}catch(e){}"></div>
       <div class="fgr"><label>Час *</label><select id="l-time" style="font-family:JetBrains Mono,monospace;padding:6px 8px;border:1.5px solid var(--b1);border-radius:8px;background:var(--s1);font-size:13px">
 <option value="07:00">07:00</option>
 <option value="07:15">07:15</option>
@@ -2063,7 +2066,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
 <option value="22:30">22:30</option>
 <option value="22:45">22:45</option>
 </select></div>
-      <div class="fgr"><label>Статус</label><select id="l-stat" onchange="onLessStatChange()"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="testing">Тестування</option><option value="missed">Пропущене</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select></div>
+      <div class="fgr"><label>Статус</label><select id="l-stat" onchange="onLessStatChange()"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="testing">Тестування</option><option value="burned">🔥 Згоріле (не попередили)</option><option value="missed">Пропущене</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select></div>
       <div id="l-miss-wrap" style="display:none" class="fgr"><label>Дата пропуску</label><select id="l-miss-date"><option value="">— оберіть пропущене заняття —</option></select><div id="l-miss-hint" style="font-size:11px;color:var(--t3);margin-top:3px"></div></div>
       <div id="l-makeup-wrap" style="display:none" class="fgr"><label>Дата відпрацювання</label><input id="l-makeup-date" type="date"></div>
       <div id="l-split-wrap" style="display:none" class="fgr full"><div style="background:rgba(245,158,11,.12);border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px"><div style="font-weight:600;font-size:13px">✂️ Розбити на частини</div><div style="font-size:11px;color:var(--t2)">Вкажіть тривалість кожної частини через кому (хв). Сума має дорівнювати загальній тривалості.</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input id="split-parts-input" type="text" placeholder="напр: 30, 60, 60" style="flex:1;min-width:120px;font-size:13px;padding:5px 8px;border:1px solid #f59e0b;border-radius:6px"><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="splitLessonCustom()">✂️ Розбити</button></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('30,30')">30+30</button><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('30,60')">30+60</button><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('60,30')">60+30</button><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('60,60')">60+60</button><button type="button" class="btn btn-sm btn-g" onclick="splitPreset('30,30,30')">30+30+30</button></div><div id="split-preview" style="font-size:11px;color:var(--adm)"></div></div></div>
@@ -2288,7 +2291,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=statlive1"></script>
+<script src="app7.js?v=burned1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
