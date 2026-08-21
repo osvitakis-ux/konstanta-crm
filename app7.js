@@ -255,28 +255,28 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','acts','crm','tasks','audit','invoice-log','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','acts','crm','leads','tasks','audit','invoice-log','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
   director: {
     label:'\u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440', icon:'\uD83D\uDC51', color:'var(--dir)',
     avatarBg:'linear-gradient(135deg,#d9e021,#fcee21)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','acts','crm','tasks','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','acts','crm','leads','tasks','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
   admin: {
     label:'\u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440', icon:'\uD83D\uDEE1\uFE0F', color:'var(--adm)',
     avatarBg:'linear-gradient(135deg,#29abe2,#3fa9f5)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','crm','tasks','invoice','reports','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','crm','leads','tasks','invoice','reports','telephony'],
     can:{students:true,tutors:true,lessons:true,comms:true,payments:false,users:false,settings:false,danger:false,deleteAny:true},
     seeIncome:false, seeAll:true, canEditUsers:false, showGodBanner:false
   },
   network_admin: {
     label:'\u0410\u0434\u043C\u0456\u043D \u043C\u0435\u0440\u0435\u0436\u0456', icon:'\uD83C\uDF10', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#5b60d4,#29abe2)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','tasks','invoice','reports','users','settings'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','crm','leads','tasks','invoice','reports','users','settings'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:false,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:false
   },
@@ -301,6 +301,7 @@ var NAV_CFG = [
   {id:'invoice',    ico:'\u25C8',  lbl:'\u0420\u0430\u0445\u0443\u043D\u043E\u043A',  sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'reports',    ico:'\u25E7',  lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'crm',        ico:'\u25A4',  lbl:'CRM',              sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
+  {id:'leads',      ico:'\u260E',  lbl:'\u041B\u0456\u0434\u0438 \u0437 \u0434\u0437\u0432\u0456\u043D\u043A\u0456\u0432', sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'tasks',      ico:'\u2611',  lbl:'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F',      sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'audit',      ico:'\uD83D\uDD0D',  lbl:'\u0406\u0441\u0442\u043E\u0440\u0456\u044F \u0437\u043C\u0456\u043D',   sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
   {id:'invoice-log',ico:'\uD83D\uDCCB',  lbl:'\u041B\u043E\u0433 \u0440\u0430\u0445\u0443\u043D\u043A\u0456\u0432', sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
@@ -7190,6 +7191,7 @@ function nav(page){
   if(page==='audit'){try{renderAudit();}catch(e){console.error('renderAudit:',e);}}
   if(page==='acts'){try{renderActsPage();}catch(e){console.error('renderActsPage:',e);}}
   if(page==='telephony'){try{renderTelephony();}catch(e){console.error('renderTelephony:',e);}}
+  if(page==='leads'){try{renderLeads();}catch(e){console.error('renderLeads:',e);}}
   if(page==='invoice'){ renderInvoicePage(); try{renderInvoiceStatus();}catch(e){} }
   if(page==='invoice-log') renderInvoiceLog();
   var _crmEl=document.getElementById('pg-crm');
@@ -9425,6 +9427,156 @@ async function telAddLog(entry){
     });
   }catch(e){ console.error('telAddLog:',e); }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  ЛІДИ З ДЗВІНКІВ
+//  Окрема сутність: не картка учня. Видалення ліда не чіпає
+//  журнал телефонії й не призводить до повторного створення.
+// ═══════════════════════════════════════════════════════════════
+async function renderLeads(){
+  var body=document.getElementById('leads-body');
+  var sum=document.getElementById('lead-summary');
+  if(!body) return;
+  body.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</div>';
+
+  var rows=[];
+  try{
+    var r=await _sb.from('phone_leads').select('*').order('last_call',{ascending:false}).limit(300);
+    if(r.error) throw r.error;
+    rows=r.data||[];
+  }catch(e){
+    body.innerHTML='<div class="empty"><div class="ei">\u26a0\ufe0f</div>'
+      +'\u0422\u0430\u0431\u043b\u0438\u0446\u044f \u043b\u0456\u0434\u0456\u0432 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430.<br>'
+      +'<span style="font-size:12px">\u0412\u0438\u043a\u043e\u043d\u0430\u0439\u0442\u0435 phone_leads_setup.sql \u0443 Supabase</span></div>';
+    if(sum) sum.innerHTML='';
+    return;
+  }
+
+  var q=((document.getElementById('lead-search')||{value:''}).value||'').replace(/\D/g,'');
+  var f=(document.getElementById('lead-filter')||{value:'new'}).value;
+
+  var all=rows.slice();
+  var shown=all.filter(function(l){
+    if(q && String(l.phone||'').replace(/\D/g,'').indexOf(q)<0) return false;
+    if(f==='dismissed') return l.dismissed;
+    if(l.dismissed) return false;               // видалені показуємо лише у своєму фільтрі
+    if(f==='') return true;
+    return (l.status||'new')===f;
+  });
+
+  // Підсумки
+  if(sum){
+    var cNew=all.filter(function(l){return !l.dismissed&&(l.status||'new')==='new';}).length;
+    var cWork=all.filter(function(l){return !l.dismissed&&l.status==='contacted';}).length;
+    var cConv=all.filter(function(l){return l.status==='converted';}).length;
+    var cDism=all.filter(function(l){return l.dismissed;}).length;
+    sum.innerHTML='<span>\ud83c\udd95 \u041d\u043e\u0432\u0456 <b style="color:var(--adm)">'+cNew+'</b></span>'
+      +'<span>\ud83d\udcde \u0412 \u0440\u043e\u0431\u043e\u0442\u0456 <b style="color:var(--warn)">'+cWork+'</b></span>'
+      +'<span>\u2705 \u0421\u0442\u0430\u043b\u0438 \u0443\u0447\u043d\u044f\u043c\u0438 <b style="color:var(--tut)">'+cConv+'</b></span>'
+      +'<span>\ud83d\uddd1 \u0412\u0438\u0434\u0430\u043b\u0435\u043d\u0456 <b style="color:var(--t3)">'+cDism+'</b></span>';
+  }
+
+  if(!shown.length){
+    body.innerHTML='<div class="empty"><div class="ei">\u260e</div>\u041d\u0435\u043c\u0430\u0454 \u043b\u0456\u0434\u0456\u0432 \u0443 \u0446\u0456\u0439 \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0456\u0457</div>';
+    return;
+  }
+
+  var STL={new:['bb','\u041d\u043e\u0432\u0438\u0439'],contacted:['by','\u0412 \u0440\u043e\u0431\u043e\u0442\u0456'],
+           converted:['bg','\u0421\u0442\u0430\u0432 \u0443\u0447\u043d\u0435\u043c'],rejected:['br','\u0412\u0456\u0434\u043c\u043e\u0432\u0430']};
+
+  body.innerHTML='<div style="overflow-x:auto"><table class="tel-tbl"><thead><tr>'
+    +'<th>\u041d\u043e\u043c\u0435\u0440</th><th>\u0414\u0437\u0432\u0456\u043d\u043a\u0456\u0432</th>'
+    +'<th>\u041e\u0441\u0442\u0430\u043d\u043d\u0456\u0439</th><th>\u0421\u0442\u0430\u0442\u0443\u0441</th>'
+    +'<th>\u041d\u043e\u0442\u0430\u0442\u043a\u0430</th><th></th></tr></thead><tbody>'
+    +shown.map(function(l){
+      var st=STL[l.status||'new']||STL.new;
+      var d=l.last_call?new Date(l.last_call):null;
+      var ds=d?String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')
+             +' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'):'\u2014';
+      return '<tr'+(l.dismissed?' style="opacity:.55"':'')+'>'
+        +'<td><a class="tel-num" href="tel:'+l.phone+'">'+l.phone+'</a></td>'
+        +'<td style="text-align:center">'+(l.calls_count||1)+'</td>'
+        +'<td style="font-size:11.5px;color:var(--t2)">'+ds+'</td>'
+        +'<td>'+(l.dismissed
+            ? '<span class="badge" style="background:var(--s3);color:var(--t3)">\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e</span>'
+            : '<span class="badge '+st[0]+'">'+st[1]+'</span>')+'</td>'
+        +'<td style="font-size:11.5px;color:var(--t2);max-width:200px">'+(l.note||'\u2014')+'</td>'
+        +'<td><div style="display:flex;gap:4px;justify-content:flex-end">'
+          +(l.dismissed
+            ? '<button class="btn btn-g btn-sm" onclick="leadRestore(\''+l.id+'\')" title="\u041f\u043e\u0432\u0435\u0440\u043d\u0443\u0442\u0438">\u21b6</button>'
+            : '<button class="btn btn-g btn-sm" onclick="leadSetStatus(\''+l.id+'\',\'contacted\')" title="\u0412\u0437\u044f\u0442\u0438 \u0432 \u0440\u043e\u0431\u043e\u0442\u0443">\ud83d\udcde</button>'
+             +'<button class="btn btn-p btn-sm" onclick="leadToStudent(\''+l.id+'\')" title="\u0421\u0442\u0432\u043e\u0440\u0438\u0442\u0438 \u0443\u0447\u043d\u044f">\ud83d\udc64+</button>'
+             +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="leadDismiss(\''+l.id+'\')" title="\u041f\u0440\u0438\u0431\u0440\u0430\u0442\u0438">\ud83d\uddd1</button>')
+        +'</div></td>'
+      +'</tr>';
+    }).join('')
+    +'</tbody></table></div>';
+}
+window.renderLeads=renderLeads;
+
+/** Прибирає ліда зі списку. Дзвінки в телефонії лишаються. */
+async function leadDismiss(id){
+  if(!confirm('\u041f\u0440\u0438\u0431\u0440\u0430\u0442\u0438 \u0446\u0435\u0439 \u043b\u0456\u0434?\n\n'
+    +'\u0416\u0443\u0440\u043d\u0430\u043b \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u041d\u0415 \u0437\u043c\u0456\u043d\u0438\u0442\u044c\u0441\u044f. '
+    +'\u041f\u0440\u0438 \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0456\u0439 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u0457 \u0432\u0456\u043d \u041d\u0415 \u0437\u2019\u044f\u0432\u0438\u0442\u044c\u0441\u044f \u0437\u043d\u043e\u0432\u0443.')) return;
+  try{
+    await _sb.from('phone_leads').update({dismissed:true, dismissed_at:new Date().toISOString(),
+      updated_at:new Date().toISOString()}).eq('id',id);
+    mkToast('\u041b\u0456\u0434 \u043f\u0440\u0438\u0431\u0440\u0430\u043d\u043e');
+    renderLeads();
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+}
+window.leadDismiss=leadDismiss;
+
+async function leadRestore(id){
+  try{
+    await _sb.from('phone_leads').update({dismissed:false, dismissed_at:null,
+      updated_at:new Date().toISOString()}).eq('id',id);
+    mkToast('\u041b\u0456\u0434 \u043f\u043e\u0432\u0435\u0440\u043d\u0443\u0442\u043e');
+    renderLeads();
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+}
+window.leadRestore=leadRestore;
+
+async function leadSetStatus(id, st){
+  try{
+    await _sb.from('phone_leads').update({status:st, updated_at:new Date().toISOString()}).eq('id',id);
+    renderLeads();
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+}
+window.leadSetStatus=leadSetStatus;
+
+/** Створює картку учня з ліда — вручну, за рішенням адміністратора */
+async function leadToStudent(id){
+  try{
+    var r=await _sb.from('phone_leads').select('*').eq('id',id).limit(1);
+    var lead=(r.data||[])[0];
+    if(!lead) return;
+    var nm=prompt('\u0406\u043c\u2019\u044f \u0443\u0447\u043d\u044f:', lead.name||'');
+    if(nm===null) return;
+    nm=String(nm).trim();
+    if(!nm){ mkToast('\u0406\u043c\u2019\u044f \u043e\u0431\u043e\u0432\u2019\u044f\u0437\u043a\u043e\u0432\u0435','error'); return; }
+    var parts=nm.split(/\s+/);
+    var sid=uid();
+    await dbInsert('students',{ id:sid, fn:parts[0], ln:parts.slice(1).join(' ')||'',
+      phone:lead.phone, status:'trial', crm_stage:'lead', src:'internet' });
+    await _sb.from('phone_leads').update({status:'converted', student_id:sid,
+      updated_at:new Date().toISOString()}).eq('id',id);
+    // Прив'язуємо минулі дзвінки цього номера до нової картки
+    try{
+      var tail=String(lead.phone||'').replace(/\D/g,'').slice(-10);
+      var cl=await _sb.from('call_logs').select('id,caller_phone,callee_phone');
+      (cl.data||[]).forEach(async function(c){
+        var a=String(c.caller_phone||'').replace(/\D/g,'').slice(-10);
+        var b=String(c.callee_phone||'').replace(/\D/g,'').slice(-10);
+        if(a===tail||b===tail) await _sb.from('call_logs').update({student_id:sid}).eq('id',c.id);
+      });
+    }catch(e){}
+    mkToast('\u2705 \u0423\u0447\u043d\u044f \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e');
+    renderLeads();
+  }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+}
+window.leadToStudent=leadToStudent;
 
 function renderTelephony(){
   // Access guard — дзвінки може слухати бог/директор/адмін; НАЛАШТУВАННЯ (нижче) — лише бог
