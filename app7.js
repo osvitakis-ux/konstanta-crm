@@ -1871,6 +1871,128 @@ window.tutorDot = tutorDot;
  * і очікування суб'єктивно коротше.
  * kind: 'rows' | 'cards'
  */
+/**
+ * Sparkline — крихітний графік тренду прямо в картці KPI.
+ * Показує динаміку за останні 6 місяців: одразу видно, росте
+ * показник чи падає, без переходу в аналітику.
+ */
+// ═══════════════════════════════════════════════════════════════
+//  ПЕРЕНЕСЕННЯ ЗАНЯТТЯ МИШЕЮ В РОЗКЛАДІ
+//  Перетягнув на іншу клітинку — дата й час змінились.
+//  Швидше, ніж відкривати картку й міняти два поля.
+// ═══════════════════════════════════════════════════════════════
+var _schDragId = null;
+
+function schDragStart(e, lessonId){
+  _schDragId = lessonId;
+  try{
+    e.dataTransfer.effectAllowed='move';
+    e.dataTransfer.setData('text/plain', lessonId);
+  }catch(err){}
+  if(e.target && e.target.classList) e.target.classList.add('sch-dragging');
+}
+window.schDragStart = schDragStart;
+
+function schDragEnd(e){
+  _schDragId = null;
+  if(e.target && e.target.classList) e.target.classList.remove('sch-dragging');
+  document.querySelectorAll('.sch-drop-hover').forEach(function(el){
+    el.classList.remove('sch-drop-hover');
+  });
+}
+window.schDragEnd = schDragEnd;
+
+function schDragOver(e){
+  if(!_schDragId) return;
+  e.preventDefault();
+  try{ e.dataTransfer.dropEffect='move'; }catch(err){}
+  if(e.currentTarget && e.currentTarget.classList) e.currentTarget.classList.add('sch-drop-hover');
+}
+window.schDragOver = schDragOver;
+
+function schDragLeave(e){
+  if(e.currentTarget && e.currentTarget.classList) e.currentTarget.classList.remove('sch-drop-hover');
+}
+window.schDragLeave = schDragLeave;
+
+async function schDrop(e, newDate, newTime){
+  e.preventDefault();
+  e.stopPropagation();
+  if(e.currentTarget && e.currentTarget.classList) e.currentTarget.classList.remove('sch-drop-hover');
+
+  var id = _schDragId || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
+  _schDragId = null;
+  if(!id) return;
+  if(!can('lessons')){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432','error'); return; }
+
+  var l=(S.lessons||[]).find(function(x){return x.id===id;});
+  if(!l) return;
+  // Нічого не змінилось — не смикаємо базу
+  if(l.date===newDate && String(l.time||'').slice(0,5)===newTime) return;
+
+  var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+  var dp=String(newDate).split('-');
+  var dLbl=dp.length===3 ? dp[2]+'.'+dp[1] : newDate;
+  if(!confirm('\u041f\u0435\u0440\u0435\u043d\u0435\u0441\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f'
+    +(st?' \u2014 '+st.fn+' '+st.ln:'')+'\n\n'
+    +'\u0417 '+String(l.date||'').split('-').reverse().slice(0,2).join('.')+' '+(l.time||'')
+    +'\n\u041d\u0430 '+dLbl+' '+newTime+'?')) return;
+
+  try{
+    await dbUpdate('lessons', id, { date:newDate, time:newTime });
+    mkToast('\u2705 \u041f\u0435\u0440\u0435\u043d\u0435\u0441\u0435\u043d\u043e \u043d\u0430 '+dLbl+' '+newTime);
+    renderSch();
+  }catch(err){
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(err.message||err),'error');
+  }
+}
+window.schDrop = schDrop;
+
+function sparkline(values, color, w, hgt){
+  values = (values||[]).map(function(v){ return parseFloat(v)||0; });
+  if(values.length<2) return '';
+  w = w||70; hgt = hgt||22;
+  var max=Math.max.apply(null, values), min=Math.min.apply(null, values);
+  var range = (max-min)||1;
+  var step = w/(values.length-1);
+  var pts = values.map(function(v,i){
+    var x=(i*step).toFixed(1);
+    var y=(hgt - ((v-min)/range)*(hgt-4) - 2).toFixed(1);
+    return x+','+y;
+  });
+  var last=values[values.length-1], prev=values[values.length-2];
+  var trendUp = last>=prev;
+  color = color || (trendUp ? 'var(--tut)' : 'var(--danger)');
+  // Заливка під лінією — робить тренд помітнішим при швидкому погляді
+  var area = 'M0,'+hgt+' L'+pts.join(' L')+' L'+w+','+hgt+' Z';
+  var uid = 'spk'+Math.random().toString(36).slice(2,8);
+  return '<svg class="spark" width="'+w+'" height="'+hgt+'" viewBox="0 0 '+w+' '+hgt+'" '
+    +'style="overflow:visible" aria-hidden="true">'
+    +'<defs><linearGradient id="'+uid+'" x1="0" y1="0" x2="0" y2="1">'
+      +'<stop offset="0%" stop-color="'+color+'" stop-opacity=".28"/>'
+      +'<stop offset="100%" stop-color="'+color+'" stop-opacity="0"/>'
+    +'</linearGradient></defs>'
+    +'<path d="'+area+'" fill="url(#'+uid+')"/>'
+    +'<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+color+'" '
+      +'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'
+    +'<circle cx="'+(w).toFixed(1)+'" cy="'+pts[pts.length-1].split(',')[1]+'" r="2.4" fill="'+color+'"/>'
+  +'</svg>';
+}
+window.sparkline = sparkline;
+
+/** Значення показника за останні N місяців — для sparkline */
+function monthlySeries(fn, months){
+  months = months||6;
+  var out=[], now=new Date();
+  for(var i=months-1;i>=0;i--){
+    var d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+    var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    out.push(fn(key)||0);
+  }
+  return out;
+}
+window.monthlySeries = monthlySeries;
+
 function skeleton(kind, count){
   count = count || 5;
   var out='';
@@ -2683,20 +2805,45 @@ function renderDashStats(){
     return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
   });
   var nb=document.getElementById('nb-s'); if(nb)nb.textContent=myStudents().filter(function(s){return s.status==='active';}).length;
+  // Тренди за 6 місяців для міні-графіків у картках
+  var _spkLessons = monthlySeries(function(key){
+    return myLessons().filter(function(l){
+      return String(l.date||'').slice(0,7)===key && (isDoneLesson(l)||l.status==='makeup');
+    }).reduce(function(a,l){ return a+(parseFloat(l.dur)||60)/60; },0);
+  });
+  var _spkIncome = monthlySeries(function(key){
+    return myLessons().filter(function(l){
+      return String(l.date||'').slice(0,7)===key && (isDoneLesson(l)||l.status==='makeup');
+    }).reduce(function(a,l){ return a+(lessonTotal(l)||0); },0);
+  });
+  var _spkStudents = monthlySeries(function(key){
+    // Скільки унікальних учнів мали заняття того місяця
+    var ids={};
+    myLessons().forEach(function(l){
+      if(String(l.date||'').slice(0,7)===key) ids[l.studentId||l.student_id]=1;
+    });
+    return Object.keys(ids).length;
+  });
+
   var statsHtml='<div class="sc blue">'
     +'<div class="slbl">\u0410\u043A\u0442\u0438\u0432\u043D\u0438\u0445 \u0443\u0447\u043D\u0456\u0432</div>'
     +'<div class="sval">'+ms.filter(function(s){return s.status==='active';}).length+'</div>'
-    +'<div class="ssub">\u0417\u0430\u0433\u0430\u043B\u043E\u043C: '+ms.length+'</div><span class="sico">\u25CE</span></div>'
+    +'<div class="ssub">\u0417\u0430\u0433\u0430\u043B\u043E\u043C: '+ms.length+'</div>'
+    +'<div class="spk-wrap">'+sparkline(_spkStudents,'var(--adm)')+'</div>'
+    +'<span class="sico">\u25CE</span></div>'
     +'<div class="sc green">'
     +'<div class="slbl">\u0417\u0430\u043D\u044F\u0442\u044C \u0446\u044C\u043E\u0433\u043E \u043C\u0456\u0441\u044F\u0446\u044F</div>'
     +'<div class="sval">'+Math.round(monthL.filter(function(l){return l.status==='planned'||l.status==='scheduled'||isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
     +'<div class="ssub">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E: '+Math.round(monthL.filter(function(l){return isDoneLesson(l)||l.status==='makeup';}).reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10+'</div>'
+    +'<div class="spk-wrap">'+sparkline(_spkLessons,'var(--tut)')+'</div>'
     +'<span class="sico">\u25C9</span></div>';
   if(P().seeIncome && R()!=='tutor'){
     var inc=monthL.filter(function(l){
       return isDoneLesson(l)||l.status==='makeup';
     }).reduce(function(a,l){return a+lessonTotal(l);},0);
-    statsHtml+='<div class="sc yellow">'      +'<div class="slbl">Дохід цього місяця</div>'      +'<div class="sval">'+Math.round(inc).toLocaleString('uk-UA')+'₴</div>'      +'<div class="ssub">Отримано</div><span class="sico">◈</span></div>';
+    statsHtml+='<div class="sc yellow">'      +'<div class="slbl">Дохід цього місяця</div>'      +'<div class="sval">'+Math.round(inc).toLocaleString('uk-UA')+'₴</div>'      +'<div class="ssub">Отримано</div>'
+      +'<div class="spk-wrap">'+sparkline(_spkIncome,'#f59e0b')+'</div>'
+      +'<span class="sico">◈</span></div>';
     } else if(R()!=='tutor') {
 
 
@@ -8710,7 +8857,10 @@ function renderSchWeek(){
       var _cellClick = _availMode
         ? ('availToggleCell('+dow+','+h+')')
         : ('openLessM(null,\''+ds+'\',\''+String(h).padStart(2,'0')+':00\')');
-      html+='<div class="'+(_availMode?'avail-cell':'')+'" onclick="event.stopPropagation();'+_cellClick+'" style="position:absolute;top:'+((h-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer;'+_offBg+'">'
+      html+='<div class="'+(_availMode?'avail-cell':'sch-drop')+'"'
+        +(_availMode?'':' ondragover="schDragOver(event)" ondragleave="schDragLeave(event)"'
+          +' ondrop="schDrop(event,\''+ds+'\',\''+String(h).padStart(2,'0')+':00\')"')
+        +' onclick="event.stopPropagation();'+_cellClick+'" style="position:absolute;top:'+((h-START_H)*ROW_H)+'px;left:0;right:0;height:'+ROW_H+'px;border-top:1px solid var(--b1);box-sizing:border-box;cursor:pointer;'+_offBg+'">'
         +(_availMode&&_working?'<span style="position:absolute;top:2px;left:3px;font-size:9px;color:#16a34a;opacity:.7">\u2713</span>':'')
         +'</div>';
     }
@@ -8738,7 +8888,9 @@ function renderSchWeek(){
       var wPct=100/li.count;
       var posCss='left:calc('+(li.lane*wPct)+'% + 2px);width:calc('+wPct+'% - 4px);';
       var canDel=can('lessons');
-      html+='<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCss+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer;'
+      html+='<div class="sche '+ecl+'"'
+        +(canDel?' draggable="true" ondragstart="schDragStart(event,\''+l.id+'\')" ondragend="schDragEnd(event)"':'')
+        +' style="position:absolute;top:'+topPx+'px;'+posCss+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer;'
         +'box-shadow:inset 3px 0 0 '+tutorColor(l.tutorId||l.tutor_id)+'"'
         +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
         +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.status==='burned'?'🔥 ':'')+(l.recurId?'🔁 ':'')+snShort(l.studentId||l.student_id)+'</div>'
