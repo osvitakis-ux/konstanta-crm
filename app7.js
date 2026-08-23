@@ -1865,6 +1865,35 @@ function tutorDot(tutorId, size){
 }
 window.tutorDot = tutorDot;
 
+/**
+ * Скелетон завантаження — показує форму майбутнього вмісту.
+ * Краще за спінер: сторінка не «стрибає», коли дані приходять,
+ * і очікування суб'єктивно коротше.
+ * kind: 'rows' | 'cards'
+ */
+function skeleton(kind, count){
+  count = count || 5;
+  var out='';
+  if(kind==='cards'){
+    for(var c=0;c<count;c++) out+='<div class="skel skel-card"></div>';
+    return '<div style="padding:4px">'+out+'</div>';
+  }
+  for(var i=0;i<count;i++){
+    // Різна ширина рядків — виглядає природніше за однакові смуги
+    var w1=55+((i*17)%25), w2=25+((i*11)%20);
+    out+='<div class="skel-row">'
+      +'<div class="skel skel-av"></div>'
+      +'<div style="flex:1;display:flex;flex-direction:column;gap:6px">'
+        +'<div class="skel skel-line" style="width:'+w1+'%"></div>'
+        +'<div class="skel skel-line" style="width:'+w2+'%;height:9px;opacity:.65"></div>'
+      +'</div>'
+      +'<div class="skel skel-line" style="width:64px"></div>'
+    +'</div>';
+  }
+  return '<div style="padding:4px 0">'+out+'</div>';
+}
+window.skeleton = skeleton;
+
 function mkAv(fn,ln,sz,photo){
   sz=sz||30;
   if(photo) return '<div class="av" style="width:'+sz+'px;height:'+sz+'px;overflow:hidden;flex-shrink:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>';
@@ -4422,6 +4451,17 @@ if(!window._unloadGuardSet){
 // =
 async function loadAll(){
   setSaving();
+  // Показуємо скелетон на видимій сторінці, поки вантажаться дані —
+  // краще за порожній екран під час першого входу
+  try{
+    var _pg=document.querySelector('.page.active');
+    if(_pg && _pg.innerText.trim().length<40){
+      var _sk=document.createElement('div');
+      _sk.id='boot-skeleton';
+      _sk.innerHTML=skeleton('cards',3)+skeleton('rows',5);
+      _pg.appendChild(_sk);
+    }
+  }catch(e){}
   try{
   await ensureFreshSession(); // оновити токен завчасно, якщо він майже протермінований
   const tables = [
@@ -4579,6 +4619,8 @@ function handleChange(key, table, payload){
 }
 
 function refreshPage(key){
+  // Дані прийшли — прибираємо скелетон першого завантаження
+  try{ var _bs=document.getElementById('boot-skeleton'); if(_bs) _bs.remove(); }catch(e){}
   try{updateTaskAlert();}catch(e){}
   if(typeof S === 'undefined' || !S.currentPage) return;
   var pg = S.currentPage;
@@ -7433,6 +7475,7 @@ function nav(page){
   const pel=document.getElementById('pg-'+page);if(pel)pel.classList.add('active');
   const nel=document.getElementById('ni-'+page);
   if(nel){nel.classList.add('active');nel.className=nel.className.replace(/ (god|dir|tut)/g,'');if(R()==='god')nel.classList.add('god');else if(R()==='director')nel.classList.add('dir');else if(R()==='tutor')nel.classList.add('tut');}
+  try{ var _bs2=document.getElementById('boot-skeleton'); if(_bs2) _bs2.remove(); }catch(e){}
   // На дашборді — привітання за часом доби замість сухого «Дашборд»
   var _pt=document.getElementById('ptitle');
   if(_pt){
@@ -9730,7 +9773,7 @@ async function renderLeads(){
   var body=document.getElementById('leads-body');
   var sum=document.getElementById('lead-summary');
   if(!body) return;
-  body.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</div>';
+  body.innerHTML=skeleton('rows',6);
 
   var rows=[];
   try{
@@ -10196,7 +10239,7 @@ async function renderTelLog(){
   var periodF = (document.getElementById('tel-period')||{value:''}).value;
   var q       = ((document.getElementById('tel-search')||{value:''}).value||'').toLowerCase().trim();
 
-  body.innerHTML = '<div class="tel-empty">\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f\u2026</div>';
+  body.innerHTML = skeleton('rows',5);
 
   // Напрямок фільтруємо на сервері, решту — локально
   var srvFilter = (typeF==='inbound'||typeF==='outbound') ? typeF : null;
