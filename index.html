@@ -203,6 +203,40 @@ tbody tr{transition:background .14s ease}
 .sche[draggable="true"]{cursor:grab}
 .sche[draggable="true"]:active{cursor:grabbing}
 .sch-dragging{opacity:.4;transform:scale(.97)!important}
+/* ═══════════════════════════════════════════════════════════
+   НИЖНЯ НАВІГАЦІЯ (мобільні)
+   П'ять найчастіших розділів під великим пальцем — швидше,
+   ніж щоразу відкривати бічне меню.
+   ═══════════════════════════════════════════════════════════ */
+.bottom-nav{display:none}
+@media(max-width:768px){
+  .bottom-nav{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;
+    background:var(--s1);border-top:1px solid var(--b1);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    box-shadow:0 -2px 14px rgba(0,0,0,.06);
+  }
+  .bn-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;padding:7px 2px;border:none;background:none;cursor:pointer;
+    color:var(--t3);font-size:10px;font-weight:600;line-height:1;
+    border-radius:10px;transition:color .15s ease, background .15s ease;
+    min-height:52px;position:relative;
+  }
+  .bn-item .bn-ico{font-size:19px;line-height:1;transition:transform .18s cubic-bezier(.22,.61,.36,1)}
+  .bn-item.active{color:var(--adm)}
+  .bn-item.active .bn-ico{transform:translateY(-2px) scale(1.12)}
+  .bn-item:active{background:var(--s2)}
+  .bn-item .bn-badge{
+    position:absolute;top:4px;right:50%;margin-right:-20px;
+    min-width:16px;height:16px;padding:0 4px;border-radius:9px;
+    background:var(--danger);color:#fff;font-size:9px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+  }
+  /* Місце під панель, щоб вона не перекривала вміст */
+  .content{padding-bottom:78px!important}
+  /* Бічне меню лишається — для решти розділів */
+}
 .sch-drop-hover{
   background:rgba(41,171,226,.16)!important;
   box-shadow:inset 0 0 0 2px var(--adm);
@@ -829,7 +863,7 @@ textarea{resize:vertical;min-height:72px}
   #addbtn{font-size:12px;padding:6px 12px}
 
   /* content */
-  .content{padding:12px}
+  .content{padding:12px;padding-bottom:78px}
 
   /* stat grids */
   .sgrid{grid-template-columns:1fr 1fr!important;gap:10px}
@@ -910,7 +944,7 @@ textarea{resize:vertical;min-height:72px}
   table{font-size:12px}
   td,th{padding:8px 10px!important}
   /* Fix content padding */
-  .content{padding:10px!important}
+  .content{padding:10px!important;padding-bottom:78px!important}
   /* Fix topbar */
   .topbar{padding:0 8px 0 58px!important;gap:6px!important}
 }
@@ -1022,6 +1056,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
 <div id="as">
 <button class="hamburger" id="hamburger" onclick="toggleSidebar()">☰</button>
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+<!-- Нижня навігація для мобільних -->
+<nav id="bottom-nav" class="bottom-nav"></nav>
+
 <div class="layout">
 
   <!-- SIDEBAR -->
@@ -2399,7 +2436,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=phase3"></script>
+<script src="app7.js?v=phase4"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
