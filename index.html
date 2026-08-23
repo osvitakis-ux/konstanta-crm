@@ -486,8 +486,24 @@ textarea{resize:vertical;min-height:72px}
 [style*="grid-template-columns:1fr 1.4fr 1fr"]>*{min-width:0}
 .chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);cursor:pointer;transition:.15s;font-weight:500}
 .chip:hover,.chip.active{background:var(--adm-bg);border-color:var(--adm);color:var(--adm)}
-.empty{text-align:center;padding:36px 20px;color:var(--t3)}
-.empty .ei{font-size:36px;margin-bottom:8px}
+.empty{text-align:center;padding:44px 20px;color:var(--t3);font-size:13.5px;line-height:1.6}
+/* Іконка порожнього стану — у м'якому колі, а не голе емодзі */
+.empty .ei{
+  font-size:30px;margin:0 auto 12px;width:72px;height:72px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--s2),var(--s3));
+  border:1px solid var(--b1);border-radius:22px;opacity:.9;
+}
+.empty b{display:block;color:var(--t2);font-size:14.5px;margin-bottom:4px;font-weight:700}
+.empty .eh{font-size:12px;color:var(--t3);opacity:.85;margin-top:2px}
+.empty .btn{margin-top:14px}
+
+/* ── Легенда кольорів репетиторів у розкладі ── */
+.sch-legend{display:flex;gap:12px;flex-wrap:wrap;padding:9px 14px;
+  border-bottom:1px solid var(--b1);font-size:11.5px;align-items:center}
+.sch-legend .lg-item{display:inline-flex;align-items:center;gap:5px;color:var(--t2)}
+.sch-legend .lg-ttl{font-size:10px;color:var(--t3);text-transform:uppercase;
+  letter-spacing:.4px;font-weight:700;margin-right:2px}
 
 /* ─── CRM KANBAN BOARD ─── */
 #crm-board{display:flex;gap:12px;align-items:flex-start;min-width:max-content;padding-bottom:4px}
@@ -1136,7 +1152,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
             <span id="avail-hint" style="display:none;font-size:11px;color:var(--adm)"></span>
           </div>
         </div>
-        <div class="card" style="overflow-x:auto"><div class="schg" id="schg"></div><div id="schm" style="display:none"></div></div>
+        <div class="card" style="overflow-x:auto"><div id="sch-legend" class="sch-legend" style="display:none"></div><div class="schg" id="schg"></div><div id="schm" style="display:none"></div></div>
       </div>
 
       <!-- ── LESSONS ── -->
@@ -2291,7 +2307,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=burned1"></script>
+<script src="app7.js?v=phase1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
