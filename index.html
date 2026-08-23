@@ -158,7 +158,83 @@ nav.sbnav{flex:1;overflow-y:auto;padding:10px 8px}
 
 /* ─── PAGES ─── */
 .page{display:none!important}
-.page.active{display:block!important;animation:fi .15s ease forwards}
+/* Плавніший перехід між сторінками: трохи довше й з мʼякшою кривою,
+   щоб зміна не «клацала», але й не гальмувала роботу */
+.page.active{display:block!important;animation:pageIn .26s cubic-bezier(.22,.61,.36,1) forwards}
+@keyframes pageIn{
+  from{opacity:0;transform:translateY(10px) scale(.995)}
+  to{opacity:1;transform:none}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ФАЗА 2 — МІКРОАНІМАЦІЇ ТА СКЕЛЕТОНИ
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Кнопки: відчутний, але стриманий відгук ── */
+.btn{transition:transform .12s cubic-bezier(.22,.61,.36,1),
+                box-shadow .18s ease, background .18s ease, opacity .15s ease}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:translateY(0) scale(.97);transition-duration:.06s}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+
+/* ── Картки: легкий підйом при наведенні ── */
+.card{transition:box-shadow .22s ease, transform .22s cubic-bezier(.22,.61,.36,1)}
+.sc{transition:transform .2s cubic-bezier(.22,.61,.36,1), box-shadow .2s ease}
+.sc:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.07)}
+
+/* ── Рядки таблиць ── */
+tbody tr{transition:background .14s ease}
+
+/* ── Чипи-фільтри ── */
+.chip{transition:transform .14s ease, background .16s ease, color .16s ease}
+.chip:active{transform:scale(.95)}
+
+/* ── Заняття в розкладі ── */
+.sche{transition:transform .14s cubic-bezier(.22,.61,.36,1), box-shadow .16s ease, filter .16s ease}
+.sche:hover{transform:scale(1.02);z-index:5!important;filter:brightness(1.03)}
+.schm-ev{transition:transform .12s ease}
+.schm-ev:hover{transform:translateX(2px)}
+
+/* ── Модальні вікна ── */
+.mo{transition:opacity .2s ease}
+.mdl{animation:mdlIn .24s cubic-bezier(.22,.61,.36,1)}
+@keyframes mdlIn{
+  from{opacity:0;transform:translateY(16px) scale(.985)}
+  to{opacity:1;transform:none}
+}
+
+/* ── Бічне меню ── */
+.sb-item{transition:background .15s ease, padding-left .15s ease}
+.sb-item:hover{padding-left:18px}
+
+/* ── СКЕЛЕТОНИ ЗАВАНТАЖЕННЯ ──
+   Показують форму майбутнього вмісту замість порожнечі чи спінера —
+   так очікування відчувається коротшим, а сторінка не «стрибає». */
+.skel{background:linear-gradient(90deg,
+        var(--s2) 25%, var(--s3) 37%, var(--s2) 63%);
+      background-size:400% 100%;
+      animation:skelWave 1.4s ease-in-out infinite;
+      border-radius:8px}
+@keyframes skelWave{
+  0%{background-position:100% 50%}
+  100%{background-position:0 50%}
+}
+.skel-row{display:flex;align-items:center;gap:12px;padding:12px 4px}
+.skel-av{width:34px;height:34px;border-radius:50%;flex-shrink:0}
+.skel-line{height:11px}
+.skel-card{height:84px;border-radius:14px;margin-bottom:10px}
+
+/* ── Повага до системних налаштувань ──
+   Якщо людина вимкнула анімації в системі (це роблять через
+   заколисування чи чутливість до руху) — прибираємо їх усі. */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    scroll-behavior:auto!important;
+  }
+}
 
 /* ─── CARDS ─── */
 .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
@@ -2307,7 +2383,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=phase1"></script>
+<script src="app7.js?v=phase2"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
