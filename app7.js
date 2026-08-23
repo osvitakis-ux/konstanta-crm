@@ -3700,6 +3700,7 @@ function gcLiveNavChange(idx,key,val){
   items[idx][key]=val;
   gcSet('navItems',items);
   buildSidebar();
+  try{ buildBottomNav(); }catch(e){}
   // Highlight current active
   var nel=document.getElementById('ni-'+S.currentPage);
   if(nel)nel.classList.add('active');
@@ -3712,6 +3713,7 @@ function gcLiveNavRole(idx,role,checked){
   else items[idx].roles=items[idx].roles.filter(function(r){return r!==role;});
   gcSet('navItems',items);
   buildSidebar();
+  try{ buildBottomNav(); }catch(e){}
   var nel=document.getElementById('ni-'+S.currentPage);
   if(nel)nel.classList.add('active');
 }
@@ -3723,6 +3725,7 @@ function gcDelNavItem(idx){
   gcSet('navItems',items);
   gcRenderNav();
   buildSidebar();
+  try{ buildBottomNav(); }catch(e){}
 }
 
 function gcAddNavItem(){
@@ -3738,6 +3741,7 @@ function gcAddNavItem(){
   document.getElementById('gc-new-sec').value='';
   gcRenderNav();
   buildSidebar();
+  try{ buildBottomNav(); }catch(e){}
   mkToast('\u0412\u043A\u043B\u0430\u0434\u043A\u0443 "'+lbl+'" \u0434\u043E\u0434\u0430\u043D\u043E');
 }
 
@@ -3746,6 +3750,7 @@ function gcResetNav(){
   gcSet('navItems',null);
   gcRenderNav();
   buildSidebar();
+  try{ buildBottomNav(); }catch(e){}
   var nel=document.getElementById('ni-'+S.currentPage);
   if(nel)nel.classList.add('active');
   mkToast('\u041D\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u044E \u0441\u043A\u0438\u043D\u0443\u0442\u043E');
@@ -3772,6 +3777,7 @@ function gcDrop(e,targetIdx){
   gcSet('navItems',items);
   gcRenderNav();
   buildSidebar();
+  try{ buildBottomNav(); }catch(e){}
   var nel=document.getElementById('ni-'+S.currentPage);
   if(nel)nel.classList.add('active');
 }
@@ -3938,6 +3944,7 @@ function gcApplyLabel(key,val){
   if(ab&&key==='addPayment'&&S.currentPage==='payments')ab.textContent='+ '+val;
   if(ab&&key==='addTutor'&&S.currentPage==='tutors')ab.textContent='+ '+val;
   buildSidebar();
+  try{ buildBottomNav(); }catch(e){}
   var nel=document.getElementById('ni-'+S.currentPage);if(nel)nel.classList.add('active');
 }
 
@@ -4423,7 +4430,8 @@ async function initApp(){
       document.head.appendChild(_st);
     }
     window._viewerMode = true;
-    buildSidebar(); updateSBUser(); updateBranchSelector();
+    buildSidebar();
+  try{ buildBottomNav(); }catch(e){} updateSBUser(); updateBranchSelector();
     document.body.className = document.body.className.replace(/\brole-\w+\b/g,'');
     document.body.classList.add('role-god');
     // Показуємо банер "Режим перегляду"
@@ -6099,7 +6107,8 @@ async function startApp(){
   // Load data, build UI, navigate — all in one await
   await loadAll();
   startChannels();
-  buildSidebar(); updateSBUser(); updateBranchSelector();
+  buildSidebar();
+  try{ buildBottomNav(); }catch(e){} updateSBUser(); updateBranchSelector();
   document.body.className = document.body.className.replace(/\brole-\w+\b/g, '');
   document.body.classList.add('role-' + (CU ? CU.role : 'tutor'));
 
@@ -6113,7 +6122,8 @@ async function startApp(){
 
   // Second silent load to catch any data that arrived after first load
   loadAll().then(function(){
-    buildSidebar(); updateSBUser();
+    buildSidebar();
+  try{ buildBottomNav(); }catch(e){} updateSBUser();
     try{renderDash();}catch(e){}
     reRender();
   }).catch(function(){});
@@ -7623,6 +7633,7 @@ function nav(page){
   const nel=document.getElementById('ni-'+page);
   if(nel){nel.classList.add('active');nel.className=nel.className.replace(/ (god|dir|tut)/g,'');if(R()==='god')nel.classList.add('god');else if(R()==='director')nel.classList.add('dir');else if(R()==='tutor')nel.classList.add('tut');}
   try{ var _bs2=document.getElementById('boot-skeleton'); if(_bs2) _bs2.remove(); }catch(e){}
+  try{ initSwipeGestures(); }catch(e){}
   // На дашборді — привітання за часом доби замість сухого «Дашборд»
   var _pt=document.getElementById('ptitle');
   if(_pt){
@@ -7679,6 +7690,7 @@ function nav(page){
   else{if(_crmEl)_crmEl.style.display='none';}
     if(isCustomPage)renderCustomPage(page);
   try{updateTaskAlert();}catch(e){}
+  try{ buildBottomNav(); }catch(e){}   // підсвітити активний пункт
   if(window.innerWidth<=768)closeSidebar();
 }
 
@@ -7788,6 +7800,111 @@ async function saveProfileEdit(){
     document.getElementById('pr-edit-form').style.display = 'none';
     renderProfile();
   }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  НИЖНЯ НАВІГАЦІЯ (мобільні)
+//  П'ять найчастіших розділів — під великим пальцем.
+//  Останній пункт «Ще» відкриває повне бічне меню.
+// ═══════════════════════════════════════════════════════════════
+var BOTTOM_NAV = {
+  god:      ['dashboard','schedule','students','lessons'],
+  director: ['dashboard','schedule','students','payroll'],
+  admin:    ['dashboard','schedule','students','lessons'],
+  network_admin: ['dashboard','schedule','students','lessons'],
+  tutor:    ['dashboard','schedule','lessons','students']
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  СВАЙП-ЖЕСТИ (мобільні)
+//  Гортання ліворуч/праворуч перемикає тижні в розкладі —
+//  природніше, ніж цілитись у маленькі стрілки.
+// ═══════════════════════════════════════════════════════════════
+function initSwipeGestures(){
+  if(window._swipeInited) return;
+  window._swipeInited = true;
+
+  var startX=0, startY=0, startT=0, tracking=false;
+
+  document.addEventListener('touchstart', function(e){
+    if(e.touches.length!==1) return;
+    // Не заважаємо гортанню таблиць і полям вводу
+    var t=e.target;
+    if(t.closest && (t.closest('[style*="overflow-x"]') || t.closest('input,textarea,select,.mo'))) return;
+    startX=e.touches[0].clientX;
+    startY=e.touches[0].clientY;
+    startT=Date.now();
+    tracking=true;
+  }, {passive:true});
+
+  document.addEventListener('touchend', function(e){
+    if(!tracking) return;
+    tracking=false;
+    var dx=e.changedTouches[0].clientX-startX;
+    var dy=e.changedTouches[0].clientY-startY;
+    var dt=Date.now()-startT;
+
+    // Жест зараховуємо, якщо: горизонтальний, достатньо довгий і швидкий
+    if(Math.abs(dx)<70) return;              // надто короткий
+    if(Math.abs(dy)>Math.abs(dx)*0.6) return; // це вертикальне гортання
+    if(dt>600) return;                        // надто повільно — радше випадковість
+
+    var page=S.currentPage;
+    if(page==='schedule'){
+      // Ліворуч = вперед у часі, праворуч = назад (як гортання сторінок)
+      chWk(dx<0 ? 1 : -1);
+      mkToast(dx<0 ? '\u2192 \u041d\u0430\u0441\u0442\u0443\u043f\u043d\u0438\u0439' : '\u2190 \u041f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u0456\u0439');
+    }
+  }, {passive:true});
+}
+window.initSwipeGestures=initSwipeGestures;
+
+function buildBottomNav(){
+  var el=document.getElementById('bottom-nav');
+  if(!el) return;
+  var role=R();
+  var allowed=(ROLES[role]&&ROLES[role].nav)||[];
+  var want=(BOTTOM_NAV[role]||BOTTOM_NAV.tutor).filter(function(id){
+    return allowed.indexOf(id)>=0;
+  });
+
+  var html=want.map(function(id){
+    var cfg=(NAV_CFG||[]).find(function(x){return x.id===id;});
+    if(!cfg) return '';
+    var active=(S.currentPage===id)?' active':'';
+    // Лічильник завдань — щоб не пропустити нове
+    var badge='';
+    if(id==='tasks'){
+      var n=(S.tasks||[]).filter(function(t){
+        return t.status!=='done' && (t.assignee===CU.id||t.assigned_to===CU.id);
+      }).length;
+      if(n) badge='<span class="bn-badge">'+(n>9?'9+':n)+'</span>';
+    }
+    return '<button class="bn-item'+active+'" onclick="nav(\''+id+'\')">'
+      +'<span class="bn-ico">'+(cfg.ico||'\u25CF')+'</span>'
+      +'<span>'+shortLabel(cfg.lbl)+'</span>'+badge+'</button>';
+  }).join('');
+
+  // «Ще» — відкриває повне бічне меню
+  html+='<button class="bn-item" onclick="toggleSidebar()">'
+    +'<span class="bn-ico">\u2261</span><span>\u0429\u0435</span></button>';
+
+  el.innerHTML=html;
+}
+window.buildBottomNav=buildBottomNav;
+
+/** Коротка назва для вузької кнопки */
+function shortLabel(lbl){
+  var map={
+    '\u0414\u0430\u0448\u0431\u043e\u0440\u0434':'\u0413\u043e\u043b\u043e\u0432\u043d\u0430',
+    '\u0420\u043e\u0437\u043a\u043b\u0430\u0434':'\u0420\u043e\u0437\u043a\u043b\u0430\u0434',
+    '\u0417\u0430\u043d\u044f\u0442\u0442\u044f':'\u0417\u0430\u043d\u044f\u0442\u0442\u044f',
+    '\u0423\u0447\u043d\u0456':'\u0423\u0447\u043d\u0456',
+    '\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u0438':'\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u0430'
+  };
+  var t=String(lbl||'');
+  if(map[t]) return map[t];
+  return t.length>9 ? t.slice(0,8)+'\u2026' : t;
 }
 
 function buildSidebar(){
@@ -10702,7 +10819,8 @@ function initTrainingMode(){
     _st.textContent='.page{display:none!important}.page.active{display:block!important;padding-bottom:40px}';
     document.head.appendChild(_st);
   }
-  buildSidebar(); updateSBUser();
+  buildSidebar();
+  try{ buildBottomNav(); }catch(e){} updateSBUser();
   document.body.className = document.body.className.replace(/\brole-\w+\b/g,'');
   document.body.classList.add('role-tutor');
 
