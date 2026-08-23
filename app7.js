@@ -1814,6 +1814,57 @@ function myBranchId(){
   return (CU&&CU.branchId)||null;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  КОЛІР РЕПЕТИТОРА — однаковий у всій системі
+//  Дає змогу впізнавати, чиє це заняття, одним поглядом на розклад.
+//  Колір стабільний: рахується з id, тож не змінюється між сеансами.
+// ═══════════════════════════════════════════════════════════════
+var TUTOR_COLORS = ['#6366f1','#22c55e','#f59e0b','#ec4899','#14b8a6',
+                    '#8b5cf6','#f97316','#06b6d4','#84cc16','#e11d48',
+                    '#0ea5e9','#a855f7'];
+
+function tutorColor(tutorId){
+  if(!tutorId) return 'var(--b2)';
+  var t=(S.tutors||[]).find(function(x){return x.id===tutorId;});
+  if(t && t.color) return t.color;      // власний колір із картки, якщо заданий
+  var str=String(tutorId), h=0;
+  for(var i=0;i<str.length;i++){ h=(h*31 + str.charCodeAt(i)) >>> 0; }
+  return TUTOR_COLORS[h % TUTOR_COLORS.length];
+}
+window.tutorColor = tutorColor;
+
+/** Кольорова крапка репетитора — для списків і легенд */
+/** Легенда кольорів репетиторів над розкладом */
+function renderSchLegend(){
+  var el=document.getElementById('sch-legend');
+  if(!el) return;
+  // Показуємо лише тих, у кого є заняття в поточному вигляді
+  var ids={};
+  (myLessons()||[]).forEach(function(l){
+    var t=l.tutorId||l.tutor_id; if(t) ids[t]=true;
+  });
+  var list=Object.keys(ids)
+    .map(function(id){ return (S.tutors||[]).find(function(t){return t.id===id;}); })
+    .filter(Boolean)
+    .sort(function(a,b){ return ((a.fn||'')+a.ln).localeCompare((b.fn||'')+b.ln,'uk'); });
+
+  // Одному репетитору легенда ні до чого
+  if(list.length<2){ el.style.display='none'; return; }
+  el.style.display='flex';
+  el.innerHTML='<span class="lg-ttl">\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438</span>'
+    +list.map(function(t){
+      return '<span class="lg-item">'+tutorDot(t.id,9)+(t.fn||'')+' '+((t.ln||'').charAt(0)?(t.ln||'').charAt(0)+'.':'')+'</span>';
+    }).join('');
+}
+window.renderSchLegend=renderSchLegend;
+
+function tutorDot(tutorId, size){
+  size = size||8;
+  return '<span style="display:inline-block;width:'+size+'px;height:'+size+'px;'
+    +'border-radius:50%;background:'+tutorColor(tutorId)+';flex-shrink:0"></span>';
+}
+window.tutorDot = tutorDot;
+
 function mkAv(fn,ln,sz,photo){
   sz=sz||30;
   if(photo) return '<div class="av" style="width:'+sz+'px;height:'+sz+'px;overflow:hidden;flex-shrink:0"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>';
@@ -3050,7 +3101,12 @@ function renderStudents(){
         +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delStudent(this.dataset.id)" data-id="'+s.id+'">\uD83D\uDDD1</button>')
       :('<button class="btn btn-g btn-sm" onclick="openStudM(this.dataset.id)" data-id="'+s.id+'" title="\u041F\u0435\u0440\u0435\u0433\u043B\u044F\u043D\u0443\u0442\u0438 \u043A\u0430\u0440\u0442\u043A\u0443">\uD83D\uDC41</button>');
     var _tids=studentTutorIds(s);
-    var _tnames=_tids.map(tn).filter(function(n){return n&&n!=='\u2014';});
+    // Імена репетиторів із кольоровою крапкою — той самий колір, що й у розкладі
+    var _tnames=_tids.map(function(tid){
+      var nm=tn(tid);
+      if(!nm||nm==='\u2014') return null;
+      return '<span style="display:inline-flex;align-items:center;gap:5px">'+tutorDot(tid)+nm+'</span>';
+    }).filter(Boolean);
     var _subjTxt=studentSubjects(s).join(', ')||s.subject||'';
     var _canSeeBranchesS=isSuperAdmin()||R()==='director'||R()==='admin';
     var _branchBadgeS=_canSeeBranchesS
@@ -3220,17 +3276,30 @@ function renderPayments(){
       ?('<button class="btn btn-g btn-sm" onclick="openPayM(this.dataset.id)" data-id="'+p.id+'">\u270F\uFE0F</button>'
         +'<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delPay(this.dataset.id)" data-id="'+p.id+'">\uD83D\uDDD1</button>')
       :'\u2014';
+    // Іконка способу оплати — швидше зчитується, ніж текст
+    var MI={cash:'\ud83d\udcb5',card:'\ud83d\udcb3',transfer:'\ud83c\udfe6'};
+    var st=(S.students||[]).find(function(x){return x.id===p.studentId;});
+    var amt=p.amount||0;
     return '<tr>'
-      +'<td>'+sn(p.studentId)+'</td>'
-      +'<td style="font-family:JetBrains Mono,monospace">'+((p.amount||0).toLocaleString('uk-UA'))+'\u20B4</td>'
-      +'<td>'+(mm[p.method]||p.method)+'</td>'
+      +'<td><div style="display:flex;align-items:center;gap:9px">'
+        +mkAv(st?st.fn:'?', st?st.ln:'', 32, st?st.photo:null)
+        +'<div><div style="font-weight:600;font-size:13px">'+sn(p.studentId)+'</div>'
+        +'<div style="font-size:10.5px;color:var(--t3)">'+fd(p.date)+'</div></div></div></td>'
+      +'<td><span style="font-family:JetBrains Mono,monospace;font-size:15px;font-weight:800;'
+        +'color:'+(amt>0?'var(--tut)':'var(--t3)')+'">'
+        +amt.toLocaleString('uk-UA')+'\u20B4</span></td>'
+      +'<td><span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px">'
+        +(MI[p.method]||'\ud83d\udcb0')+' '+(mm[p.method]||p.method)+'</span></td>'
       +'<td style="font-size:11px">'+fd(p.date)+'</td>'
       +'<td style="font-size:12px">'+(p.month||'\u2014')+'</td>'
       +'<td style="font-size:12px;color:var(--t2)">'+(p.note||'\u2014')+'</td>'
       +'<td>'+bst(p.status)+'</td>'
       +'<td><div style="display:flex;gap:3px">'+btns+'</div></td>'
       +'</tr>';
-  }).join(''):'<tr><td colspan="8"><div class="empty"><div class="ei">\uD83D\uDCB3</div>\u041F\u043B\u0430\u0442\u0435\u0436\u0456\u0432 \u043D\u0435\u043C\u0430\u0454</div></td></tr>';
+  }).join(''):'<tr><td colspan="8"><div class="empty"><div class="ei">\uD83D\uDCB3</div>'
+      +'<b>\u041f\u043b\u0430\u0442\u0435\u0436\u0456\u0432 \u0449\u0435 \u043d\u0435\u043c\u0430\u0454</b>'
+      +'<div class="eh">\u0417\u0430\u043f\u0438\u0441\u0438 \u043f\u0440\u043e \u043e\u043f\u043b\u0430\u0442\u0438 \u0437\u2019\u044f\u0432\u043b\u044f\u0442\u044c\u0441\u044f \u0442\u0443\u0442 \u043f\u0456\u0441\u043b\u044f \u0434\u043e\u0434\u0430\u0432\u0430\u043d\u043d\u044f</div>'
+      +'</div></td></tr>';
   document.getElementById('pt-table').innerHTML=html;
 }
 function renderCustomPage(pageId){
@@ -7364,7 +7433,24 @@ function nav(page){
   const pel=document.getElementById('pg-'+page);if(pel)pel.classList.add('active');
   const nel=document.getElementById('ni-'+page);
   if(nel){nel.classList.add('active');nel.className=nel.className.replace(/ (god|dir|tut)/g,'');if(R()==='god')nel.classList.add('god');else if(R()==='director')nel.classList.add('dir');else if(R()==='tutor')nel.classList.add('tut');}
-  document.getElementById('ptitle').textContent=(PLABELS[page]||page);
+  // На дашборді — привітання за часом доби замість сухого «Дашборд»
+  var _pt=document.getElementById('ptitle');
+  if(_pt){
+    if(page==='dashboard' && CU && CU.fn){
+      var _h=new Date().getHours();
+      var _greet = _h>=5&&_h<12 ? '\u0414\u043e\u0431\u0440\u043e\u0433\u043e \u0440\u0430\u043d\u043a\u0443'
+                 : _h>=12&&_h<18 ? '\u0414\u043e\u0431\u0440\u0438\u0439 \u0434\u0435\u043d\u044c'
+                 : _h>=18&&_h<23 ? '\u0414\u043e\u0431\u0440\u043e\u0433\u043e \u0432\u0435\u0447\u043e\u0440\u0430'
+                 : '\u0414\u043e\u0431\u0440\u043e\u0457 \u043d\u043e\u0447\u0456';
+      var _n=String(CU.fn).trim(), _voc=_n;
+      // Кличний відмінок: Ольга → Ольго, Іван → Іване
+      if(/\u0430$/.test(_n)) _voc=_n.slice(0,-1)+'\u043e';
+      else if(/[\u0431\u0432\u0433\u0434\u0437\u043a\u043b\u043c\u043d\u043f\u0440\u0441\u0442\u0444\u0445]$/i.test(_n)) _voc=_n+'\u0435';
+      _pt.textContent=_greet+', '+_voc+'!';
+    } else {
+      _pt.textContent=(PLABELS[page]||page);
+    }
+  }
 
 
   S.currentPage=page;
@@ -8182,6 +8268,7 @@ function renderReports(){
 
 
 function renderSch(){
+  try{ renderSchLegend(); }catch(e){}
   const view = S.schView || 'week';
   // Update UI
   const btnW = document.getElementById('sch-btn-week');
@@ -8281,7 +8368,7 @@ function renderSchMonth(){
       const isCov=l.status==='missed'&&isCoveredMissed(l);
       const isPart=!isCov&&l.status==='missed'&&uncoveredMissedHours(l)*60<(parseFloat(l.dur)||60);
       const ecl=isCov?'ec-covered':isPart?'ec-partial':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':l.status==='makeup_planned'?'ec-makeplan':l.status==='burned'?'ec-burned':l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done':'ec-plan';
-      evHtml+='<div class="schm-ev '+ecl+'" onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)" title="'+(l.time||'')+' '+snShort(l.studentId||l.student_id)+' '+(l.subject||'')+'">'
+      evHtml+='<div class="schm-ev '+ecl+'" style="box-shadow:inset 3px 0 0 '+tutorColor(l.tutorId||l.tutor_id)+'" onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)" title="'+(l.time||'')+' '+snShort(l.studentId||l.student_id)+' '+(l.subject||'')+'">'
         +'<b>'+(l.time||'')+'</b> '+(l.status==='burned'?'\ud83d\udd25 ':'')+snShort(l.studentId||l.student_id)+'</div>';
     });
     if(dayLessons.length>MAX_SHOW){
@@ -8405,7 +8492,8 @@ function renderSchDay(){
         var wPctD=100/liD.count;
         var posCssD='left:calc('+(liD.lane*wPctD)+'% + 2px);width:calc('+wPctD+'% - 4px);';
         var canDel = can('lessons');
-        html += '<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCssD+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
+        html += '<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCssD+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer;'
+          +'box-shadow:inset 3px 0 0 '+tutorColor(l.tutorId||l.tutor_id)+'"'
           +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
           +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.status==='burned'?'\uD83D\uDD25 ':'')+(l.recurId?'\uD83D\uDD01 ':'')+snShort(l.studentId||l.student_id)+'</div>'
           +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
@@ -8607,7 +8695,8 @@ function renderSchWeek(){
       var wPct=100/li.count;
       var posCss='left:calc('+(li.lane*wPct)+'% + 2px);width:calc('+wPct+'% - 4px);';
       var canDel=can('lessons');
-      html+='<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCss+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer"'
+      html+='<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCss+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer;'
+        +'box-shadow:inset 3px 0 0 '+tutorColor(l.tutorId||l.tutor_id)+'"'
         +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
         +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.status==='burned'?'🔥 ':'')+(l.recurId?'🔁 ':'')+snShort(l.studentId||l.student_id)+'</div>'
         +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
