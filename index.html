@@ -1629,6 +1629,11 @@ body.role-tutor .comm-add-btn { display: none !important; }
                 <span id="backup-status-dot" style="width:9px;height:9px;border-radius:50%;background:var(--t3);flex-shrink:0"></span>
                 <span id="backup-status-txt" style="font-size:13px;color:var(--t2)">Перевірка стану...</span>
               </div>
+              <!-- Самоперевірка: чи все потрапляє в копію -->
+              <div id="backup-health" style="margin-bottom:14px"></div>
+              <button class="btn btn-g btn-sm" style="margin-bottom:14px" onclick="checkBackupHealth()">
+                🩺 Перевірити стан копій
+              </button>
               <div style="font-size:12px;color:var(--t3);margin-bottom:14px;line-height:1.5">
                 Автоматична копія всіх даних формується щодня о 03:00 і зберігається окремо від основної бази — і в Storage Supabase, і поза Supabase (GitHub), щоб пережити навіть проблему із самим проєктом. Останні 30 копій зберігаються, старіші видаляються автоматично.
               </div>
@@ -2672,7 +2677,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=branchfix1"></script>
+<script src="app7.js?v=restorefix1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
