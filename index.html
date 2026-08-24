@@ -211,6 +211,59 @@ tbody tr{transition:background .14s ease}
 /* ═══════════════════════════════════════════════════════════
    КОМАНДНА ПАЛІТРА (Ctrl+K)
    ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   WRAPPED — підсумок місяця
+   ═══════════════════════════════════════════════════════════ */
+.wrapped{display:none;position:fixed;inset:0;z-index:250;
+  background:rgba(10,12,20,.72);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;padding:20px}
+.wrapped.open{display:flex;animation:cmdkFade .2s ease}
+.wr-card{position:relative;width:min(380px,92vw)}
+.wr-x{position:absolute;top:-38px;right:0;width:32px;height:32px;border:none;
+  background:rgba(255,255,255,.16);color:#fff;border-radius:50%;font-size:20px;
+  cursor:pointer;line-height:1;z-index:2}
+.wr-slide{aspect-ratio:9/14;max-height:76vh;border-radius:22px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  color:#fff;box-shadow:0 24px 60px rgba(0,0,0,.4);overflow:hidden;position:relative}
+.wr-slide.anim .wr-inner{animation:wrIn .5s cubic-bezier(.22,.61,.36,1)}
+@keyframes wrIn{from{opacity:0;transform:translateY(24px) scale(.94)}to{opacity:1;transform:none}}
+.wr-inner{padding:28px 24px}
+.wr-ico{font-size:46px;margin-bottom:14px;filter:drop-shadow(0 3px 8px rgba(0,0,0,.2))}
+.wr-big{font-size:58px;font-weight:900;line-height:1.05;margin-bottom:10px;
+  text-shadow:0 3px 14px rgba(0,0,0,.18);word-break:break-word}
+.wr-big.sm{font-size:30px;line-height:1.2}
+.wr-sub{font-size:15px;opacity:.94;font-weight:600;line-height:1.4}
+.wr-note{margin-top:14px;font-size:12.5px;opacity:.82;line-height:1.5}
+.wr-close-btn{margin-top:22px;padding:11px 26px;border:2px solid rgba(255,255,255,.55);
+  background:rgba(255,255,255,.12);color:#fff;border-radius:26px;font-size:14px;
+  font-weight:700;cursor:pointer}
+.wr-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px}
+.wr-nav button{width:38px;height:38px;border:none;border-radius:50%;
+  background:rgba(255,255,255,.16);color:#fff;font-size:16px;cursor:pointer}
+.wr-nav button:hover{background:rgba(255,255,255,.26)}
+.wr-dots{display:flex;gap:6px}
+.wr-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35);cursor:pointer;transition:.2s}
+.wr-dot.on{background:#fff;width:20px;border-radius:4px}
+
+/* ── Голосове введення ── */
+.voice-wrap{position:relative}
+.voice-wrap textarea{padding-right:38px}
+.voice-btn{position:absolute;right:6px;top:6px;width:28px;height:28px;
+  border:1px solid var(--b1);border-radius:8px;background:var(--s1);
+  cursor:pointer;font-size:13px;line-height:1;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s ease, transform .12s ease}
+.voice-btn:hover{background:var(--s2)}
+.voice-btn.rec-on{background:var(--danger);border-color:var(--danger);
+  animation:recPulse 1.3s ease-in-out infinite}
+@keyframes recPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.5)}
+  50%{box-shadow:0 0 0 7px rgba(248,113,113,0)}
+}
+.rec-field{border-color:var(--danger)!important;
+  box-shadow:0 0 0 2px rgba(248,113,113,.12)}
+@media(max-width:768px){ .voice-btn{width:34px;height:34px;font-size:15px} }
+
 .cmdk{display:none;position:fixed;inset:0;z-index:200;
   background:rgba(15,23,42,.42);backdrop-filter:blur(3px);
   align-items:flex-start;justify-content:center;padding-top:12vh}
@@ -1091,6 +1144,19 @@ body.role-tutor .comm-add-btn { display: none !important; }
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 <!-- Нижня навігація для мобільних -->
 <!-- Командна палітра (Ctrl+K) -->
+<!-- Wrapped — підсумок місяця -->
+<div id="wrapped" class="wrapped" onclick="if(event.target===this)wrClose()">
+  <div class="wr-card">
+    <button class="wr-x" onclick="wrClose()">×</button>
+    <div id="wr-slide" class="wr-slide" onclick="wrNext()"></div>
+    <div class="wr-nav">
+      <button onclick="wrPrev()">←</button>
+      <div id="wr-dots" class="wr-dots"></div>
+      <button onclick="wrNext()">→</button>
+    </div>
+  </div>
+</div>
+
 <div id="cmdk" class="cmdk" onclick="if(event.target===this)cmdClose()">
   <div class="cmdk-box">
     <div class="cmdk-head">
@@ -2312,9 +2378,9 @@ body.role-tutor .comm-add-btn { display: none !important; }
       </div>
       <div id="recur-preview" style="display:none;grid-column:1/-1;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--t2)"></div>
       <!-- END RECURRING -->
-      <div class="fgr"><label>Тема уроку</label><textarea id="l-notes" rows="2" style="min-height:60px"></textarea></div>
-      <div class="fgr"><label>Домашнє завдання</label><textarea id="l-hw" rows="2" style="min-height:60px"></textarea></div>
-      <div class="fgr"><label>📚 Література</label><textarea id="l-lit" rows="2" style="min-height:60px" placeholder="Підручник, сторінки, матеріали..."></textarea></div>
+      <div class="fgr"><label>Тема уроку</label><div class="voice-wrap"><textarea id="l-notes" rows="2" style="min-height:60px"></textarea><span id="vb-notes"></span></div></div>
+      <div class="fgr"><label>Домашнє завдання</label><div class="voice-wrap"><textarea id="l-hw" rows="2" style="min-height:60px"></textarea><span id="vb-hw"></span></div></div>
+      <div class="fgr"><label>📚 Література</label><div class="voice-wrap"><textarea id="l-lit" rows="2" style="min-height:60px" placeholder="Підручник, сторінки, матеріали..."></textarea><span id="vb-lit"></span></div></div>
       <div class="fgr full"><label>🎧 Аудіювання та ігри</label><textarea id="l-games" rows="2" style="min-height:60px" placeholder="Що слухали, в які ігри грали..."></textarea></div>
     </div></div>
     <div class="mdlf">
@@ -2502,7 +2568,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=phase6"></script>
+<script src="app7.js?v=phase7"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
