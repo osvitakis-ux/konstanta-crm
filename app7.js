@@ -1747,6 +1747,101 @@ function celebrateOnce(key, message){
 }
 window.celebrateOnce=celebrateOnce;
 
+// ═══════════════════════════════════════════════════════════════
+//  ДРУК РОЗКЛАДУ НА ТИЖДЕНЬ
+//  Щоб повісити на стіну в центрі або віддати репетитору.
+// ═══════════════════════════════════════════════════════════════
+function printSchedule(){
+  // Понеділок обраного тижня (тиждень починається з понеділка)
+  var _now=new Date();
+  var _dow=_now.getDay()===0?6:_now.getDay()-1;
+  var wkStart=new Date(_now);
+  wkStart.setDate(_now.getDate()-_dow+(S.weekOffset||0)*7);
+  wkStart.setHours(0,0,0,0);
+  var days=[], dayNames=['\u041f\u043e\u043d\u0435\u0434\u0456\u043b\u043e\u043a','\u0412\u0456\u0432\u0442\u043e\u0440\u043e\u043a',
+    '\u0421\u0435\u0440\u0435\u0434\u0430','\u0427\u0435\u0442\u0432\u0435\u0440','\u041f\u2019\u044f\u0442\u043d\u0438\u0446\u044f',
+    '\u0421\u0443\u0431\u043e\u0442\u0430','\u041d\u0435\u0434\u0456\u043b\u044f'];
+  for(var i=0;i<7;i++){
+    var d=new Date(wkStart); d.setDate(wkStart.getDate()+i);
+    days.push({date:localDateStr(d), name:dayNames[i],
+               lbl:String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')});
+  }
+
+  // Фільтр репетитора з екрана переноситься й у друк
+  var selTut=(document.getElementById('sch-tutor-filter')||{value:''}).value;
+  var all=myLessons().filter(function(l){
+    if(l.status==='cancelled') return false;
+    if(selTut && (l.tutorId||l.tutor_id)!==selTut) return false;
+    return l.date>=days[0].date && l.date<=days[6].date;
+  }).sort(function(a,b){
+    return String(a.date+(a.time||'')).localeCompare(String(b.date+(b.time||'')));
+  });
+
+  if(!all.length){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043d\u044f\u0442\u044c \u0437\u0430 \u0446\u0435\u0439 \u0442\u0438\u0436\u0434\u0435\u043d\u044c','error'); return; }
+
+  var bid=myBranchId();
+  var branch=(S.branches||[]).find(function(b){return b.id===bid;})||(S.branches||[])[0];
+  var tutName = selTut ? tn(selTut) : '';
+
+  var body=days.map(function(d){
+    var dayL=all.filter(function(l){ return l.date===d.date; });
+    if(!dayL.length) return '';
+    return '<div class="day">'
+      +'<div class="dayh">'+d.name+' <span>'+d.lbl+'</span></div>'
+      +'<table><thead><tr>'
+        +'<th style="width:52px">\u0427\u0430\u0441</th>'
+        +'<th>\u0423\u0447\u0435\u043d\u044c</th>'
+        +'<th>\u041f\u0440\u0435\u0434\u043c\u0435\u0442</th>'
+        +(selTut?'':'<th>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440</th>')
+        +'<th style="width:46px">\u0425\u0432</th>'
+      +'</tr></thead><tbody>'
+      +dayL.map(function(l){
+        var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+        return '<tr>'
+          +'<td class="tm">'+(l.time||'')+'</td>'
+          +'<td>'+(st?st.fn+' '+st.ln:'\u2014')+'</td>'
+          +'<td>'+(l.subject||'\u2014')+'</td>'
+          +(selTut?'':'<td>'+(tn(l.tutorId||l.tutor_id)||'\u2014')+'</td>')
+          +'<td class="c">'+(l.dur||60)+'</td>'
+        +'</tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  }).join('');
+
+  var f=function(d){ var p=String(d).split('-'); return p[2]+'.'+p[1]+'.'+p[0]; };
+  var w=window.open('','_blank');
+  if(!w){ mkToast('\u0414\u043e\u0437\u0432\u043e\u043b\u044c\u0442\u0435 \u0441\u043f\u043b\u0438\u0432\u0430\u044e\u0447\u0456 \u0432\u0456\u043a\u043d\u0430','error'); return; }
+  w.document.write('<html><head><meta charset="utf-8"><title>\u0420\u043e\u0437\u043a\u043b\u0430\u0434</title>'
+    +'<style>'+printWatermarkCSS()
+    +'body{font-family:Arial,sans-serif;max-width:760px;margin:18px auto;color:#111;font-size:12px}'
+    +'h1{font-size:17px;text-align:center;margin:0 0 3px}'
+    +'.sub{text-align:center;color:#555;font-size:12px;margin-bottom:16px}'
+    +'.day{margin-bottom:14px;break-inside:avoid}'
+    +'.dayh{background:#eef2f7;padding:5px 9px;font-weight:700;font-size:12.5px;'
+      +'border-left:3px solid #29abe2;border-radius:3px}'
+    +'.dayh span{float:right;color:#666;font-weight:400}'
+    +'table{width:100%;border-collapse:collapse;margin-top:4px}'
+    +'th,td{border:1px solid #d5d5d5;padding:4px 7px;text-align:left}'
+    +'th{background:#fafafa;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:#666}'
+    +'.tm{font-family:monospace;font-weight:700}'
+    +'.c{text-align:center}'
+    +'@media print{ .noprint{display:none} @page{margin:12mm} }'
+    +'</style></head><body>'
+    +printWatermarkHTML()
+    +'<h1>\u0420\u043e\u0437\u043a\u043b\u0430\u0434 \u0437\u0430\u043d\u044f\u0442\u044c</h1>'
+    +'<div class="sub">'+f(days[0].date)+' \u2014 '+f(days[6].date)
+      +(tutName?' \u00b7 '+tutName:'')
+      +(branch&&branch.name?' \u00b7 '+branch.name:'')+'</div>'
+    +body
+    +printFooterHTML(branch)
+    +'<button class="noprint" onclick="window.print()" style="margin-top:16px;padding:8px 18px;font-size:14px;cursor:pointer">'
+      +'\uD83D\uDDA8 \u0414\u0440\u0443\u043a\u0443\u0432\u0430\u0442\u0438 / PDF</button>'
+    +'</body></html>');
+  w.document.close();
+  setTimeout(function(){ try{ w.print(); }catch(e){} }, 420);
+}
+window.printSchedule=printSchedule;
+
 function printWatermarkCSS(){
   return 'body{position:relative}'
     // Сам знак: великий, дуже блідий, під текстом
@@ -4207,6 +4302,120 @@ function gcResetLabels(){gcResetAllLabels();}
 
 function gcSaveLabels(){mkToast('\u0422\u0435\u043A\u0441\u0442\u0438 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E \u2705');}
 
+// ═══════════════════════════════════════════════════════════════
+//  КОМАНДНА ПАЛІТРА (Ctrl+K)
+//  Один рядок замість блукання по меню: пошук учнів, перехід
+//  на сторінки та швидкі дії — усе з клавіатури.
+// ═══════════════════════════════════════════════════════════════
+var _cmdSel = 0;
+
+/** Дії, доступні поточному користувачу */
+function cmdActions(){
+  var acts=[];
+  // Сторінки
+  var _allowed=userNav()||[];
+  (NAV_CFG||[]).forEach(function(c){
+    if(_allowed.indexOf(c.id)<0) return;
+    acts.push({ico:c.ico||'\u25CF', title:c.lbl, sub:'\u041f\u0435\u0440\u0435\u0439\u0442\u0438',
+                kind:'page', run:function(){ nav(c.id); }});
+  });
+  // Швидкі дії
+  if(can('lessons')) acts.push({ico:'\u2795', title:'\u041d\u043e\u0432\u0435 \u0437\u0430\u043d\u044f\u0442\u0442\u044f',
+    sub:'\u0421\u0442\u0432\u043e\u0440\u0438\u0442\u0438', kind:'act', run:function(){ nav('schedule'); openLessM(); }});
+  if(can('students')) acts.push({ico:'\ud83d\udc64', title:'\u041d\u043e\u0432\u0438\u0439 \u0443\u0447\u0435\u043d\u044c',
+    sub:'\u0421\u0442\u0432\u043e\u0440\u0438\u0442\u0438', kind:'act', run:function(){ nav('students'); openStudM(); }});
+  if(can('payments')) acts.push({ico:'\ud83d\udcb0', title:'\u041d\u043e\u0432\u0430 \u043e\u043f\u043b\u0430\u0442\u0430',
+    sub:'\u0421\u0442\u0432\u043e\u0440\u0438\u0442\u0438', kind:'act', run:function(){ nav('payments'); if(typeof openPayM==='function') openPayM(); }});
+  acts.push({ico:'\ud83c\udf19', title:'\u041f\u0435\u0440\u0435\u043c\u043a\u043d\u0443\u0442\u0438 \u0442\u0435\u043c\u0443',
+    sub:'\u0421\u0432\u0456\u0442\u043b\u0430 / \u0442\u0435\u043c\u043d\u0430', kind:'act',
+    run:function(){ if(typeof toggleTheme==='function') toggleTheme(); }});
+  return acts;
+}
+
+/** Формує список результатів під запит */
+function cmdResults(q){
+  q=String(q||'').toLowerCase().trim();
+  var out=[];
+
+  // Учні — найчастіший сценарій пошуку
+  if(q.length>=2){
+    myStudents().filter(function(st){
+      var nm=((st.fn||'')+' '+(st.ln||'')).toLowerCase();
+      var ph=String(st.phone||'').replace(/\D/g,'');
+      return nm.indexOf(q)>=0 || (q.replace(/\D/g,'') && ph.indexOf(q.replace(/\D/g,''))>=0);
+    }).slice(0,6).forEach(function(st){
+      out.push({ico:'\ud83c\udf93', title:(st.fn||'')+' '+(st.ln||''),
+        sub:st.phone||'\u0423\u0447\u0435\u043d\u044c', kind:'student',
+        run:function(){ nav('students'); setTimeout(function(){ openStudM(st.id); },120); }});
+    });
+  }
+
+  // Сторінки й дії
+  cmdActions().forEach(function(a){
+    if(!q || String(a.title).toLowerCase().indexOf(q)>=0) out.push(a);
+  });
+  return out.slice(0,10);
+}
+
+function cmdOpen(){
+  var el=document.getElementById('cmdk');
+  if(!el) return;
+  el.classList.add('open');
+  var inp=document.getElementById('cmdk-input');
+  if(inp){ inp.value=''; inp.focus(); }
+  _cmdSel=0;
+  cmdRender('');
+}
+window.cmdOpen=cmdOpen;
+
+function cmdClose(){
+  var el=document.getElementById('cmdk');
+  if(el) el.classList.remove('open');
+}
+window.cmdClose=cmdClose;
+
+function cmdRender(q){
+  var box=document.getElementById('cmdk-list');
+  if(!box) return;
+  var res=cmdResults(q);
+  window._cmdRes=res;
+  if(!res.length){
+    box.innerHTML='<div style="padding:22px;text-align:center;color:var(--t3);font-size:13px">'
+      +'\u041d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e</div>';
+    return;
+  }
+  if(_cmdSel>=res.length) _cmdSel=0;
+  box.innerHTML=res.map(function(r,i){
+    return '<div class="cmdk-item'+(i===_cmdSel?' sel':'')+'" onclick="cmdRun('+i+')" onmouseenter="cmdHover('+i+')">'
+      +'<span class="cmdk-ico">'+r.ico+'</span>'
+      +'<span class="cmdk-txt"><b>'+r.title+'</b><span>'+(r.sub||'')+'</span></span>'
+      +(i===_cmdSel?'<span class="cmdk-hint">\u21b5</span>':'')
+    +'</div>';
+  }).join('');
+}
+window.cmdRender=cmdRender;
+
+function cmdHover(i){ _cmdSel=i; cmdRender(document.getElementById('cmdk-input').value); }
+window.cmdHover=cmdHover;
+
+function cmdRun(i){
+  var res=window._cmdRes||[];
+  var r=res[i];
+  if(!r) return;
+  cmdClose();
+  try{ r.run(); }catch(e){ console.error('cmdRun:',e); }
+}
+window.cmdRun=cmdRun;
+
+function cmdKey(e){
+  var res=window._cmdRes||[];
+  if(e.key==='ArrowDown'){ e.preventDefault(); _cmdSel=Math.min(_cmdSel+1,res.length-1); cmdRender(e.target.value); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); _cmdSel=Math.max(_cmdSel-1,0); cmdRender(e.target.value); }
+  else if(e.key==='Enter'){ e.preventDefault(); cmdRun(_cmdSel); }
+  else if(e.key==='Escape'){ cmdClose(); }
+}
+window.cmdKey=cmdKey;
+
 function gSearch(q){
   if(S.currentPage!=='students') nav('students');
   else renderStudents();
@@ -6175,14 +6384,18 @@ window.closeQuickPopup = closeQuickPopup;
 window.quickSetStatus = quickSetStatus;
 window.quickEdit = quickEdit;
 
-// ── CTRL+K GLOBAL SEARCH ────────────────────
+// ── CTRL+K: КОМАНДНА ПАЛІТРА ────────────────
 document.addEventListener('keydown', function(e){
   if((e.ctrlKey||e.metaKey) && e.key==='k'){
     e.preventDefault();
-    var gs = document.getElementById('gsearch');
-    if(gs){ gs.focus(); gs.select(); }
+    try{ cmdOpen(); }catch(err){
+      // Запасний варіант — старий пошук
+      var gs=document.getElementById('gsearch');
+      if(gs){ gs.focus(); gs.select(); }
+    }
   }
   if(e.key==='Escape'){
+    try{ cmdClose(); }catch(err){}
     closeQuickPopup();
   }
 });
