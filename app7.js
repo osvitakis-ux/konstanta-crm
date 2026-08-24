@@ -1770,6 +1770,168 @@ var _wrIdx = 0, _wrSlides = [];
 //  Показує, де що відбувається цієї хвилини: скільки занять іде,
 //  хто на місці, чи є вільні вікна. Замість гортання розкладу.
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  РОЗУМНІ ПІДКАЗКИ
+//  Система сама помічає закономірності в даних і пише про них
+//  людською мовою. Без жодного AI — чиста логіка на ваших даних,
+//  тому працює миттєво, безкоштовно й не потребує інтернету.
+// ═══════════════════════════════════════════════════════════════
+function smartInsights(){
+  var out=[];
+  var now=new Date();
+  var today=localDateStr(now);
+  var per=today.slice(0,7);
+  var L=filterByBranch(S.lessons||[]);
+  var ST=filterByBranch(S.students||[]).filter(function(x){
+    return x.status==='active'||x.status==='trial';
+  });
+
+  // ── 1. Учні, які зникли ────────────────────────────────────
+  var lost=[];
+  ST.forEach(function(st){
+    var last=null;
+    L.forEach(function(l){
+      if((l.studentId||l.student_id)!==st.id) return;
+      if(!(isDoneLesson(l)||l.status==='makeup')) return;
+      if(!last || String(l.date)>last) last=String(l.date);
+    });
+    // Заплановані заняття попереду означають, що учень не зник
+    var hasFuture=L.some(function(l){
+      return (l.studentId||l.student_id)===st.id && String(l.date)>today
+        && (l.status==='planned'||l.status==='scheduled');
+    });
+    if(hasFuture) return;
+    if(!last){ return; }   // новий учень без занять — окремий випадок
+    var days=Math.round((now-new Date(last+'T12:00:00'))/86400000);
+    if(days>=21) lost.push({st:st, days:days});
+  });
+  if(lost.length){
+    lost.sort(function(a,b){ return b.days-a.days; });
+    out.push({
+      lvl:'warn', ico:'\ud83d\udc4b',
+      title: lost.length+' '+prPlural(lost.length,'\u0443\u0447\u0435\u043d\u044c \u0437\u043d\u0438\u043a','\u0443\u0447\u043d\u0456 \u0437\u043d\u0438\u043a\u043b\u0438','\u0443\u0447\u043d\u0456\u0432 \u0437\u043d\u0438\u043a\u043b\u0438'),
+      text: lost.slice(0,3).map(function(x){
+              return (x.st.fn||'')+' '+(x.st.ln||'')+' \u2014 '+x.days+' \u0434\u043d.';
+            }).join(', ') + (lost.length>3?' \u0442\u0430 \u0456\u043d.':''),
+      hint:'\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043d\u044f\u0442\u044c \u043f\u043e\u043d\u0430\u0434 3 \u0442\u0438\u0436\u043d\u0456 \u0439 \u043d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u043e',
+      act:function(){ nav('students'); }
+    });
+  }
+
+  // ── 2. Невідзначені заняття (це прямі гроші) ───────────────
+  var forgotten=L.filter(function(l){
+    return (l.status==='planned'||l.status==='scheduled'||!l.status) && String(l.date||'')<today;
+  });
+  if(forgotten.length){
+    var byT={};
+    forgotten.forEach(function(l){
+      var t=l.tutorId||l.tutor_id; if(t) byT[t]=(byT[t]||0)+1;
+    });
+    var worst=Object.keys(byT).sort(function(a,b){return byT[b]-byT[a];})[0];
+    out.push({
+      lvl:'bad', ico:'\u26a0\ufe0f',
+      title: forgotten.length+' \u0437\u0430\u043d\u044f\u0442\u044c \u043d\u0435 \u0432\u0456\u0434\u0437\u043d\u0430\u0447\u0435\u043d\u043e',
+      text: worst ? ('\u041d\u0430\u0439\u0431\u0456\u043b\u044c\u0448\u0435 \u0432 '+tn(worst)+' \u2014 '+byT[worst]) : '',
+      hint:'\u0422\u0430\u043a\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043d\u0435 \u043f\u043e\u0442\u0440\u0430\u043f\u043b\u044f\u044e\u0442\u044c \u043d\u0456 \u0432 \u0437\u0430\u0440\u043f\u043b\u0430\u0442\u0443, \u043d\u0456 \u0432 \u0440\u0430\u0445\u0443\u043d\u043a\u0438',
+      act:function(){ nav('lessons'); }
+    });
+  }
+
+  // ── 3. Непокриті пропуски ──────────────────────────────────
+  var unc=L.filter(function(l){
+    return l.status==='missed' && String(l.date||'').slice(0,7)===per
+      && uncoveredMissedHours(l)>0;
+  });
+  if(unc.length>=3){
+    out.push({
+      lvl:'warn', ico:'\ud83d\udd01',
+      title: unc.length+' \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0456\u0432 \u0431\u0435\u0437 \u0432\u0456\u0434\u043f\u0440\u0430\u0446\u044e\u0432\u0430\u043d\u043d\u044f',
+      text:'\u0426\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f',
+      hint:'\u0412\u0430\u0440\u0442\u043e \u0437\u0430\u043f\u043b\u0430\u043d\u0443\u0432\u0430\u0442\u0438 \u0432\u0456\u0434\u043f\u0440\u0430\u0446\u044e\u0432\u0430\u043d\u043d\u044f',
+      act:function(){ nav('lessons'); }
+    });
+  }
+
+  // ── 4. Ведення журналу просіло ─────────────────────────────
+  (S.tutors||[]).forEach(function(t){
+    var r=tutorRating(t.id, per);
+    if(r.lessonsTotal<3) return;
+    if(r.score<60){
+      out.push({
+        lvl:'warn', ico:'\ud83d\udcd6',
+        title:(t.fn||'')+' '+(t.ln||'')+': \u0440\u0435\u0439\u0442\u0438\u043d\u0433 '+r.score,
+        text:(r.issues.noTopic.length?r.issues.noTopic.length+' \u0431\u0435\u0437 \u0442\u0435\u043c\u0438':'')
+            +(r.issues.noHw.length?(r.issues.noTopic.length?', ':'')+r.issues.noHw.length+' \u0431\u0435\u0437 \u0414\u0417':''),
+        hint:'\u0416\u0443\u0440\u043d\u0430\u043b \u0432\u0435\u0434\u0435\u0442\u044c\u0441\u044f \u043d\u0435\u0434\u0431\u0430\u0439\u043b\u0438\u0432\u043e',
+        act:function(){ nav('dashboard'); }
+      });
+    }
+  });
+
+  // ── 5. Порівняння з минулим місяцем ────────────────────────
+  var pd=new Date(now.getFullYear(), now.getMonth()-1, 1);
+  var prevPer=pd.getFullYear()+'-'+String(pd.getMonth()+1).padStart(2,'0');
+  var hrsNow=0, hrsPrev=0;
+  L.forEach(function(l){
+    if(!(isDoneLesson(l)||l.status==='makeup')) return;
+    var k=String(l.date||'').slice(0,7);
+    var h=(parseFloat(l.dur)||60)/60;
+    if(k===per) hrsNow+=h; else if(k===prevPer) hrsPrev+=h;
+  });
+  // Порівнюємо лише зіставні відрізки місяця
+  var dayOfMonth=now.getDate();
+  var daysPrev=new Date(pd.getFullYear(), pd.getMonth()+1, 0).getDate();
+  var prevAtSameDay=hrsPrev*(Math.min(dayOfMonth,daysPrev)/daysPrev);
+  if(prevAtSameDay>=5){
+    var diff=Math.round((hrsNow-prevAtSameDay)/prevAtSameDay*100);
+    if(Math.abs(diff)>=15){
+      out.push({
+        lvl: diff>0?'good':'warn', ico: diff>0?'\ud83d\udcc8':'\ud83d\udcc9',
+        title:(diff>0?'+':'')+diff+'% \u0433\u043e\u0434\u0438\u043d \u0434\u043e \u043c\u0438\u043d\u0443\u043b\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f',
+        text:Math.round(hrsNow)+'\u0433 \u043f\u0440\u043e\u0442\u0438 '+Math.round(prevAtSameDay)+'\u0433 \u043d\u0430 \u0446\u0435\u0439 \u0436\u0435 \u0434\u0435\u043d\u044c',
+        hint:'',
+        act:function(){ nav('reports'); }
+      });
+    }
+  }
+
+  // ── 6. Усе гаразд ──────────────────────────────────────────
+  if(!out.length){
+    out.push({ lvl:'good', ico:'\u2728',
+      title:'\u0423\u0441\u0435 \u043f\u0456\u0434 \u043a\u043e\u043d\u0442\u0440\u043e\u043b\u0435\u043c',
+      text:'\u041d\u0456\u0447\u043e\u0433\u043e, \u0449\u043e \u043f\u043e\u0442\u0440\u0435\u0431\u0443\u0454 \u0443\u0432\u0430\u0433\u0438',
+      hint:'' });
+  }
+
+  return out.slice(0,6);
+}
+window.smartInsights=smartInsights;
+
+function renderInsights(){
+  var box=document.getElementById('insights-body');
+  if(!box) return;
+  var list=smartInsights();
+  window._insights=list;
+  box.innerHTML=list.map(function(x,i){
+    return '<div class="ins ins-'+x.lvl+'"'+(x.act?' onclick="insAct('+i+')" style="cursor:pointer"':'')+'>'
+      +'<span class="ins-ico">'+x.ico+'</span>'
+      +'<span class="ins-txt">'
+        +'<b>'+x.title+'</b>'
+        +(x.text?'<span>'+x.text+'</span>':'')
+        +(x.hint?'<i>'+x.hint+'</i>':'')
+      +'</span>'
+      +(x.act?'<span class="ins-go">\u2192</span>':'')
+    +'</div>';
+  }).join('');
+}
+window.renderInsights=renderInsights;
+
+function insAct(i){
+  var x=(window._insights||[])[i];
+  if(x && x.act) x.act();
+}
+window.insAct=insAct;
+
 function pulseData(){
   var now=new Date();
   var today=localDateStr(now);
@@ -3397,6 +3559,17 @@ function ratingFixOpen(lessonId){
 window.ratingFixOpen=ratingFixOpen;
 
 function renderDash(){
+  // Розумні підказки — усім, хто керує процесом
+  try{
+    var _ic=document.getElementById('insights-card');
+    var _ir=R();
+    var _ishow=(_ir==='god'||_ir==='director'||_ir==='admin'||_ir==='network_admin');
+    if(_ic){
+      _ic.style.display=_ishow?'block':'none';
+      if(_ishow) renderInsights();
+    }
+  }catch(e){ console.error('insights:',e); }
+
   // Живий пульс — керівництву й адміністраторам, які ведуть роботу центру
   try{
     var _pc=document.getElementById('pulse-card');
@@ -4731,25 +4904,38 @@ function cmdRender(q){
     return;
   }
   if(_cmdSel>=res.length) _cmdSel=0;
+  // Використовуємо mousedown, а не click: клік не встигав спрацювати,
+  // бо поле вводу втрачало фокус і список перемальовувався раніше.
   box.innerHTML=res.map(function(r,i){
-    return '<div class="cmdk-item'+(i===_cmdSel?' sel':'')+'" onclick="cmdRun('+i+')" onmouseenter="cmdHover('+i+')">'
+    return '<div class="cmdk-item'+(i===_cmdSel?' sel':'')+'" data-i="'+i+'" '
+      +'onmousedown="event.preventDefault();cmdRun('+i+')">'
       +'<span class="cmdk-ico">'+r.ico+'</span>'
       +'<span class="cmdk-txt"><b>'+r.title+'</b><span>'+(r.sub||'')+'</span></span>'
       +(i===_cmdSel?'<span class="cmdk-hint">\u21b5</span>':'')
     +'</div>';
   }).join('');
+
+  // Підсвітка при наведенні — через клас, без перемальовування списку
+  Array.prototype.forEach.call(box.querySelectorAll('.cmdk-item'), function(el){
+    el.addEventListener('mouseenter', function(){
+      box.querySelectorAll('.cmdk-item.sel').forEach(function(x){ x.classList.remove('sel'); });
+      el.classList.add('sel');
+      _cmdSel=parseInt(el.dataset.i)||0;
+    });
+  });
 }
 window.cmdRender=cmdRender;
-
-function cmdHover(i){ _cmdSel=i; cmdRender(document.getElementById('cmdk-input').value); }
-window.cmdHover=cmdHover;
 
 function cmdRun(i){
   var res=window._cmdRes||[];
   var r=res[i];
   if(!r) return;
   cmdClose();
-  try{ r.run(); }catch(e){ console.error('cmdRun:',e); }
+  // Даємо вікну закритись, перш ніж відкривати наступне —
+  // інакше картка учня одразу зникала разом із палітрою
+  setTimeout(function(){
+    try{ r.run(); }catch(e){ console.error('cmdRun:',e); }
+  }, 60);
 }
 window.cmdRun=cmdRun;
 
