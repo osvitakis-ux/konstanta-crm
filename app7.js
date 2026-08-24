@@ -10693,6 +10693,57 @@ var RIGHTS_MATRIX = [
  * Порівнює, скільки записів у базі й скільки в останній копії —
  * так одразу видно, чи не випала якась таблиця.
  */
+/**
+ * Заглядає ВСЕРЕДИНУ файлу копії й показує, що там насправді.
+ * Журнал може казати «ok», а всередині бракувати таблиць —
+ * це єдиний спосіб переконатись напевно.
+ */
+async function inspectBackupFile(filePath){
+  try{
+    mkToast('\u23f3 \u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f \u043a\u043e\u043f\u0456\u0457\u2026');
+    var sg=await _sb.storage.from('backups').createSignedUrl(filePath, 300);
+    if(sg.error||!sg.data?.signedUrl) throw new Error(sg.error?.message||'\u041d\u0435\u043c\u0430\u0454 \u043f\u043e\u0441\u0438\u043b\u0430\u043d\u043d\u044f');
+    var res=await fetch(sg.data.signedUrl);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var bk=await res.json();
+    var t=bk.tables||{};
+
+    // Порівнюємо з тим, що зараз у базі
+    var rows=[];
+    var keys=Object.keys(t).sort();
+    for(var i=0;i<keys.length;i++){
+      var k=keys[i];
+      var inBk=Array.isArray(t[k])?t[k].length:0;
+      var inDb=null;
+      try{
+        var q=await _sb.from(k).select('id').limit(20000);
+        inDb=(q.data||[]).length;
+      }catch(e){}
+      rows.push({t:k, bk:inBk, db:inDb});
+    }
+
+    var missing=rows.filter(function(r){ return r.db>0 && r.bk===0; });
+    var msg='\u0424\u0430\u0439\u043b: '+filePath+'\n'
+      +'\u0421\u0442\u0432\u043e\u0440\u0435\u043d\u043e: '+(bk.created_at||bk.created||'?')+'\n\n'
+      +'\u0422\u0430\u0431\u043b\u0438\u0446\u044f: \u0432 \u043a\u043e\u043f\u0456\u0457 / \u0432 \u0431\u0430\u0437\u0456\n'
+      +'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n'
+      +rows.map(function(r){
+          var mark = (r.db>0&&r.bk===0) ? '  \u274c' : (r.bk<(r.db||0) ? '  \u26a0' : '');
+          return r.t+': '+r.bk+' / '+(r.db===null?'?':r.db)+mark;
+        }).join('\n');
+
+    if(missing.length){
+      msg+='\n\n\u274c \u041d\u0415 \u041f\u041e\u0422\u0420\u0410\u041f\u0418\u041b\u0418 \u0412 \u041a\u041e\u041f\u0406\u042e: '+missing.map(function(r){return r.t;}).join(', ')
+        +'\n\u041f\u0435\u0440\u0435\u0434\u0435\u043f\u043b\u043e\u0439\u0442\u0435 daily-backup \u0456 \u0441\u0442\u0432\u043e\u0440\u0456\u0442\u044c \u043d\u043e\u0432\u0443 \u043a\u043e\u043f\u0456\u044e.';
+    }
+    alert(msg);
+    console.log('[backup inspect]', rows);
+  }catch(e){
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error');
+  }
+}
+window.inspectBackupFile=inspectBackupFile;
+
 async function checkBackupHealth(){
   var box=document.getElementById('backup-health');
   if(box) box.innerHTML='<div style="padding:12px;color:var(--t3);font-size:12px">\u041f\u0435\u0440\u0435\u0432\u0456\u0440\u043a\u0430\u2026</div>';
@@ -10865,7 +10916,10 @@ async function renderBackupList(){
         +'<td style="text-align:center">'+(r.status==='error'?'\u274C':totalRows)+'</td>'
         +'<td style="text-align:center">'+sizeKb+' \u041A\u0411</td>'
         +'<td style="text-align:center">'+(r.github_committed?'\u2705':'\u2014')+'</td>'
-        +'<td style="text-align:center"><button class="btn btn-g btn-sm" onclick="downloadBackup(\''+r.file_path+'\')">\u2B07</button> <button class="btn btn-p btn-sm" onclick="restoreFromBackup(\''+r.file_path+'\')">\u267B\uFE0F</button></td>'
+        +'<td style="text-align:center">'
+          +'<button class="btn btn-g btn-sm" onclick="inspectBackupFile(\''+r.file_path+'\')" title="\u041f\u043e\u0434\u0438\u0432\u0438\u0442\u0438\u0441\u044c, \u0449\u043e \u0432\u0441\u0435\u0440\u0435\u0434\u0438\u043d\u0456">\ud83d\udd0d</button> '
+          +'<button class="btn btn-g btn-sm" onclick="downloadBackup(\''+r.file_path+'\')">\u2B07</button> '
+          +'<button class="btn btn-p btn-sm" onclick="restoreFromBackup(\''+r.file_path+'\')">\u267B\uFE0F</button></td>'
       +'</tr>';
     });
     html+='</tbody></table>';
