@@ -212,6 +212,27 @@ tbody tr{transition:background .14s ease}
    КОМАНДНА ПАЛІТРА (Ctrl+K)
    ═══════════════════════════════════════════════════════════ */
 /* ═══════════════════════════════════════════════════════════
+   РОЗУМНІ ПІДКАЗКИ
+   ═══════════════════════════════════════════════════════════ */
+.insights-body{display:flex;flex-direction:column;gap:8px;padding:14px 18px 18px}
+.ins{display:flex;align-items:flex-start;gap:11px;padding:11px 13px;border-radius:11px;
+  border:1px solid transparent;transition:transform .14s ease, background .16s ease}
+.ins:hover{transform:translateX(2px)}
+.ins-bad{background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.2)}
+.ins-warn{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2)}
+.ins-good{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.2)}
+.ins-ico{font-size:19px;line-height:1.2;flex-shrink:0}
+.ins-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ins-txt b{font-size:13.5px;font-weight:700;color:var(--t1)}
+.ins-bad .ins-txt b{color:#dc2626}
+.ins-warn .ins-txt b{color:#b45309}
+.ins-good .ins-txt b{color:#15803d}
+.ins-txt span{font-size:12px;color:var(--t2);line-height:1.45}
+.ins-txt i{font-size:11px;color:var(--t3);font-style:normal;opacity:.9}
+.ins-go{font-size:15px;color:var(--t3);flex-shrink:0;align-self:center}
+@media(max-width:768px){ .insights-body{padding:12px 14px 14px} .ins{padding:12px} }
+
+/* ═══════════════════════════════════════════════════════════
    ЖИВИЙ ПУЛЬС
    ═══════════════════════════════════════════════════════════ */
 .pulse-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
@@ -1248,6 +1269,15 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
         <!-- ═══ РЕЙТИНГ (репетитору — свій, керівництву — таблиця) ═══ -->
         <div id="dash-rating"></div>
+
+        <!-- Розумні підказки -->
+        <div class="card" id="insights-card" style="display:none;margin-bottom:16px">
+          <div class="ch">
+            <span class="ct">💡 Потребує уваги</span>
+            <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="renderInsights()" title="Оновити">↻</button>
+          </div>
+          <div id="insights-body" class="insights-body"></div>
+        </div>
 
         <!-- Живий пульс філій -->
         <div class="card" id="pulse-card" style="display:none;margin-bottom:16px">
@@ -2612,7 +2642,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=pulse1"></script>
+<script src="app7.js?v=insights1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
