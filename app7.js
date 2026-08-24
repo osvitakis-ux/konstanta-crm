@@ -433,6 +433,13 @@ function onLessStatChange(){
   if(splitInput && canSplit && !splitInput.value) splitInput.value='30, 60';
   if(canSplit) updateSplitPreview();
   try{ populateMissedSelect(); }catch(e){ console.error('populateMissedSelect:',e); }
+  // Кнопки диктування в полях журналу
+  try{
+    [['vb-notes','l-notes'],['vb-hw','l-hw'],['vb-lit','l-lit']].forEach(function(pr){
+      var holder=document.getElementById(pr[0]);
+      if(holder) holder.innerHTML=voiceBtn(pr[1]);
+    });
+  }catch(e){ console.error('voiceBtn:',e); }
   try{ autoFillMakeupDates(); }catch(e){ console.error('autoFillMakeupDates:',e); }
 }
 
@@ -1932,6 +1939,40 @@ function insAct(i){
 }
 window.insAct=insAct;
 
+/**
+ * Філії, до яких належить заняття.
+ * Репетитор може працювати в кількох корпусах, тому повертаємо масив.
+ */
+function lessonBranchIds(l){
+  // 1) У самого заняття
+  var own=l.branchId||l.branch_id;
+  if(own) return [own];
+
+  // 2) У репетитора — він фізично проводить заняття в корпусі
+  var t=(S.tutors||[]).find(function(x){return x.id===(l.tutorId||l.tutor_id);});
+  if(t){
+    var tb=t.branchIds||t.branch_ids;
+    if(tb){
+      var arr=Array.isArray(tb)?tb:String(tb).split(',').filter(Boolean);
+      if(arr.length) return arr;
+    }
+    if(t.branchId||t.branch_id) return [t.branchId||t.branch_id];
+  }
+
+  // 3) У учня — запасний варіант
+  var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+  if(st){
+    var sb=st.branchIds||st.branch_ids;
+    if(sb){
+      var arr2=Array.isArray(sb)?sb:String(sb).split(',').filter(Boolean);
+      if(arr2.length) return arr2;
+    }
+    if(st.branchId||st.branch_id) return [st.branchId||st.branch_id];
+  }
+  return [];
+}
+window.lessonBranchIds=lessonBranchIds;
+
 function pulseData(){
   var now=new Date();
   var today=localDateStr(now);
@@ -1941,13 +1982,15 @@ function pulseData(){
   if(!branches.length) branches=[{id:null,name:'\u0426\u0435\u043d\u0442\u0440'}];
 
   return branches.map(function(b){
-    // Заняття цієї філії сьогодні
+    // Заняття цієї філії сьогодні.
+    // Пріоритет визначення філії:
+    //   1) філія самого заняття, якщо вказана
+    //   2) філія РЕПЕТИТОРА — саме він фізично працює в корпусі
+    //   3) філія учня — як запасний варіант
     var lessons=(S.lessons||[]).filter(function(l){
       if(l.date!==today || l.status==='cancelled') return false;
-      var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
       if(!b.id) return true;
-      var bid=st?(st.branchId||st.branch_id):null;
-      return bid===b.id;
+      return lessonBranchIds(l).indexOf(b.id)>=0;
     });
 
     var live=[], soon=[], done=0;
@@ -1996,6 +2039,103 @@ function pulseData(){
 }
 window.pulseData=pulseData;
 
+/** Детальне вікно філії — увесь день, а не лише поточна хвилина */
+function openBranchDetail(bid){
+  var data=pulseData();
+  var b=data.find(function(x){ return String(x.id)===String(bid); }) || data[0];
+  if(!b) return;
+
+  var now=new Date();
+  var today=localDateStr(now);
+  var nowMin=now.getHours()*60+now.getMinutes();
+
+  // Усі заняття філії сьогодні, за часом
+  var all=(S.lessons||[]).filter(function(l){
+    if(l.date!==today || l.status==='cancelled') return false;
+    if(!b.id) return true;
+    return lessonBranchIds(l).indexOf(b.id)>=0;
+  }).sort(function(x,y){ return String(x.time||'').localeCompare(String(y.time||'')); });
+
+  // Репетитори, що працюють у філії сьогодні
+  var tutMap={};
+  all.forEach(function(l){
+    var t=l.tutorId||l.tutor_id; if(!t) return;
+    if(!tutMap[t]) tutMap[t]={id:t, total:0, hrs:0, live:false};
+    tutMap[t].total++;
+    tutMap[t].hrs+=(parseFloat(l.dur)||60)/60;
+    var tp=String(l.time||'00:00').split(':');
+    var st2=(+tp[0])*60+(+tp[1]||0);
+    if(nowMin>=st2 && nowMin<st2+(parseFloat(l.dur)||60)) tutMap[t].live=true;
+  });
+  var tutors=Object.keys(tutMap).map(function(k){return tutMap[k];})
+    .sort(function(a,c){ return c.hrs-a.hrs; });
+
+  var rows=all.map(function(l){
+    var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+    var tp=String(l.time||'00:00').split(':');
+    var start=(+tp[0])*60+(+tp[1]||0);
+    var end=start+(parseFloat(l.dur)||60);
+    var state = nowMin>=start&&nowMin<end ? 'live'
+              : nowMin>=end ? 'past' : 'future';
+    var left = state==='live' ? Math.round(end-nowMin) : 0;
+    return '<tr class="bd-'+state+'">'
+      +'<td class="bd-time">'+(l.time||'')+'</td>'
+      +'<td>'+(st?st.fn+' '+st.ln:'\u2014')+'</td>'
+      +'<td>'+tutorDot(l.tutorId||l.tutor_id,7)+' '+(tn(l.tutorId||l.tutor_id)||'\u2014')+'</td>'
+      +'<td style="color:var(--t2)">'+(l.subject||'\u2014')+'</td>'
+      +'<td class="c">'+(l.dur||60)+'\u0445\u0432</td>'
+      +'<td class="c">'+(state==='live'
+          ? '<span class="bd-badge live">\u0439\u0434\u0435 \u00b7 '+left+'\u0445\u0432</span>'
+          : state==='past' ? bst(l.status)
+          : '<span class="bd-badge soon">\u0441\u043a\u043e\u0440\u043e</span>')+'</td>'
+    +'</tr>';
+  }).join('');
+
+  var el=document.getElementById('mo-branch');
+  if(!el){
+    el=document.createElement('div');
+    el.className='mo'; el.id='mo-branch';
+    document.body.appendChild(el);
+  }
+  el.innerHTML='<div class="mdl" style="max-width:860px">'
+    +'<div class="mdlh">'
+      +'<div class="mdlt"><span class="pb-dot'+(b.live.length?' on':'')+'" style="margin-right:8px"></span>'
+        +b.name+'</div>'
+      +'<button class="xbtn" onclick="closeM(\'mo-branch\')">\u00d7</button></div>'
+    +'<div class="mdlb" style="max-height:74vh;overflow:auto">'
+      // Зведення
+      +'<div class="bd-stats">'
+        +'<div class="bd-stat"><b>'+b.live.length+'</b><span>\u0439\u0434\u0435 \u0437\u0430\u0440\u0430\u0437</span></div>'
+        +'<div class="bd-stat"><b>'+b.soon.length+'</b><span>\u043d\u0430\u0439\u0431\u043b\u0438\u0436\u0447\u0456 1.5\u0433</span></div>'
+        +'<div class="bd-stat"><b>'+b.done+'</b><span>\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e</span></div>'
+        +'<div class="bd-stat"><b>'+all.length+'</b><span>\u0443\u0441\u044c\u043e\u0433\u043e \u0441\u044c\u043e\u0433\u043e\u0434\u043d\u0456</span></div>'
+      +'</div>'
+      // Репетитори
+      +(tutors.length
+        ? '<div class="bd-sect">\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438 \u0441\u044c\u043e\u0433\u043e\u0434\u043d\u0456</div>'
+          +'<div class="bd-tutors">'+tutors.map(function(t){
+            return '<div class="bd-tut'+(t.live?' live':'')+'">'
+              +tutorDot(t.id,9)
+              +'<span><b>'+(tn(t.id)||'\u2014')+'</b>'
+              +'<span>'+t.total+' \u0437\u0430\u043d. \u00b7 '+(Math.round(t.hrs*10)/10)+'\u0433</span></span>'
+              +(t.live?'<span class="bd-now">\u0437\u0430\u0440\u0430\u0437</span>':'')
+            +'</div>';
+          }).join('')+'</div>'
+        : '')
+      // Розклад дня
+      +'<div class="bd-sect">\u0420\u043e\u0437\u043a\u043b\u0430\u0434 \u0434\u043d\u044f</div>'
+      +(all.length
+        ? '<div style="overflow-x:auto"><table class="bd-table"><thead><tr>'
+          +'<th>\u0427\u0430\u0441</th><th>\u0423\u0447\u0435\u043d\u044c</th><th>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440</th>'
+          +'<th>\u041f\u0440\u0435\u0434\u043c\u0435\u0442</th><th>\u0422\u0440\u0438\u0432.</th><th>\u0421\u0442\u0430\u043d</th>'
+          +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
+        : '<div class="empty"><div class="ei">\ud83d\udcc5</div>'
+          +'<b>\u0421\u044c\u043e\u0433\u043e\u0434\u043d\u0456 \u0437\u0430\u043d\u044f\u0442\u044c \u043d\u0435\u043c\u0430\u0454</b></div>')
+    +'</div></div>';
+  openM('mo-branch');
+}
+window.openBranchDetail=openBranchDetail;
+
 function renderPulse(){
   var wrap=document.getElementById('pulse-body');
   if(!wrap) return;
@@ -2007,7 +2147,8 @@ function renderPulse(){
 
   wrap.innerHTML=data.map(function(b){
     var isLive=b.live.length>0;
-    return '<div class="pulse-branch'+(isLive?' live':'')+'">'
+    return '<div class="pulse-branch'+(isLive?' live':'')+'" '
+      +'onclick="openBranchDetail(\''+(b.id||'')+'\')" title="\u041f\u043e\u0434\u0440\u043e\u0431\u0438\u0446\u0456">'
       +'<div class="pb-head">'
         +'<span class="pb-dot'+(isLive?' on':'')+'"></span>'
         +'<b>'+b.name+'</b>'
@@ -2240,8 +2381,12 @@ window.voiceStop=voiceStop;
 
 /** Кнопка мікрофона біля поля */
 function voiceBtn(fieldId){
-  if(!voiceSupported()) return '';
-  return '<button type="button" class="voice-btn" title="\u041d\u0430\u0434\u0438\u043a\u0442\u0443\u0432\u0430\u0442\u0438" '
+  // Кнопку показуємо завжди: якщо браузер не підтримує розпізнавання,
+  // натискання пояснить, у чому річ, замість мовчазної відсутності кнопки
+  var sup=voiceSupported();
+  return '<button type="button" class="voice-btn'+(sup?'':' off')+'" '
+    +'title="'+(sup?'\u041d\u0430\u0434\u0438\u043a\u0442\u0443\u0432\u0430\u0442\u0438'
+                  :'\u041f\u043e\u0442\u0440\u0456\u0431\u0435\u043d Chrome \u0430\u0431\u043e Edge')+'" '
     +'onclick="voiceToggle(\''+fieldId+'\',this)">\ud83c\udfa4</button>';
 }
 window.voiceBtn=voiceBtn;
@@ -8487,6 +8632,13 @@ function openLessM(id, date, time){
   var mw=document.getElementById('l-merge-wrap');
   if(mw) mw.style.display='block';
   populateMergeSelect();
+  // Кнопки диктування — вставляємо при відкритті картки
+  try{
+    [['vb-notes','l-notes'],['vb-hw','l-hw'],['vb-lit','l-lit']].forEach(function(pr){
+      var holder=document.getElementById(pr[0]);
+      if(holder) holder.innerHTML=voiceBtn(pr[1]);
+    });
+  }catch(e){ console.error('voiceBtn:',e); }
   openM('mo-lesson');
 }
 
