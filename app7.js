@@ -1751,6 +1751,217 @@ window.celebrateOnce=celebrateOnce;
 //  ДРУК РОЗКЛАДУ НА ТИЖДЕНЬ
 //  Щоб повісити на стіну в центрі або віддати репетитору.
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  ГОЛОСОВЕ ЗАПОВНЕННЯ ПОЛІВ
+//  Репетитору швидше продиктувати тему уроку після заняття,
+//  ніж набирати її на телефоні. Працює в Chrome та Edge.
+// ═══════════════════════════════════════════════════════════════
+var _rec = null, _recTarget = null;
+
+// ═══════════════════════════════════════════════════════════════
+//  WRAPPED — АНІМОВАНИЙ ПІДСУМОК МІСЯЦЯ
+//  Слайди з головними цифрами: скільки провели, хто найактивніший,
+//  який предмет попереду. Замість таблиць — розповідь.
+// ═══════════════════════════════════════════════════════════════
+var _wrIdx = 0, _wrSlides = [];
+
+function wrappedData(period){
+  period = period || new Date().toISOString().slice(0,7);
+  var L = filterByBranch((S.lessons||[]).filter(function(l){
+    return String(l.date||'').slice(0,7)===period;
+  }));
+  var done = L.filter(function(l){ return isDoneLesson(l)||l.status==='makeup'; });
+  var hrs = Math.round(done.reduce(function(a,l){ return a+(parseFloat(l.dur)||60)/60; },0)*10)/10;
+
+  // Найактивніший репетитор
+  var byTut={};
+  done.forEach(function(l){
+    var t=l.tutorId||l.tutor_id; if(!t) return;
+    byTut[t]=(byTut[t]||0)+(parseFloat(l.dur)||60)/60;
+  });
+  var topTut=Object.keys(byTut).sort(function(a,b){return byTut[b]-byTut[a];})[0];
+
+  // Найпопулярніший предмет (з урахуванням регістру)
+  var bySubj={}, subjLbl={};
+  done.forEach(function(l){
+    var raw=String(l.subject||'\u0406\u043d\u0448\u0435').trim();
+    var k=raw.toLowerCase().replace(/\s+/g,' ');
+    if(!subjLbl[k]) subjLbl[k]=raw;
+    bySubj[k]=(bySubj[k]||0)+1;
+  });
+  var topSubj=Object.keys(bySubj).sort(function(a,b){return bySubj[b]-bySubj[a];})[0];
+
+  // Найстаранніший учень
+  var byStud={};
+  done.forEach(function(l){
+    var sid=l.studentId||l.student_id; if(!sid) return;
+    byStud[sid]=(byStud[sid]||0)+1;
+  });
+  var topStud=Object.keys(byStud).sort(function(a,b){return byStud[b]-byStud[a];})[0];
+
+  // Найзавантаженіший день тижня
+  var byDow=[0,0,0,0,0,0,0];
+  done.forEach(function(l){
+    var d=new Date(l.date+'T12:00:00');
+    if(!isNaN(d)) byDow[d.getDay()===0?6:d.getDay()-1]++;
+  });
+  var dowNames=['\u041f\u043e\u043d\u0435\u0434\u0456\u043b\u043e\u043a','\u0412\u0456\u0432\u0442\u043e\u0440\u043e\u043a','\u0421\u0435\u0440\u0435\u0434\u0430','\u0427\u0435\u0442\u0432\u0435\u0440','\u041f\u2019\u044f\u0442\u043d\u0438\u0446\u044f','\u0421\u0443\u0431\u043e\u0442\u0430','\u041d\u0435\u0434\u0456\u043b\u044f'];
+  var topDow=byDow.indexOf(Math.max.apply(null,byDow));
+
+  var income=done.reduce(function(a,l){ return a+(lessonTotal(l)||0); },0);
+  var studCount=Object.keys(byStud).length;
+
+  return {
+    period:period, lessons:done.length, hours:hrs, income:Math.round(income),
+    students:studCount,
+    topTutor: topTut ? {name:tn(topTut), hours:Math.round(byTut[topTut]*10)/10, id:topTut} : null,
+    topSubject: topSubj ? {name:subjLbl[topSubj], count:bySubj[topSubj]} : null,
+    topStudent: topStud ? {name:sn(topStud), count:byStud[topStud]} : null,
+    topDow: byDow[topDow] ? {name:dowNames[topDow], count:byDow[topDow]} : null
+  };
+}
+window.wrappedData=wrappedData;
+
+function openWrapped(period){
+  var d=wrappedData(period);
+  if(!d.lessons){ mkToast('\u0417\u0430 \u0446\u0435\u0439 \u043c\u0456\u0441\u044f\u0446\u044c \u0449\u0435 \u043d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445','error'); return; }
+
+  var mName=prMonthName(d.period);
+  _wrSlides=[
+    {bg:'linear-gradient(135deg,#6366f1,#8b5cf6)', ico:'\ud83d\udcc5',
+     big:mName.split(' ')[0], sub:'\u041f\u0456\u0434\u0441\u0443\u043c\u043a\u0438 \u043c\u0456\u0441\u044f\u0446\u044f',
+     note:'\u041f\u043e\u0433\u043b\u044f\u043d\u044c\u043c\u043e, \u044f\u043a \u0432\u0456\u043d \u043c\u0438\u043d\u0443\u0432'},
+    {bg:'linear-gradient(135deg,#22c55e,#14b8a6)', ico:'\u2705',
+     big:d.lessons, sub:'\u0437\u0430\u043d\u044f\u0442\u044c \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e',
+     note:d.hours+' \u0433\u043e\u0434\u0438\u043d \u043d\u0430\u0432\u0447\u0430\u043d\u043d\u044f'},
+    {bg:'linear-gradient(135deg,#f59e0b,#f97316)', ico:'\ud83d\udc65',
+     big:d.students, sub:'\u0443\u0447\u043d\u0456\u0432 \u043d\u0430\u0432\u0447\u0430\u043b\u043e\u0441\u044c',
+     note:d.topStudent ? '\u041d\u0430\u0439\u0441\u0442\u0430\u0440\u0430\u043d\u043d\u0456\u0448\u0438\u0439: '+d.topStudent.name+' ('+d.topStudent.count+')' : ''}
+  ];
+  if(d.topTutor) _wrSlides.push({bg:'linear-gradient(135deg,#ec4899,#f43f5e)', ico:'\ud83c\udfc6',
+     big:d.topTutor.name, sub:'\u043d\u0430\u0439\u0430\u043a\u0442\u0438\u0432\u043d\u0456\u0448\u0438\u0439 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440',
+     note:d.topTutor.hours+' \u0433\u043e\u0434\u0438\u043d \u0437\u0430 \u043c\u0456\u0441\u044f\u0446\u044c', small:true});
+  if(d.topSubject) _wrSlides.push({bg:'linear-gradient(135deg,#0ea5e9,#06b6d4)', ico:'\ud83d\udcda',
+     big:d.topSubject.name, sub:'\u043d\u0430\u0439\u043f\u043e\u043f\u0443\u043b\u044f\u0440\u043d\u0456\u0448\u0438\u0439 \u043f\u0440\u0435\u0434\u043c\u0435\u0442',
+     note:d.topSubject.count+' \u0437\u0430\u043d\u044f\u0442\u044c', small:true});
+  if(d.topDow) _wrSlides.push({bg:'linear-gradient(135deg,#8b5cf6,#6366f1)', ico:'\u26a1',
+     big:d.topDow.name, sub:'\u043d\u0430\u0439\u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u0456\u0448\u0438\u0439 \u0434\u0435\u043d\u044c',
+     note:d.topDow.count+' \u0437\u0430\u043d\u044f\u0442\u044c', small:true});
+  if(R()==='god'||R()==='director') _wrSlides.push({bg:'linear-gradient(135deg,#22c55e,#84cc16)', ico:'\ud83d\udcb0',
+     big:d.income.toLocaleString('uk-UA')+'\u20b4', sub:'\u0434\u043e\u0445\u0456\u0434 \u0437\u0430 \u043c\u0456\u0441\u044f\u0446\u044c', note:'', small:true});
+  _wrSlides.push({bg:'linear-gradient(135deg,#6366f1,#ec4899)', ico:'\ud83c\udf89',
+     big:'\u0414\u044f\u043a\u0443\u0454\u043c\u043e!', sub:'\u0417\u0430 \u0447\u0443\u0434\u043e\u0432\u0438\u0439 \u043c\u0456\u0441\u044f\u0446\u044c \u0440\u043e\u0431\u043e\u0442\u0438',
+     note:'', small:true, last:true});
+
+  _wrIdx=0;
+  var el=document.getElementById('wrapped');
+  if(el){ el.classList.add('open'); wrRender(); }
+}
+window.openWrapped=openWrapped;
+
+function wrRender(){
+  var box=document.getElementById('wr-slide');
+  var dots=document.getElementById('wr-dots');
+  if(!box) return;
+  var sl=_wrSlides[_wrIdx];
+  if(!sl) return;
+  box.style.background=sl.bg;
+  box.innerHTML='<div class="wr-inner">'
+    +'<div class="wr-ico">'+sl.ico+'</div>'
+    +'<div class="wr-big'+(sl.small?' sm':'')+'">'+sl.big+'</div>'
+    +'<div class="wr-sub">'+sl.sub+'</div>'
+    +(sl.note?'<div class="wr-note">'+sl.note+'</div>':'')
+    +(sl.last?'<button class="wr-close-btn" onclick="wrClose()">\u0417\u0430\u043a\u0440\u0438\u0442\u0438</button>':'')
+  +'</div>';
+  // Перезапускаємо анімацію появи
+  box.classList.remove('anim'); void box.offsetWidth; box.classList.add('anim');
+  if(dots) dots.innerHTML=_wrSlides.map(function(_,i){
+    return '<span class="wr-dot'+(i===_wrIdx?' on':'')+'" onclick="wrGo('+i+')"></span>';
+  }).join('');
+  if(sl.last){ try{ confetti({count:80}); }catch(e){} }
+}
+
+function wrGo(i){ _wrIdx=Math.max(0,Math.min(i,_wrSlides.length-1)); wrRender(); }
+function wrNext(){ if(_wrIdx<_wrSlides.length-1){ _wrIdx++; wrRender(); } else wrClose(); }
+function wrPrev(){ if(_wrIdx>0){ _wrIdx--; wrRender(); } }
+function wrClose(){ var el=document.getElementById('wrapped'); if(el) el.classList.remove('open'); }
+window.wrGo=wrGo; window.wrNext=wrNext; window.wrPrev=wrPrev; window.wrClose=wrClose;
+
+function voiceSupported(){
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+window.voiceSupported = voiceSupported;
+
+function voiceToggle(fieldId, btn){
+  if(!voiceSupported()){
+    mkToast('\u0413\u043e\u043b\u043e\u0441\u043e\u0432\u0435 \u0432\u0432\u0435\u0434\u0435\u043d\u043d\u044f \u043f\u0440\u0430\u0446\u044e\u0454 \u0432 Chrome \u0430\u0431\u043e Edge','error');
+    return;
+  }
+  // Повторне натискання — зупинка
+  if(_rec && _recTarget===fieldId){ voiceStop(); return; }
+  if(_rec) voiceStop();
+
+  var field=document.getElementById(fieldId);
+  if(!field) return;
+
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  _rec = new SR();
+  _rec.lang='uk-UA';
+  _rec.continuous=true;
+  _rec.interimResults=true;
+  _recTarget=fieldId;
+
+  var baseText = field.value ? field.value.trim()+' ' : '';
+  if(btn) btn.classList.add('rec-on');
+  field.classList.add('rec-field');
+
+  _rec.onresult=function(e){
+    var finalTxt='', interim='';
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      var t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalTxt+=t+' ';
+      else interim+=t;
+    }
+    if(finalTxt) baseText += finalTxt;
+    // Проміжний результат показуємо, але не зберігаємо
+    field.value = (baseText + interim).replace(/\s+/g,' ').trim();
+  };
+
+  _rec.onerror=function(e){
+    if(e.error==='not-allowed'){
+      mkToast('\u0414\u043e\u0437\u0432\u043e\u043b\u044c\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u0434\u043e \u043c\u0456\u043a\u0440\u043e\u0444\u043e\u043d\u0430','error');
+    } else if(e.error!=='no-speech' && e.error!=='aborted'){
+      mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0432\u0430\u043d\u043d\u044f','error');
+    }
+    voiceStop();
+  };
+
+  _rec.onend=function(){ voiceStop(); };
+
+  try{
+    _rec.start();
+    mkToast('\ud83c\udfa4 \u0413\u043e\u0432\u043e\u0440\u0456\u0442\u044c\u2026 (\u043d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c \u0449\u0435 \u0440\u0430\u0437, \u0449\u043e\u0431 \u0437\u0443\u043f\u0438\u043d\u0438\u0442\u0438)');
+  }catch(err){ voiceStop(); }
+}
+window.voiceToggle=voiceToggle;
+
+function voiceStop(){
+  try{ if(_rec) _rec.stop(); }catch(e){}
+  _rec=null;
+  document.querySelectorAll('.rec-on').forEach(function(b){ b.classList.remove('rec-on'); });
+  document.querySelectorAll('.rec-field').forEach(function(f){ f.classList.remove('rec-field'); });
+  _recTarget=null;
+}
+window.voiceStop=voiceStop;
+
+/** Кнопка мікрофона біля поля */
+function voiceBtn(fieldId){
+  if(!voiceSupported()) return '';
+  return '<button type="button" class="voice-btn" title="\u041d\u0430\u0434\u0438\u043a\u0442\u0443\u0432\u0430\u0442\u0438" '
+    +'onclick="voiceToggle(\''+fieldId+'\',this)">\ud83c\udfa4</button>';
+}
+window.voiceBtn=voiceBtn;
+
 function printSchedule(){
   // Понеділок обраного тижня (тиждень починається з понеділка)
   var _now=new Date();
@@ -2481,6 +2692,8 @@ function openM(id){
 }
 
 function closeM(id){
+  // Зупиняємо диктування, щоб мікрофон не лишався ввімкненим
+  try{ voiceStop(); }catch(e){}
   var el=document.getElementById(id);
   if(el){
     el.style.display='none';
@@ -2906,14 +3119,14 @@ function renderRatingBlock(){
         +'<div class="rt-title">\ud83d\udcd6 \u0412\u0435\u0434\u0435\u043d\u043d\u044f \u0436\u0443\u0440\u043d\u0430\u043b\u0443</div>'
         +'<div class="rt-sub" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
           +'<span style="display:inline-flex;gap:3px">'
-            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
-            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
+            +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
+            +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
           +'</span>'
           +'<span style="display:inline-flex;gap:3px;align-items:center">'
-            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(-1)">\u2190</button>'
+            +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px" onclick="rtShift(-1)">\u2190</button>'
             +'<b style="min-width:110px;text-align:center">'+P.label+'</b>'
-            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(1)">\u2192</button>'
-            +(rtOffset!==0?'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
+            +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px" onclick="rtShift(1)">\u2192</button>'
+            +(rtOffset!==0?'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
           +'</span>'
           +'<span>\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043d\u044f\u0442\u044c \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434</span>'
         +'</div>'
@@ -2984,14 +3197,14 @@ function renderRatingBlock(){
         +'<div class="rt-title">\ud83d\udcd6 \u0412\u0435\u0434\u0435\u043d\u043d\u044f \u0436\u0443\u0440\u043d\u0430\u043b\u0443</div>'
         +'<div class="rt-sub" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
           +'<span style="display:inline-flex;gap:3px">'
-            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
-            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
+            +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
+            +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
           +'</span>'
           +'<span style="display:inline-flex;gap:3px;align-items:center">'
-            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(-1)">\u2190</button>'
+            +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px" onclick="rtShift(-1)">\u2190</button>'
             +'<b style="min-width:110px;text-align:center">'+P.label+'</b>'
-            +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(1)">\u2192</button>'
-            +(rtOffset!==0?'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
+            +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px" onclick="rtShift(1)">\u2192</button>'
+            +(rtOffset!==0?'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
           +'</span>'
           +'<span>'+r.doneCount+' \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u0438\u0445 \u0437 '+r.lessonsTotal+'</span>'
         +'</div>'
@@ -3015,12 +3228,13 @@ function renderRatingBlock(){
     var html='<div class="card" style="margin-bottom:16px"><div class="ch">'
       +'<span class="ct">\ud83d\udcd6 \u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u0432\u0435\u0434\u0435\u043d\u043d\u044f \u0436\u0443\u0440\u043d\u0430\u043b\u0456\u0432</span>'
       +'<span style="display:inline-flex;gap:3px;align-items:center;margin-left:auto">'
-        +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
-        +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
-        +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(-1)">\u2190</button>'
+        +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px'+(rtMode==='week'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'week\')">\u0422\u0438\u0436\u0434\u0435\u043d\u044c</button>'
+        +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px'+(rtMode==='month'?';background:var(--adm);color:#fff':'')+'" onclick="rtSetMode(\'month\')">\u041c\u0456\u0441\u044f\u0446\u044c</button>'
+        +'<button class="btn btn-p btn-sm" style="font-size:11px;margin-right:5px" onclick="openWrapped()" title="\u041f\u0456\u0434\u0441\u0443\u043c\u043a\u0438 \u043c\u0456\u0441\u044f\u0446\u044f">\u2728 \u041f\u0456\u0434\u0441\u0443\u043c\u043a\u0438</button>'
+        +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px" onclick="rtShift(-1)">\u2190</button>'
         +'<b style="font-size:11px;min-width:105px;text-align:center">'+P2.label+'</b>'
-        +'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(1)">\u2192</button>'
-        +(rtOffset!==0?'<button class="btn btn-g btn-sm" class="rt-nav-btn" style="font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
+        +'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px" onclick="rtShift(1)">\u2192</button>'
+        +(rtOffset!==0?'<button class="btn btn-g btn-sm rt-nav-btn" style="font-size:11px" onclick="rtShift(0)">\u0417\u0430\u0440\u0430\u0437</button>':'')
       +'</span></div>'
       +'<div style="overflow-x:auto"><table><thead><tr>'
       +'<th>\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440</th><th style="text-align:center">\u0420\u0435\u0439\u0442\u0438\u043d\u0433</th>'
