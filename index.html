@@ -212,6 +212,39 @@ tbody tr{transition:background .14s ease}
    КОМАНДНА ПАЛІТРА (Ctrl+K)
    ═══════════════════════════════════════════════════════════ */
 /* ═══════════════════════════════════════════════════════════
+   ЖИВИЙ ПУЛЬС
+   ═══════════════════════════════════════════════════════════ */
+.pulse-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:11px;padding:14px 18px 18px}
+.pulse-branch{border:1px solid var(--b1);border-radius:13px;padding:12px 13px;
+  background:var(--s1);transition:border-color .25s ease, box-shadow .25s ease}
+.pulse-branch.live{border-color:rgba(34,197,94,.45);
+  box-shadow:0 0 0 3px rgba(34,197,94,.07)}
+.pb-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.pb-head b{font-size:13.5px}
+.pb-dot{width:8px;height:8px;border-radius:50%;background:var(--b2);flex-shrink:0}
+.pb-dot.on{background:#22c55e;animation:pbPulse 2s ease-in-out infinite}
+@keyframes pbPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}
+  50%{box-shadow:0 0 0 6px rgba(34,197,94,0)}
+}
+.pb-stat{margin-left:auto;font-size:11px;color:var(--t3)}
+.pulse-branch.live .pb-stat{color:#22c55e;font-weight:700}
+.pb-list{display:flex;flex-direction:column;gap:7px;margin-bottom:8px}
+.pb-item{display:flex;align-items:center;gap:8px;padding:7px 9px;
+  background:var(--s2);border-radius:9px}
+.pb-who{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.pb-who b{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pb-who span{font-size:10.5px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pb-left{font-size:11px;font-weight:700;color:var(--tut);
+  font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.pb-soon{font-size:11px;color:var(--t2);line-height:1.55;padding-top:6px;
+  border-top:1px dashed var(--b1)}
+.pb-soon i{color:var(--t3);font-style:normal}
+.pb-foot{margin-top:8px;font-size:10.5px;color:var(--t3)}
+@media(max-width:768px){ .pulse-body{grid-template-columns:1fr;padding:12px 14px 14px} }
+
+/* ═══════════════════════════════════════════════════════════
    WRAPPED — підсумок місяця
    ═══════════════════════════════════════════════════════════ */
 .wrapped{display:none;position:fixed;inset:0;z-index:250;
@@ -1204,7 +1237,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <span id="sync-lbl" style="font-size:11px;color:var(--t3)"></span>
     </div>
     <div class="ptitle" id="ptitle">Дашборд</div>
-      <div class="search"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук... (Ctrl+K)" id="gsearch" oninput="gSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';gSearch('');}"></div>
+      <div class="search" onclick="if(typeof cmdOpen==='function')cmdOpen()" style="cursor:pointer"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук… (Ctrl+K)" id="gsearch" readonly style="cursor:pointer" onfocus="if(typeof cmdOpen==='function'){this.blur();cmdOpen();}"></div>
       <button class="btn btn-p" id="addbtn" onclick="openAdd()" style="display:none">+ Додати</button>
       <button onclick="toggleTheme()" id="theme-btn" title="Змінити тему" style="background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;border-radius:8px;color:var(--t2);transition:.15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">🌙</button>
     </div>
@@ -1215,6 +1248,17 @@ body.role-tutor .comm-add-btn { display: none !important; }
 
         <!-- ═══ РЕЙТИНГ (репетитору — свій, керівництву — таблиця) ═══ -->
         <div id="dash-rating"></div>
+
+        <!-- Живий пульс філій -->
+        <div class="card" id="pulse-card" style="display:none;margin-bottom:16px">
+          <div class="ch">
+            <span class="ct">⚡ Живий пульс</span>
+            <span style="font-size:11.5px;color:var(--t3);margin-left:auto">
+              зараз іде <b id="pulse-live-count" style="color:var(--tut);font-size:14px">0</b>
+            </span>
+          </div>
+          <div id="pulse-body" class="pulse-body"></div>
+        </div>
 
         <!-- ═══ GLOBAL KPI CARDS ═══ -->
         <div class="sgrid" id="dash-stats"></div>
@@ -2568,7 +2612,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=phase7"></script>
+<script src="app7.js?v=pulse1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
