@@ -1619,6 +1619,179 @@ function printActFromEdit(){
 }
 
 // Друк акта: генерує документ із реквізитами, переліком послуг (можливо відредагованим) і двома підписами
+// ═══════════════════════════════════════════════════════════════
+//  ВОДЯНИЙ ЗНАК ДЛЯ ДРУКОВАНИХ ДОКУМЕНТІВ
+//  Робить акти, рахунки й відомості впізнаваними та солідними,
+//  а підробити їх — складніше.
+// ═══════════════════════════════════════════════════════════════
+
+/** CSS водяного знака й колонтитула — додається у <style> документа */
+// ═══════════════════════════════════════════════════════════════
+//  КОНФЕТІ — лише на справді рідкісні досягнення.
+//  Якщо сипати на кожну дію, воно швидко перестає щось означати,
+//  тому подій навмисно мало.
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  ЗВУКОВІ СИГНАЛИ
+//  За замовчуванням ВИМКНЕНІ: у спільному кабінеті звуки швидше
+//  дратують, ніж допомагають. Вмикаються свідомо в профілі.
+//  Генеруються кодом — без зовнішніх файлів.
+// ═══════════════════════════════════════════════════════════════
+function soundsOn(){
+  try{ return localStorage.getItem('crm_sounds')==='1'; }catch(e){ return false; }
+}
+function setSounds(on){
+  try{ localStorage.setItem('crm_sounds', on?'1':'0'); }catch(e){}
+  if(on) playSound('ok');
+}
+window.soundsOn=soundsOn;
+window.setSounds=setSounds;
+
+var _audioCtx=null;
+/** kind: 'ok' | 'task' | 'call' */
+function playSound(kind){
+  if(!soundsOn()) return;
+  try{
+    _audioCtx = _audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    var ctx=_audioCtx;
+    if(ctx.state==='suspended') ctx.resume();
+
+    // Короткі м'які тони — не різкі й не гучні
+    var notes = kind==='task' ? [[660,0],[880,.09]]
+              : kind==='call' ? [[520,0],[660,.08],[520,.16]]
+              : [[880,0]];
+    notes.forEach(function(n){
+      var osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.type='sine';
+      osc.frequency.value=n[0];
+      var t0=ctx.currentTime+n[1];
+      // Плавне наростання й згасання, щоб не було клацання
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(.055, t0+.012);
+      gain.gain.exponentialRampToValueAtTime(.0001, t0+.19);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0+.2);
+    });
+  }catch(e){}
+}
+window.playSound=playSound;
+
+function confetti(opts){
+  opts=opts||{};
+  // Повага до системного налаштування «зменшити рух»
+  try{
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  }catch(e){}
+
+  var count=opts.count||70;
+  var colors=['#6366f1','#22c55e','#f59e0b','#ec4899','#14b8a6','#f97316','#8b5cf6'];
+  var cvs=document.createElement('canvas');
+  cvs.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+  document.body.appendChild(cvs);
+  var ctx=cvs.getContext('2d');
+  var W=cvs.width=window.innerWidth, H=cvs.height=window.innerHeight;
+
+  var bits=[];
+  for(var i=0;i<count;i++){
+    bits.push({
+      x: W*(0.15+Math.random()*0.7),
+      y: -20-Math.random()*H*0.3,
+      w: 6+Math.random()*6,
+      h: 8+Math.random()*8,
+      c: colors[(Math.random()*colors.length)|0],
+      vx: (Math.random()-0.5)*2.4,
+      vy: 2+Math.random()*3,
+      rot: Math.random()*Math.PI,
+      vr: (Math.random()-0.5)*0.22
+    });
+  }
+
+  var start=Date.now(), DUR=2600;
+  (function frame(){
+    var t=Date.now()-start;
+    if(t>DUR){ cvs.remove(); return; }
+    ctx.clearRect(0,0,W,H);
+    // Плавне згасання наприкінці
+    var fade = t>DUR-700 ? (DUR-t)/700 : 1;
+    bits.forEach(function(b){
+      b.x+=b.vx; b.y+=b.vy; b.rot+=b.vr;
+      b.vy+=0.045;                 // тяжіння
+      ctx.save();
+      ctx.globalAlpha=fade;
+      ctx.translate(b.x,b.y);
+      ctx.rotate(b.rot);
+      ctx.fillStyle=b.c;
+      ctx.fillRect(-b.w/2,-b.h/2,b.w,b.h);
+      ctx.restore();
+    });
+    requestAnimationFrame(frame);
+  })();
+}
+window.confetti=confetti;
+
+/**
+ * Показує святкування лише ОДИН раз для конкретної події.
+ * Ключ зберігається, щоб конфетті не сипалось при кожному
+ * перемальовуванні сторінки.
+ */
+function celebrateOnce(key, message){
+  try{
+    var seen=JSON.parse(localStorage.getItem('celebrated')||'{}');
+    if(seen[key]) return false;
+    seen[key]=Date.now();
+    localStorage.setItem('celebrated', JSON.stringify(seen));
+  }catch(e){}
+  confetti();
+  if(message) mkToast(message);
+  return true;
+}
+window.celebrateOnce=celebrateOnce;
+
+function printWatermarkCSS(){
+  return 'body{position:relative}'
+    // Сам знак: великий, дуже блідий, під текстом
+    +'.wm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);'
+      +'font-size:88px;font-weight:900;letter-spacing:6px;color:#000;opacity:.045;'
+      +'white-space:nowrap;z-index:0;pointer-events:none;user-select:none}'
+    +'.wm-sub{position:fixed;top:calc(50% + 62px);left:50%;'
+      +'transform:translate(-50%,-50%) rotate(-28deg);'
+      +'font-size:15px;letter-spacing:7px;color:#000;opacity:.05;'
+      +'white-space:nowrap;z-index:0;pointer-events:none;user-select:none}'
+    // Вміст — над знаком
+    +'body>*:not(.wm):not(.wm-sub){position:relative;z-index:1}'
+    // Колонтитул із реквізитами
+    +'.doc-foot{margin-top:26px;padding-top:10px;border-top:1px solid #ddd;'
+      +'font-size:10px;color:#888;text-align:center;line-height:1.6}'
+    +'@media print{ .wm,.wm-sub{position:fixed} @page{margin:14mm} }';
+}
+
+/** Розмітка водяного знака */
+function printWatermarkHTML(){
+  var cfg=S.settings||{};
+  var name=String(cfg.name||'\u041a\u043e\u043d\u0441\u0442\u0430\u043d\u0442\u0430').toUpperCase();
+  return '<div class="wm">'+name+'</div>'
+       + '<div class="wm-sub">\u0420\u0415\u041f\u0415\u0422\u0418\u0422\u041e\u0420\u0421\u042c\u041a\u0418\u0419 \u0426\u0415\u041d\u0422\u0420</div>';
+}
+
+/** Колонтитул із реквізитами центру */
+function printFooterHTML(branch){
+  var cfg=S.settings||{};
+  var parts=[];
+  parts.push(String(cfg.name||'\u0420\u0426 \u00ab\u041a\u043e\u043d\u0441\u0442\u0430\u043d\u0442\u0430\u00bb'));
+  if(branch&&branch.name) parts.push(branch.name);
+  if(branch&&branch.pay_address) parts.push(branch.pay_address);
+  if(branch&&branch.pay_edrpou) parts.push('\u0404\u0414\u0420\u041f\u041e\u0423/\u041a\u043e\u0434: '+branch.pay_edrpou);
+  if(cfg.phone) parts.push('\u0442\u0435\u043b. '+cfg.phone);
+  var d=new Date();
+  var stamp=String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()
+    +' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  return '<div class="doc-foot">'+parts.join(' \u00b7 ')
+    +'<br>\u0421\u0444\u043e\u0440\u043c\u043e\u0432\u0430\u043d\u043e \u0432 CRM '+stamp+'</div>';
+}
+window.printWatermarkCSS=printWatermarkCSS;
+window.printWatermarkHTML=printWatermarkHTML;
+window.printFooterHTML=printFooterHTML;
+
 function printAct(sid, per, editedRows, editedNote, clientInfo){
   if(!canActs()) return;
   var s=(S.students||[]).find(function(x){return x.id===sid;});
@@ -1675,7 +1848,7 @@ function printAct(sid, per, editedRows, editedNote, clientInfo){
 
   var w=window.open('','_blank');
   w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0410\u043A\u0442 \u0432\u0438\u043A\u043E\u043D\u0430\u043D\u0438\u0445 \u0440\u043E\u0431\u0456\u0442</title>'
-    +'<style>body{font-family:Arial,sans-serif;max-width:720px;margin:24px auto;color:#111;font-size:13px;line-height:1.5}'
+    +'<style>'+printWatermarkCSS()+'body{font-family:Arial,sans-serif;max-width:720px;margin:24px auto;color:#111;font-size:13px;line-height:1.5}'
     +'h1{font-size:16px;text-align:center;margin-bottom:2px}'
     +'.sub{text-align:center;color:#555;font-size:12px;margin-bottom:20px}'
     +'.parties{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;font-size:12.5px}'
@@ -1690,6 +1863,7 @@ function printAct(sid, per, editedRows, editedNote, clientInfo){
     +'.sign-line{border-top:1px solid #111;margin-top:46px;padding-top:4px;font-size:11.5px;color:#333}'
     +'.legal-note{margin-top:26px;font-size:10.5px;color:#888;border-top:1px dashed #ccc;padding-top:8px}'
     +'@media print{.noprint{display:none}}</style></head><body>'
+    +printWatermarkHTML()
     +'<h1>\u0410\u041A\u0422 \u2116 '+actNo+'</h1>'
     +'<div class="sub">\u043D\u0430\u0434\u0430\u043D\u043D\u044F \u043E\u0441\u0432\u0456\u0442\u043D\u0456\u0445 \u043F\u043E\u0441\u043B\u0443\u0433 \u0437\u0430 '+perLbl+'<br>\u0432\u0456\u0434 '+new Date().toLocaleDateString('uk-UA')+'</div>'
     +'<div class="parties">'
@@ -1715,6 +1889,7 @@ function printAct(sid, per, editedRows, editedNote, clientInfo){
       +'<div>\u0417\u0430\u043C\u043E\u0432\u043D\u0438\u043A:<div class="sign-line">'+clientName+' \u00A0\u00A0\u00A0\u00A0 \u041F\u0456\u0434\u043F\u0438\u0441: ______________</div></div>'
     +'</div>'
     +'<div class="legal-note">\u0424\u043E\u0440\u043C\u0430 \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430 \u043E\u0440\u0456\u0454\u043D\u0442\u043E\u0432\u0430\u043D\u0430 \u043D\u0430 \u043E\u0431\u043E\u0432\u2019\u044F\u0437\u043A\u043E\u0432\u0456 \u0440\u0435\u043A\u0432\u0456\u0437\u0438\u0442\u0438 \u043F\u0435\u0440\u0432\u0438\u043D\u043D\u043E\u0433\u043E \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430 (\u0441\u0442.9 \u0417\u0430\u043A\u043E\u043D\u0443 \u00AB\u041F\u0440\u043E \u0431\u0443\u0445\u0433\u0430\u043B\u0442\u0435\u0440\u0441\u044C\u043A\u0438\u0439 \u043E\u0431\u043B\u0456\u043A\u00BB). \u041F\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u043D\u0456\u0441\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 \u0432\u0430\u0448\u043E\u043C\u0443 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0443 \u0442\u0430 \u0441\u0438\u0441\u0442\u0435\u043C\u0456 \u043E\u043F\u043E\u0434\u0430\u0442\u043A\u0443\u0432\u0430\u043D\u043D\u044F \u0437 \u0431\u0443\u0445\u0433\u0430\u043B\u0442\u0435\u0440\u043E\u043C.</div>'
+    +printFooterHTML(branch)
     +'<button class="noprint" onclick="window.print()" style="margin-top:20px;padding:8px 18px;font-size:14px;cursor:pointer">\uD83D\uDDA8 \u0414\u0440\u0443\u043A\u0443\u0432\u0430\u0442\u0438 / \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u044F\u043A PDF</button>'
     +'</body></html>');
   w.document.close();
@@ -2695,7 +2870,15 @@ function renderRatingBlock(){
 
     // Бейджі за досягнення
     var badges='';
-    if(r.score===100) badges+='<span class="rt-badge">\ud83c\udfc6 \u0406\u0434\u0435\u0430\u043b\u044c\u043d\u0438\u0439 \u043c\u0456\u0441\u044f\u0446\u044c</span>';
+    if(r.score===100){
+      badges+='<span class="rt-badge">\ud83c\udfc6 \u0406\u0434\u0435\u0430\u043b\u044c\u043d\u0438\u0439 \u043c\u0456\u0441\u044f\u0446\u044c</span>';
+      // Святкуємо один раз за період — а не при кожному відкритті дашборду
+      try{
+        var _pk=(P&&P.isWeek)?('week-'+P.from):('month-'+(P?P.key:''));
+        celebrateOnce('rating100-'+mt.id+'-'+_pk,
+          '\ud83c\udfc6 \u0406\u0434\u0435\u0430\u043b\u044c\u043d\u0438\u0439 \u0436\u0443\u0440\u043d\u0430\u043b! \u0412\u0456\u0442\u0430\u0454\u043c\u043e!');
+      }catch(e){}
+    }
     if(!I.forgotten.length&&r.doneCount>=5) badges+='<span class="rt-badge">\u2705 \u0416\u043e\u0434\u043d\u043e\u0433\u043e \u0437\u0430\u0431\u0443\u0442\u043e\u0433\u043e</span>';
     if(I.avgDelay<=1&&r.doneCount>=5) badges+='<span class="rt-badge">\u26a1 \u0412\u0456\u0434\u043c\u0456\u0442\u043a\u0438 \u0432 \u0434\u0435\u043d\u044c \u0437\u0430\u043d\u044f\u0442\u0442\u044f</span>';
     if(r.parts.journal.pct===100&&r.doneCount>=5) badges+='<span class="rt-badge">\ud83d\udcdd \u0416\u0443\u0440\u043d\u0430\u043b \u0431\u0435\u0437 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0456\u0432</span>';
@@ -6422,6 +6605,7 @@ function checkNewTaskNotifications(){
 }
 
 function notifyNewTask(t){
+  try{ playSound('task'); }catch(e){}
   var creator=(S.users||[]).find(function(u){return u.id===(t.creatorId||t.creator_id);});
   var body=(t.title||'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F')
     +(t.deadline?'\n\u0414\u0435\u0434\u043B\u0430\u0439\u043D: '+fd(t.deadline)+((t.deadlineTime||t.deadline_time)?' '+(t.deadlineTime||t.deadline_time):''):'')
@@ -6767,7 +6951,7 @@ function printPayroll(recipientId, type){
     }).join('');
     var w=window.open('','_blank');
     w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</title>'
-      +'<style>*{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:20px auto;color:#1a1a2e}'
+      +'<style>'+printWatermarkCSS()+'*{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:20px auto;color:#1a1a2e}'
       +'.head{background:linear-gradient(135deg,#2e3192,#5b60d4);border-radius:16px;padding:22px 26px;color:#fff;margin-bottom:20px}'
       +'.head h1{font-size:15px;margin:0 0 4px;font-weight:600;letter-spacing:.3px;opacity:.9;text-transform:uppercase}'
       +'.head .sum{font-size:34px;font-weight:800;letter-spacing:-1px}'
@@ -6784,6 +6968,7 @@ function printPayroll(recipientId, type){
       +'.cfoot b{font-size:14px;color:#1a1a2e}'
       +'.sign{padding:8px 16px 14px;font-size:10.5px;color:#888}'
       +'@media print{.noprint{display:none}}</style></head><body>'
+      +printWatermarkHTML()
       +'<div class="head"><h1>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u043D\u0430\u0440\u0430\u0445\u0443\u0432\u0430\u043D\u043D\u044F \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</h1><div class="sum">'+money(ptA.total)+' \u20B4</div>'
         +'<div class="per">'+perLbl+' \u00B7 \u0410\u0434\u043C\u0456\u043D\u0456\u0441\u0442\u0440\u0430\u0442\u043E\u0440 \u00B7 \u0421\u0444\u043E\u0440\u043C\u043E\u0432\u0430\u043D\u043E: '+new Date().toLocaleDateString('uk-UA')+'</div></div>'
       +'<div class="card"><div class="chead"><div class="avatar">'+initials(admin)+'</div><div class="cname">'+admin.fn+' '+admin.ln+'</div></div>'
@@ -8202,6 +8387,11 @@ function renderPricingRules(){
 
 function renderProfile(){
   const mt = myTutor();
+  // Показуємо поточний стан вимикача звуків
+  try{
+    var _sc=document.getElementById('pr-sounds');
+    if(_sc) _sc.checked = soundsOn();
+  }catch(e){}
   var _pi = document.getElementById('pr-info');
   if(!_pi) return;
 
@@ -10944,7 +11134,10 @@ function trainingCheckProgress(){
     var txt=document.getElementById('tr-progress-txt'); if(txt) txt.textContent=doneCount+' / '+TRAINING_QUESTS.length+' виконано';
     var bar=document.getElementById('tr-bar'); if(bar) bar.style.width=Math.round(doneCount/TRAINING_QUESTS.length*100)+'%';
     if(doneCount===TRAINING_QUESTS.length){
-      setTimeout(function(){ mkToast('\uD83C\uDFC6 Вітаємо! Ви пройшли весь навчальний тур!'); }, 2000);
+      setTimeout(function(){
+        try{ confetti({count:90}); }catch(e){}
+        mkToast('\uD83C\uDFC6 Вітаємо! Ви пройшли весь навчальний тур!');
+      }, 2000);
     }
   }
 }
