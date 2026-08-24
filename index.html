@@ -208,6 +208,39 @@ tbody tr{transition:background .14s ease}
    П'ять найчастіших розділів під великим пальцем — швидше,
    ніж щоразу відкривати бічне меню.
    ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   КОМАНДНА ПАЛІТРА (Ctrl+K)
+   ═══════════════════════════════════════════════════════════ */
+.cmdk{display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(15,23,42,.42);backdrop-filter:blur(3px);
+  align-items:flex-start;justify-content:center;padding-top:12vh}
+.cmdk.open{display:flex;animation:cmdkFade .16s ease}
+@keyframes cmdkFade{from{opacity:0}to{opacity:1}}
+.cmdk-box{width:min(560px,92vw);background:var(--s1);border:1px solid var(--b1);
+  border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.28);overflow:hidden;
+  animation:cmdkIn .2s cubic-bezier(.22,.61,.36,1)}
+@keyframes cmdkIn{from{opacity:0;transform:translateY(-12px) scale(.98)}to{opacity:1;transform:none}}
+.cmdk-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--b1)}
+.cmdk-search{font-size:18px;color:var(--t3)}
+.cmdk-head input{flex:1;border:none;background:none;outline:none;font-size:15px;color:var(--t1);padding:0}
+.cmdk-esc{font-size:9.5px;padding:3px 6px;border:1px solid var(--b1);border-radius:5px;
+  color:var(--t3);background:var(--s2)}
+.cmdk-list{max-height:52vh;overflow-y:auto;padding:6px}
+.cmdk-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
+  cursor:pointer;transition:background .1s ease}
+.cmdk-item.sel{background:var(--s2)}
+.cmdk-ico{font-size:17px;width:24px;text-align:center;flex-shrink:0}
+.cmdk-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cmdk-txt b{font-size:13.5px;font-weight:600;color:var(--t1);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdk-txt span{font-size:11px;color:var(--t3)}
+.cmdk-hint{font-size:13px;color:var(--adm);flex-shrink:0}
+.cmdk-foot{display:flex;gap:16px;padding:9px 16px;border-top:1px solid var(--b1);
+  font-size:10.5px;color:var(--t3);background:var(--s2)}
+.cmdk-foot kbd{padding:2px 5px;border:1px solid var(--b1);border-radius:4px;
+  background:var(--s1);margin-right:3px;font-size:10px}
+@media(max-width:768px){ .cmdk{padding-top:6vh} .cmdk-foot{display:none} }
+
 .bottom-nav{display:none}
 @media(max-width:768px){
   .bottom-nav{
@@ -1057,6 +1090,23 @@ body.role-tutor .comm-add-btn { display: none !important; }
 <button class="hamburger" id="hamburger" onclick="toggleSidebar()">☰</button>
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 <!-- Нижня навігація для мобільних -->
+<!-- Командна палітра (Ctrl+K) -->
+<div id="cmdk" class="cmdk" onclick="if(event.target===this)cmdClose()">
+  <div class="cmdk-box">
+    <div class="cmdk-head">
+      <span class="cmdk-search">⌕</span>
+      <input id="cmdk-input" placeholder="Пошук учня, сторінки або дії…"
+             oninput="cmdRender(this.value)" onkeydown="cmdKey(event)" autocomplete="off">
+      <kbd class="cmdk-esc">ESC</kbd>
+    </div>
+    <div id="cmdk-list" class="cmdk-list"></div>
+    <div class="cmdk-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> навігація</span>
+      <span><kbd>↵</kbd> обрати</span>
+    </div>
+  </div>
+</div>
+
 <nav id="bottom-nav" class="bottom-nav"></nav>
 
 <div class="layout">
@@ -1263,6 +1313,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <span id="wklbl" style="font-size:12px;color:var(--t2);min-width:190px;text-align:center;font-family:'JetBrains Mono',monospace"></span>
           <button class="btn btn-g btn-sm" onclick="chWk(1)"  id="sch-next">Наступний →</button>
           <button class="btn btn-g btn-sm" onclick="chWk(0)">Сьогодні</button>
+          <button class="btn btn-g btn-sm" onclick="printSchedule()" title="Друк розкладу на тиждень">🖨 Друк</button>
           <select id="sch-status-filter" onchange="renderSch()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1)">
             <option value="">Всі статуси</option>
             <option value="planned">Заплановані</option>
@@ -2451,7 +2502,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=phase5"></script>
+<script src="app7.js?v=phase6"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
