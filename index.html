@@ -1773,6 +1773,21 @@ body.role-tutor .comm-add-btn { display: none !important; }
       </div>
 
       <div class="page" id="pg-profile">
+          <!-- Налаштування сповіщень -->
+          <div class="card" style="margin-bottom:14px">
+            <div class="ch"><span class="ct">🔔 Сповіщення</span></div>
+            <div style="padding:16px 18px">
+              <label style="display:flex;align-items:center;gap:11px;cursor:pointer">
+                <input type="checkbox" id="pr-sounds" onchange="setSounds(this.checked)" style="width:auto;min-height:auto">
+                <span>
+                  <span style="font-weight:600;font-size:13.5px">Звукові сигнали</span>
+                  <span style="display:block;font-size:11.5px;color:var(--t3);margin-top:2px">
+                    Тихий сигнал при новому завданні чи вхідному дзвінку
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
           <div class="card">
               <div class="ch">
                 <span class="ct">Мій профіль</span>
@@ -2436,7 +2451,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=phase4"></script>
+<script src="app7.js?v=phase5"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
