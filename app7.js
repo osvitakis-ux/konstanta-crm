@@ -1765,6 +1765,128 @@ var _rec = null, _recTarget = null;
 // ═══════════════════════════════════════════════════════════════
 var _wrIdx = 0, _wrSlides = [];
 
+// ═══════════════════════════════════════════════════════════════
+//  ЖИВИЙ ПУЛЬС — стан філій просто зараз
+//  Показує, де що відбувається цієї хвилини: скільки занять іде,
+//  хто на місці, чи є вільні вікна. Замість гортання розкладу.
+// ═══════════════════════════════════════════════════════════════
+function pulseData(){
+  var now=new Date();
+  var today=localDateStr(now);
+  var nowMin=now.getHours()*60+now.getMinutes();
+
+  var branches=(S.branches||[]).slice();
+  if(!branches.length) branches=[{id:null,name:'\u0426\u0435\u043d\u0442\u0440'}];
+
+  return branches.map(function(b){
+    // Заняття цієї філії сьогодні
+    var lessons=(S.lessons||[]).filter(function(l){
+      if(l.date!==today || l.status==='cancelled') return false;
+      var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+      if(!b.id) return true;
+      var bid=st?(st.branchId||st.branch_id):null;
+      return bid===b.id;
+    });
+
+    var live=[], soon=[], done=0;
+    lessons.forEach(function(l){
+      var tp=String(l.time||'00:00').split(':');
+      var start=(+tp[0])*60+(+tp[1]||0);
+      var end=start+(parseFloat(l.dur)||60);
+      if(nowMin>=start && nowMin<end) live.push(l);
+      else if(start>nowMin && start-nowMin<=90) soon.push(l);
+      else if(nowMin>=end) done++;
+    });
+
+    // Хто зараз викладає
+    var tutors={};
+    live.forEach(function(l){ var t=l.tutorId||l.tutor_id; if(t) tutors[t]=1; });
+
+    return {
+      id:b.id, name:b.name||'\u0424\u0456\u043b\u0456\u044f',
+      total:lessons.length, live:live, soon:soon, done:done,
+      tutorIds:Object.keys(tutors),
+      liveList:live.map(function(l){
+        var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+        var tp=String(l.time||'').split(':');
+        var start=(+tp[0])*60+(+tp[1]||0);
+        var left=Math.max(0, Math.round(start+(parseFloat(l.dur)||60)-nowMin));
+        return {
+          student: st?(st.fn+' '+st.ln):'\u2014',
+          tutor: tn(l.tutorId||l.tutor_id)||'\u2014',
+          tutorId: l.tutorId||l.tutor_id,
+          subject: l.subject||'',
+          time: l.time||'', left: left
+        };
+      }),
+      soonList:soon.slice(0,3).map(function(l){
+        var st=(S.students||[]).find(function(x){return x.id===(l.studentId||l.student_id);});
+        var tp=String(l.time||'').split(':');
+        var start=(+tp[0])*60+(+tp[1]||0);
+        return {
+          student: st?(st.fn+' '+st.ln):'\u2014',
+          time: l.time||'', inMin: Math.max(0, start-nowMin),
+          tutorId: l.tutorId||l.tutor_id
+        };
+      })
+    };
+  });
+}
+window.pulseData=pulseData;
+
+function renderPulse(){
+  var wrap=document.getElementById('pulse-body');
+  if(!wrap) return;
+  var data=pulseData();
+  var totalLive=data.reduce(function(a,b){ return a+b.live.length; },0);
+
+  var hdr=document.getElementById('pulse-live-count');
+  if(hdr) hdr.textContent=totalLive;
+
+  wrap.innerHTML=data.map(function(b){
+    var isLive=b.live.length>0;
+    return '<div class="pulse-branch'+(isLive?' live':'')+'">'
+      +'<div class="pb-head">'
+        +'<span class="pb-dot'+(isLive?' on':'')+'"></span>'
+        +'<b>'+b.name+'</b>'
+        +'<span class="pb-stat">'+(isLive
+            ? b.live.length+' \u0437\u0430\u0440\u0430\u0437 \u0456\u0434\u0435'
+            : '\u0442\u0438\u0448\u0430')+'</span>'
+      +'</div>'
+      // Заняття, що йдуть просто зараз
+      +(b.liveList.length
+        ? '<div class="pb-list">'+b.liveList.map(function(x){
+            return '<div class="pb-item">'
+              +tutorDot(x.tutorId,7)
+              +'<span class="pb-who"><b>'+x.student+'</b><span>'+x.tutor+(x.subject?' \u00b7 '+x.subject:'')+'</span></span>'
+              +'<span class="pb-left">'+x.left+'\u0445\u0432</span>'
+            +'</div>';
+          }).join('')+'</div>'
+        : '')
+      // Найближчі
+      +(b.soonList.length
+        ? '<div class="pb-soon">\u0421\u043a\u043e\u0440\u043e: '+b.soonList.map(function(x){
+            return x.time+' '+x.student+' <i>(\u0447\u0435\u0440\u0435\u0437 '+x.inMin+'\u0445\u0432)</i>';
+          }).join(' \u00b7 ')+'</div>'
+        : '')
+      +'<div class="pb-foot">\u0421\u044c\u043e\u0433\u043e\u0434\u043d\u0456: '+b.total
+        +' \u00b7 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e '+b.done+'</div>'
+    +'</div>';
+  }).join('');
+}
+window.renderPulse=renderPulse;
+
+var _pulseTimer=null;
+function startPulse(){
+  if(_pulseTimer) return;
+  renderPulse();
+  // Оновлюємо щохвилини — цього досить, і не навантажує
+  _pulseTimer=setInterval(function(){
+    if(S.currentPage==='dashboard') renderPulse();
+  }, 60000);
+}
+window.startPulse=startPulse;
+
 function wrappedData(period){
   period = period || new Date().toISOString().slice(0,7);
   var L = filterByBranch((S.lessons||[]).filter(function(l){
@@ -3275,6 +3397,16 @@ function ratingFixOpen(lessonId){
 window.ratingFixOpen=ratingFixOpen;
 
 function renderDash(){
+  // Живий пульс — керівництву й адміністраторам, які ведуть роботу центру
+  try{
+    var _pc=document.getElementById('pulse-card');
+    var _r=R();
+    var _show=(_r==='god'||_r==='director'||_r==='admin'||_r==='network_admin');
+    if(_pc){
+      _pc.style.display=_show?'block':'none';
+      if(_show) startPulse();
+    }
+  }catch(e){ console.error('pulse:',e); }
   try{ renderRatingBlock(); }catch(e){ console.error('renderRatingBlock:',e); }
   try{ renderDashStats(); }catch(e){ console.error('renderDashStats:',e); }
   try{ renderDashKpi(); }catch(e){ console.error('renderDashKpi:',e); }
@@ -4642,6 +4774,28 @@ function gSearch(q){
 // =
 var SUPABASE_URL  = 'https://rndxbvwisppxnhvrzwqi.supabase.co';
 var SUPABASE_ANON = 'sb_publishable_21KKA9MELBdwMRj4XG0riw_NuLYzpAw';
+
+// ═══════════════════════════════════════════════════════════════
+//  ГАРЯЧІ КЛАВІШІ
+//  Реєструємо НА ПОЧАТКУ файлу: якщо десь нижче станеться помилка,
+//  палітра все одно відкриватиметься.
+//  Ctrl+K — основна комбінація. Ctrl+/ — запасна, бо Ctrl+K
+//  у деяких браузерах і розширеннях перехоплюється своїм пошуком.
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', function(e){
+  var key=String(e.key||'').toLowerCase();
+  if((e.ctrlKey||e.metaKey) && (key==='k' || key==='/')){
+    e.preventDefault();
+    e.stopPropagation();
+    if(typeof cmdOpen==='function'){ cmdOpen(); return; }
+    var gs=document.getElementById('gsearch');
+    if(gs){ gs.focus(); gs.select(); }
+  }
+  if(e.key==='Escape'){
+    if(typeof cmdClose==='function') cmdClose();
+    if(typeof closeQuickPopup==='function') closeQuickPopup();
+  }
+}, true);   // true = перехоплюємо раніше за інші обробники
 
 // =
 // APP STATE
@@ -6598,21 +6752,8 @@ window.closeQuickPopup = closeQuickPopup;
 window.quickSetStatus = quickSetStatus;
 window.quickEdit = quickEdit;
 
-// ── CTRL+K: КОМАНДНА ПАЛІТРА ────────────────
-document.addEventListener('keydown', function(e){
-  if((e.ctrlKey||e.metaKey) && e.key==='k'){
-    e.preventDefault();
-    try{ cmdOpen(); }catch(err){
-      // Запасний варіант — старий пошук
-      var gs=document.getElementById('gsearch');
-      if(gs){ gs.focus(); gs.select(); }
-    }
-  }
-  if(e.key==='Escape'){
-    try{ cmdClose(); }catch(err){}
-    closeQuickPopup();
-  }
-});
+// Обробник Ctrl+K реєструється на початку файлу (див. секцію INIT),
+// щоб він працював навіть якщо десь нижче станеться помилка.
 
 // ── EXCEL EXPORT ────────────────────────────
 function exportToExcel(type){
