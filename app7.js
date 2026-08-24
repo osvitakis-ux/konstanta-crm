@@ -10688,6 +10688,114 @@ var RIGHTS_MATRIX = [
 ];
 
 // ── Резервне копіювання: статус, ручний запуск, список копій ──
+/**
+ * Самоперевірка резервного копіювання.
+ * Порівнює, скільки записів у базі й скільки в останній копії —
+ * так одразу видно, чи не випала якась таблиця.
+ */
+async function checkBackupHealth(){
+  var box=document.getElementById('backup-health');
+  if(box) box.innerHTML='<div style="padding:12px;color:var(--t3);font-size:12px">\u041f\u0435\u0440\u0435\u0432\u0456\u0440\u043a\u0430\u2026</div>';
+  try{
+    // 1. Остання копія
+    var lg=await _sb.from('backup_log').select('*').order('created_at',{ascending:false}).limit(1);
+    var last=(lg.data||[])[0];
+    if(!last){
+      if(box) box.innerHTML='<div class="ins ins-bad"><span class="ins-ico">\u26a0\ufe0f</span>'
+        +'<span class="ins-txt"><b>\u041a\u043e\u043f\u0456\u0439 \u0449\u0435 \u043d\u0435\u043c\u0430\u0454</b>'
+        +'<span>\u0416\u043e\u0434\u043d\u043e\u0433\u043e \u0437\u0430\u043f\u0438\u0441\u0443 \u0432 \u0436\u0443\u0440\u043d\u0430\u043b\u0456</span></span></div>';
+      return;
+    }
+
+    // 2. Скільки днів минуло
+    var ageH=Math.round((Date.now()-new Date(last.created_at).getTime())/3600000);
+    var ageTxt = ageH<24 ? ageH+' \u0433\u043e\u0434 \u0442\u043e\u043c\u0443'
+               : Math.round(ageH/24)+' \u0434\u043d. \u0442\u043e\u043c\u0443';
+
+    // Помилка при створенні копії — найважливіший сигнал
+    if(last.status && last.status!=='ok' && last.status!=='success'){
+      if(box) box.innerHTML='<div class="ins ins-bad"><span class="ins-ico">\ud83d\udd34</span>'
+        +'<span class="ins-txt"><b>\u041e\u0441\u0442\u0430\u043d\u043d\u044f \u043a\u043e\u043f\u0456\u044f \u0437 \u043f\u043e\u043c\u0438\u043b\u043a\u043e\u044e</b>'
+        +'<span>'+(last.error_message||last.status)+'</span></span></div>';
+      return;
+    }
+
+    // 3. Порівнюємо кількість записів у ключових таблицях
+    var TBL=['students','tutors','lessons','payments','call_logs'];
+    var counts={};
+    for(var i=0;i<TBL.length;i++){
+      try{
+        var r=await _sb.from(TBL[i]).select('id').limit(20000);
+        counts[TBL[i]]=(r.data||[]).length;
+      }catch(e){ counts[TBL[i]]=null; }
+    }
+    var dbTotal=Object.keys(counts).reduce(function(a,k){ return a+(counts[k]||0); },0);
+    // У журналі зберігається row_counts — розбивка по таблицях,
+    // а не одне число. Підсумовуємо.
+    var bkTotal=0, bkTables=0;
+    try{
+      var rc=last.row_counts;
+      if(typeof rc==='string') rc=JSON.parse(rc);
+      if(rc && typeof rc==='object'){
+        Object.keys(rc).forEach(function(k){
+          bkTotal += parseInt(rc[k])||0;
+          bkTables++;
+        });
+      }
+    }catch(e){}
+
+    // Копія має містити приблизно стільки ж або більше (там ще й інші таблиці)
+    var ratio = dbTotal ? bkTotal/dbTotal : 0;
+    var lvl = ageH>48 ? 'bad' : (ratio<0.8 ? 'warn' : 'good');
+    var title = ageH>48
+      ? '\u041a\u043e\u043f\u0456\u044f \u0437\u0430\u0441\u0442\u0430\u0440\u0456\u043b\u0430'
+      : (ratio<0.8
+          ? '\u041c\u043e\u0436\u043b\u0438\u0432\u043e, \u043d\u0435 \u0432\u0441\u0435 \u043f\u043e\u0442\u0440\u0430\u043f\u043b\u044f\u0454 \u0432 \u043a\u043e\u043f\u0456\u044e'
+          : '\u0420\u0435\u0437\u0435\u0440\u0432\u043d\u0435 \u043a\u043e\u043f\u0456\u044e\u0432\u0430\u043d\u043d\u044f \u0441\u043f\u0440\u0430\u0432\u043d\u0435');
+
+    // Найважливіша перевірка: чи є в копії ВСІ таблиці, що є в базі.
+    // Саме так виявляється ситуація, коли нову таблицю додали в CRM,
+    // але забули внести до списку резервного копіювання.
+    var missing=[];
+    try{
+      var rc2=last.row_counts;
+      if(typeof rc2==='string') rc2=JSON.parse(rc2);
+      TBL.forEach(function(t){
+        if(counts[t]>0 && rc2 && !(t in rc2)) missing.push(t);
+      });
+      // Перевіряємо й таблиці, доданих пізніше
+      ['phone_leads','ignored_phones'].forEach(function(t){
+        if(rc2 && !(t in rc2)) missing.push(t);
+      });
+    }catch(e){}
+
+    if(missing.length){
+      if(box) box.innerHTML='<div class="ins ins-bad"><span class="ins-ico">\ud83d\udd34</span>'
+        +'<span class="ins-txt"><b>\u0423 \u043a\u043e\u043f\u0456\u044e \u043d\u0435 \u043f\u043e\u0442\u0440\u0430\u043f\u043b\u044f\u044e\u0442\u044c \u0442\u0430\u0431\u043b\u0438\u0446\u0456</b>'
+        +'<span>'+missing.join(', ')+'</span>'
+        +'<i>\u0426\u0456 \u0434\u0430\u043d\u0456 \u0431\u0443\u0434\u0435 \u0432\u0442\u0440\u0430\u0447\u0435\u043d\u043e \u043f\u0440\u0438 \u0432\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u0456 \u2014 \u043f\u0435\u0440\u0435\u0434\u0435\u043f\u043b\u043e\u0439\u0442\u0435 daily-backup</i></span></div>';
+      return;
+    }
+
+    var det=TBL.map(function(t){
+      return t+': '+(counts[t]===null?'?':counts[t]);
+    }).join(' \u00b7 ');
+
+    if(box) box.innerHTML='<div class="ins ins-'+lvl+'">'
+      +'<span class="ins-ico">'+(lvl==='good'?'\u2705':lvl==='warn'?'\u26a0\ufe0f':'\ud83d\udd34')+'</span>'
+      +'<span class="ins-txt"><b>'+title+'</b>'
+      +'<span>\u041e\u0441\u0442\u0430\u043d\u043d\u044f: '+ageTxt
+        +' \u00b7 \u0437\u0430\u043f\u0438\u0441\u0456\u0432: '+bkTotal.toLocaleString('uk-UA')
+        +' \u00b7 \u0442\u0430\u0431\u043b\u0438\u0446\u044c: '+bkTables+'</span>'
+      +'<i>\u0412 \u0431\u0430\u0437\u0456 \u0437\u0430\u0440\u0430\u0437: '+det+'</i></span></div>';
+  }catch(e){
+    if(box) box.innerHTML='<div class="ins ins-bad"><span class="ins-ico">\u26a0\ufe0f</span>'
+      +'<span class="ins-txt"><b>\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043f\u0435\u0440\u0435\u0432\u0456\u0440\u0438\u0442\u0438</b>'
+      +'<span>'+(e.message||e)+'</span></span></div>';
+  }
+}
+window.checkBackupHealth=checkBackupHealth;
+
 async function renderBackupStatus(){
   var dot=document.getElementById('backup-status-dot'), txt=document.getElementById('backup-status-txt');
   if(!dot||!txt) return;
@@ -10796,7 +10904,25 @@ async function restoreFromBackup(filePath){
     var details=Object.keys(restored).filter(function(t){return restored[t]>0;})
       .map(function(t){return t+': +'+restored[t];}).join(', ');
 
-    if(totalRestored===0){
+    // ВАЖЛИВО: розрізняємо «нічого не треба було відновлювати» і
+    // «спроба була, але вставка впала». Раніше обидва випадки
+    // показували заспокійливе повідомлення, і причина губилась.
+    var errs=data.errors||{};
+    var errKeys=Object.keys(errs).filter(function(k){ return errs[k]; });
+    var failed=data.failedSamples||[];
+
+    if(errKeys.length || failed.length){
+      var msg='\u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u043b\u043e\u0441\u044c \u0437 \u043f\u043e\u043c\u0438\u043b\u043a\u0430\u043c\u0438.\n\n';
+      if(totalRestored) msg+='\u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e: '+totalRestored+'\n';
+      if(data.failedCount) msg+='\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f: '+data.failedCount+'\n';
+      msg+='\n\u041f\u0440\u0438\u0447\u0438\u043d\u0438:\n';
+      errKeys.forEach(function(k){ msg+='\u2022 '+k+': '+errs[k]+'\n'; });
+      failed.slice(0,5).forEach(function(f){
+        msg+='\u2022 '+f.table+' ('+String(f.id).slice(0,8)+'\u2026): '+f.reason+'\n';
+      });
+      alert(msg);
+      console.error('[restore] помилки:', errs, failed);
+    } else if(totalRestored===0){
       mkToast('\u2139\uFE0F \u041D\u0456\u0447\u043E\u0433\u043E \u0432\u0456\u0434\u043D\u043E\u0432\u043B\u044E\u0432\u0430\u0442\u0438 \u2014 \u0443\u0441\u0456 \u0437\u0430\u043F\u0438\u0441\u0438 \u0437 \u0446\u0456\u0454\u0457 \u043A\u043E\u043F\u0456\u0457 \u0432\u0436\u0435 \u0454 \u0432 \u0431\u0430\u0437\u0456');
     } else {
       mkToast('\u2705 \u0412\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043E '+totalRestored+' \u0437\u0430\u043F\u0438\u0441\u0456\u0432 ('+details+'). \u041E\u043D\u043E\u0432\u043B\u044E\u044E \u0435\u043A\u0440\u0430\u043D\u2026');
