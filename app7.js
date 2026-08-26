@@ -437,7 +437,11 @@ function onLessStatChange(){
   try{
     [['vb-notes','l-notes'],['vb-hw','l-hw'],['vb-lit','l-lit']].forEach(function(pr){
       var holder=document.getElementById(pr[0]);
-      if(holder) holder.innerHTML=voiceBtn(pr[1]);
+      if(holder){
+        holder.innerHTML=voiceBtn(pr[1]);
+        var vb=holder.querySelector('.voice-btn');
+        if(vb) voiceBtnLongPress(vb);
+      }
     });
   }catch(e){ console.error('voiceBtn:',e); }
   try{ autoFillMakeupDates(); }catch(e){ console.error('autoFillMakeupDates:',e); }
@@ -2375,6 +2379,41 @@ window.voiceToggle=voiceToggle;
  * перезапускаємо сесію автоматично, а текст накопичуємо окремо,
  * щоб він не губився й не дублювався між сесіями.
  */
+/**
+ * Режим діагностики диктування.
+ * Показує на екрані, що саме віддає браузер — потрібен, коли
+ * поведінка на конкретному пристрої відрізняється від типової.
+ */
+function voiceDebugToggle(){
+  window._voiceDebug = !window._voiceDebug;
+  var dbg=document.getElementById('voice-debug');
+  if(!dbg){
+    dbg=document.createElement('pre');
+    dbg.id='voice-debug';
+    dbg.style.cssText='position:fixed;left:6px;right:6px;bottom:70px;max-height:42vh;'
+      +'overflow:auto;background:rgba(0,0,0,.88);color:#7fff9f;font-size:10px;'
+      +'padding:9px;border-radius:9px;z-index:9999;white-space:pre-wrap;margin:0;'
+      +'font-family:monospace;line-height:1.35';
+    dbg.onclick=function(){
+      // Копіювання в буфер — щоб можна було надіслати
+      try{
+        navigator.clipboard.writeText(dbg.textContent);
+        mkToast('\u0421\u043a\u043e\u043f\u0456\u0439\u043e\u0432\u0430\u043d\u043e');
+      }catch(e){}
+    };
+    document.body.appendChild(dbg);
+  }
+  dbg.style.display = window._voiceDebug ? 'block' : 'none';
+  dbg.textContent = window._voiceDebug
+    ? '\u0414\u0456\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u043a\u0430 \u0443\u0432\u0456\u043c\u043a\u043d\u0435\u043d\u0430. \u041d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c \ud83c\udfa4 \u0456 \u043f\u0440\u043e\u0434\u0438\u043a\u0442\u0443\u0439\u0442\u0435 \u0444\u0440\u0430\u0437\u0443.\n'
+      +'\u0422\u0430\u043f \u043f\u043e \u0446\u044c\u043e\u043c\u0443 \u0432\u0456\u043a\u043d\u0443 \u2014 \u0441\u043a\u043e\u043f\u0456\u044e\u0432\u0430\u0442\u0438.\n\n'
+    : '';
+  mkToast(window._voiceDebug
+    ? '\ud83d\udd0d \u0414\u0456\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u043a\u0430 \u0443\u0432\u0456\u043c\u043a\u043d\u0435\u043d\u0430'
+    : '\u0414\u0456\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u043a\u0430 \u0432\u0438\u043c\u043a\u043d\u0435\u043d\u0430');
+}
+window.voiceDebugToggle=voiceDebugToggle;
+
 function voiceStartSession(){
   if(_recWantStop) return;
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2403,9 +2442,14 @@ function voiceStartSession(){
       var t=String(e.results[i][0].transcript||'').trim();
       if(!t) continue;
       if(e.results[i].isFinal){
-        // Кожен фінальний фрагмент зберігаємо рівно один раз
+        // Кожен фінальний фрагмент зберігаємо рівно один раз.
+        // Додатково звіряємося з уже накопиченим текстом: деякі версії
+        // Android-браузерів віддають той самий фрагмент під новим номером.
         if(i >= savedCount){
-          _recAccum += t + ' ';
+          var tail=_recAccum.slice(-(t.length+2)).trim().toLowerCase();
+          if(tail !== t.toLowerCase()){
+            _recAccum += t + ' ';
+          }
           savedCount = i + 1;
         }
       } else {
@@ -2414,6 +2458,20 @@ function voiceStartSession(){
     }
     var full=(_recBase + _recAccum + interim).replace(/\s+/g,' ').trim();
     if(_recField) _recField.value=full;
+
+    // Режим діагностики: показує, що САМЕ віддає браузер
+    if(window._voiceDebug){
+      var dbg=document.getElementById('voice-debug');
+      if(dbg){
+        var line='['+new Date().toLocaleTimeString('uk-UA')+'] results='+e.results.length
+          +' resultIndex='+e.resultIndex+' saved='+savedCount+'\n';
+        for(var j=0;j<e.results.length;j++){
+          line+='  ['+j+']'+(e.results[j].isFinal?'F':'i')+' "'+e.results[j][0].transcript+'"\n';
+        }
+        line+='  \u2192 accum: "'+_recAccum.trim()+'"\n';
+        dbg.textContent=line+dbg.textContent;
+      }
+    }
   };
 
   _rec.onerror=function(e){
@@ -2493,6 +2551,20 @@ window.dedupePhrases=dedupePhrases;
 
 
 /** Кнопка мікрофона біля поля */
+/** Довге натискання на 🎤 вмикає діагностику */
+function voiceBtnLongPress(el){
+  var t=null;
+  el.addEventListener('touchstart', function(){
+    t=setTimeout(function(){ voiceDebugToggle(); }, 900);
+  }, {passive:true});
+  ['touchend','touchmove','touchcancel'].forEach(function(ev){
+    el.addEventListener(ev, function(){ if(t){ clearTimeout(t); t=null; } }, {passive:true});
+  });
+  // На компʼютері — правою кнопкою
+  el.addEventListener('contextmenu', function(e){ e.preventDefault(); voiceDebugToggle(); });
+}
+window.voiceBtnLongPress=voiceBtnLongPress;
+
 function voiceBtn(fieldId){
   // Кнопку показуємо завжди: якщо браузер не підтримує розпізнавання,
   // натискання пояснить, у чому річ, замість мовчазної відсутності кнопки
@@ -8749,7 +8821,11 @@ function openLessM(id, date, time){
   try{
     [['vb-notes','l-notes'],['vb-hw','l-hw'],['vb-lit','l-lit']].forEach(function(pr){
       var holder=document.getElementById(pr[0]);
-      if(holder) holder.innerHTML=voiceBtn(pr[1]);
+      if(holder){
+        holder.innerHTML=voiceBtn(pr[1]);
+        var vb=holder.querySelector('.voice-btn');
+        if(vb) voiceBtnLongPress(vb);
+      }
     });
   }catch(e){ console.error('voiceBtn:',e); }
   openM('mo-lesson');
