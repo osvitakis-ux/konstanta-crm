@@ -1764,6 +1764,13 @@ window.celebrateOnce=celebrateOnce;
 //  ніж набирати її на телефоні. Працює в Chrome та Edge.
 // ═══════════════════════════════════════════════════════════════
 var _rec = null, _recTarget = null;
+// Стан диктування між автоперезапусками сесій розпізнавання
+var _recBtn = null, _recField = null;
+var _recBase = '';        // текст, що був у полі до початку
+var _recAccum = '';       // накопичене за попередні сесії
+var _recWantStop = false; // користувач натиснув «зупинити»
+var _recRestartTimer = null;
+var _recTimer = null, _recSeconds = 0;
 
 // ═══════════════════════════════════════════════════════════════
 //  WRAPPED — АНІМОВАНИЙ ПІДСУМОК МІСЯЦЯ
@@ -2329,61 +2336,123 @@ function voiceToggle(fieldId, btn){
   var field=document.getElementById(fieldId);
   if(!field) return;
 
+  _recTarget=fieldId;
+  _recBtn=btn;
+  _recField=field;
+  // Текст, що вже був у полі до початку диктування
+  _recBase = field.value ? field.value.trim()+' ' : '';
+  // Накопичене за ВСІ сесії розпізнавання (між автоперезапусками)
+  _recAccum = '';
+  _recWantStop = false;
+
+  if(btn) btn.classList.add('rec-on');
+  field.classList.add('rec-field');
+  mkToast('\ud83c\udfa4 \u0413\u043e\u0432\u043e\u0440\u0456\u0442\u044c\u2026 (\u043d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c \u0449\u0435 \u0440\u0430\u0437, \u0449\u043e\u0431 \u0437\u0443\u043f\u0438\u043d\u0438\u0442\u0438)');
+
+  // Лічильник часу запису — щоб було видно, що мікрофон працює
+  _recSeconds=0;
+  if(_recTimer) clearInterval(_recTimer);
+  _recTimer=setInterval(function(){
+    _recSeconds++;
+    if(_recBtn) _recBtn.textContent=_recSeconds<60
+      ? _recSeconds+'\u0441'
+      : Math.floor(_recSeconds/60)+':'+String(_recSeconds%60).padStart(2,'0');
+  },1000);
+
+  voiceStartSession();
+}
+window.voiceToggle=voiceToggle;
+
+/**
+ * Запускає одну сесію розпізнавання.
+ *
+ * Мобільний Chrome обриває розпізнавання через кілька секунд тиші —
+ * це його вбудована поведінка, вимкнути її не можна. Тому ми
+ * перезапускаємо сесію автоматично, а текст накопичуємо окремо,
+ * щоб він не губився й не дублювався між сесіями.
+ */
+function voiceStartSession(){
+  if(_recWantStop) return;
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  _rec = new SR();
+  try{ _rec = new SR(); }catch(e){ voiceStop(); return; }
+
   _rec.lang='uk-UA';
   _rec.continuous=true;
   _rec.interimResults=true;
-  _recTarget=fieldId;
+  _rec.maxAlternatives=1;
 
-  var baseText = field.value ? field.value.trim()+' ' : '';
-  if(btn) btn.classList.add('rec-on');
-  field.classList.add('rec-field');
-
-  // На мобільному Chrome розпізнавання періодично перезапускається само,
-  // і тоді results приходить З ПОЧАТКУ — через це вже додані фрази
-  // дописувались повторно. Тому щоразу збираємо ВЕСЬ результат наново,
-  // а не дописуємо шматками.
-  var sessionFinal = '';
+  // Текст цієї конкретної сесії
+  var sessionText='';
 
   _rec.onresult=function(e){
     var finalTxt='', interim='';
-    // Проходимо ВСІ результати, а не лише нові від resultIndex
     for(var i=0;i<e.results.length;i++){
       var t=e.results[i][0].transcript;
       if(e.results[i].isFinal) finalTxt+=t+' ';
       else interim+=t;
     }
-    sessionFinal = finalTxt;
-    var full = (baseText + sessionFinal + interim).replace(/\s+/g,' ').trim();
-    // Прибираємо випадкові повтори однакових фраз поспіль,
-    // які трапляються при перезапуску розпізнавання
-    field.value = dedupePhrases(full);
+    sessionText=finalTxt;
+    // Показуємо: те, що було + попередні сесії + поточна + проміжне
+    var full=(_recBase + _recAccum + sessionText + interim).replace(/\s+/g,' ').trim();
+    if(_recField) _recField.value=dedupePhrases(full);
   };
 
   _rec.onerror=function(e){
-    if(e.error==='not-allowed'){
+    if(e.error==='not-allowed' || e.error==='service-not-allowed'){
       mkToast('\u0414\u043e\u0437\u0432\u043e\u043b\u044c\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u0434\u043e \u043c\u0456\u043a\u0440\u043e\u0444\u043e\u043d\u0430','error');
-    } else if(e.error!=='no-speech' && e.error!=='aborted'){
-      mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0432\u0430\u043d\u043d\u044f','error');
+      _recWantStop=true;
+      voiceStop();
+      return;
     }
-    voiceStop();
+    // 'no-speech' і 'aborted' — звичайна річ на мобільному,
+    // просто перезапускаємось у onend
   };
 
-  _rec.onend=function(){ voiceStop(); };
+  _rec.onend=function(){
+    // Зберігаємо надиктоване цією сесією
+    if(sessionText) _recAccum += sessionText;
 
-  try{
-    _rec.start();
-    mkToast('\ud83c\udfa4 \u0413\u043e\u0432\u043e\u0440\u0456\u0442\u044c\u2026 (\u043d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c \u0449\u0435 \u0440\u0430\u0437, \u0449\u043e\u0431 \u0437\u0443\u043f\u0438\u043d\u0438\u0442\u0438)');
-  }catch(err){ voiceStop(); }
+    if(_recWantStop){
+      voiceFinalize();
+      return;
+    }
+    // Автоперезапуск: браузер обірвав сесію, але користувач не зупиняв
+    _recRestartTimer=setTimeout(function(){
+      if(!_recWantStop) voiceStartSession();
+    }, 260);
+  };
+
+  try{ _rec.start(); }
+  catch(e){
+    // start() інколи кидає, якщо попередня сесія ще не завершилась —
+    // пробуємо ще раз трохи згодом
+    _recRestartTimer=setTimeout(function(){
+      if(!_recWantStop) voiceStartSession();
+    }, 400);
+  }
 }
-window.voiceToggle=voiceToggle;
 
-/**
- * Прибирає повтори однакових фраз поспіль.
- * Мобільний Chrome при перезапуску розпізнавання інколи віддає
- * той самий фрагмент удруге — так текст задвоювався.
- */
+/** Остаточно вимикає диктування */
+function voiceStop(){
+  _recWantStop=true;
+  if(_recRestartTimer){ clearTimeout(_recRestartTimer); _recRestartTimer=null; }
+  try{ if(_rec){ _rec.onend=null; _rec.onresult=null; _rec.stop(); } }catch(e){}
+  voiceFinalize();
+}
+window.voiceStop=voiceStop;
+
+function voiceFinalize(){
+  _rec=null;
+  _recTarget=null;
+  if(_recTimer){ clearInterval(_recTimer); _recTimer=null; }
+  // Повертаємо кнопці іконку мікрофона замість лічильника
+  if(_recBtn) _recBtn.textContent='\ud83c\udfa4';
+  if(_recRestartTimer){ clearTimeout(_recRestartTimer); _recRestartTimer=null; }
+  document.querySelectorAll('.rec-on').forEach(function(b){ b.classList.remove('rec-on'); });
+  document.querySelectorAll('.rec-field').forEach(function(f){ f.classList.remove('rec-field'); });
+  _recBtn=null; _recField=null;
+}
+
 function dedupePhrases(txt){
   var s=String(txt||'').trim();
   if(!s) return '';
@@ -2404,15 +2473,7 @@ function dedupePhrases(txt){
 }
 window.dedupePhrases=dedupePhrases;
 
-function voiceStop(){
-  try{ if(_rec) _rec.onresult=null; }catch(e){}   // щоб не догнав пізній результат
-  try{ if(_rec) _rec.stop(); }catch(e){}
-  _rec=null;
-  document.querySelectorAll('.rec-on').forEach(function(b){ b.classList.remove('rec-on'); });
-  document.querySelectorAll('.rec-field').forEach(function(f){ f.classList.remove('rec-field'); });
-  _recTarget=null;
-}
-window.voiceStop=voiceStop;
+
 
 /** Кнопка мікрофона біля поля */
 function voiceBtn(fieldId){
