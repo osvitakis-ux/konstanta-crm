@@ -2445,19 +2445,36 @@ function voiceStartSession(){
     // нумерація зсувається. Рахувати «скільки вже збережено» за номером
     // виявилось ненадійно. Тому щоразу перебираємо все й порівнюємо
     // з попереднім станом цієї ж сесії.
-    var sessionFinal='', interim='', prevFinal='';
+    // ЧОМУ САМЕ ТАК: діагностика на реальному пристрої показала, що
+    // браузер надсилає НАКОПИЧУВАЛЬНІ фрагменти — кожен наступний
+    // містить попередній усередині:
+    //     [2]F "1"
+    //     [3]F "1 2"      ← це не нове слово, а те саме плюс продовження
+    // Якщо просто склеїти всі фрагменти, виходить «1 1 2».
+    // Тому беремо НАЙДОВШИЙ фрагмент, що містить попередні, а не суму.
+    var finals=[], interim='';
     for(var i=0;i<e.results.length;i++){
       var t=String(e.results[i][0].transcript||'').trim();
       if(!t) continue;                      // порожні фрагменти пропускаємо
-      if(e.results[i].isFinal){
-        // Той самий текст двічі поспіль — це дубль від браузера,
-        // а не людина, що повторилась. Беремо один раз.
-        if(t.toLowerCase() !== prevFinal){
-          sessionFinal += t + ' ';
-          prevFinal = t.toLowerCase();
-        }
+      if(e.results[i].isFinal) finals.push(t);
+      else interim += t + ' ';
+    }
+
+    var sessionFinal='';
+    for(var k=0;k<finals.length;k++){
+      var cur=finals[k];
+      var curL=cur.toLowerCase();
+      var accL=sessionFinal.trim().toLowerCase();
+      if(!accL){
+        sessionFinal = cur + ' ';
+      } else if(curL.indexOf(accL)===0){
+        // Новий фрагмент ПОЧИНАЄТЬСЯ з уже зібраного — він його розширює
+        sessionFinal = cur + ' ';
+      } else if(accL.indexOf(curL)===0){
+        // Навпаки: новий коротший і вже міститься — пропускаємо
       } else {
-        interim += t + ' ';
+        // Справді новий шматок — дописуємо
+        sessionFinal += cur + ' ';
       }
     }
     // Замінюємо текст ЦІЄЇ сесії, а не дописуємо — тож повтори неможливі
@@ -9093,11 +9110,37 @@ async function saveProfileEdit(){
   var obj = { fn:get('pr-fn'), ln:get('pr-ln'), phone:get('pr-phone'),
     email:get('pr-email'), subj:get('pr-subj2'), bio:get('pr-bio') };
   if(!obj.fn){ mkToast("Ім'я обов'язкове",'error'); return; }
+  var bioLen = (obj.bio||'').length;
+  console.log('[profile] зберігаю bio:', bioLen, 'символів');
+  // Перевіряємо, що поле віддає повний текст (а не обрізаний браузером)
+  var _el=document.getElementById('pr-bio');
+  if(_el) console.log('[profile] у полі вводу:', _el.value.length,
+    '| перші 40:', JSON.stringify(_el.value.slice(0,40)),
+    '| останні 40:', JSON.stringify(_el.value.slice(-40)));
   try{
     await dbUpdate('tutors', mt.id, obj);
     if(CU){ await dbUpdate('profiles', CU.id, {fn:obj.fn, ln:obj.ln});
       CU = Object.assign({}, CU, {fn:obj.fn, ln:obj.ln}); updateSBUser(); }
-    mkToast('Профіль оновлено');
+
+    // Перевіряємо, що саме опинилось у базі — бо збереження може
+    // «пройти» без помилки, а текст усе одно обрізатись
+    try{
+      var chk = await _sb.from('tutors').select('bio').eq('id', mt.id).limit(1);
+      var savedBio = ((chk.data||[])[0]||{}).bio || '';
+      console.log('[profile] у базі:', savedBio.length, 'символів');
+      if(savedBio.length < bioLen){
+        mkToast('\u26a0\ufe0f \u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e '+savedBio.length
+          +' \u0456\u0437 '+bioLen+' \u0441\u0438\u043c\u0432\u043e\u043b\u0456\u0432','error');
+      } else {
+        mkToast('\u041f\u0440\u043e\u0444\u0456\u043b\u044c \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e');
+      }
+      // Оновлюємо стан свіжими даними з бази
+      var mtRef=(S.tutors||[]).find(function(t){return t.id===mt.id;});
+      if(mtRef) mtRef.bio = savedBio;
+    }catch(e){
+      mkToast('\u041f\u0440\u043e\u0444\u0456\u043b\u044c \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e');
+    }
+
     document.getElementById('pr-edit-form').style.display = 'none';
     renderProfile();
   }catch(e){ mkToast('Помилка: '+(e.message||e),'error'); }
