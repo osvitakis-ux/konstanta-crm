@@ -2358,6 +2358,10 @@ function voiceToggle(fieldId, btn){
       ? _recSeconds+'\u0441'
       : Math.floor(_recSeconds/60)+':'+String(_recSeconds%60).padStart(2,'0');
   },1000);
+  // Підказка через 8 секунд — щоб було зрозуміло, що запис триває
+  setTimeout(function(){
+    if(_recTimer && !_recWantStop) mkToast('\ud83c\udfa4 \u0417\u0430\u043f\u0438\u0441 \u0442\u0440\u0438\u0432\u0430\u0454\u2026');
+  }, 8000);
 
   voiceStartSession();
 }
@@ -2377,24 +2381,39 @@ function voiceStartSession(){
   try{ _rec = new SR(); }catch(e){ voiceStop(); return; }
 
   _rec.lang='uk-UA';
+  // На мобільному continuous однаково ігнорується, тож не покладаємось на нього
   _rec.continuous=true;
   _rec.interimResults=true;
   _rec.maxAlternatives=1;
 
-  // Текст цієї конкретної сесії
-  var sessionText='';
+  // Скільки фінальних фрагментів цієї сесії ВЖЕ збережено.
+  // Це ключ до розвʼязання: зберігаємо кожен фрагмент ОДРАЗУ, як тільки
+  // він став фінальним, а не в onend. Раніше onend на мобільному
+  // спрацьовував із затримкою або двічі — через це перше слово
+  // потрапляло в текст по кілька разів.
+  var savedCount = 0;
+  var myRec = _rec;   // фіксуємо саме цей екземпляр
 
   _rec.onresult=function(e){
-    var finalTxt='', interim='';
+    // Ігноруємо події від старої сесії, якщо вона встигла відповісти пізніше
+    if(myRec !== _rec) return;
+
+    var interim='';
     for(var i=0;i<e.results.length;i++){
-      var t=e.results[i][0].transcript;
-      if(e.results[i].isFinal) finalTxt+=t+' ';
-      else interim+=t;
+      var t=String(e.results[i][0].transcript||'').trim();
+      if(!t) continue;
+      if(e.results[i].isFinal){
+        // Кожен фінальний фрагмент зберігаємо рівно один раз
+        if(i >= savedCount){
+          _recAccum += t + ' ';
+          savedCount = i + 1;
+        }
+      } else {
+        interim += t + ' ';
+      }
     }
-    sessionText=finalTxt;
-    // Показуємо: те, що було + попередні сесії + поточна + проміжне
-    var full=(_recBase + _recAccum + sessionText + interim).replace(/\s+/g,' ').trim();
-    if(_recField) _recField.value=dedupePhrases(full);
+    var full=(_recBase + _recAccum + interim).replace(/\s+/g,' ').trim();
+    if(_recField) _recField.value=full;
   };
 
   _rec.onerror=function(e){
@@ -2402,33 +2421,31 @@ function voiceStartSession(){
       mkToast('\u0414\u043e\u0437\u0432\u043e\u043b\u044c\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u0434\u043e \u043c\u0456\u043a\u0440\u043e\u0444\u043e\u043d\u0430','error');
       _recWantStop=true;
       voiceStop();
-      return;
     }
-    // 'no-speech' і 'aborted' — звичайна річ на мобільному,
-    // просто перезапускаємось у onend
+    // 'no-speech', 'aborted', 'network' — звичні на мобільному,
+    // перезапуск відбудеться в onend
   };
 
   _rec.onend=function(){
-    // Зберігаємо надиктоване цією сесією
-    if(sessionText) _recAccum += sessionText;
+    if(myRec !== _rec) return;    // подія від старої сесії — ігноруємо
+    console.log('[voice] сесія завершилась, накопичено:', _recAccum.length, 'символів');
+    if(_recWantStop){ voiceFinalize(); return; }
 
-    if(_recWantStop){
-      voiceFinalize();
-      return;
-    }
-    // Автоперезапуск: браузер обірвав сесію, але користувач не зупиняв
+    // Браузер обірвав сесію сам — запускаємо наступну.
+    // Текст уже збережений в _recAccum, тож нічого не губиться.
+    if(_recRestartTimer) clearTimeout(_recRestartTimer);
     _recRestartTimer=setTimeout(function(){
       if(!_recWantStop) voiceStartSession();
-    }, 260);
+    }, 200);
   };
 
-  try{ _rec.start(); }
+  console.log('[voice] старт сесії');
+  try{ myRec.start(); }
   catch(e){
-    // start() інколи кидає, якщо попередня сесія ще не завершилась —
-    // пробуємо ще раз трохи згодом
+    if(_recRestartTimer) clearTimeout(_recRestartTimer);
     _recRestartTimer=setTimeout(function(){
       if(!_recWantStop) voiceStartSession();
-    }, 400);
+    }, 450);
   }
 }
 
