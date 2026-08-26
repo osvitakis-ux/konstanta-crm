@@ -2340,16 +2340,25 @@ function voiceToggle(fieldId, btn){
   if(btn) btn.classList.add('rec-on');
   field.classList.add('rec-field');
 
+  // На мобільному Chrome розпізнавання періодично перезапускається само,
+  // і тоді results приходить З ПОЧАТКУ — через це вже додані фрази
+  // дописувались повторно. Тому щоразу збираємо ВЕСЬ результат наново,
+  // а не дописуємо шматками.
+  var sessionFinal = '';
+
   _rec.onresult=function(e){
     var finalTxt='', interim='';
-    for(var i=e.resultIndex;i<e.results.length;i++){
+    // Проходимо ВСІ результати, а не лише нові від resultIndex
+    for(var i=0;i<e.results.length;i++){
       var t=e.results[i][0].transcript;
       if(e.results[i].isFinal) finalTxt+=t+' ';
       else interim+=t;
     }
-    if(finalTxt) baseText += finalTxt;
-    // Проміжний результат показуємо, але не зберігаємо
-    field.value = (baseText + interim).replace(/\s+/g,' ').trim();
+    sessionFinal = finalTxt;
+    var full = (baseText + sessionFinal + interim).replace(/\s+/g,' ').trim();
+    // Прибираємо випадкові повтори однакових фраз поспіль,
+    // які трапляються при перезапуску розпізнавання
+    field.value = dedupePhrases(full);
   };
 
   _rec.onerror=function(e){
@@ -2370,7 +2379,33 @@ function voiceToggle(fieldId, btn){
 }
 window.voiceToggle=voiceToggle;
 
+/**
+ * Прибирає повтори однакових фраз поспіль.
+ * Мобільний Chrome при перезапуску розпізнавання інколи віддає
+ * той самий фрагмент удруге — так текст задвоювався.
+ */
+function dedupePhrases(txt){
+  var s=String(txt||'').trim();
+  if(!s) return '';
+  var words=s.split(/\s+/);
+  // Шукаємо повтор блоку від 8 слів до 2 — довші перевіряємо першими,
+  // щоб не розрізати справжній повтор на частини
+  for(var len=Math.min(8, Math.floor(words.length/2)); len>=2; len--){
+    for(var i=0; i+len*2<=words.length; i++){
+      var a=words.slice(i,i+len).join(' ').toLowerCase();
+      var b=words.slice(i+len,i+len*2).join(' ').toLowerCase();
+      if(a===b && a.length>6){
+        words.splice(i+len, len);   // прибираємо другий блок
+        i--;                        // перевіряємо це саме місце ще раз
+      }
+    }
+  }
+  return words.join(' ');
+}
+window.dedupePhrases=dedupePhrases;
+
 function voiceStop(){
+  try{ if(_rec) _rec.onresult=null; }catch(e){}   // щоб не догнав пізній результат
   try{ if(_rec) _rec.stop(); }catch(e){}
   _rec=null;
   document.querySelectorAll('.rec-on').forEach(function(b){ b.classList.remove('rec-on'); });
