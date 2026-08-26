@@ -2430,33 +2430,40 @@ function voiceStartSession(){
   // він став фінальним, а не в onend. Раніше onend на мобільному
   // спрацьовував із затримкою або двічі — через це перше слово
   // потрапляло в текст по кілька разів.
-  var savedCount = 0;
   var myRec = _rec;   // фіксуємо саме цей екземпляр
+  myRec._sessionText = '';
+  myRec._flushed = false;
 
   _rec.onresult=function(e){
     // Ігноруємо події від старої сесії, якщо вона встигла відповісти пізніше
     if(myRec !== _rec) return;
 
-    var interim='';
+    // Збираємо ВЕСЬ фінальний текст цієї сесії наново.
+    //
+    // Чому саме так: діагностика на реальному пристрої показала, що
+    // браузер надсилає порожні фрагменти впереміш зі справжніми, а
+    // нумерація зсувається. Рахувати «скільки вже збережено» за номером
+    // виявилось ненадійно. Тому щоразу перебираємо все й порівнюємо
+    // з попереднім станом цієї ж сесії.
+    var sessionFinal='', interim='', prevFinal='';
     for(var i=0;i<e.results.length;i++){
       var t=String(e.results[i][0].transcript||'').trim();
-      if(!t) continue;
+      if(!t) continue;                      // порожні фрагменти пропускаємо
       if(e.results[i].isFinal){
-        // Кожен фінальний фрагмент зберігаємо рівно один раз.
-        // Додатково звіряємося з уже накопиченим текстом: деякі версії
-        // Android-браузерів віддають той самий фрагмент під новим номером.
-        if(i >= savedCount){
-          var tail=_recAccum.slice(-(t.length+2)).trim().toLowerCase();
-          if(tail !== t.toLowerCase()){
-            _recAccum += t + ' ';
-          }
-          savedCount = i + 1;
+        // Той самий текст двічі поспіль — це дубль від браузера,
+        // а не людина, що повторилась. Беремо один раз.
+        if(t.toLowerCase() !== prevFinal){
+          sessionFinal += t + ' ';
+          prevFinal = t.toLowerCase();
         }
       } else {
         interim += t + ' ';
       }
     }
-    var full=(_recBase + _recAccum + interim).replace(/\s+/g,' ').trim();
+    // Замінюємо текст ЦІЄЇ сесії, а не дописуємо — тож повтори неможливі
+    myRec._sessionText = sessionFinal;
+
+    var full=(_recBase + _recAccum + sessionFinal + interim).replace(/\s+/g,' ').trim();
     if(_recField) _recField.value=full;
 
     // Режим діагностики: показує, що САМЕ віддає браузер
@@ -2464,7 +2471,7 @@ function voiceStartSession(){
       var dbg=document.getElementById('voice-debug');
       if(dbg){
         var line='['+new Date().toLocaleTimeString('uk-UA')+'] results='+e.results.length
-          +' resultIndex='+e.resultIndex+' saved='+savedCount+'\n';
+          +' resultIndex='+e.resultIndex+'\n';
         for(var j=0;j<e.results.length;j++){
           line+='  ['+j+']'+(e.results[j].isFinal?'F':'i')+' "'+e.results[j][0].transcript+'"\n';
         }
@@ -2486,6 +2493,13 @@ function voiceStartSession(){
 
   _rec.onend=function(){
     if(myRec !== _rec) return;    // подія від старої сесії — ігноруємо
+    // Переносимо текст завершеної сесії в загальне накопичення.
+    // Прапорець гарантує, що це станеться рівно один раз, навіть
+    // якщо браузер викличе onend повторно.
+    if(myRec._sessionText && !myRec._flushed){
+      myRec._flushed = true;
+      _recAccum += myRec._sessionText;
+    }
     console.log('[voice] сесія завершилась, накопичено:', _recAccum.length, 'символів');
     if(_recWantStop){ voiceFinalize(); return; }
 
@@ -2510,6 +2524,13 @@ function voiceStartSession(){
 /** Остаточно вимикає диктування */
 function voiceStop(){
   _recWantStop=true;
+  // Зберігаємо те, що вже надиктовано в поточній сесії
+  try{
+    if(_rec && _rec._sessionText && !_rec._flushed){
+      _rec._flushed = true;
+      _recAccum += _rec._sessionText;
+    }
+  }catch(e){}
   if(_recRestartTimer){ clearTimeout(_recRestartTimer); _recRestartTimer=null; }
   try{ if(_rec){ _rec.onend=null; _rec.onresult=null; _rec.stop(); } }catch(e){}
   voiceFinalize();
