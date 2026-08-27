@@ -1456,7 +1456,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <button class="btn btn-g btn-sm admin-only" id="cleanup-leads-btn" style="display:none;margin-left:auto" onclick="cleanupPhoneLeads()" title="Видалити лідів із телефонії, які не стали учнями, і більше їх не створювати">🧹 Очистити ліди</button>
         </div>
         <div class="card">
-          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><button class="btn btn-g btn-sm dir-only" onclick="mergeDuplicateStudents()" style="margin-left:auto">🔗 Об'єднати дублікати</button><button class="btn btn-g btn-sm xls-btn" onclick="exportToExcel('students')">📊 Excel</button></div>
+          <div class="ch"><span class="ct">Учні</span><span id="st-total" style="font-size:11px;color:var(--t3)"></span><label style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)" title="Заплановані години уроків за обраний місяць — показуються біля кожного репетитора">📅 План. години за <input type="month" id="st-hours-month" onchange="renderStudents()" style="font-size:12px;padding:4px 8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1)"></label><button class="btn btn-g btn-sm dir-only" onclick="mergeDuplicateStudents()">🔗 Об'єднати дублікати</button><button class="btn btn-g btn-sm xls-btn" onclick="exportToExcel('students')">📊 Excel</button></div>
           <table><thead><tr><th>Ім'я</th><th>Вік/Клас</th><th>Предмет</th><th>Репетитор</th><th>Статус</th><th>Контакт</th><th>Дії</th></tr></thead><tbody id="st-table"></tbody></table>
         </div>
       </div>
@@ -2447,10 +2447,6 @@ body.role-tutor .comm-add-btn { display: none !important; }
 <option value="21:15">21:15</option>
 <option value="21:30">21:30</option>
 <option value="21:45">21:45</option>
-<option value="22:00">22:00</option>
-<option value="22:15">22:15</option>
-<option value="22:30">22:30</option>
-<option value="22:45">22:45</option>
 </select></div>
       <div class="fgr"><label>Статус</label><select id="l-stat" onchange="onLessStatChange()"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="testing">Тестування</option><option value="burned">🔥 Згоріле (не попередили)</option><option value="missed">Пропущене</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select></div>
       <div id="l-miss-wrap" style="display:none" class="fgr"><label>Дата пропуску</label><select id="l-miss-date"><option value="">— оберіть пропущене заняття —</option></select><div id="l-miss-hint" style="font-size:11px;color:var(--t3);margin-top:3px"></div></div>
@@ -2558,8 +2554,8 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <label class="af-day"><input type="checkbox" value="7"> Нд</label>
         </div>
       </div>
-      <div class="fgr"><label>Час з</label><input type="number" id="af-from" min="8" max="20" value="9"></div>
-      <div class="fgr"><label>Час до</label><input type="number" id="af-to" min="9" max="21" value="18"></div>
+      <div class="fgr"><label>Час з</label><input type="number" id="af-from" min="8" max="21" value="9"></div>
+      <div class="fgr"><label>Час до</label><input type="number" id="af-to" min="9" max="22" value="18"></div>
       <div class="fgr full"><label style="display:flex;align-items:center;gap:6px;font-weight:400"><input type="checkbox" id="af-replace" checked> Замінити наявні години (інакше — додати)</label></div>
     </div></div>
     <div class="mdlf">
@@ -2677,7 +2673,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=biodiag1"></script>
+<script src="app7.js?v=planhrs"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
