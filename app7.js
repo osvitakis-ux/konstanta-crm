@@ -4436,6 +4436,25 @@ function renderStudents(){
   var tot=document.getElementById('st-total');
   if(tot) tot.textContent=data.length+' \u0437 '+myStudents().length;
   var ce=can('students');
+  // ── Заплановані години на місяць біля кожного репетитора ──────────
+  // Місяць береться з <input type="month" id="st-hours-month">; за
+  // замовчуванням — поточний. Рахуємо один прохід по всіх уроках і
+  // будуємо індекс хвилин за ключем studentId|tutorId.
+  var _ymNow=function(){ var n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); };
+  var _hoursMonthEl=document.getElementById('st-hours-month');
+  if(_hoursMonthEl && !_hoursMonthEl.value) _hoursMonthEl.value=_ymNow();
+  var _hoursYM=(_hoursMonthEl&&_hoursMonthEl.value)||_ymNow();
+  var _ymFrom=_hoursYM+'-01';
+  var _ymTo=_hoursYM+'-'+String(new Date(parseInt(_hoursYM.slice(0,4),10), parseInt(_hoursYM.slice(5,7),10), 0).getDate()).padStart(2,'0');
+  var _plannedIdx={};
+  (S.lessons||[]).forEach(function(l){
+    if(!(l.status==='planned'||l.status==='scheduled'||!l.status)) return; // лише заплановані
+    var d=String(l.date||''); if(d<_ymFrom||d>_ymTo) return;               // лише обраний місяць
+    var sid=l.studentId||l.student_id, tid=l.tutorId||l.tutor_id;
+    if(!sid||!tid) return;
+    var k=sid+'|'+tid;
+    _plannedIdx[k]=(_plannedIdx[k]||0)+(parseFloat(l.dur)||60);
+  });
   var html=data.length?data.map(function(s){
     var btns=ce
       ?('<button class="btn btn-g btn-sm" onclick="openStudM(this.dataset.id)" data-id="'+s.id+'">\u270F\uFE0F</button>'
@@ -4446,7 +4465,11 @@ function renderStudents(){
     var _tnames=_tids.map(function(tid){
       var nm=tn(tid);
       if(!nm||nm==='\u2014') return null;
-      return '<span style="display:inline-flex;align-items:center;gap:5px">'+tutorDot(tid)+nm+'</span>';
+      var _mins=_plannedIdx[s.id+'|'+tid]||0;
+      var _h=Math.round(_mins/60*10)/10;
+      var _hClr=_h>0?'var(--t2)':'var(--t3)';
+      var _hBadge='<span style="color:'+_hClr+';font-size:11px;font-family:JetBrains Mono,monospace;margin-left:2px" title="Заплановані години за '+_hoursYM+'">\u00B7 '+_h+' \u0433\u043E\u0434</span>';
+      return '<span style="display:inline-flex;align-items:center;gap:5px">'+tutorDot(tid)+nm+_hBadge+'</span>';
     }).filter(Boolean);
     var _subjTxt=studentSubjects(s).join(', ')||s.subject||'';
     var _canSeeBranchesS=isSuperAdmin()||R()==='director'||R()==='admin';
@@ -7268,10 +7291,19 @@ function showQuickPopup(lessonId, x, y){
   var pop = document.getElementById('quick-popup');
   if(!pop) return;
   pop.style.display = 'block';
-  // Position near click
-  var pw = 190, ph = 200;
-  var lx = Math.min(x, window.innerWidth - pw - 10);
-  var ly = Math.min(y, window.innerHeight - ph - 10);
+  // Позиціюємо біля кліку, але тримаємо меню повністю в межах екрана.
+  // Розміри МІРЯЄМО (getBoundingClientRect), а не вгадуємо — інакше при
+  // довгому заголовку чи низькому вікні низ/правий край обрізався.
+  var margin = 10;
+  pop.style.left = margin + 'px';
+  pop.style.top = margin + 'px'; // тимчасово, щоб замір не спотворивсь краєм
+  var rect = pop.getBoundingClientRect();
+  var pw = rect.width || 190;
+  var ph = rect.height || 200;
+  var maxLeft = Math.max(margin, window.innerWidth  - pw - margin);
+  var maxTop  = Math.max(margin, window.innerHeight - ph - margin);
+  var lx = Math.min(Math.max(x, margin), maxLeft);
+  var ly = Math.min(Math.max(y, margin), maxTop);
   pop.style.left = lx + 'px';
   pop.style.top = ly + 'px';
   // Close on outside click
@@ -10081,7 +10113,7 @@ function renderSchDay(){
   if(filterTutor) tutors = tutors.filter(t=>t.id===filterTutor);
 
 
-  const START_H = 8, END_H = 21;
+  const START_H = 8, END_H = 22; // сітка 08:00–22:00; останній рядок 21:00–22:00
   const ROW_H = 48;
   const totalHrs = END_H - START_H;
 
@@ -10285,7 +10317,7 @@ function renderSchWeek(){
     return true;
   });
 
-  const START_H = 8, END_H = 21;
+  const START_H = 8, END_H = 22; // сітка 08:00–22:00; останній рядок 21:00–22:00
   const totalHrs = END_H - START_H;
 
   // Build header
