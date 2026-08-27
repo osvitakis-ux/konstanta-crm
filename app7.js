@@ -1163,9 +1163,10 @@ function renderInvoicePage(){
       // (усі уроки групи мають один предмет+репетитор, тож ставка з правил учня спільна)
       var gTid=g.tutor?g.tutor.id:null;
       var gRate=studentRate(student, g.subj, gTid);
-      if(!gRate||gRate<=0){ var gHrsForRate=g.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0); gRate=gHrsForRate>0?Math.round(gTotal/gHrsForRate):0; }
+      var gHours=Math.round(g.lessons.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10;
+      if(!gRate||gRate<=0){ gRate=gHours>0?Math.round(gTotal/gHours):0; }
       lines.push(g.subj);
-      lines.push(gCount+' '+prPlural(gCount,'\u0443\u0440\u043E\u043A','\u0443\u0440\u043E\u043A\u0438','\u0443\u0440\u043E\u043A\u0456\u0432')+' * '+gRate+' \u0433\u0440\u043D/\u0433\u043E\u0434 =  '+gTotal+' \u0433\u0440\u043D.');
+      lines.push(gHours+' \u0433\u043E\u0434 * '+gRate+' \u0433\u0440\u043D/\u0433\u043E\u0434 =  '+gTotal+' \u0433\u0440\u043D.');
     });
 
     if(groupOrder.length>1){
@@ -1180,7 +1181,7 @@ function renderInvoicePage(){
       if(branch.pay_bank) lines.push('\u041D\u0430\u0437\u0432\u0430 \u0431\u0430\u043D\u043A\u0443: '+branch.pay_bank);
     }
     var studentInitial=(student.fn?student.fn[0]+'.':'');
-    lines.push('\u041F\u0440\u0438\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u043F\u043B\u0430\u0442\u0435\u0436\u0443: \u0437\u0430 \u043E\u0441\u0432\u0456\u0442\u043D\u0456 \u043F\u043E\u0441\u043B\u0443\u0433\u0438, '+student.ln+' '+studentInitial+' \u0443\u0447\u043D\u044F');
+    lines.push('\u041F\u0440\u0438\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u043F\u043B\u0430\u0442\u0435\u0436\u0443: \u0437\u0430 \u043E\u0441\u0432\u0456\u0442\u043D\u0456 \u043F\u043E\u0441\u043B\u0443\u0433\u0438, '+student.ln+' '+studentInitial);
     lines.push('\u0417\u0430\u0437\u0434\u0430\u043B\u0435\u0433\u0456\u0434\u044C \u0434\u044F\u043A\u0443\u0454\u043C\u043E \u0437\u0430 \u0432\u0447\u0430\u0441\u043D\u0443 \u0441\u043F\u043B\u0430\u0442\u0443 \ud83d\ude0a');
 
     invText=lines.join('\n');
@@ -1252,10 +1253,21 @@ function _logInvoiceSend(channel, recipient){
 }
 function sendInvoiceViber(){
   var phone=(window._invPhone||'').replace(/\D/g,'');
-  var text=encodeURIComponent(window._invText||'');
   if(!phone){mkToast('Немає телефону','error');return;}
   _logInvoiceSend('viber', phone);
-  window.open('viber://chat?number='+phone+'&text='+text);
+  var _open=function(){ window.open('viber://chat?number='+phone); };
+  // Текст у саме посилання не вставляємо. Спершу копіюємо рахунок у буфер
+  // обміну (поки вкладка у фокусі — так запис надійно спрацьовує), потім
+  // відкриваємо чат Viber, щоб вставити вручну.
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(window._invText||'').then(
+      function(){ mkToast('Текст скопійовано — вставте у Viber'); },
+      function(){ mkToast('Не вдалося скопіювати — натисніть «Копіювати»','error'); }
+    ).then(_open);
+  } else {
+    _open();
+    mkToast('Скопіюйте текст кнопкою «Копіювати»','error');
+  }
 }
 
 function sendInvoiceTelegram(){
