@@ -6055,6 +6055,10 @@ function normalizeUser(r){
 // рахуються в статистиці). "testing" — тестування/діагностика рівня учня:
 // заняття реально відбулось, тому рахується як проведене.
 var DONE_STATUSES = ['done','completed','testing','burned'];
+// «Проведені» статуси = виконана робота. Ставка/дані таких занять ЗАМОРОЖУЮТЬСЯ:
+// подальші зміни ставок чи інших даних на них не впливають (минуле незмінне).
+var CONDUCTED_STATUSES = ['done','completed','testing','burned','makeup'];
+function isConductedStatus(s){ return CONDUCTED_STATUSES.indexOf(s)>=0; }
 
 // «Згоріле» заняття: учень не прийшов і не попередив.
 // Оплачується як проведене (репетитор чекав), але журнал для нього
@@ -6807,16 +6811,26 @@ async function saveLesson(){
     time:       document.getElementById('l-time')?.value||'',
     dur:        parseInt(document.getElementById('l-dur')?.value)||60,
     price:      (function(){
-      // Ставка з картки учня за правилами (предмет/репетитор) на момент збереження — знімок
-      var _sid=document.getElementById('l-std')?.value;
-      var _st=_sid?(S.students||[]).find(function(s){return s.id===_sid;}):null;
-      var _computed=studentRate(_st, document.getElementById('l-subj')?.value||'', document.getElementById('l-tutor')?.value||'');
-      if(_computed>0) return _computed;
-      // Немає підходящого правила ставки (0) — при РЕДАГУВАННІ не затираємо вже існуючу
-      // коректну ціну заняття (напр. якщо міняли лише час/нотатки, а не предмет/репетитора).
+      // ЗАМОРОЖУВАННЯ МИНУЛОГО: якщо редагуємо заняття, що ВЖЕ проведене, ціну не
+      // чіпаємо — зміни ставок/предмета на минулі записи не впливають.
       if(S.editId){
         var _existing=(S.lessons||[]).find(function(x){return x.id===S.editId;});
-        if(_existing && parseFloat(_existing.price)>0) return parseFloat(_existing.price);
+        if(_existing && isConductedStatus(_existing.status) && parseFloat(_existing.price)>0){
+          return parseFloat(_existing.price);
+        }
+      }
+      // Створення / планове / момент проведення — беремо ПОТОЧНУ ставку (знімок).
+      // Тест — фіксована ціна тесту.
+      var _sid=document.getElementById('l-std')?.value;
+      var _st=_sid?(S.students||[]).find(function(s){return s.id===_sid;}):null;
+      var _computed = (_stat==='testing')
+        ? payrollTestPrice()
+        : studentRate(_st, document.getElementById('l-subj')?.value||'', document.getElementById('l-tutor')?.value||'');
+      if(_computed>0) return _computed;
+      // Немає ставки (0) — при РЕДАГУВАННІ не затираємо вже наявну ціну.
+      if(S.editId){
+        var _ex2=(S.lessons||[]).find(function(x){return x.id===S.editId;});
+        if(_ex2 && parseFloat(_ex2.price)>0) return parseFloat(_ex2.price);
       }
       return 0;
     })(),
@@ -7333,7 +7347,18 @@ async function quickSetStatus(status){
   closeQuickPopup();
   if(!_quickLessonId) return;
   try{
-    await dbUpdate('lessons', _quickLessonId, {status: status});
+    var upd={status: status};
+    // Заморожуємо ставку в момент ПЕРШОГО проведення: далі зміни ставок це заняття
+    // (минулий запис) не змінять. Тест — фіксована ціна тесту на цей момент.
+    var _les=(S.lessons||[]).find(function(x){return x.id===_quickLessonId;});
+    if(_les && isConductedStatus(status) && _les.status!==status){
+      var _rate = (status==='testing') ? payrollTestPrice() : (function(){
+        var _st=(S.students||[]).find(function(s){return s.id===(_les.studentId||_les.student_id);});
+        return studentRate(_st, _les.subject, _les.tutorId||_les.tutor_id)||0;
+      })();
+      if(_rate>0) upd.price=_rate;
+    }
+    await dbUpdate('lessons', _quickLessonId, upd);
     mkToast(status==='burned'?'🔥 Згоріле':status==='testing'?'🧪 Тестування':status==='done'?'✅ Проведено':status==='missed'?'❌ Пропущено':status==='cancelled'?'🚫 Скасовано':'📅 Заплановано');
     if(S.currentPage==='schedule') renderSch();
     if(S.currentPage==='lessons') renderLessons();
@@ -7865,18 +7890,16 @@ function payrollBase(tutorId, period){
     if(!payrollQualifies(l)) return;
     var sid=l.studentId||l.student_id||'';
     var isTest=(l.status==='testing');
-    // Ціна = СТАВКА ЗА ГОДИНУ для цього (учень+репетитор+предмет), а не вартість
-    // заняття (тривалість × ставка). Тест — фіксована ціна. Якщо у знімку ціни 0
-    // (ставку не задали на момент створення) — перечитуємо правило студента зараз.
+    // Ціна = ЗАМОРОЖЕНИЙ знімок ставки заняття (l.price), зафіксований у момент
+    // проведення. Зміни ставок у картці учня минулі (проведені) заняття НЕ змінюють.
+    // Якщо знімку немає (старі записи) — беремо поточну ставку як запас.
     var price;
-    if(isTest){ price=testPrice; }
+    var p=parseFloat(l.price);
+    if(!isNaN(p)&&p>0){ price=Math.round(p); }
+    else if(isTest){ price=testPrice; }
     else {
-      var p=parseFloat(l.price);
-      if(isNaN(p)||p<=0){
-        var st=(S.students||[]).find(function(s){return s.id===sid;});
-        p=studentRate(st, l.subject, l.tutorId||l.tutor_id)||0;
-      }
-      price=Math.round(p);
+      var st=(S.students||[]).find(function(s){return s.id===sid;});
+      price=Math.round(studentRate(st, l.subject, l.tutorId||l.tutor_id)||0);
     }
     var key=sid+'|'+price+'|'+(isTest?'T':'L');            // розбивка по ставці + тип
     if(!groups[key]){ groups[key]={sid:sid, price:price, isTest:isTest, cnt:0, hours:0}; order.push(key); }
