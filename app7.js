@@ -7803,9 +7803,31 @@ window.delTask=delTask;
 window.updateTaskAlert=updateTaskAlert;
 
 // ══════════ ЗАРПЛАТИ РЕПЕТИТОРІВ ══════════
-// База = вартість проведених уроків (done/completed) + відпрацювань (makeup) за місяць,
-// помножена на коефіцієнт 0.4. Ручні пункти: сума ₴ (±) або % від бази.
+// Формат: розбивка по учнях (Прізвище І. | К-ть | Ціна | Коеф. | Сума).
+// У «кількість проведених» входять: проведені (done/completed), відпрацювання
+// проведені (makeup), згорілі (burned) та тестування (testing).
+// Тестування має ФІКСОВАНУ ціну (payrollTestPrice, за замовч. 500 ₴, редаговано в UI).
+// Коеф. = Ціна × 0.4 (виплата репетитору за один урок); Сума = К-ть × Коеф.
+// Заняття одного учня за РІЗНИМИ цінами йдуть окремими рядками (розбивка по ціні).
+// Разом = сума по рядках + ручні пункти (₴, ±).
 var PAYROLL_COEF_DEFAULT = 0.4;
+var PAYROLL_TEST_PRICE_DEFAULT = 500; // фіксована ціна тестування (₴), редаговано в UI
+// Статуси занять, що йдуть у зарплату (включно з тестуванням).
+var PAYROLL_STATUSES = ['done','completed','makeup','burned','testing'];
+function payrollQualifies(l){ return !!l && PAYROLL_STATUSES.indexOf(l.status)>=0; }
+// Ціна тесту: з поля на сторінці → зі збереженого → 500 за замовчуванням
+function payrollTestPrice(){
+  var el=document.getElementById('pr-test-price');
+  var v=el&&el.value!==''?parseFloat(el.value):NaN;
+  if(isNaN(v)){ try{ v=parseFloat(localStorage.getItem('payroll_test_price')); }catch(e){} }
+  if(isNaN(v)||v<0) v=PAYROLL_TEST_PRICE_DEFAULT;
+  return v;
+}
+function prSetTestPrice(){
+  var el=document.getElementById('pr-test-price');
+  if(el){ var v=parseFloat(el.value); if(!isNaN(v)&&v>=0){ try{ localStorage.setItem('payroll_test_price', String(v)); }catch(e){} } }
+  renderPayroll();
+}
 // Поточний коефіцієнт: з поля на сторінці → зі збереженого → 0.4 за замовчуванням
 function payrollCoef(){
   var el=document.getElementById('pr-coef');
@@ -7829,26 +7851,43 @@ function payrollPeriod(){
   return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
 }
 
-// Проведені уроки та відпрацювання репетитора за місяць period='YYYY-MM'
+// Заняття репетитора за місяць, згруповані по (учень + ціна). Кожна ціна — окремий рядок.
 function payrollBase(tutorId, period){
-  var done=[], makeup=[];
+  var coef=payrollCoef();
+  var testPrice=payrollTestPrice();
+  var groups={}, order=[];
+  var doneCount=0, makeupCount=0, burnedCount=0, testCount=0;
   (S.lessons||[]).forEach(function(l){
     if((l.tutorId||l.tutor_id)!==tutorId) return;
     if(String(l.date||'').slice(0,7)!==period) return;
-    if(isDoneLesson(l)) done.push(l);
-    else if(l.status==='makeup') makeup.push(l);
+    if(!payrollQualifies(l)) return;
+    var sid=l.studentId||l.student_id||'';
+    var isTest=(l.status==='testing');
+    var price=isTest?testPrice:Math.round(lessonTotal(l)); // тест — фіксована ціна
+    var key=sid+'|'+price+'|'+(isTest?'T':'L');            // розбивка по ціні + тип
+    if(!groups[key]){ groups[key]={sid:sid, price:price, isTest:isTest, cnt:0}; order.push(key); }
+    groups[key].cnt++;
+    if(l.status==='makeup') makeupCount++;
+    else if(l.status==='burned') burnedCount++;
+    else if(isTest) testCount++;
+    else doneCount++;
   });
-  function hrs(a){ return Math.round(a.reduce(function(s,l){return s+(parseFloat(l.dur)||60)/60;},0)*10)/10; }
-  function sum(a){ return Math.round(a.reduce(function(s,l){return s+lessonTotal(l);},0)*100)/100; }
-  var revenue=sum(done)+sum(makeup);
-  var k=payrollCoef();
-  var doneSalary=Math.round(sum(done)*k*100)/100;
-  var makeupSalary=Math.round(sum(makeup)*k*100)/100;
+  var rows=order.map(function(key){
+    var g=groups[key];
+    var coefv=Math.round(g.price*coef);              // Коеф. — виплата за один урок
+    var sum=Math.round(g.cnt*coefv*100)/100;         // Сума = К-ть × Коеф.
+    return { name:(g.sid?snShort(g.sid):'\u2014'), isTest:g.isTest, cnt:g.cnt, price:g.price, coef:coefv, sum:sum };
+  }).sort(function(a,b){
+    var c=String(a.name).localeCompare(String(b.name),'uk'); if(c!==0) return c;
+    if(a.isTest!==b.isTest) return a.isTest?1:-1;    // тести — після звичайних
+    return a.price-b.price;
+  });
+  var base=Math.round(rows.reduce(function(s,r){return s+r.sum;},0)*100)/100;
   return {
-    doneCount:done.length, doneHours:hrs(done), doneSum:sum(done), doneSalary:doneSalary,
-    makeupCount:makeup.length, makeupHours:hrs(makeup), makeupSum:sum(makeup), makeupSalary:makeupSalary,
-    revenue:revenue,
-    base:Math.round((doneSalary+makeupSalary)*100)/100
+    rows:rows,
+    doneCount:doneCount, makeupCount:makeupCount, burnedCount:burnedCount, testCount:testCount,
+    totalCount:doneCount+makeupCount+burnedCount+testCount,
+    base:base
   };
 }
 
@@ -7890,6 +7929,8 @@ function renderPayroll(){
   if(perEl&&!perEl.value) perEl.value=per;
   var coefEl=document.getElementById('pr-coef');
   if(coefEl&&coefEl.value==='') coefEl.value=payrollCoef();
+  var testEl=document.getElementById('pr-test-price');
+  if(testEl&&testEl.value==='') testEl.value=payrollTestPrice();
   var fT=(document.getElementById('pr-tutor-filter')||{value:''}).value;
 
   var tSel=document.getElementById('pr-tutor-filter');
@@ -7910,12 +7951,14 @@ function renderPayroll(){
   function money(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA'); }
 
   // Спершу рахуємо все, щоб зробити зведення
-  var rows=[], grand=0, sumDone=0, sumMakeup=0, sumExtra=0, activeCount=0;
+  var rows=[], grand=0, sumExtra=0, activeCount=0;
+  var cntDone=0, cntMakeup=0, cntBurned=0, cntTest=0;
   tutors.forEach(function(t){
     var pt=payrollTotal(t.id, per), b=pt.base;
-    var hasData=b.doneCount||b.makeupCount||payrollItemsFor(t.id,per).length;
+    var hasData=b.totalCount||payrollItemsFor(t.id,per).length;
     if(!hasData && fT==='') return;
-    grand+=pt.total; sumDone+=b.doneSalary; sumMakeup+=b.makeupSalary; sumExtra+=pt.extra;
+    grand+=pt.total; sumExtra+=pt.extra;
+    cntDone+=b.doneCount; cntMakeup+=b.makeupCount; cntBurned+=b.burnedCount; cntTest+=b.testCount;
     if(hasData) activeCount++;
     rows.push({t:t, pt:pt, b:b});
   });
@@ -7935,17 +7978,18 @@ function renderPayroll(){
 
   // ── Зведена панель ──
   if(rows.length || _adminsPre.length){
-    var maxBar=Math.max(sumDone+sumMakeup, 1);
     html+='<div class="pr-summary">'
       +'<div class="pr-sum-main">'
-        +'<div class="pr-sum-label">\u0424\u043E\u043D\u0434 \u043E\u043F\u043B\u0430\u0442\u0438 \u0437\u0430 '+prMonthName(per)+'</div>'
+        +'<div class="pr-sum-label">Фонд оплати за '+prMonthName(per)+'</div>'
         +'<div class="pr-sum-grand">'+money(grand)+'<span class="pr-cur">\u20B4</span></div>'
-        +'<div class="pr-sum-sub">'+activeCount+' '+prPlural(activeCount,'\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440','\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438','\u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0456\u0432')+' \u00B7 \u043A\u043E\u0435\u0444. '+payrollCoef()+'</div>'
+        +'<div class="pr-sum-sub">'+activeCount+' '+prPlural(activeCount,'репетитор','репетитори','репетиторів')+' \u00B7 коеф. '+payrollCoef()+'</div>'
       +'</div>'
       +'<div class="pr-sum-break">'
-        +'<div class="pr-break-item"><span class="pr-dot" style="background:#22b573"></span><span class="pr-break-lbl">\u0423\u0440\u043E\u043A\u0438</span><span class="pr-break-val">'+money(sumDone)+'\u20B4</span></div>'
-        +'<div class="pr-break-item"><span class="pr-dot" style="background:#f59e0b"></span><span class="pr-break-lbl">\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044E\u0432\u0430\u043D\u043D\u044F</span><span class="pr-break-val">'+money(sumMakeup)+'\u20B4</span></div>'
-        +'<div class="pr-break-item"><span class="pr-dot" style="background:#8b5cf6"></span><span class="pr-break-lbl">\u0414\u043E\u0434\u0430\u0442\u043A\u043E\u0432\u0435</span><span class="pr-break-val" style="color:'+(sumExtra<0?'var(--danger)':'inherit')+'">'+(sumExtra>=0?'+':'')+money(sumExtra)+'\u20B4</span></div>'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#22b573"></span><span class="pr-break-lbl">Проведені</span><span class="pr-break-val">'+cntDone+'</span></div>'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#f59e0b"></span><span class="pr-break-lbl">Відпрацювання</span><span class="pr-break-val">'+cntMakeup+'</span></div>'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#ef4444"></span><span class="pr-break-lbl">Згорілі</span><span class="pr-break-val">'+cntBurned+'</span></div>'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#0ea5e9"></span><span class="pr-break-lbl">Тести</span><span class="pr-break-val">'+cntTest+'</span></div>'
+        +'<div class="pr-break-item"><span class="pr-dot" style="background:#8b5cf6"></span><span class="pr-break-lbl">Додаткове</span><span class="pr-break-val" style="color:'+(sumExtra<0?'var(--danger)':'inherit')+'">'+(sumExtra>=0?'+':'')+money(sumExtra)+'\u20B4</span></div>'
       +'</div>'
     +'</div>';
   }
@@ -7966,21 +8010,34 @@ function renderPayroll(){
       +'</div>';
     }).join('');
 
-    // Прогрес-бар: частка уроків vs відпрацювань у базі
-    var baseSum=b.doneSalary+b.makeupSalary;
-    var donePct=baseSum>0?Math.round(b.doneSalary/baseSum*100):0;
+    // Розбивка по учнях: Прізвище І. | К-ть | Ціна | Коеф. | Сума
+    var studTbl;
+    if(b.rows.length){
+      studTbl='<table class="pr-stud"><thead><tr>'
+          +'<th>Учень</th><th class="c">К-ть</th><th class="c">Ціна</th><th class="c">Коеф.</th><th class="r">Сума</th>'
+        +'</tr></thead><tbody>'
+        +b.rows.map(function(r){
+          return '<tr><td class="pr-stud-name">'+r.name+(r.isTest?' <span class="pr-test-tag">тест</span>':'')+'</td>'
+            +'<td class="c">'+r.cnt+'</td>'
+            +'<td class="c">'+r.price+'</td>'
+            +'<td class="c">'+r.coef+'</td>'
+            +'<td class="r"><b>'+money(r.sum)+'</b></td></tr>';
+        }).join('')
+        +'</tbody><tfoot><tr><td>Разом</td><td class="c">'+b.totalCount+'</td><td></td><td></td><td class="r"><b>'+money(b.base)+'\u20B4</b></td></tr></tfoot></table>';
+    } else {
+      studTbl='<div class="pr-empty-mini">Немає проведених занять за місяць</div>';
+    }
+    var metaTxt=b.doneCount+' пров. \u00B7 '+b.makeupCount+' відпр. \u00B7 '+b.burnedCount+' згор.'+(b.testCount?' \u00B7 '+b.testCount+' тест.':'');
 
     html+='<div class="pr-card" style="--av:'+av+'">'
       +'<div class="pr-card-head">'
         +'<div class="pr-avatar" style="background:'+av+'">'+initials(t)+'</div>'
         +'<div class="pr-name-wrap"><div class="pr-name">'+t.fn+' '+t.ln+'</div>'
-          +'<div class="pr-meta">'+b.doneCount+' \u0443\u0440\u043E\u043A\u0456\u0432 \u00B7 '+b.makeupCount+' \u0432\u0456\u0434\u043F\u0440.</div></div>'
+          +'<div class="pr-meta">'+metaTxt+'</div></div>'
         +'<div class="pr-total-badge">'+money(pt.total)+'\u20B4</div>'
       +'</div>'
       +'<div class="pr-body">'
-        +'<div class="pr-line"><span class="pr-line-ico" style="color:#22b573">\u25CF</span><span class="pr-line-lbl">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432 <span class="pr-hrs">'+b.doneCount+' / '+b.doneHours+'\u0433 \u00D7'+payrollCoef()+'</span></span><span class="pr-line-val">'+money(b.doneSalary)+'\u20B4</span></div>'
-        +'<div class="pr-line"><span class="pr-line-ico" style="color:#f59e0b">\u25CF</span><span class="pr-line-lbl">\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E <span class="pr-hrs">'+b.makeupCount+' / '+b.makeupHours+'\u0433 \u00D7'+payrollCoef()+'</span></span><span class="pr-line-val">'+money(b.makeupSalary)+'\u20B4</span></div>'
-        +(baseSum>0?'<div class="pr-bar"><div class="pr-bar-done" style="width:'+donePct+'%"></div><div class="pr-bar-make" style="width:'+(100-donePct)+'%"></div></div>':'')
+        +studTbl
         +(itemsHtml?'<div class="pr-items">'+itemsHtml+'</div>':'')
       +'</div>'
       +'<div class="pr-card-foot">'
@@ -8154,28 +8211,33 @@ function printPayroll(recipientId, type){
   var grand=0, cards='', activeCount=0;
   tutors.forEach(function(t,idx){
     var pt=payrollTotal(t.id, per), b=pt.base;
-    if(!tutorId&&!b.doneCount&&!b.makeupCount&&!payrollItemsFor(t.id,per).length) return;
+    if(!tutorId&&!b.totalCount&&!payrollItemsFor(t.id,per).length) return;
     grand+=pt.total; activeCount++;
     var av=AV[idx % AV.length];
-    var baseSum=b.doneSalary+b.makeupSalary;
-    var donePct=baseSum>0?Math.round(b.doneSalary/baseSum*100):0;
     var itemsHtml=payrollItemsFor(t.id,per).map(function(i){
       var amt=payrollItemAmount(i,b.base);
-      return '<tr><td class="ilbl">'+(i.label||'')+'</td>'
+      return '<tr><td class="ilbl" colspan="4">'+(i.label||'')+'</td>'
         +'<td class="r '+(amt<0?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+' \u20B4</td></tr>';
     }).join('');
+    var studRows=b.rows.length
+      ? b.rows.map(function(r){
+          return '<tr><td class="ilbl">'+r.name+(r.isTest?' <span class="muted">(тест)</span>':'')+'</td><td class="c">'+r.cnt+'</td><td class="c">'+r.price+'</td><td class="c">'+r.coef+'</td><td class="r pos">'+money(r.sum)+' \u20B4</td></tr>';
+        }).join('')
+      : '<tr><td class="ilbl" colspan="5" style="color:#999">\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0445 \u0437\u0430\u043D\u044F\u0442\u044C</td></tr>';
     cards+='<div class="card" style="--av:'+av+'">'
       +'<div class="chead">'
         +'<div class="avatar">'+initials(t)+'</div>'
-        +'<div class="cname"><b>'+t.fn+' '+t.ln+'</b><span class="cmeta">'+b.doneCount+' \u0443\u0440\u043E\u043A\u0456\u0432 \u00B7 '+b.makeupCount+' \u0432\u0456\u0434\u043F\u0440.</span></div>'
+        +'<div class="cname"><b>'+t.fn+' '+t.ln+'</b><span class="cmeta">'+b.doneCount+' \u043F\u0440\u043E\u0432. \u00B7 '+b.makeupCount+' \u0432\u0456\u0434\u043F\u0440. \u00B7 '+b.burnedCount+' \u0437\u0433\u043E\u0440.'+(b.testCount?' \u00B7 '+b.testCount+' \u0442\u0435\u0441\u0442.':'')+'</span></div>'
         +'<div class="ctotal">'+money(pt.total)+' \u20B4</div>'
       +'</div>'
       +'<table class="rows">'
-        +'<tr><td class="ilbl">\u041F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u043E \u0443\u0440\u043E\u043A\u0456\u0432 <span class="muted">'+b.doneCount+' / '+b.doneHours+'\u0433 \u00D7'+payrollCoef()+'</span></td><td class="r pos">'+money(b.doneSalary)+' \u20B4</td></tr>'
-        +'<tr><td class="ilbl">\u0412\u0456\u0434\u043F\u0440\u0430\u0446\u044C\u043E\u0432\u0430\u043D\u043E <span class="muted">'+b.makeupCount+' / '+b.makeupHours+'\u0433 \u00D7'+payrollCoef()+'</span></td><td class="r pos">'+money(b.makeupSalary)+' \u20B4</td></tr>'
-        +itemsHtml
+        +'<thead><tr><th class="ilbl">\u0423\u0447\u0435\u043D\u044C</th><th class="c">\u041A-\u0442\u044C</th><th class="c">\u0426\u0456\u043D\u0430</th><th class="c">\u041A\u043E\u0435\u0444.</th><th class="r">\u0421\u0443\u043C\u0430</th></tr></thead>'
+        +'<tbody>'
+          +studRows
+          +'<tr class="subt"><td class="ilbl" colspan="4"><b>\u0420\u0430\u0437\u043E\u043C \u0437\u0430 \u0443\u0440\u043E\u043A\u0438 ('+b.totalCount+')</b></td><td class="r"><b>'+money(b.base)+' \u20B4</b></td></tr>'
+          +itemsHtml
+        +'</tbody>'
       +'</table>'
-      +(baseSum>0?'<div class="bar"><div class="bar-done" style="width:'+donePct+'%"></div><div class="bar-make" style="width:'+(100-donePct)+'%"></div></div>':'')
       +'<div class="cfoot"><span>\u0420\u0430\u0437\u043E\u043C \u0434\u043E \u0432\u0438\u043F\u043B\u0430\u0442\u0438</span><b>'+money(pt.total)+' \u20B4</b></div>'
       +'<div class="sign">\u041F\u0456\u0434\u043F\u0438\u0441 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0430: ______________________</div>'
     +'</div>';
@@ -8199,7 +8261,10 @@ function printPayroll(recipientId, type){
     +'.cmeta{font-size:10.5px;color:#888;margin-top:1px}'
     +'.ctotal{font-weight:800;font-size:16px;color:var(--av);white-space:nowrap}'
     +'table.rows{width:100%;border-collapse:collapse;font-size:11.5px;padding:0 16px}'
+    +'table.rows th{padding:6px 16px;text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:#888;border-bottom:1px solid #e2e2ea;font-weight:700}'
     +'table.rows td{padding:4px 16px;border-bottom:1px solid #f0f0f5}'
+    +'table.rows .c{text-align:center} table.rows th.c{text-align:center} table.rows th.r{text-align:right}'
+    +'table.rows .subt td{border-top:1px solid #d0d0da;background:#faf7ef}'
     +'.ilbl{color:#333} .muted{color:#999;font-size:10px}'
     +'.r{text-align:right;white-space:nowrap;font-weight:700}'
     +'.r.pos{color:#22b573} .r.neg{color:#e74c3c}'
