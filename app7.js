@@ -10285,17 +10285,13 @@ function renderSchMonth(){
     const isToday=d.toDateString()===now.toDateString();
     const dayLessons=(byDate[ds]||[]).slice().sort(function(a,b){return (a.time||'').localeCompare(b.time||'');});
     let evHtml='';
-    const MAX_SHOW=3;
-    dayLessons.slice(0,MAX_SHOW).forEach(function(l){
+    dayLessons.forEach(function(l){
       const isCov=l.status==='missed'&&isCoveredMissed(l);
       const isPart=!isCov&&l.status==='missed'&&uncoveredMissedHours(l)*60<(parseFloat(l.dur)||60);
       const ecl=isCov?'ec-covered':isPart?'ec-partial':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':l.status==='makeup_planned'?'ec-makeplan':l.status==='burned'?'ec-burned':l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done':'ec-plan';
       evHtml+='<div class="schm-ev '+ecl+'" style="box-shadow:inset 3px 0 0 '+tutorColor(l.tutorId||l.tutor_id)+'" onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)" title="'+(l.time||'')+' '+snShort(l.studentId||l.student_id)+' '+(l.subject||'')+'">'
         +'<b>'+(l.time||'')+'</b> '+(l.status==='burned'?'\ud83d\udd25 ':'')+snShort(l.studentId||l.student_id)+'</div>';
     });
-    if(dayLessons.length>MAX_SHOW){
-      evHtml+='<div class="schm-more">+'+(dayLessons.length-MAX_SHOW)+' \u0449\u0435</div>';
-    }
     html+='<div class="schm-cell'+(isOther?' other-month':'')+(isToday?' is-today':'')+'" onclick="schGoToDay(\''+ds+'\')">'
       +'<div class="schm-daynum">'+d.getDate()+'</div>'
       +evHtml
@@ -10317,6 +10313,66 @@ function schGoToDay(ds){
 }
 window.schGoToDay=schGoToDay;
 window.renderSchMonth=renderSchMonth;
+
+// ── Попап «повний розклад на день» у місячному вигляді ──
+var _dayPopHandler=null;
+function closeDayPopover(){
+  var p=document.getElementById('day-popover');
+  if(p) p.remove();
+  if(_dayPopHandler){ document.removeEventListener('click', _dayPopHandler); _dayPopHandler=null; }
+}
+function showDayPopover(ds, x, y){
+  closeDayPopover();
+  if(typeof closeQuickPopup==='function') closeQuickPopup();
+  // ті самі фільтри, що й у місячній сітці
+  var _schStat=(document.getElementById('sch-status-filter')||{value:''}).value;
+  var _schTut=(document.getElementById('sch-tutor-filter')||{value:''}).value;
+  var lessons=myLessons().filter(function(l){
+    if(l.date!==ds) return false;
+    if(_schTut && (l.tutorId||l.tutor_id)!==_schTut) return false;
+    if(_schStat){
+      if(_schStat==='planned') return l.status==='planned'||l.status==='scheduled'||!l.status;
+      if(_schStat==='completed') return isDoneLesson(l)||l.status==='makeup';
+      return l.status===_schStat;
+    }
+    return l.status!=='cancelled';
+  }).slice().sort(function(a,b){return (a.time||'').localeCompare(b.time||'');});
+  var dt=new Date(ds+'T00:00:00');
+  var dn=['\u041D\u0434','\u041F\u043D','\u0412\u0442','\u0421\u0440','\u0427\u0442','\u041F\u0442','\u0421\u0431'][dt.getDay()];
+  var mn=['\u0441\u0456\u0447\u043D\u044F','\u043B\u044E\u0442\u043E\u0433\u043E','\u0431\u0435\u0440\u0435\u0437\u043D\u044F','\u043A\u0432\u0456\u0442\u043D\u044F','\u0442\u0440\u0430\u0432\u043D\u044F','\u0447\u0435\u0440\u0432\u043D\u044F','\u043B\u0438\u043F\u043D\u044F','\u0441\u0435\u0440\u043F\u043D\u044F','\u0432\u0435\u0440\u0435\u0441\u043D\u044F','\u0436\u043E\u0432\u0442\u043D\u044F','\u043B\u0438\u0441\u0442\u043E\u043F\u0430\u0434\u0430','\u0433\u0440\u0443\u0434\u043D\u044F'][dt.getMonth()];
+  var rows=lessons.map(function(l){
+    var color=tutorColor(l.tutorId||l.tutor_id);
+    var st = l.status==='burned'?'\uD83D\uDD25':l.status==='missed'?'\u274C':l.status==='makeup'?'\u21A9\uFE0F':l.status==='makeup_planned'?'\uD83D\uDD52':l.status==='testing'?'\uD83E\uDDEA':isDoneLesson(l)?'\u2705':'';
+    return '<div class="dp-row" style="border-left:3px solid '+color+'" onclick="event.stopPropagation();_dayRowClick(\''+l.id+'\',event)">'
+      +'<span class="dp-time">'+(l.time||'')+'</span>'
+      +'<span class="dp-name">'+snShort(l.studentId||l.student_id)+'</span>'
+      +'<span class="dp-subj">'+(l.subject||'')+'</span>'
+      +'<span class="dp-st">'+st+'</span>'
+    +'</div>';
+  }).join('');
+  var pop=document.createElement('div');
+  pop.id='day-popover'; pop.className='day-popover';
+  pop.innerHTML='<div class="dp-head"><span>'+dn+', '+dt.getDate()+' '+mn+'</span><span class="dp-count">'+lessons.length+'</span></div>'
+    +'<div class="dp-list">'+(rows||'<div class="dp-empty">\u041D\u0435\u043C\u0430\u0454 \u0437\u0430\u043D\u044F\u0442\u044C</div>')+'</div>'
+    +'<div class="dp-foot"><button class="btn btn-g btn-sm" style="width:100%" onclick="event.stopPropagation();closeDayPopover();schGoToDay(\''+ds+'\')">\u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u0434\u0435\u043D\u044C \u2192</button></div>';
+  document.body.appendChild(pop);
+  var margin=10;
+  pop.style.left=margin+'px'; pop.style.top=margin+'px'; // тимчасово, щоб виміряти
+  var rect=pop.getBoundingClientRect();
+  var pw=rect.width||280, ph=rect.height||320;
+  var lx=Math.min(Math.max(x, margin), Math.max(margin, window.innerWidth  - pw - margin));
+  var ly=Math.min(Math.max(y, margin), Math.max(margin, window.innerHeight - ph - margin));
+  pop.style.left=lx+'px'; pop.style.top=ly+'px';
+  _dayPopHandler=function(){ closeDayPopover(); };
+  setTimeout(function(){ document.addEventListener('click', _dayPopHandler, {once:true}); }, 10);
+}
+function _dayRowClick(id, ev){
+  closeDayPopover();
+  if(typeof showQuickPopup==='function') showQuickPopup(id, ev.clientX, ev.clientY);
+}
+window.showDayPopover=showDayPopover;
+window.closeDayPopover=closeDayPopover;
+window._dayRowClick=_dayRowClick;
 
 function renderSchDay(){
   const now    = new Date();
