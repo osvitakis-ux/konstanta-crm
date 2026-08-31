@@ -6483,6 +6483,32 @@ async function saveStudent(){
     branch_ids: (function(){ return Array.from(document.querySelectorAll('.s-branch-cb:checked')).map(function(el){return el.value;}).join(','); })(),
     branch_id: (function(){ var ids=Array.from(document.querySelectorAll('.s-branch-cb:checked')).map(function(el){return el.value;}); return ids.length?ids[0]:(myBranchId()||null); })(),
   };
+  // ── Перша оплата (бачать/редагують лише адмін/директор) ──
+  // Фіксуємо суму + МІСЯЦЬ внесення + хто вніс (для 10% у зарплату адміна).
+  // Дата й автор ставляться при ПЕРШОМУ внесенні й далі не змінюються.
+  var _existStud = S.editId ? (S.students||[]).find(function(x){return x.id===S.editId;}) : null;
+  var _canFP = ['god','network_admin','director','admin'].indexOf(R())>=0;
+  if(_canFP){
+    var _fpv=parseFloat(document.getElementById('s-first-pay')?.value);
+    obj.first_payment = (!isNaN(_fpv)&&_fpv>0) ? _fpv : null;
+    if(obj.first_payment){
+      if(_existStud && _existStud.first_payment_date){
+        obj.first_payment_date = _existStud.first_payment_date;                 // місяць не змінюємо
+        obj.first_payment_by   = _existStud.first_payment_by || (CU&&CU.id) || null;
+      } else {
+        obj.first_payment_date = new Date().toISOString().slice(0,10);          // сьогодні
+        obj.first_payment_by   = (CU&&CU.id) || null;
+      }
+    } else {
+      obj.first_payment_date = null;
+      obj.first_payment_by   = null;
+    }
+  } else if(_existStud){
+    // Репетитор без доступу — зберігаємо наявні значення, щоб не затерти
+    obj.first_payment      = _existStud.first_payment!=null?_existStud.first_payment:null;
+    obj.first_payment_date = _existStud.first_payment_date||null;
+    obj.first_payment_by   = _existStud.first_payment_by||null;
+  }
   // Auto-link to current tutor if none selected
   if(R()==='tutor' && !obj.tutor_id){
     var mt=myTutor();
@@ -7946,10 +7972,23 @@ function payrollItemsForAdmin(adminId, period){
     return (i.adminId||i.admin_id)===adminId && i.period===period;
   });
 }
+var PAYROLL_FIRSTPAY_PCT = 0.10; // 10% від першої оплати учня — адміну, що її вніс
+// Бонус адміна за перші оплати, внесені САМЕ у цьому місяці (period='YYYY-MM').
+function firstPaymentBonusInfo(adminId, period){
+  var count=0, base=0;
+  (S.students||[]).forEach(function(s){
+    var amt=parseFloat(s.first_payment); if(isNaN(amt)||amt<=0) return;
+    if((s.first_payment_by||'')!==adminId) return;                      // вніс саме цей адмін
+    if(String(s.first_payment_date||'').slice(0,7)!==period) return;    // саме цей місяць
+    count++; base+=amt;
+  });
+  return { count:count, base:Math.round(base*100)/100, bonus:Math.round(base*PAYROLL_FIRSTPAY_PCT*100)/100 };
+}
 function payrollTotalAdmin(adminId, period){
   var items=payrollItemsForAdmin(adminId, period);
-  var total=items.reduce(function(s,i){return s+payrollItemAmount(i);},0);
-  return { items:items, total:Math.round(total*100)/100 };
+  var itemsTotal=items.reduce(function(s,i){return s+payrollItemAmount(i);},0);
+  var fp=firstPaymentBonusInfo(adminId, period);
+  return { items:items, firstPay:fp, total:Math.round((itemsTotal+fp.bonus)*100)/100 };
 }
 
 function payrollItemAmount(item, base){
@@ -8100,7 +8139,7 @@ function renderPayroll(){
     var adminGrand=0;
     admins.forEach(function(a,idx){
       var pt=payrollTotalAdmin(a.id, per);
-      if(!pt.items.length && fT!=='') return;
+      if(!pt.items.length && !(pt.firstPay&&pt.firstPay.bonus>0) && fT!=='') return;
       adminGrand+=pt.total;
       adminRows.push({a:a, pt:pt, av:AV[idx % AV.length]});
     });
@@ -8117,6 +8156,12 @@ function renderPayroll(){
           +'<button onclick="delPayrollItem(\''+i.id+'\')" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438" class="pr-item-del">\u2715</button></span>'
         +'</div>';
       }).join('');
+      var fpHtml = (pt.firstPay&&pt.firstPay.bonus>0)
+        ? '<div class="pr-item"><span class="pr-item-lbl">💵 10% від перших оплат ('+pt.firstPay.count+' \u00B7 '+money(pt.firstPay.base)+'\u20B4)</span><span class="pr-item-amt pos">+'+money(pt.firstPay.bonus)+'\u20B4</span></div>'
+        : '';
+      var bodyInner = (fpHtml||itemsHtml)
+        ? '<div class="pr-items">'+fpHtml+itemsHtml+'</div>'
+        : '<div style="font-size:12px;color:var(--t3);padding:4px 0">\u041D\u0435\u043C\u0430\u0454 \u043F\u0443\u043D\u043A\u0442\u0456\u0432 \u0437\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C</div>';
       html+='<div class="pr-card" style="--av:'+av+'">'
         +'<div class="pr-card-head">'
           +'<div class="pr-avatar" style="background:'+av+'">'+initials(a)+'</div>'
@@ -8125,7 +8170,7 @@ function renderPayroll(){
           +'<div class="pr-total-badge">'+money(pt.total)+'\u20B4</div>'
         +'</div>'
         +'<div class="pr-body">'
-          +(itemsHtml?'<div class="pr-items">'+itemsHtml+'</div>':'<div style="font-size:12px;color:var(--t3);padding:4px 0">\u041D\u0435\u043C\u0430\u0454 \u043F\u0443\u043D\u043A\u0442\u0456\u0432 \u0437\u0430 \u0446\u0435\u0439 \u043C\u0456\u0441\u044F\u0446\u044C</div>')
+          +bodyInner
         +'</div>'
         +'<div class="pr-card-foot">'
           +'<button class="btn btn-g btn-sm" onclick="openPayrollItemM(\''+a.id+'\',\'admin\')">+ \u041F\u0443\u043D\u043A\u0442</button>'
@@ -8215,6 +8260,9 @@ function printPayroll(recipientId, type){
       var amt=payrollItemAmount(i);
       return '<tr><td class="ilbl">'+(i.label||'')+'</td><td class="r '+(amt<0?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+' \u20B4</td></tr>';
     }).join('');
+    if(ptA.firstPay&&ptA.firstPay.bonus>0){
+      rowsA = '<tr><td class="ilbl">\uD83D\uDCB5 10% \u0432\u0456\u0434 \u043F\u0435\u0440\u0448\u0438\u0445 \u043E\u043F\u043B\u0430\u0442 ('+ptA.firstPay.count+' \u00B7 '+money(ptA.firstPay.base)+' \u20B4)</td><td class="r pos">+'+money(ptA.firstPay.bonus)+' \u20B4</td></tr>' + rowsA;
+    }
     var w=window.open('','_blank');
     w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</title>'
       +'<style>'+printWatermarkCSS()+'*{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:20px auto;color:#1a1a2e}'
@@ -8774,6 +8822,7 @@ function openStudM(id=null){
       var crmRespEl=document.getElementById('s-crm-resp'); if(crmRespEl) crmRespEl.value=s.crmResponsible||'';
       var pf=document.getElementById('s-parent-fn');if(pf)pf.value=s.parentFn||'';
       var pp=document.getElementById('s-parent-phone');if(pp)pp.value=s.parentPhone||'';
+      var _fpEl=document.getElementById('s-first-pay'); if(_fpEl) _fpEl.value=(['god','network_admin','director','admin'].indexOf(R())>=0 && s.first_payment!=null&&s.first_payment!=='')?s.first_payment:'';
       var _rl=document.getElementById('s-rates-list');
       if(_rl){_rl.innerHTML='';var _rr=studentRateRules(s);
         if(!_rr.length){
@@ -8785,6 +8834,7 @@ function openStudM(id=null){
         _rr.forEach(function(r){addRateRow(r);});}}}
   else{flds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});pflds.forEach(f=>{const el=document.getElementById('s-'+f);if(el)el.value='';});document.getElementById('s-status').value='active';document.getElementById('s-src').value='referral';
     var _rlN=document.getElementById('s-rates-list'); if(_rlN) _rlN.innerHTML='';
+    var _fpElN=document.getElementById('s-first-pay'); if(_fpElN) _fpElN.value='';
     var crmStEl2=document.getElementById('s-crm-stage'); if(crmStEl2) crmStEl2.value='lead';
     var crmRespEl2=document.getElementById('s-crm-resp'); if(crmRespEl2) crmRespEl2.value='';
   }
