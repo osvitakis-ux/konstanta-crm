@@ -10347,7 +10347,7 @@ function renderSchDay(){
   if(filterTutor) tutors = tutors.filter(t=>t.id===filterTutor);
 
 
-  const START_H = 8, END_H = 22; // сітка 08:00–22:00; останній рядок 21:00–22:00
+  const START_H = 8, END_H = 23; // сітка 08:00–23:00; останній рядок 22:00–23:00
   const ROW_H = 48;
   const totalHrs = END_H - START_H;
 
@@ -10551,7 +10551,7 @@ function renderSchWeek(){
     return true;
   });
 
-  const START_H = 8, END_H = 22; // сітка 08:00–22:00; останній рядок 21:00–22:00
+  const START_H = 8, END_H = 23; // сітка 08:00–23:00; останній рядок 22:00–23:00
   const totalHrs = END_H - START_H;
 
   // Build header
