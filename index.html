@@ -2461,6 +2461,10 @@ body.role-tutor .comm-add-btn { display: none !important; }
 <option value="21:15">21:15</option>
 <option value="21:30">21:30</option>
 <option value="21:45">21:45</option>
+<option value="22:00">22:00</option>
+<option value="22:15">22:15</option>
+<option value="22:30">22:30</option>
+<option value="22:45">22:45</option>
 </select></div>
       <div class="fgr"><label>Статус</label><select id="l-stat" onchange="onLessStatChange()"><option value="planned">Заплановане</option><option value="done">Проведене</option><option value="testing">Тестування</option><option value="burned">🔥 Згоріле (не попередили)</option><option value="missed">Пропущене</option><option value="makeup_planned">Заплановане відпрацювання</option><option value="makeup">Відпрацювання (проведено)</option></select></div>
       <div id="l-miss-wrap" style="display:none" class="fgr"><label>Дата пропуску</label><select id="l-miss-date"><option value="">— оберіть пропущене заняття —</option></select><div id="l-miss-hint" style="font-size:11px;color:var(--t3);margin-top:3px"></div></div>
@@ -2568,8 +2572,8 @@ body.role-tutor .comm-add-btn { display: none !important; }
           <label class="af-day"><input type="checkbox" value="7"> Нд</label>
         </div>
       </div>
-      <div class="fgr"><label>Час з</label><input type="number" id="af-from" min="8" max="21" value="9"></div>
-      <div class="fgr"><label>Час до</label><input type="number" id="af-to" min="9" max="22" value="18"></div>
+      <div class="fgr"><label>Час з</label><input type="number" id="af-from" min="8" max="22" value="9"></div>
+      <div class="fgr"><label>Час до</label><input type="number" id="af-to" min="9" max="23" value="18"></div>
       <div class="fgr full"><label style="display:flex;align-items:center;gap:6px;font-weight:400"><input type="checkbox" id="af-replace" checked> Замінити наявні години (інакше — додати)</label></div>
     </div></div>
     <div class="mdlf">
@@ -2687,7 +2691,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=firstpay1"></script>
+<script src="app7.js?v=sched23"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
