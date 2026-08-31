@@ -10289,10 +10289,10 @@ function renderSchMonth(){
       const isCov=l.status==='missed'&&isCoveredMissed(l);
       const isPart=!isCov&&l.status==='missed'&&uncoveredMissedHours(l)*60<(parseFloat(l.dur)||60);
       const ecl=isCov?'ec-covered':isPart?'ec-partial':l.status==='missed'?'ec-miss':l.status==='makeup'?'ec-make':l.status==='makeup_planned'?'ec-makeplan':l.status==='burned'?'ec-burned':l.status==='testing'?'ec-testing':isDoneLesson(l)?'ec-done':'ec-plan';
-      // Ширина смужки ∝ тривалості: 1 год = 50%, 2 год = 100% (тобто вдвічі ширше)
+      // Товщина смужки ∝ тривалості: 1 год = 20px, 2 год = 40px (вдвічі товща)
       var _hrs=(parseFloat(l.dur)||60)/60;
-      var _w=Math.min(100, Math.round(_hrs*50*10)/10);
-      evHtml+='<div class="schm-ev '+ecl+'" style="width:'+_w+'%;box-shadow:inset 3px 0 0 '+tutorColor(l.tutorId||l.tutor_id)+'" onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)" title="'+(l.time||'')+' '+snShort(l.studentId||l.student_id)+' '+(l.subject||'')+' \u00B7 '+_hrs+' \u0433\u043E\u0434">'
+      var _h=Math.round(_hrs*20);
+      evHtml+='<div class="schm-ev '+ecl+'" style="min-height:'+_h+'px;box-shadow:inset 3px 0 0 '+tutorColor(l.tutorId||l.tutor_id)+'" onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)" title="'+(l.time||'')+' '+snShort(l.studentId||l.student_id)+' '+(l.subject||'')+' \u00B7 '+_hrs+' \u0433\u043E\u0434">'
         +'<b>'+(l.time||'')+'</b> '+(l.status==='burned'?'\ud83d\udd25 ':'')+snShort(l.studentId||l.student_id)+'</div>';
     });
     html+='<div class="schm-cell'+(isOther?' other-month':'')+(isToday?' is-today':'')+'" onclick="schGoToDay(\''+ds+'\')">'
