@@ -5986,15 +5986,29 @@ async function loadAll(){
   // без пагінації, тож щойно занять ставало більше 1000, найстаріші (сортування
   // за датою у спадному порядку) просто переставали приходити — і зникали
   // з розкладу "пластами", починаючи з найдавніших дат.
-  async function fetchTableAll(t){
-    var PAGE=1000, page=0, all=[], lastErr=null;
-    while(true){
+  // Одна сторінка з ПОВТОРНИМИ спробами. Раніше будь-яка помилка на N-й сторінці
+  // (мережевий збій, скидання токена, короткий ліміт запитів) обривала цикл і ціла
+  // таблиця приходила порожня/частково — а дані "з'являлися" лише на другому,
+  // фоновому завантаженні. Тепер кожну сторінку пробуємо кілька разів.
+  async function fetchPage(t, page, PAGE){
+    var res=null;
+    for(var attempt=0; attempt<4; attempt++){
       var q = _sb.from(t.table).select('*');
       if(t.order) q = q.order(t.order, { ascending:false });
       q = q.range(page*PAGE, page*PAGE + PAGE - 1);
-      var res = await q;
-      if(res.error){ lastErr=res.error; break; }
-      var batch = res.data || [];
+      res = await q;
+      if(!res.error) return res;
+      if(await refreshIfExpired(res.error)) continue;        // JWT — оновили сесію, одразу повтор
+      await new Promise(function(r){ setTimeout(r, 400*(attempt+1)); }); // тимчасова помилка — пауза й повтор
+    }
+    return res;
+  }
+  async function fetchTableAll(t){
+    var PAGE=1000, page=0, all=[], lastErr=null;
+    while(true){
+      var res = await fetchPage(t, page, PAGE);
+      if(res && res.error){ lastErr=res.error; break; }
+      var batch = (res && res.data) || [];
       all = all.concat(batch);
       if(batch.length < PAGE) break;
       page++;
@@ -6006,7 +6020,7 @@ async function loadAll(){
     return Promise.all(tables.map(fetchTableAll));
   }
   var results = await fetchAll();
-  // Якщо будь-який запит впав через протермінований токен — оновлюємо сесію і повторюємо весь батч
+  // Ще одна страховка: якщо якийсь запит усе ж упав на JWT — оновлюємо сесію і повторюємо весь батч
   var jwtErr = results.find(function(r){ return r && r.error && (String((r.error.message||'')+(r.error.code||'')).includes('JWT')||String((r.error.message||'')).includes('expired')||r.error.status===401); });
   if(jwtErr && await refreshIfExpired(jwtErr.error)){
     results = await fetchAll();
@@ -6193,11 +6207,14 @@ async function loadTableFresh(table){
   // фонове оновлення обрізало б таблицю на 1000 записах і "загубило" решту.
   var PAGE=1000, page=0, data=[], res=null;
   while(true){
-    res = await _sb.from(table).select('*').range(page*PAGE, page*PAGE + PAGE - 1);
-    if(res.error && await refreshIfExpired(res.error)){
-      res = await _sb.from(table).select('*').range(page*PAGE, page*PAGE + PAGE - 1); // повтор після оновлення сесії
+    res=null;
+    for(var attempt=0; attempt<4; attempt++){
+      res = await _sb.from(table).select('*').range(page*PAGE, page*PAGE + PAGE - 1);
+      if(!res.error) break;
+      if(await refreshIfExpired(res.error)) continue;                    // JWT — оновили сесію, повтор
+      await new Promise(function(r){ setTimeout(r, 400*(attempt+1)); }); // тимчасова помилка — пауза й повтор
     }
-    if(res.error) return;
+    if(res.error) return;                                                // після кількох спроб — не чіпаємо локальні дані
     var batch = res.data || [];
     data = data.concat(batch);
     if(batch.length < PAGE) break;
@@ -6488,24 +6505,30 @@ async function saveStudent(){
   // Дата й автор ставляться при ПЕРШОМУ внесенні й далі не змінюються.
   var _existStud = S.editId ? (S.students||[]).find(function(x){return x.id===S.editId;}) : null;
   var _canFP = ['god','network_admin','director','admin'].indexOf(R())>=0;
+  var _fpHadBefore = _existStud && _existStud.first_payment!=null && _existStud.first_payment!=='';
   if(_canFP){
     var _fpv=parseFloat(document.getElementById('s-first-pay')?.value);
-    obj.first_payment = (!isNaN(_fpv)&&_fpv>0) ? _fpv : null;
-    if(obj.first_payment){
-      if(_existStud && _existStud.first_payment_date){
-        obj.first_payment_date = _existStud.first_payment_date;                 // місяць не змінюємо
-        obj.first_payment_by   = _existStud.first_payment_by || (CU&&CU.id) || null;
+    var _fpHasVal = !isNaN(_fpv)&&_fpv>0;
+    // Поля надсилаємо лише якщо є сума АБО в учня вона вже була (щоб очистити).
+    // Інакше не чіпаємо — тоді збереження працює навіть без колонок у БД.
+    if(_fpHasVal || _fpHadBefore){
+      obj.first_payment = _fpHasVal ? _fpv : null;
+      if(obj.first_payment){
+        if(_existStud && _existStud.first_payment_date){
+          obj.first_payment_date = _existStud.first_payment_date;               // місяць не змінюємо
+          obj.first_payment_by   = _existStud.first_payment_by || (CU&&CU.id) || null;
+        } else {
+          obj.first_payment_date = new Date().toISOString().slice(0,10);        // сьогодні
+          obj.first_payment_by   = (CU&&CU.id) || null;
+        }
       } else {
-        obj.first_payment_date = new Date().toISOString().slice(0,10);          // сьогодні
-        obj.first_payment_by   = (CU&&CU.id) || null;
+        obj.first_payment_date = null;
+        obj.first_payment_by   = null;
       }
-    } else {
-      obj.first_payment_date = null;
-      obj.first_payment_by   = null;
     }
-  } else if(_existStud){
-    // Репетитор без доступу — зберігаємо наявні значення, щоб не затерти
-    obj.first_payment      = _existStud.first_payment!=null?_existStud.first_payment:null;
+  } else if(_fpHadBefore){
+    // Репетитор без доступу редагує учня, у якого вже є перша оплата — зберігаємо
+    obj.first_payment      = _existStud.first_payment;
     obj.first_payment_date = _existStud.first_payment_date||null;
     obj.first_payment_by   = _existStud.first_payment_by||null;
   }
