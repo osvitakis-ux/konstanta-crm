@@ -504,9 +504,16 @@ function renderCommsPage(){
   if(!tbody)return;
 
   // Populate student filter (popSelSearch сам зберігає поточне значення)
+  // Репетитора читаємо ДО списку учнів, щоб лишити лише його учнів
+  var _fTutPre=(document.getElementById('comm-f-tutor')||{value:''}).value;
   var fStudSel=document.getElementById('comm-f-student');
   if(fStudSel){
-    popSelSearch('comm-f-student', [{id:'',fn:'\u0412\u0441\u0456 \u0443\u0447\u043d\u0456',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
+    var _curS=fStudSel.value;
+    var _sList=myStudents();
+    if(_fTutPre){ _sList=_sList.filter(function(s){ return studentTutorIds(s).indexOf(_fTutPre)>=0; }); }
+    _sList=_sList.sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+    popSelSearch('comm-f-student', [{id:'',fn:'\u0412\u0441\u0456 \u0443\u0447\u043d\u0456',ln:''}].concat(_sList), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
+    if(_curS && !_sList.some(function(s){return s.id===_curS;})){ fStudSel.value=''; if(fStudSel._updateSearch) fStudSel._updateSearch(); }
   }
 
   // Populate tutor filter
@@ -4547,8 +4554,13 @@ function renderLessons(){
 
   if(sdf){
     var cur = sdf.value;
-    popSelSearch('lf-student', [{id:'',fn:'Всі учні',ln:''}].concat(myStudents().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
-    if(cur){ sdf.value=cur; if(sdf._updateSearch) sdf._updateSearch(); }
+    // Після вибору репетитора — лише його учні
+    var studList = myStudents();
+    if(tv){ studList = studList.filter(function(s){ return studentTutorIds(s).indexOf(tv)>=0; }); }
+    studList = studList.sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+    if(cur && !studList.some(function(s){return s.id===cur;})){ cur=''; sdv=''; } // обраний учень не цього репетитора — скидаємо
+    popSelSearch('lf-student', [{id:'',fn:'Всі учні',ln:''}].concat(studList), 'id', function(s){return s.fn+(s.ln?' '+s.ln:'');}, '');
+    sdf.value=cur; if(sdf._updateSearch) sdf._updateSearch();
   }
   // Фільтр по репетиторах (адміни/директори/бог; для репетиторів прихований через .tutor-hidden)
   if(ttf && R()!=='tutor'){
@@ -8589,6 +8601,7 @@ function lessApplyStudentRates(){
   var tEl=document.getElementById('l-tutor');
   if(tEl&&tuts.length===1){ tEl.value=tuts[0]; if(tEl._updateSearch)tEl._updateSearch(); }
   lessPickTutorForSubject();
+  lessApplyTutorSubject(); // предмет за обраним репетитором (з картки учня)
 }
 
 // Коли обрано предмет — підбираємо репетитора за правилом ставок
@@ -8606,6 +8619,19 @@ function lessPickTutorForSubject(){
     if(tEl){ tEl.value=match.tutor_id; if(tEl._updateSearch)tEl._updateSearch(); }
   }
 }
+// Предмет, який ОБРАНИЙ репетитор викладає цьому учневі (записаний у картці учня),
+// автоматично підставляється в поле предмета заняття.
+function lessApplyTutorSubject(){
+  if(window._lessLoading) return;
+  var sid=document.getElementById('l-std')?.value;
+  var tid=document.getElementById('l-tutor')?.value;
+  var st=sid?(S.students||[]).find(function(x){return x.id===sid;}):null;
+  var subjEl=document.getElementById('l-subj');
+  if(!st||!tid||!subjEl) return;
+  var m=studentRateRules(st).find(function(r){ return r.tutor_id===tid && (r.subject||'').trim(); });
+  if(m){ subjEl.value=m.subject; }
+}
+window.lessApplyTutorSubject=lessApplyTutorSubject;
 // Усі відомі предмети: довідник + ставки учнів + наявні заняття
 function allKnownSubjects(){
   var set=[];
@@ -9013,6 +9039,8 @@ function openLessM(id, date, time){
   if(_stdEl&&!_stdEl._ratesWired){ _stdEl._ratesWired=true; _stdEl.addEventListener('change',lessApplyStudentRates); }
   var _sjEl=document.getElementById('l-subj');
   if(_sjEl&&!_sjEl._ratesWired){ _sjEl._ratesWired=true; _sjEl.addEventListener('change',lessPickTutorForSubject); }
+  var _tuEl=document.getElementById('l-tutor');
+  if(_tuEl&&!_tuEl._subjWired){ _tuEl._subjWired=true; _tuEl.addEventListener('change',lessApplyTutorSubject); }
   document.getElementById('l-dur').value = 60;
   document.getElementById('l-stat').value = 'planned';
   var re2=document.getElementById('l-recur'); if(re2) re2.value='none';
