@@ -368,19 +368,24 @@ function populateMissedSelect(){
     return;
   }
 
-  // Пропущені заняття цього учня в цього репетитора, ще не покриті повністю
+  // Пропущені заняття цього учня, ще не покриті повністю.
+  // Показуємо і пропуски В ІНШОГО репетитора (напр. який звільнився) — щоб новий
+  // репетитор міг їх відпрацювати. Пропуски саме цього репетитора йдуть першими.
   var miss=(S.lessons||[]).filter(function(l){
     if(l.status!=='missed') return false;
     if((l.studentId||l.student_id)!==sid) return false;
-    if(tid && (l.tutorId||l.tutor_id)!==tid) return false;
     // Виключаємо себе (якщо редагуємо існуюче заняття)
     if(S.editId && l.id===S.editId) return false;
     return true;
-  }).sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+  }).sort(function(a,b){
+    // спершу пропуски цього ж репетитора, потім за датою (новіші вгорі)
+    if(tid){ var am=(a.tutorId||a.tutor_id)===tid?0:1, bm=(b.tutorId||b.tutor_id)===tid?0:1; if(am!==bm) return am-bm; }
+    return String(b.date).localeCompare(String(a.date));
+  });
 
   if(!miss.length){
     sel.innerHTML='<option value="">\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0438\u0445 \u0437\u0430\u043d\u044f\u0442\u044c</option>';
-    if(hint) hint.textContent='\u0423 \u0446\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u044f \u043d\u0435\u043c\u0430\u0454 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0456\u0432 \u0443 \u0446\u044c\u043e\u0433\u043e \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430';
+    if(hint) hint.textContent='\u0423 \u0446\u044c\u043e\u0433\u043e \u0443\u0447\u043d\u044f \u043d\u0435\u043c\u0430\u0454 \u043d\u0435\u043f\u043e\u043a\u0440\u0438\u0442\u0438\u0445 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0456\u0432';
     return;
   }
 
@@ -394,8 +399,11 @@ function populateMissedSelect(){
         try{ unc=uncoveredMissedHours(l); }catch(e){ unc=hrs; }
         var mark = unc<=0 ? ' \u2705 \u0432\u0456\u0434\u043f\u0440\u0430\u0446\u044c\u043e\u0432\u0430\u043d\u043e'
                  : (unc<hrs ? ' \u2014 \u0437\u0430\u043b\u0438\u0448\u0438\u043b\u043e\u0441\u044c '+unc+'\u0433' : '');
+        // Якщо пропуск був в ІНШОГО репетитора — показуємо його ім'я
+        var _ot=l.tutorId||l.tutor_id;
+        var _otMark=(tid && _ot && _ot!==tid) ? ' \u00b7 \uD83D\uDC64 '+tn(_ot) : '';
         return '<option value="'+l.date+'">'+ds+' \u00b7 '+(l.time||'')
-             +' \u00b7 '+hrs+'\u0433'+(l.subject?' \u00b7 '+l.subject:'')+mark+'</option>';
+             +' \u00b7 '+hrs+'\u0433'+(l.subject?' \u00b7 '+l.subject:'')+_otMark+mark+'</option>';
       }).join('');
 
   // Повертаємо попередній вибір, якщо він досі є у списку
@@ -468,14 +476,17 @@ function autoFillMakeupDates(){
 
   // ── Відпрацювання: підставляємо пропуск, який ще не покрито ──
   if((stat==='makeup'||stat==='makeup_planned') && missEl && !missEl.value){
-    var cand=(S.lessons||[]).filter(function(x){
-      if(x.status!=='missed') return false;
-      if((x.studentId||x.student_id)!==sid) return false;
-      if(tid && (x.tutorId||x.tutor_id)!==tid) return false;
-      if(S.editId && x.id===S.editId) return false;
-      if(lessonDate && String(x.date||'') > lessonDate) return false;
-      try{ return uncoveredMissedHours(x) > 0; }catch(e){ return true; }
-    }).sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+    var _mkCands=function(sameTutorOnly){
+      return (S.lessons||[]).filter(function(x){
+        if(x.status!=='missed') return false;
+        if((x.studentId||x.student_id)!==sid) return false;
+        if(sameTutorOnly && tid && (x.tutorId||x.tutor_id)!==tid) return false;
+        if(S.editId && x.id===S.editId) return false;
+        if(lessonDate && String(x.date||'') > lessonDate) return false;
+        try{ return uncoveredMissedHours(x) > 0; }catch(e){ return true; }
+      }).sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+    };
+    var cand=_mkCands(true); if(!cand.length) cand=_mkCands(false); // фолбек: пропуск в іншого репетитора
     if(cand.length){
       missEl.value=cand[0].date;
       var hint=document.getElementById('l-miss-hint');
@@ -618,6 +629,7 @@ function renderMissedLessons(){
 }
 async function deleteLessonFromModal(){
   if(!S.editId)return;
+  if(lessonLocked(S.editId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 (\u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u043b\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440) \u2014 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return; }
   if(!confirm('Видалити цей урок?'))return;
   var _id=S.editId;
   closeM('mo-lesson');
@@ -3222,6 +3234,120 @@ function schAssignLanes(dayLessons){
 }
 
 function tn(id){const t=S.tutors.find(x=>x.id===id);return t?t.fn+' '+t.ln:'\u2014';}
+// Репетитори, доступні для НОВИХ призначень (не заархівовані). Заархівовані
+// лишаються в S.tutors, щоб їхні минулі заняття й далі показували ім'я.
+function activeTutors(){ return (S.tutors||[]).filter(function(t){return !t.archived;}); }
+function tutorArchived(id){ var t=(S.tutors||[]).find(function(x){return x.id===id;}); return !!(t&&t.archived); }
+async function archiveTutor(id){
+  if(!confirm('Заархівувати репетитора?\n\nЙого минулі заняття збережуться та ЗАМОРОЗЯТЬСЯ (їх не можна буде змінювати), а сам він зникне зі списків для нових занять і призначень. Учнів після цього передайте іншим репетиторам у їхніх картках.')) return;
+  try{ await dbUpdate('tutors', id, {archived:true}); mkToast('\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430 \u0437\u0430\u0430\u0440\u0445\u0456\u0432\u043e\u0432\u0430\u043d\u043e'); renderTutors(); }
+  catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error'); }
+}
+async function restoreTutor(id){
+  try{ await dbUpdate('tutors', id, {archived:false}); mkToast('\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430 \u0432\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e'); renderTutors(); }
+  catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error'); }
+}
+window.archiveTutor=archiveTutor; window.restoreTutor=restoreTutor;
+// Понеділок поточного тижня (YYYY-MM-DD). Заняття з датою РАНІШЕ за нього — минулий тиждень.
+function weekStartMonday(){
+  var d=new Date();
+  var day=d.getDay(); var diff=(day===0?6:day-1); // 0=Нд → 6 днів від Пн
+  var mon=new Date(d.getFullYear(), d.getMonth(), d.getDate()-diff);
+  return mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
+}
+// Заморожене (read-only) заняття:
+//  • ПРОВЕДЕНЕ заняття за МИНУЛІ тижні (цього тижня ще можна редагувати);
+//  • або проведене заняття заархівованого репетитора.
+// Директор (і вище) може редагувати будь-що — для нього блокування не діє.
+function lessonLocked(l){
+  if(typeof l==='string') l=(S.lessons||[]).find(function(x){return x.id===l;});
+  if(!l) return false;
+  if(isSuperAdmin()) return false;                       // директор редагує будь-що
+  if(!isConductedStatus(l.status)) return false;         // не проведене — вільно
+  if(tutorArchived(l.tutorId||l.tutor_id)) return true;  // архівний репетитор — заморожено
+  return String(l.date||'') < weekStartMonday();         // минулі тижні — заморожено
+}
+window.lessonLocked=lessonLocked;
+
+// ── Передача учнів від одного репетитора іншому (масово або по одному) ──
+function openTransferStudents(fromTutorId){
+  var from=(S.tutors||[]).find(function(t){return t.id===fromTutorId;});
+  if(!from) return;
+  var studs=(S.students||[]).filter(function(s){ return studentTutorIds(s).indexOf(fromTutorId)>=0; })
+    .sort(function(a,b){return (a.ln+' '+a.fn).localeCompare(b.ln+' '+b.fn,'uk');});
+  if(!studs.length){ mkToast('\u0423 \u0446\u044c\u043e\u0433\u043e \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430 \u043d\u0435\u043c\u0430\u0454 \u0443\u0447\u043d\u0456\u0432','info'); return; }
+  var targets=activeTutors().filter(function(t){return t.id!==fromTutorId;})
+    .sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');});
+  closeTransferStudents();
+  var ov=document.createElement('div');
+  ov.id='transfer-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=function(e){ if(e.target===ov) closeTransferStudents(); };
+  ov.innerHTML=
+    '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;width:min(440px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">'
+      +'<div style="padding:14px 18px;border-bottom:1px solid var(--b1);font-weight:700;font-size:15px">\uD83D\uDC65 \u041f\u0435\u0440\u0435\u0434\u0430\u0442\u0438 \u0443\u0447\u043d\u0456\u0432</div>'
+      +'<div style="padding:14px 18px;overflow-y:auto">'
+        +'<div style="font-size:12px;color:var(--t2);margin-bottom:10px">\u0412\u0456\u0434: <b>'+from.fn+' '+from.ln+'</b></div>'
+        +'<label style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;font-weight:600">\u041a\u043e\u043c\u0443</label>'
+        +'<select id="tr-to" style="width:100%;margin:4px 0 14px;font-size:13px;padding:8px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1)">'
+          +'<option value="">\u2014 \u043e\u0431\u0435\u0440\u0456\u0442\u044c \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430 \u2014</option>'
+          +targets.map(function(t){return '<option value="'+t.id+'">'+t.fn+' '+t.ln+'</option>';}).join('')
+        +'</select>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+          +'<span style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;font-weight:600">\u0423\u0447\u043d\u0456 ('+studs.length+')</span>'
+          +'<label style="font-size:12px;color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="tr-all" checked onchange="trToggleAll(this)"> \u0443\u0441\u0456</label>'
+        +'</div>'
+        +'<div style="border:1px solid var(--b1);border-radius:8px;max-height:240px;overflow-y:auto">'
+          +studs.map(function(s){return '<label style="display:flex;align-items:center;gap:9px;padding:8px 11px;border-bottom:1px solid var(--s3);font-size:13px;cursor:pointer"><input type="checkbox" class="tr-cb" value="'+s.id+'" checked> '+snShort(s.id)+'</label>';}).join('')
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--t3);margin-top:10px">\u041c\u0438\u043d\u0443\u043b\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043b\u0438\u0448\u0430\u044e\u0442\u044c\u0441\u044f \u0437\u0430 \u043f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u0456\u043c \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u043e\u043c; \u0437\u043c\u0456\u043d\u044e\u0454\u0442\u044c\u0441\u044f \u043b\u0438\u0448\u0435 \u043c\u0430\u0439\u0431\u0443\u0442\u043d\u0454 \u043f\u0440\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u043d\u044f.</div>'
+      +'</div>'
+      +'<div style="padding:12px 18px;border-top:1px solid var(--b1);display:flex;gap:8px;justify-content:flex-end">'
+        +'<button class="btn btn-g btn-sm" onclick="closeTransferStudents()">\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438</button>'
+        +'<button class="btn btn-p btn-sm" onclick="doTransferStudents(\''+fromTutorId+'\')">\u041f\u0435\u0440\u0435\u0434\u0430\u0442\u0438</button>'
+      +'</div>'
+    +'</div>';
+  document.body.appendChild(ov);
+}
+function trToggleAll(cb){ document.querySelectorAll('.tr-cb').forEach(function(c){ c.checked=cb.checked; }); }
+function closeTransferStudents(){ var o=document.getElementById('transfer-overlay'); if(o) o.remove(); }
+async function doTransferStudents(fromId){
+  var toEl=document.getElementById('tr-to');
+  var toId=toEl?toEl.value:'';
+  if(!toId){ mkToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0430-\u043e\u0442\u0440\u0438\u043c\u0443\u0432\u0430\u0447\u0430','error'); return; }
+  var ids=Array.from(document.querySelectorAll('.tr-cb:checked')).map(function(c){return c.value;});
+  if(!ids.length){ mkToast('\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0445\u043e\u0447\u0430 \u0431 \u043e\u0434\u043d\u043e\u0433\u043e \u0443\u0447\u043d\u044f','error'); return; }
+  closeTransferStudents();
+  var ok=0;
+  for(var i=0;i<ids.length;i++){
+    var st=(S.students||[]).find(function(x){return x.id===ids[i];});
+    if(!st) continue;
+    var rules=studentRatesArr(st).map(function(r){ return {subject:(r.subject||''), tutor_id:(r.tutor_id||''), rate:(r.rate!=null?r.rate:null)}; });
+    var wasInRules=rules.some(function(r){return r.tutor_id===fromId;});
+    if(wasInRules){
+      rules.forEach(function(r){ if(r.tutor_id===fromId) r.tutor_id=toId; });
+    } else {
+      // Учень прив'язаний лише через старі поля — створюємо ставку для нового репетитора
+      var subj0=st.subject?String(st.subject).split(',')[0].trim():'';
+      rules.push({subject:subj0, tutor_id:toId, rate:null});
+    }
+    // Прибираємо точні дублікати (предмет+репетитор+ставка)
+    var seen={}, dedup=[];
+    rules.forEach(function(r){ var k=(r.subject||'')+'|'+(r.tutor_id||'')+'|'+(r.rate!=null?r.rate:''); if(!seen[k]){ seen[k]=1; dedup.push(r); } });
+    // Похідні поля — так само, як у saveStudent
+    var subj=(function(){var ss=[];dedup.forEach(function(r){var s=(r.subject||'').trim();if(s&&ss.indexOf(s)<0)ss.push(s);});return ss.join(', ');})();
+    var tId=(function(){var f=dedup.find(function(r){return r.tutor_id;});return f?f.tutor_id:null;})();
+    var tIds=(function(){var tt=[];dedup.forEach(function(r){if(r.tutor_id&&tt.indexOf(r.tutor_id)<0)tt.push(r.tutor_id);});return tt.join(',');})();
+    try{ await dbUpdate('students', st.id, { rates:dedup, subject:subj, tutor_id:tId, tutor_ids:tIds }); ok++; }catch(e){}
+  }
+  mkToast('\u041f\u0435\u0440\u0435\u0434\u0430\u043d\u043e \u0443\u0447\u043d\u0456\u0432: '+ok);
+  try{ renderTutors(); }catch(e){}
+  if(S.currentPage==='students'){ try{ renderStudents(); }catch(e){} }
+}
+window.openTransferStudents=openTransferStudents;
+window.closeTransferStudents=closeTransferStudents;
+window.doTransferStudents=doTransferStudents;
+window.trToggleAll=trToggleAll;
 // Вартість заняття: ставка ЗА ГОДИНУ × (тривалість/60).
 // Ставка: знімок у занятті (l.price) → якщо нема, ставка з картки учня за правилами.
 function lessonTotal(l){
@@ -3268,8 +3394,12 @@ function addRateRow(rule){
     '<input class="sr-subj" list="subj-list-s" placeholder="Предмет (будь-який)" value="'+String(rule.subject||'').replace(/"/g,'&quot;')+'" style="flex:2;min-width:110px;font-size:12px;padding:5px 8px">'
     +'<select class="sr-tutor" style="flex:2;min-width:110px;font-size:12px;padding:5px 8px">'
       +'<option value="">Будь-який репетитор</option>'
-      +(S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
-        .map(function(t){return '<option value="'+t.id+'"'+(t.id===(rule.tutor_id||'')?' selected':'')+'>'+t.fn+' '+t.ln+'</option>';}).join('')
+      +(function(){
+        var _ts=activeTutors();
+        if(rule.tutor_id && !_ts.some(function(t){return t.id===rule.tutor_id;})){ var _a=(S.tutors||[]).find(function(t){return t.id===rule.tutor_id;}); if(_a) _ts=_ts.concat([_a]); }
+        return _ts.slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');})
+        .map(function(t){return '<option value="'+t.id+'"'+(t.id===(rule.tutor_id||'')?' selected':'')+'>'+t.fn+' '+t.ln+(t.archived?' (з архіву)':'')+'</option>';}).join('');
+      })()
     +'</select>'
     +'<input class="sr-rate" type="number" placeholder="₴/год" value="'+(rule.rate!=null?rule.rate:'')+'" style="width:80px;font-size:12px;padding:5px 8px">'
     +'<button type="button" title="Прибрати" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:14px;padding:2px 6px" onclick="this.parentElement.remove()">✕</button>';
@@ -5855,9 +5985,9 @@ async function initApp(){
 
   if(session){
     CU = null;
-    await loadProfile(session.user);
+    var _ok = await loadProfile(session.user);
     hideLoading();
-    startApp();
+    if(_ok) startApp();
   } else {
     hideLoading();
     if(lsEl) lsEl.style.display = 'flex';
@@ -5865,9 +5995,9 @@ async function initApp(){
 
   _sb.auth.onAuthStateChange(async function(event, session){
     if(event === 'SIGNED_IN' && session){
-      await loadProfile(session.user);
+      var _ok2 = await loadProfile(session.user);
       hideLoading();
-      startApp();
+      if(_ok2) startApp();
     } else if(event === 'TOKEN_REFRESHED' && session){
       // Токен оновлено — нічого додаткового не потрібно, Supabase JS вже використовує новий
       console.log('Token refreshed automatically');
@@ -5915,6 +6045,13 @@ async function doLogout(){
 
 async function loadProfile(authUser){
   var _r2 = await _sb.from('profiles').select('*').eq('id', authUser.id).single(); var data = _r2.data;
+  if(data && data.disabled){
+    // Доступ вимкнено (звільнений/заблокований) — виходимо, у застосунок не пускаємо.
+    try{ await _sb.auth.signOut(); }catch(e){}
+    CU=null;
+    try{ showAccessDisabled(); }catch(e){}
+    return false;
+  }
   if(data){ CU = normalizeUser(data); }
   else {
     const np = { id:authUser.id, email:authUser.email,
@@ -5922,6 +6059,12 @@ async function loadProfile(authUser){
     await _sb.from('profiles').insert(np);
     CU = normalizeUser(np);
   }
+  return true;
+}
+function showAccessDisabled(){
+  var asEl=document.getElementById('as'); if(asEl) asEl.style.display='none';
+  var lsEl=document.getElementById('ls'); if(lsEl) lsEl.style.display='flex';
+  try{ mkToast('\u0414\u043e\u0441\u0442\u0443\u043f \u0432\u0438\u043c\u043a\u043d\u0435\u043d\u043e. \u0417\u0432\u0435\u0440\u043d\u0456\u0442\u044c\u0441\u044f \u0434\u043e \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0430.','error'); }catch(e){}
 }
 
 function uid(){ return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2); }
@@ -6848,6 +6991,7 @@ async function delTutor(id){
 }
 
 async function saveLesson(){
+  if(S.editId && lessonLocked(S.editId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 (\u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u043b\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440) \u2014 \u0437\u043c\u0456\u043d\u0438 \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u0456','error'); return; }
   var stdEl=document.getElementById('l-std'); 
   var dateEl=document.getElementById('l-date');
   var studentId=stdEl?stdEl.value:''; 
@@ -6964,6 +7108,7 @@ async function saveLesson(){
 
 async function delLesson(id){
   if(!can('lessons')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
+  if(lessonLocked(id)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 (\u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u043b\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440) \u2014 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return; }
   var l=(S.lessons||[]).find(function(x){return x.id===id;});
   if(l && l.recurId){ S.editId=id; openM('mo-del-recur'); }
   else{ if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F?')) return; try{ await dbDelete('lessons',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){} }
@@ -7188,6 +7333,13 @@ async function renderUsers(){
     var rpill=document.createElement('span');rpill.className='rpill '+u.role;
     rpill.innerHTML=ro.icon+' '+ro.label;
     var btns=document.createElement('div');btns.style.cssText='display:flex;gap:6px;margin-left:auto;align-items:center';
+    if(u.disabled){
+      var dbadge=document.createElement('span');
+      dbadge.className='badge';
+      dbadge.style.cssText='background:rgba(248,113,113,.14);color:var(--danger);font-size:10px;font-weight:700';
+      dbadge.textContent='\uD83D\uDEAB \u0414\u043E\u0441\u0442\u0443\u043F \u0432\u0438\u043C\u043A.';
+      btns.appendChild(dbadge);
+    }
     if(canEdit){
       var eb=document.createElement('button');eb.className='btn btn-g btn-sm';eb.innerHTML='\u270F\uFE0F';
       (function(id){eb.onclick=function(){openUserM(id);};})(u.id);btns.appendChild(eb);
@@ -7195,6 +7347,10 @@ async function renderUsers(){
       (function(id){ab.onclick=function(){openUserAccessM(id);};})(u.id);btns.appendChild(ab);
     }
     if(canDel){
+      var bb=document.createElement('button');bb.className='btn btn-sm '+(u.disabled?'btn-g':'btn-d');
+      bb.textContent=u.disabled?'\uD83D\uDD13 \u0423\u0432\u0456\u043C\u043A.':'\uD83D\uDEAB \u0412\u0438\u043C\u043A.';
+      bb.title=u.disabled?'\u0412\u0456\u0434\u043D\u043E\u0432\u0438\u0442\u0438 \u0434\u043E\u0441\u0442\u0443\u043F':'\u0417\u0430\u0431\u043B\u043E\u043A\u0443\u0432\u0430\u0442\u0438 \u0434\u043E\u0441\u0442\u0443\u043F (\u0437\u0432\u0456\u043B\u044C\u043D\u0435\u043D\u043D\u044F)';
+      (function(id){bb.onclick=function(){toggleUserAccess(id);};})(u.id);btns.appendChild(bb);
       var db=document.createElement('button');db.className='btn btn-sm btn-d';db.innerHTML='\uD83D\uDDD1';
       (function(id){db.onclick=function(){delUser(id);};})(u.id);btns.appendChild(db);
     }
@@ -7271,6 +7427,16 @@ async function saveUser(){
   }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); console.error('saveUser error:',e); }
 }
 
+async function toggleUserAccess(id){
+  var u=(S.users||[]).find(function(x){return x.id===id;});
+  if(!u){ mkToast('\u041D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E','error'); return; }
+  if(id===(CU&&CU.id)){ mkToast('\u041D\u0435 \u043C\u043E\u0436\u043D\u0430 \u0437\u0430\u0431\u043B\u043E\u043A\u0443\u0432\u0430\u0442\u0438 \u0432\u043B\u0430\u0441\u043D\u0438\u0439 \u0430\u043A\u0430\u0443\u043D\u0442','error'); return; }
+  var willDisable=!u.disabled;
+  if(willDisable && !confirm('\u0417\u0430\u0431\u043B\u043E\u043A\u0443\u0432\u0430\u0442\u0438 \u0434\u043E\u0441\u0442\u0443\u043F \u0434\u043B\u044F '+(u.fn||'')+' '+(u.ln||'')+'?\n\n\u041B\u044E\u0434\u0438\u043D\u0430 \u0431\u0456\u043B\u044C\u0448\u0435 \u043D\u0435 \u0437\u043C\u043E\u0436\u0435 \u0443\u0432\u0456\u0439\u0442\u0438 \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0443. \u0410\u043A\u0430\u0443\u043D\u0442 \u0456 \u0432\u0441\u0456 \u0437\u0430\u043F\u0438\u0441\u0438 \u0437\u0430\u043B\u0438\u0448\u0430\u044E\u0442\u044C\u0441\u044F, \u0434\u043E\u0441\u0442\u0443\u043F \u043C\u043E\u0436\u043D\u0430 \u0432\u0456\u0434\u043D\u043E\u0432\u0438\u0442\u0438 \u0431\u0443\u0434\u044C-\u043A\u043E\u043B\u0438.')) return;
+  try{ await dbUpdate('profiles', id, {disabled:willDisable}); mkToast(willDisable?'\u0414\u043E\u0441\u0442\u0443\u043F \u0437\u0430\u0431\u043B\u043E\u043A\u043E\u0432\u0430\u043D\u043E':'\u0414\u043E\u0441\u0442\u0443\u043F \u0432\u0456\u0434\u043D\u043E\u0432\u043B\u0435\u043D\u043E'); renderUsers(); }
+  catch(e){ mkToast('\u041F\u043E\u043C\u0438\u043B\u043A\u0430: '+e.message,'error'); }
+}
+window.toggleUserAccess=toggleUserAccess;
 async function delUser(id){
   if(id===CU?.id){ mkToast('\u041D\u0435 \u043C\u043E\u0436\u043D\u0430 \u0432\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0441\u0432\u0456\u0439 \u0430\u043A\u0430\u0443\u043D\u0442','error'); return; }
   if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0430\u043A\u0430\u0443\u043D\u0442?')) return;
@@ -7407,6 +7573,7 @@ function closeQuickPopup(){
 async function quickSetStatus(status){
   closeQuickPopup();
   if(!_quickLessonId) return;
+  if(lessonLocked(_quickLessonId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 (\u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u043b\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440)','error'); return; }
   try{
     var upd={status: status};
     // Заморожуємо ставку в момент ПЕРШОГО проведення: далі зміни ставок це заняття
@@ -9069,7 +9236,11 @@ function openLessM(id, date, time){
     }
     return mine.concat(allKnownSubjects().filter(function(x){return mine.indexOf(x)<0;}));
   });
-  popSel('l-tutor', S.tutors, 'id', function(t){return t.fn+' '+t.ln;}, 'Викладач');
+  // Список репетиторів: активні + (якщо редагуємо) поточний репетитор заняття,
+  // навіть якщо він заархівований — щоб коректно показати ім'я.
+  var _lTuts=activeTutors();
+  if(id){ var _le=(S.lessons||[]).find(function(x){return x.id===id;}); var _lt=_le&&(_le.tutorId||_le.tutor_id); if(_lt && !_lTuts.some(function(t){return t.id===_lt;})){ var _at=(S.tutors||[]).find(function(t){return t.id===_lt;}); if(_at) _lTuts=_lTuts.concat([_at]); } }
+  popSel('l-tutor', _lTuts, 'id', function(t){return t.fn+' '+t.ln+(t.archived?' (з архіву)':'');}, 'Викладач');
   makeSearchable('l-tutor'); if(document.getElementById('l-tutor')._updateSearch) document.getElementById('l-tutor')._updateSearch();
   if(typeof toggleRecurOpts === 'function') toggleRecurOpts();
 
@@ -10772,9 +10943,14 @@ function renderTutors(){
     var editBtns=isAdmin
       ?('<div style="display:inline-flex;gap:4px;margin-left:8px">'
         +'<button class="btn btn-g btn-sm" onclick="openTutM(\'' +t.id+ '\')" title="\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438">\u270f\ufe0f</button>'
+        +'<button class="btn btn-g btn-sm" onclick="openTransferStudents(\'' +t.id+ '\')" title="\u041f\u0435\u0440\u0435\u0434\u0430\u0442\u0438 \u0443\u0447\u043d\u0456\u0432 \u0456\u043d\u0448\u043e\u043c\u0443 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0443">\uD83D\uDC65\u2192</button>'
+        +(t.archived
+            ? '<button class="btn btn-g btn-sm" onclick="restoreTutor(\'' +t.id+ '\')" title="\u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438">\u267b\ufe0f</button>'
+            : '<button class="btn btn-g btn-sm" onclick="archiveTutor(\'' +t.id+ '\')" title="\u0417\u0430\u0430\u0440\u0445\u0456\u0432\u0443\u0432\u0430\u0442\u0438 (\u0437\u0432\u0456\u043b\u044c\u043d\u0438\u0432\u0441\u044f)">\uD83D\uDCE6</button>')
         +(ce?('<button class="btn btn-sm" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);color:var(--danger)" onclick="delTutor(\'' +t.id+ '\')" title="\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438">\uD83D\uDDD1</button>'):'')
         +'</div>')
       :'';
+    var archBadge = t.archived ? '<span class="badge" style="background:rgba(148,163,184,.18);color:#94a3b8;font-size:10px;margin-left:6px">\uD83D\uDCE6 \u0417 \u0430\u0440\u0445\u0456\u0432\u0443</span>' : '';
     var accHtml=acc
       ?('<div style="display:flex;align-items:center;gap:6px">'+mkAv(acc.fn||'?',acc.ln||'',24)
         +'<div><div style="font-size:12px;font-weight:600">'+(acc.fn||'')+' '+(acc.ln||'')+'</div>'
@@ -10782,9 +10958,9 @@ function renderTutors(){
         +'<span class="rpill '+acc.role+'" style="font-size:10px;padding:2px 8px">'+ROLES[acc.role].icon+' '+ROLES[acc.role].label+'</span>'
         +'</div>')
       :'<span style="font-size:11px;color:var(--t3)">\u2014 \u0430\u043a\u0430\u0443\u043d\u0442 \u043d\u0435 \u043f\u0440\u0438\u0432\u2019\u044f\u0437\u0430\u043d\u043e</span>';
-    rows+='<tr>'
+    rows+='<tr'+(t.archived?' style="opacity:.55"':'')+'>'
       +'<td><div style="display:flex;align-items:center;gap:10px">'+mkAv(t.fn,t.ln,36,t.photo)
-      +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+'</div>'
+      +'<div><div style="font-weight:600;font-size:13px">'+t.fn+' '+t.ln+archBadge+'</div>'
       +(t.subj?'<div style="font-size:11px;color:var(--t2)">'+t.subj+'</div>':'')
       +(branchBadge?'<div style="margin-top:3px">'+branchBadge+'</div>':'')
       +'</div></div></td>'
@@ -11835,15 +12011,23 @@ function coveredMissedMinutes(l){
   // будь-якої з частин, або за посиланням makeup_date з боку пропущеного уроку.
   var groupIds=[]; sameDayParts.forEach(function(p){ if(p.split_group_id&&groupIds.indexOf(p.split_group_id)<0) groupIds.push(p.split_group_id); });
   var makeupDates=[]; sameDayParts.forEach(function(p){ if(p.makeup_date&&makeupDates.indexOf(p.makeup_date)<0) makeupDates.push(p.makeup_date); });
+  var missTutorArchived = tutorArchived(tid); // репетитор пропуску звільнений?
   var makeups = (S.lessons||[]).filter(function(x){
     if(x.status!=='makeup') return false; // рахуються лише ПРОВЕДЕНІ відпрацювання
     if((x.studentId||x.student_id)!==sid) return false;
-    // Відпрацювання зараховується лише ТОМУ САМОМУ репетитору, який провів
-    // пропущене заняття. Інакше урок Осєтрової закривав би пропуск Когута.
-    if((x.tutorId||x.tutor_id)!==tid) return false;
-    if(x.missed_date===ldate) return true;
-    if(x.split_group_id && groupIds.indexOf(x.split_group_id)>=0) return true;
-    if(makeupDates.indexOf(x.date)>=0) return true;
+    var xtid = x.tutorId||x.tutor_id;
+    if(xtid===tid){
+      // Той самий репетитор — стандартне зіставлення.
+      if(x.missed_date===ldate) return true;
+      if(x.split_group_id && groupIds.indexOf(x.split_group_id)>=0) return true;
+      if(makeupDates.indexOf(x.date)>=0) return true;
+      return false;
+    }
+    // ІНШИЙ репетитор: зараховуємо лише якщо репетитор пропуску ЗААРХІВОВАНИЙ
+    // (звільнився) і відпрацювання ЯВНО посилається на цей пропуск (missed_date).
+    // Для активних репетиторів обмеження лишається: урок одного не закриває пропуск
+    // іншого (напр. Осєтрової — Когута), навіть якщо учень і день збігаються.
+    if(missTutorArchived && x.missed_date===ldate) return true;
     return false;
   });
   var pool = makeups.reduce(function(s,x){ return s+(parseFloat(x.dur)||60); }, 0);
