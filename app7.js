@@ -11193,15 +11193,24 @@ function renderCrm(){
 async function setCrmStage(studentId, stage){
   var i=(S.students||[]).findIndex(function(s){return s.id===studentId;});
   var prev=i>=0?(S.students[i].crmStage||S.students[i].crm_stage):null;
-  if(i>=0){S.students[i].crmStage=stage;S.students[i].crm_stage=stage;}
+  var prevStatus=i>=0?S.students[i].status:null;
+  var upd={crm_stage:stage};
+  // Перехід у "Успішно реалізовано" = лід стає УЧНЕМ (активним).
+  // "Не реалізовано"/"Запит"/"Новий лід" — лишається лідом (статус не чіпаємо).
+  if(stage==='won' && ['active','trial'].indexOf(prevStatus)<0) upd.status='active';
+  else if(stage==='trial' && (prevStatus==='request'||prevStatus==='lead')) upd.status='trial';
+  if(i>=0){
+    S.students[i].crmStage=stage; S.students[i].crm_stage=stage;
+    if(upd.status){ S.students[i].status=upd.status; }
+  }
   renderCrm();
   try{
-    await dbUpdate('students',studentId,{crm_stage:stage});
-    mkToast('Етап оновлено');
+    await dbUpdate('students',studentId,upd);
+    mkToast(upd.status==='active'?'\u0413\u043e\u0442\u043e\u0432\u043e — \u043b\u0456\u0434 \u0441\u0442\u0430\u0432 \u0443\u0447\u043d\u0435\u043c':'\u0415\u0442\u0430\u043f \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e');
   }catch(e){
-    if(i>=0){S.students[i].crmStage=prev;S.students[i].crm_stage=prev;}
+    if(i>=0){ S.students[i].crmStage=prev; S.students[i].crm_stage=prev; if(prevStatus!=null) S.students[i].status=prevStatus; }
     renderCrm();
-    mkToast('Помилка: '+e.message,'error');
+    mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+e.message,'error');
   }
 }
 
@@ -12766,27 +12775,37 @@ async function telAutoCreateLeads(log){
   var cfg = telGetSettings();
   if(cfg.autolead===false) return; // перемикач вимкнено — нічого не робимо
   if(!log||!log.length) return;
+  function tail10(v){ return String(v||'').replace(/\D/g,'').slice(-10); }
+  // Список ІГНОРОВАНИХ номерів (видалені ліди) — щоб не створювати їх знову
+  var ignSet={};
+  try{
+    var _ign = await _sb.from('ignored_phones').select('phone');
+    (_ign.data||[]).forEach(function(x){ var t=tail10(x.phone); if(t) ignSet[t]=1; });
+  }catch(e){ console.warn('[telAutoCreateLeads] ignored_phones', e); }
   for(var i=0;i<log.length;i++){
     var e=log[i];
     if(e.student_id||e.studentId) continue; // вже прив'язано до когось
     var phone=(e.caller_phone||e.phone||'').trim();
-    if(!phone) continue;
-    var digits=phone.replace(/\D/g,'');
-    if(!digits) continue;
-    // Може, номер уже відповідає комусь із наявних учнів/лідів — тоді просто прив'язуємо
+    var tail=tail10(phone);
+    if(!tail || tail.length<7) continue; // некоректний/надто короткий номер
+    // Зіставлення по ОСТАННІХ 10 цифрах — щоб формати +380.../380.../0... збігались
+    // і НЕ створювався дубль на кожній синхронізації.
     var existing=(S.students||[]).find(function(s){
-      return (s.phone&&s.phone.replace(/\D/g,'')===digits) || (s.parentPhone&&s.parentPhone.replace(/\D/g,'')===digits);
+      return tail10(s.phone)===tail || tail10(s.parentPhone||s.parent_phone)===tail;
     });
     try{
       if(existing){
-        await _sb.from('call_logs').update({student_id:existing.id, caller_name:existing.fn+' '+existing.ln}).eq('id',e.id);
-        e.student_id=existing.id; e.caller_name=existing.fn+' '+existing.ln;
+        // Номер уже є в учня/ліда — просто прив'язуємо дзвінок, нічого не створюємо
+        await _sb.from('call_logs').update({student_id:existing.id, caller_name:(existing.fn+' '+existing.ln).trim()}).eq('id',e.id);
+        e.student_id=existing.id; e.caller_name=(existing.fn+' '+existing.ln).trim();
         continue;
       }
-      // Номер невідомий — створюємо новий лід автоматично
+      if(ignSet[tail]) continue; // номер у списку ігнорованих (видалений лід) — не створюємо
+      // Невідомий номер — створюємо ЛІД (не учня): статус 'request' (не рахується
+      // як учень), етап CRM 'lead'. Адмін потім переведе його в учня / у неуспішні / видалить.
       var newLead={
         id:uid(), fn:e.caller_name||e.callerName||'\u0414\u0437\u0432\u0456\u043d\u043e\u043a \u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457', ln:'',
-        phone:phone, status:'trial', crm_stage:'lead', crm_date:new Date().toISOString().slice(0,10),
+        phone:phone, status:'request', crm_stage:'lead', crm_date:new Date().toISOString().slice(0,10),
         notes:'\u0410\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e \u0437 '+((e.direction==='outbound')?'\u0432\u0438\u0445\u0456\u0434\u043d\u043e\u0433\u043e':'\u0432\u0445\u0456\u0434\u043d\u043e\u0433\u043e')+' \u0434\u0437\u0432\u0456\u043d\u043a\u0430',
         branch_id: myBranchId()||null
       };
