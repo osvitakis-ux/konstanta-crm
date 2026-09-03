@@ -634,6 +634,8 @@ function renderMissedLessons(){
 }
 async function deleteLessonFromModal(){
   if(!S.editId)return;
+  var _dl=(S.lessons||[]).find(function(x){return x.id===S.editId;});
+  if(_dl && isPlannedLesson(_dl) && !canMoveLessons()){ mkToast('\u0412\u0438\u0434\u0430\u043b\u044f\u0442\u0438 \u043f\u043b\u0430\u043d\u043e\u0432\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440','error'); return; }
   if(lessonLocked(S.editId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u2014 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return; }
   if(!confirm('Видалити цей урок?'))return;
   var _id=S.editId;
@@ -3053,7 +3055,8 @@ window.tutorDot = tutorDot;
 var _schDragId = null;
 
 function schDragStart(e, lessonId){
-  if(!canMoveLessons()){ try{ e.preventDefault(); }catch(_){}; return; } // тутор не переносить
+  var _dl=(S.lessons||[]).find(function(x){return x.id===lessonId;});
+  if(_dl && isPlannedLesson(_dl) && !canMoveLessons()){ try{ e.preventDefault(); }catch(_){}; return; } // тутор не переносить ПЛАНОВІ
   _schDragId = lessonId;
   try{
     e.dataTransfer.effectAllowed='move';
@@ -3094,10 +3097,11 @@ async function schDrop(e, newDate, newTime){
   _schDragId = null;
   if(!id) return;
   if(!can('lessons')){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432','error'); return; }
-  if(!canMoveLessons()){ mkToast('\u041f\u0435\u0440\u0435\u043d\u043e\u0441\u0438\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440','error'); return; }
 
   var l=(S.lessons||[]).find(function(x){return x.id===id;});
   if(!l) return;
+  if(isPlannedLesson(l) && !canMoveLessons()){ mkToast('\u041f\u0435\u0440\u0435\u043d\u043e\u0441\u0438\u0442\u0438 \u043f\u043b\u0430\u043d\u043e\u0432\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440','error'); return; }
+  if(lessonLocked(id)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440','error'); return; }
   // Нічого не змінилось — не смикаємо базу
   if(l.date===newDate && String(l.time||'').slice(0,5)===newTime) return;
 
@@ -3280,6 +3284,11 @@ window.lessonLocked=lessonLocked;
 // після встановлення заняття не може його переміщувати.
 function canMoveLessons(){ return ['god','network_admin','director','admin'].indexOf(R())>=0; }
 window.canMoveLessons=canMoveLessons;
+// «Планове» заняття для обмежень — ЗВИЧАЙНЕ заплановане (planned/scheduled/без статусу).
+// Заплановані ВІДПРАЦЮВАННЯ (makeup_planned) сюди НЕ входять — їх репетитор може
+// переносити/видаляти. Саме звичайні планові репетитор не може переносити/видаляти.
+function isPlannedLesson(l){ var s=l&&l.status; return !s || s==='planned' || s==='scheduled'; }
+window.isPlannedLesson=isPlannedLesson;
 
 // ── Передача учнів від одного репетитора іншому (масово або по одному) ──
 function openTransferStudents(fromTutorId){
@@ -7008,9 +7017,10 @@ async function saveLesson(){
   var dateEl=document.getElementById('l-date');
   var studentId=stdEl?stdEl.value:''; 
   var date=dateEl?dateEl.value:'';
-  // Репетитор не може ПЕРЕМІЩУВАТИ вже створене заняття — фіксуємо день/час як в оригіналі.
+  // Репетитор не може ПЕРЕМІЩУВАТИ вже створене ПЛАНОВЕ заняття — фіксуємо день/час як в оригіналі.
   var _lockMove = S.editId && !canMoveLessons();
   var _origMove = _lockMove ? (S.lessons||[]).find(function(x){return x.id===S.editId;}) : null;
+  if(_origMove && !isPlannedLesson(_origMove)) _origMove=null; // тільки планові
   if(_origMove){ date = _origMove.date || date; }
   if(!studentId||!date){ mkToast("\u0423\u0447\u0435\u043D\u044C \u0442\u0430 \u0434\u0430\u0442\u0430 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
   // Попередження про неробочий час (не блокує)
@@ -7124,14 +7134,16 @@ async function saveLesson(){
 
 async function delLesson(id){
   if(!can('lessons')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
-  if(lessonLocked(id)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u2014 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return; }
   var l=(S.lessons||[]).find(function(x){return x.id===id;});
+  if(l && isPlannedLesson(l) && !canMoveLessons()){ mkToast('\u0412\u0438\u0434\u0430\u043b\u044f\u0442\u0438 \u043f\u043b\u0430\u043d\u043e\u0432\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440','error'); return; }
+  if(lessonLocked(id)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u2014 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return; }
   if(l && l.recurId){ S.editId=id; openM('mo-del-recur'); }
   else{ if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F?')) return; try{ await dbDelete('lessons',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){} }
 }
 
 async function doDelLesson(mode){
   var id=S.editId, l=(S.lessons||[]).find(function(x){return x.id===id;});
+  if(l && isPlannedLesson(l) && !canMoveLessons()){ mkToast('\u0412\u0438\u0434\u0430\u043b\u044f\u0442\u0438 \u043f\u043b\u0430\u043d\u043e\u0432\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440','error'); closeM('mo-del-recur'); return; }
   if(!l){ closeM('mo-del-recur'); return; }
   closeM('mo-del-recur'); S.editId=null;
   try{
@@ -9352,7 +9364,7 @@ function openLessM(id, date, time){
   }
 
   if(typeof renderCustomFields==='function') renderCustomFields('lesson','mo-lesson-cf');
-  var db=document.getElementById('del-lesson-btn'); if(db) db.style.display=id?'inline-flex':'none';
+  var db=document.getElementById('del-lesson-btn'); if(db){ var _elDel=(S.lessons||[]).find(function(x){return x.id===id;}); db.style.display=(id && (canMoveLessons() || (!isPlannedLesson(_elDel) && !lessonLocked(_elDel))))?'inline-flex':'none'; }
   var sb=document.getElementById('del-series-btn');
   if(sb){var lr=id?(S.lessons||[]).find(function(l){return l.id===id;}):null;sb.style.display=(lr&&lr.recurId)?'inline-flex':'none';}
   // Показуємо блок об'єднання і заповнюємо список
@@ -9370,12 +9382,13 @@ function openLessM(id, date, time){
       }
     });
   }catch(e){ console.error('voiceBtn:',e); }
-  // Репетитор не може міняти день/час уже створеного заняття (тільки адмін і вище)
+  // Репетитор не може міняти день/час уже створеного ПЛАНОВОГО заняття (тільки адмін і вище)
   (function(){
-    var lockMv = (!!id && !canMoveLessons());
+    var _el=(S.lessons||[]).find(function(x){return x.id===id;});
+    var lockMv = (!!id && !canMoveLessons() && isPlannedLesson(_el));
     ['l-date','l-time'].forEach(function(fid){
       var el=document.getElementById(fid);
-      if(el){ el.disabled=lockMv; el.title=lockMv?'\u041f\u0435\u0440\u0435\u043d\u043e\u0441\u0438\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440/\u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440':''; el.style.opacity=lockMv?'0.6':''; }
+      if(el){ el.disabled=lockMv; el.title=lockMv?'\u041f\u0435\u0440\u0435\u043d\u043e\u0441\u0438\u0442\u0438 \u043f\u043b\u0430\u043d\u043e\u0432\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440/\u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440':''; el.style.opacity=lockMv?'0.6':''; }
     });
   })();
   openM('mo-lesson');
