@@ -3053,6 +3053,7 @@ window.tutorDot = tutorDot;
 var _schDragId = null;
 
 function schDragStart(e, lessonId){
+  if(!canMoveLessons()){ try{ e.preventDefault(); }catch(_){}; return; } // тутор не переносить
   _schDragId = lessonId;
   try{
     e.dataTransfer.effectAllowed='move';
@@ -3093,6 +3094,7 @@ async function schDrop(e, newDate, newTime){
   _schDragId = null;
   if(!id) return;
   if(!can('lessons')){ mkToast('\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432','error'); return; }
+  if(!canMoveLessons()){ mkToast('\u041f\u0435\u0440\u0435\u043d\u043e\u0441\u0438\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440','error'); return; }
 
   var l=(S.lessons||[]).find(function(x){return x.id===id;});
   if(!l) return;
@@ -3274,6 +3276,10 @@ function lessonLocked(l){
   return String(l.date||'') < weekStartMonday();         // минулі тижні — заморожено
 }
 window.lessonLocked=lessonLocked;
+// Переносити (міняти день/час) заняття можуть лише адмін і вище. Репетитор
+// після встановлення заняття не може його переміщувати.
+function canMoveLessons(){ return ['god','network_admin','director','admin'].indexOf(R())>=0; }
+window.canMoveLessons=canMoveLessons;
 
 // ── Передача учнів від одного репетитора іншому (масово або по одному) ──
 function openTransferStudents(fromTutorId){
@@ -7002,6 +7008,10 @@ async function saveLesson(){
   var dateEl=document.getElementById('l-date');
   var studentId=stdEl?stdEl.value:''; 
   var date=dateEl?dateEl.value:'';
+  // Репетитор не може ПЕРЕМІЩУВАТИ вже створене заняття — фіксуємо день/час як в оригіналі.
+  var _lockMove = S.editId && !canMoveLessons();
+  var _origMove = _lockMove ? (S.lessons||[]).find(function(x){return x.id===S.editId;}) : null;
+  if(_origMove){ date = _origMove.date || date; }
   if(!studentId||!date){ mkToast("\u0423\u0447\u0435\u043D\u044C \u0442\u0430 \u0434\u0430\u0442\u0430 \u043E\u0431\u043E\u0432'\u044F\u0437\u043A\u043E\u0432\u0456",'error'); return; }
   // Попередження про неробочий час (не блокує)
   var _wt=(S.tutors||[]).find(function(t){return t.id===(document.getElementById('l-tutor')?document.getElementById('l-tutor').value:null);});
@@ -7019,7 +7029,7 @@ async function saveLesson(){
     tutor_id:   document.getElementById('l-tutor')?.value||null,
     subject:    document.getElementById('l-subj')?.value||'',
     date:       date,
-    time:       document.getElementById('l-time')?.value||'',
+    time:       (_origMove ? (_origMove.time||'') : (document.getElementById('l-time')?.value||'')),
     dur:        parseInt(document.getElementById('l-dur')?.value)||60,
     price:      (function(){
       // ЗАМОРОЖУВАННЯ МИНУЛОГО: якщо редагуємо заняття, що ВЖЕ проведене, ціну не
@@ -9360,6 +9370,14 @@ function openLessM(id, date, time){
       }
     });
   }catch(e){ console.error('voiceBtn:',e); }
+  // Репетитор не може міняти день/час уже створеного заняття (тільки адмін і вище)
+  (function(){
+    var lockMv = (!!id && !canMoveLessons());
+    ['l-date','l-time'].forEach(function(fid){
+      var el=document.getElementById(fid);
+      if(el){ el.disabled=lockMv; el.title=lockMv?'\u041f\u0435\u0440\u0435\u043d\u043e\u0441\u0438\u0442\u0438 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440/\u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440':''; el.style.opacity=lockMv?'0.6':''; }
+    });
+  })();
   openM('mo-lesson');
 }
 
