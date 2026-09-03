@@ -12184,6 +12184,15 @@ async function renderLeads(){
   if(!body) return;
   body.innerHTML=skeleton('rows',6);
 
+  // Підтягуємо ліди з останніх дзвінків прямо тут — щоб вони з'являлися й без
+  // відкриття сторінки «Дзвінки». Раніше створення лідів запускалось лише там.
+  var _callCount=0;
+  try{
+    var _log = await telGetLog(null);
+    _callCount = (_log||[]).length;
+    if(_callCount) await telAutoCreateLeads(_log);
+  }catch(e){ console.warn('[renderLeads autolead]', e); }
+
   var rows=[];
   try{
     var r=await _sb.from('phone_leads').select('*').order('last_call',{ascending:false}).limit(300);
@@ -12222,7 +12231,10 @@ async function renderLeads(){
   }
 
   if(!shown.length){
-    body.innerHTML='<div class="empty"><div class="ei">\u260e</div>\u041d\u0435\u043c\u0430\u0454 \u043b\u0456\u0434\u0456\u0432 \u0443 \u0446\u0456\u0439 \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0456\u0457</div>';
+    var _emptyMsg = (_callCount===0 && (f==='new'||f===''))
+      ? '\u041d\u0435\u043c\u0430\u0454 \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u0434\u043b\u044f \u043e\u0431\u0440\u043e\u0431\u043a\u0438<br><span style="font-size:12px">\u041f\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u044e \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 (\u0436\u0443\u0440\u043d\u0430\u043b \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u043f\u043e\u0440\u043e\u0436\u043d\u0456\u0439)</span>'
+      : '\u041d\u0435\u043c\u0430\u0454 \u043b\u0456\u0434\u0456\u0432 \u0443 \u0446\u0456\u0439 \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0456\u0457';
+    body.innerHTML='<div class="empty"><div class="ei">\u260e</div>'+_emptyMsg+'</div>';
     return;
   }
 
