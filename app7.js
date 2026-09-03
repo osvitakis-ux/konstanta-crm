@@ -10734,10 +10734,11 @@ function renderSchDay(){
         var canDel = can('lessons');
         html += '<div class="sche '+ecl+'" style="position:absolute;top:'+topPx+'px;'+posCssD+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer;'
           +'box-shadow:inset 3px 0 0 '+tutorColor(l.tutorId||l.tutor_id)+'"'
+          +' title="'+(l.time||'')+' \u00B7 '+snShort(l.studentId||l.student_id)+(l.subject?' \u00B7 '+l.subject:'')+' \u00B7 '+Math.round(dur/60*10)/10+'\u0433"'
           +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
-          +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.status==='burned'?'\uD83D\uDD25 ':'')+(l.recurId?'\uD83D\uDD01 ':'')+snShort(l.studentId||l.student_id)+'</div>'
-          +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
-          +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' \u00B7 '+Math.floor(dur/60)+'\u0433'+(dur%60?dur%60+'\u0445\u0432':''):'\u00B7 '+dur+'\u0445\u0432')+'</div>':'')
+          +'<div style="font-weight:700;font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:12px">'+(l.status==='burned'?'\uD83D\uDD25 ':'')+(l.recurId?'\uD83D\uDD01 ':'')+snShort(l.studentId||l.student_id)+'</div>'
+          +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(l.subject||'')+'</div>':'')
+          +(heightPx>40?'<div style="opacity:.6;font-size:9px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(l.time||'')+(dur>=60?' \u00B7 '+Math.floor(dur/60)+'\u0433'+(dur%60?dur%60+'\u0445\u0432':''):'\u00B7 '+dur+'\u0445\u0432')+'</div>':'')
           +(_isPartial&&heightPx>52?'<div style="font-size:9px;font-weight:700">\u26A0 \u0437\u0430\u043B\u0438\u0448\u0438\u043B\u043E\u0441\u044C '+_unHrs+'\u0433</div>':'')
           +(canDel?'<span onclick="event.stopPropagation();delLesson(\''+l.id+'\')" style="position:absolute;top:2px;right:3px;font-size:10px;opacity:.6;cursor:pointer;line-height:1" title="\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438">\u2715</span>':'')
           +'</div>';
@@ -10942,10 +10943,11 @@ function renderSchWeek(){
         +(canDel?' draggable="true" ondragstart="schDragStart(event,\''+l.id+'\')" ondragend="schDragEnd(event)"':'')
         +' style="position:absolute;top:'+topPx+'px;'+posCss+'height:'+(heightPx-2)+'px;box-sizing:border-box;overflow:hidden;z-index:2;cursor:pointer;'
         +'box-shadow:inset 3px 0 0 '+tutorColor(l.tutorId||l.tutor_id)+'"'
+        +' title="'+(l.time||'')+' · '+snShort(l.studentId||l.student_id)+(l.subject?' · '+l.subject:'')+' · '+Math.round(dur/60*10)/10+'г"'
         +' onclick="event.stopPropagation();showQuickPopup(\''+l.id+'\',event.clientX,event.clientY)">'
-        +'<div style="font-weight:700;font-size:10px;line-height:1.2">'+(l.status==='burned'?'🔥 ':'')+(l.recurId?'🔁 ':'')+snShort(l.studentId||l.student_id)+'</div>'
-        +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px">'+(l.subject||'')+'</div>':'')
-        +(heightPx>40?'<div style="opacity:.6;font-size:9px">'+(l.time||'')+(dur>=60?' · '+Math.floor(dur/60)+'г'+(dur%60?dur%60+'хв':''):' · '+dur+'хв')+'</div>':'')
+        +'<div style="font-weight:700;font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:12px">'+(l.status==='burned'?'🔥 ':'')+(l.recurId?'🔁 ':'')+snShort(l.studentId||l.student_id)+'</div>'
+        +(heightPx>28?'<div style="font-weight:400;opacity:.8;font-size:9px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(l.subject||'')+'</div>':'')
+        +(heightPx>40?'<div style="opacity:.6;font-size:9px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(l.time||'')+(dur>=60?' · '+Math.floor(dur/60)+'г'+(dur%60?dur%60+'хв':''):' · '+dur+'хв')+'</div>':'')
         +(_isPartial&&heightPx>52?'<div style="font-size:9px;font-weight:700">⚠ залишилось '+_unHrs+'г</div>':'')
         +(canDel?'<span onclick="event.stopPropagation();delLesson(\''+l.id+'\')" style="position:absolute;top:2px;right:3px;font-size:10px;opacity:.6;cursor:pointer;line-height:1" title="Видалити">✕</span>':'')
         +'</div>';
