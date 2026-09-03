@@ -6166,12 +6166,12 @@ async function loadAll(){
   // (мережевий збій, скидання токена, короткий ліміт запитів) обривала цикл і ціла
   // таблиця приходила порожня/частково — а дані "з'являлися" лише на другому,
   // фоновому завантаженні. Тепер кожну сторінку пробуємо кілька разів.
-  async function fetchPage(t, page, PAGE){
+  async function fetchPage(t, offset, PAGE){
     var res=null;
     for(var attempt=0; attempt<4; attempt++){
       var q = _sb.from(t.table).select('*');
       if(t.order) q = q.order(t.order, { ascending:false });
-      q = q.range(page*PAGE, page*PAGE + PAGE - 1);
+      q = q.range(offset, offset + PAGE - 1);
       res = await q;
       if(!res.error) return res;
       if(await refreshIfExpired(res.error)) continue;        // JWT — оновили сесію, одразу повтор
@@ -6180,15 +6180,18 @@ async function loadAll(){
     return res;
   }
   async function fetchTableAll(t){
-    var PAGE=1000, page=0, all=[], lastErr=null;
+    // Рухаємось за ФАКТИЧНОЮ кількістю рядків, а не за PAGE: якщо сервер (Supabase
+    // max-rows) віддає менше за запитане, ми не зупиняємось передчасно й не пропускаємо
+    // рядки. Зупинка лише коли сторінка порожня.
+    var PAGE=1000, offset=0, all=[], lastErr=null;
     while(true){
-      var res = await fetchPage(t, page, PAGE);
+      var res = await fetchPage(t, offset, PAGE);
       if(res && res.error){ lastErr=res.error; break; }
       var batch = (res && res.data) || [];
       all = all.concat(batch);
-      if(batch.length < PAGE) break;
-      page++;
-      if(page > 200) break; // запобіжник
+      if(batch.length === 0) break;   // рядків більше немає
+      offset += batch.length;         // наступний запит — з фактичного зсуву
+      if(offset > 500000) break;      // запобіжник
     }
     return { data: all, error: lastErr };
   }
@@ -6381,11 +6384,11 @@ async function loadTableFresh(table){
     comms:normalizeComm,pricingRules:normalizePricingRule,tasks:normalizeTask,payrollItems:normalizePayrollItem};
   // Посторінкове читання — та сама причина, що й у loadAll: без цього
   // фонове оновлення обрізало б таблицю на 1000 записах і "загубило" решту.
-  var PAGE=1000, page=0, data=[], res=null;
+  var PAGE=1000, offset=0, data=[], res=null;
   while(true){
     res=null;
     for(var attempt=0; attempt<4; attempt++){
-      res = await _sb.from(table).select('*').range(page*PAGE, page*PAGE + PAGE - 1);
+      res = await _sb.from(table).select('*').range(offset, offset + PAGE - 1);
       if(!res.error) break;
       if(await refreshIfExpired(res.error)) continue;                    // JWT — оновили сесію, повтор
       await new Promise(function(r){ setTimeout(r, 400*(attempt+1)); }); // тимчасова помилка — пауза й повтор
@@ -6393,9 +6396,9 @@ async function loadTableFresh(table){
     if(res.error) return;                                                // після кількох спроб — не чіпаємо локальні дані
     var batch = res.data || [];
     data = data.concat(batch);
-    if(batch.length < PAGE) break;
-    page++;
-    if(page > 200) break;
+    if(batch.length === 0) break;   // рядків більше немає
+    offset += batch.length;         // рухаємось за фактичною кількістю
+    if(offset > 500000) break;
   }
   var fresh = norm[key] ? data.map(norm[key]) : data;
   // Об'єднуємо замість повної заміни: якщо щойно збережений запис ще не встиг
