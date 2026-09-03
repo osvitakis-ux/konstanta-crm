@@ -369,13 +369,16 @@ function populateMissedSelect(){
   }
 
   // Пропущені заняття цього учня, ще не покриті повністю.
-  // Показуємо і пропуски В ІНШОГО репетитора (напр. який звільнився) — щоб новий
-  // репетитор міг їх відпрацювати. Пропуски саме цього репетитора йдуть першими.
+  // Репетитор бачить СВОЇ пропуски. Пропуски В ІНШОГО репетитора показуються ЛИШЕ
+  // якщо той репетитор ЗААРХІВОВАНИЙ (звільнився і його учнів передали цьому) —
+  // щоб не було видно пропусків суміжних активних репетиторів.
   var miss=(S.lessons||[]).filter(function(l){
     if(l.status!=='missed') return false;
     if((l.studentId||l.student_id)!==sid) return false;
     // Виключаємо себе (якщо редагуємо існуюче заняття)
     if(S.editId && l.id===S.editId) return false;
+    var lt=l.tutorId||l.tutor_id;
+    if(tid && lt!==tid && !tutorArchived(lt)) return false; // чужий активний репетитор — приховуємо
     return true;
   }).sort(function(a,b){
     // спершу пропуски цього ж репетитора, потім за датою (новіші вгорі)
@@ -476,17 +479,19 @@ function autoFillMakeupDates(){
 
   // ── Відпрацювання: підставляємо пропуск, який ще не покрито ──
   if((stat==='makeup'||stat==='makeup_planned') && missEl && !missEl.value){
-    var _mkCands=function(sameTutorOnly){
+    var _mkCands=function(mode){ // mode: 'own' — свої; 'archived' — чужі лише архівних
       return (S.lessons||[]).filter(function(x){
         if(x.status!=='missed') return false;
         if((x.studentId||x.student_id)!==sid) return false;
-        if(sameTutorOnly && tid && (x.tutorId||x.tutor_id)!==tid) return false;
+        var xt=x.tutorId||x.tutor_id;
+        if(mode==='own'){ if(tid && xt!==tid) return false; }
+        else { if(!(tid && xt!==tid && tutorArchived(xt))) return false; }
         if(S.editId && x.id===S.editId) return false;
         if(lessonDate && String(x.date||'') > lessonDate) return false;
         try{ return uncoveredMissedHours(x) > 0; }catch(e){ return true; }
       }).sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
     };
-    var cand=_mkCands(true); if(!cand.length) cand=_mkCands(false); // фолбек: пропуск в іншого репетитора
+    var cand=_mkCands('own'); if(!cand.length) cand=_mkCands('archived'); // фолбек: пропуск звільненого репетитора
     if(cand.length){
       missEl.value=cand[0].date;
       var hint=document.getElementById('l-miss-hint');
@@ -629,7 +634,7 @@ function renderMissedLessons(){
 }
 async function deleteLessonFromModal(){
   if(!S.editId)return;
-  if(lessonLocked(S.editId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 (\u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u043b\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440) \u2014 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return; }
+  if(lessonLocked(S.editId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u2014 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return; }
   if(!confirm('Видалити цей урок?'))return;
   var _id=S.editId;
   closeM('mo-lesson');
@@ -3262,7 +3267,8 @@ function weekStartMonday(){
 function lessonLocked(l){
   if(typeof l==='string') l=(S.lessons||[]).find(function(x){return x.id===l;});
   if(!l) return false;
-  if(isSuperAdmin()) return false;                       // директор редагує будь-що
+  // Адміністратор і директор (та вище) редагують заморожені заняття; тутори — ні.
+  if(['god','network_admin','director','admin'].indexOf(R())>=0) return false;
   if(!isConductedStatus(l.status)) return false;         // не проведене — вільно
   if(tutorArchived(l.tutorId||l.tutor_id)) return true;  // архівний репетитор — заморожено
   return String(l.date||'') < weekStartMonday();         // минулі тижні — заморожено
@@ -6991,7 +6997,7 @@ async function delTutor(id){
 }
 
 async function saveLesson(){
-  if(S.editId && lessonLocked(S.editId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 (\u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u043b\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440) \u2014 \u0437\u043c\u0456\u043d\u0438 \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u0456','error'); return; }
+  if(S.editId && lessonLocked(S.editId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u2014 \u0437\u043c\u0456\u043d\u0438 \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u0456','error'); return; }
   var stdEl=document.getElementById('l-std'); 
   var dateEl=document.getElementById('l-date');
   var studentId=stdEl?stdEl.value:''; 
@@ -7108,7 +7114,7 @@ async function saveLesson(){
 
 async function delLesson(id){
   if(!can('lessons')){ mkToast('\u041D\u0435\u043C\u0430\u0454 \u043F\u0440\u0430\u0432','error'); return; }
-  if(lessonLocked(id)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 (\u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u043b\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440) \u2014 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return; }
+  if(lessonLocked(id)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u2014 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e','error'); return; }
   var l=(S.lessons||[]).find(function(x){return x.id===id;});
   if(l && l.recurId){ S.editId=id; openM('mo-del-recur'); }
   else{ if(!confirm('\u0412\u0438\u0434\u0430\u043B\u0438\u0442\u0438 \u0437\u0430\u043D\u044F\u0442\u0442\u044F?')) return; try{ await dbDelete('lessons',id); mkToast('\u0412\u0438\u0434\u0430\u043B\u0435\u043D\u043E'); }catch(e){} }
@@ -7573,7 +7579,7 @@ function closeQuickPopup(){
 async function quickSetStatus(status){
   closeQuickPopup();
   if(!_quickLessonId) return;
-  if(lessonLocked(_quickLessonId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 (\u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u043b\u0438\u0448\u0435 \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440)','error'); return; }
+  if(lessonLocked(_quickLessonId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440','error'); return; }
   try{
     var upd={status: status};
     // Заморожуємо ставку в момент ПЕРШОГО проведення: далі зміни ставок це заняття
@@ -12262,7 +12268,7 @@ async function leadToStudent(id){
     var parts=nm.split(/\s+/);
     var sid=uid();
     await dbInsert('students',{ id:sid, fn:parts[0], ln:parts.slice(1).join(' ')||'',
-      phone:lead.phone, status:'trial', crm_stage:'lead', src:'internet' });
+      phone:lead.phone, status:'trial', crm_stage:'trial', src:'internet' });
     await _sb.from('phone_leads').update({status:'converted', student_id:sid,
       updated_at:new Date().toISOString()}).eq('id',id);
     // Прив'язуємо минулі дзвінки цього номера до нової картки
@@ -12776,46 +12782,47 @@ async function telAutoCreateLeads(log){
   if(cfg.autolead===false) return; // перемикач вимкнено — нічого не робимо
   if(!log||!log.length) return;
   function tail10(v){ return String(v||'').replace(/\D/g,'').slice(-10); }
-  // Список ІГНОРОВАНИХ номерів (видалені ліди) — щоб не створювати їх знову
+
+  // Номери НАЯВНИХ учнів/лідів у картках — такі дзвінки не потрапляють у ліди
+  var studentByTail={};
+  (S.students||[]).forEach(function(s){
+    var a=tail10(s.phone); if(a && !studentByTail[a]) studentByTail[a]=s;
+    var b=tail10(s.parentPhone||s.parent_phone); if(b && !studentByTail[b]) studentByTail[b]=s;
+  });
+  // Ігноровані номери (видалені ліди) — не створюємо знову
   var ignSet={};
-  try{
-    var _ign = await _sb.from('ignored_phones').select('phone');
-    (_ign.data||[]).forEach(function(x){ var t=tail10(x.phone); if(t) ignSet[t]=1; });
-  }catch(e){ console.warn('[telAutoCreateLeads] ignored_phones', e); }
+  try{ var _ign=await _sb.from('ignored_phones').select('phone'); (_ign.data||[]).forEach(function(x){var t=tail10(x.phone);if(t)ignSet[t]=1;}); }catch(e){}
+  // Наявні ліди у phone_leads — щоб не дублювати
+  var leadByTail={};
+  try{ var _lr=await _sb.from('phone_leads').select('id,phone'); (_lr.data||[]).forEach(function(x){var t=tail10(x.phone);if(t)leadByTail[t]=1;}); }catch(e){}
+
+  var created=0;
   for(var i=0;i<log.length;i++){
     var e=log[i];
-    if(e.student_id||e.studentId) continue; // вже прив'язано до когось
-    var phone=(e.caller_phone||e.phone||'').trim();
+    // Номер КЛІЄНТА: для вихідного — кому дзвонили, для вхідного — хто дзвонив
+    var phone=(((e.direction==='outbound')?(e.callee_phone||e.callee||''):(e.caller_phone||''))||e.phone||'').trim();
     var tail=tail10(phone);
     if(!tail || tail.length<7) continue; // некоректний/надто короткий номер
-    // Зіставлення по ОСТАННІХ 10 цифрах — щоб формати +380.../380.../0... збігались
-    // і НЕ створювався дубль на кожній синхронізації.
-    var existing=(S.students||[]).find(function(s){
-      return tail10(s.phone)===tail || tail10(s.parentPhone||s.parent_phone)===tail;
-    });
-    try{
-      if(existing){
-        // Номер уже є в учня/ліда — просто прив'язуємо дзвінок, нічого не створюємо
-        await _sb.from('call_logs').update({student_id:existing.id, caller_name:(existing.fn+' '+existing.ln).trim()}).eq('id',e.id);
-        e.student_id=existing.id; e.caller_name=(existing.fn+' '+existing.ln).trim();
-        continue;
+
+    // Якщо номер уже належить учню/ліду в картках — прив'язуємо дзвінок до нього, лід НЕ створюємо
+    if(studentByTail[tail]){
+      if(!(e.student_id||e.studentId)){
+        var s=studentByTail[tail];
+        try{ await _sb.from('call_logs').update({student_id:s.id, caller_name:(s.fn+' '+s.ln).trim()}).eq('id',e.id); e.student_id=s.id; e.caller_name=(s.fn+' '+s.ln).trim(); }catch(_){}
       }
-      if(ignSet[tail]) continue; // номер у списку ігнорованих (видалений лід) — не створюємо
-      // Невідомий номер — створюємо ЛІД (не учня): статус 'request' (не рахується
-      // як учень), етап CRM 'lead'. Адмін потім переведе його в учня / у неуспішні / видалить.
-      var newLead={
-        id:uid(), fn:e.caller_name||e.callerName||'\u0414\u0437\u0432\u0456\u043d\u043e\u043a \u0437 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457', ln:'',
-        phone:phone, status:'request', crm_stage:'lead', crm_date:new Date().toISOString().slice(0,10),
-        notes:'\u0410\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e \u0437 '+((e.direction==='outbound')?'\u0432\u0438\u0445\u0456\u0434\u043d\u043e\u0433\u043e':'\u0432\u0445\u0456\u0434\u043d\u043e\u0433\u043e')+' \u0434\u0437\u0432\u0456\u043d\u043a\u0430',
-        branch_id: myBranchId()||null
-      };
-      await dbInsert('students', newLead);
-      if(!(S.students||[]).some(function(x){return x.id===newLead.id;}))
-        S.students=(S.students||[]).concat([normalizeStudent(newLead)]);
-      await _sb.from('call_logs').update({student_id:newLead.id, caller_name:newLead.fn}).eq('id',e.id);
-      e.student_id=newLead.id; e.caller_name=newLead.fn; // одразу відображаємо без повторного запиту
-    }catch(err){ console.warn('[telAutoCreateLeads] помилка для дзвінка', e.id, err); }
+      continue;
+    }
+    if(ignSet[tail]) continue;      // видалений/ігнорований номер
+    if(leadByTail[tail]) continue;  // лід із цим номером уже є в інбоксі
+
+    // Новий номер — створюємо ЛІД у phone_leads (інбокс "Ліди з дзвінків"), НЕ учня
+    var callTime=e.call_time||e.started_at||e.created_at||e.last_call||new Date().toISOString();
+    try{
+      await _sb.from('phone_leads').insert({ phone:phone, status:'new', calls_count:1, last_call:callTime });
+      leadByTail[tail]=1; created++;
+    }catch(err){ console.warn('[telAutoCreateLeads] phone_leads insert', err); }
   }
+  if(created && S.currentPage==='leads'){ try{ renderLeads(); }catch(e){} }
 }
 
 async function telLinkStudent(logId, phone){
