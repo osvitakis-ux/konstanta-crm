@@ -12178,6 +12178,53 @@ async function telAddLog(entry){
 //  Окрема сутність: не картка учня. Видалення ліда не чіпає
 //  журнал телефонії й не призводить до повторного створення.
 // ═══════════════════════════════════════════════════════════════
+// Ручна синхронізація лідів із журналу дзвінків + чітка діагностика в тостах.
+async function telSyncLeadsNow(){
+  window._phoneLeadInsertBlocked = false; // скидаємо блок, щоб спробувати знову
+  mkToast('Синхронізую ліди з дзвінків…','info');
+  try{
+    var log = await telGetLog(null);
+    if(!log || !log.length){
+      mkToast('У журналі немає дзвінків. Перевірте синхронізацію телефонії (call_logs порожній).','error');
+      return;
+    }
+    function tail10(v){ return String(v||'').replace(/\D/g,'').slice(-10); }
+    var studentTails={};
+    (S.students||[]).forEach(function(s){ var a=tail10(s.phone); if(a)studentTails[a]=1; var b=tail10(s.parentPhone||s.parent_phone); if(b)studentTails[b]=1; });
+    var ignSet={};
+    try{ var _ign=await _sb.from('ignored_phones').select('phone'); (_ign.data||[]).forEach(function(x){var t=tail10(x.phone);if(t)ignSet[t]=1;}); }catch(e){}
+    var leadTails={};
+    try{ var _lr=await _sb.from('phone_leads').select('phone'); (_lr.data||[]).forEach(function(x){var t=tail10(x.phone);if(t)leadTails[t]=1;}); }catch(e){}
+    var unknown={};
+    log.forEach(function(e){
+      var phone=(((e.direction==='outbound')?(e.callee_phone||e.callee||''):(e.caller_phone||''))||e.phone||'').trim();
+      var t=tail10(phone);
+      if(!t || t.length<7) return;
+      if(studentTails[t]||ignSet[t]||leadTails[t]) return;
+      if(!unknown[t]) unknown[t]=phone;
+    });
+    var keys=Object.keys(unknown);
+    if(!keys.length){ mkToast('Дзвінків: '+log.length+'. Нових номерів немає — усі вже відомі (учні/ліди).','info'); renderLeads(); return; }
+    // пробуємо СТВОРИТИ перший лід — щоб зловити точну помилку доступу/схеми
+    var _ins=null;
+    try{ _ins = await _sb.from('phone_leads').insert({ phone:unknown[keys[0]], status:'new', calls_count:1, last_call:new Date().toISOString() }); }
+    catch(ex){ _ins={error:ex}; }
+    if(_ins && _ins.error){
+      var m=(_ins.error && (_ins.error.message||_ins.error.hint||_ins.error.code))||JSON.stringify(_ins.error);
+      mkToast('Не вдалося створити лід: '+m,'error');
+      console.error('[telSyncLeadsNow] phone_leads INSERT error →', _ins.error);
+      return;
+    }
+    var created=1;
+    for(var i=1;i<keys.length;i++){
+      try{ var r=await _sb.from('phone_leads').insert({ phone:unknown[keys[i]], status:'new', calls_count:1, last_call:new Date().toISOString() }); if(!(r&&r.error)) created++; }catch(e){}
+    }
+    mkToast('Готово! Дзвінків: '+log.length+', створено нових лідів: '+created);
+    renderLeads();
+  }catch(e){ mkToast('Помилка синхронізації: '+(e.message||e),'error'); console.error('[telSyncLeadsNow]', e); }
+}
+window.telSyncLeadsNow=telSyncLeadsNow;
+
 async function renderLeads(){
   var body=document.getElementById('leads-body');
   var sum=document.getElementById('lead-summary');
