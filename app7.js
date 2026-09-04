@@ -12207,7 +12207,7 @@ async function telSyncLeadsNow(){
     if(!keys.length){ mkToast('Дзвінків: '+log.length+'. Нових номерів немає — усі вже відомі (учні/ліди).','info'); renderLeads(); return; }
     // пробуємо СТВОРИТИ перший лід — щоб зловити точну помилку доступу/схеми
     var _ins=null;
-    try{ _ins = await _sb.from('phone_leads').insert({ phone:unknown[keys[0]], status:'new', calls_count:1, last_call:new Date().toISOString() }); }
+    try{ _ins = await _sb.from('phone_leads').insert({ phone:unknown[keys[0]], phone_key:keys[0], status:'new', calls_count:1, last_call:new Date().toISOString() }); }
     catch(ex){ _ins={error:ex}; }
     if(_ins && _ins.error){
       var m=(_ins.error && (_ins.error.message||_ins.error.hint||_ins.error.code))||JSON.stringify(_ins.error);
@@ -12217,7 +12217,7 @@ async function telSyncLeadsNow(){
     }
     var created=1;
     for(var i=1;i<keys.length;i++){
-      try{ var r=await _sb.from('phone_leads').insert({ phone:unknown[keys[i]], status:'new', calls_count:1, last_call:new Date().toISOString() }); if(!(r&&r.error)) created++; }catch(e){}
+      try{ var r=await _sb.from('phone_leads').insert({ phone:unknown[keys[i]], phone_key:keys[i], status:'new', calls_count:1, last_call:new Date().toISOString() }); if(!(r&&r.error)) created++; }catch(e){}
     }
     mkToast('Готово! Дзвінків: '+log.length+', створено нових лідів: '+created);
     renderLeads();
@@ -12902,7 +12902,7 @@ async function telAutoCreateLeads(log){
     // Новий номер — створюємо ЛІД у phone_leads (інбокс "Ліди з дзвінків"), НЕ учня
     var callTime=e.call_time||e.started_at||e.created_at||e.last_call||new Date().toISOString();
     var _ins=null;
-    try{ _ins = await _sb.from('phone_leads').insert({ phone:phone, status:'new', calls_count:1, last_call:callTime }); }
+    try{ _ins = await _sb.from('phone_leads').insert({ phone:phone, phone_key:tail, status:'new', calls_count:1, last_call:callTime }); }
     catch(ex){ _ins = { error: ex }; }
     if(_ins && _ins.error){
       // Вставку відхилено (найімовірніше немає RLS-політики INSERT для phone_leads).
