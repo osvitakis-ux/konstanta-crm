@@ -12184,15 +12184,6 @@ async function renderLeads(){
   if(!body) return;
   body.innerHTML=skeleton('rows',6);
 
-  // Підтягуємо ліди з останніх дзвінків прямо тут — щоб вони з'являлися й без
-  // відкриття сторінки «Дзвінки». Раніше створення лідів запускалось лише там.
-  var _callCount=0;
-  try{
-    var _log = await telGetLog(null);
-    _callCount = (_log||[]).length;
-    if(_callCount) await telAutoCreateLeads(_log);
-  }catch(e){ console.warn('[renderLeads autolead]', e); }
-
   var rows=[];
   try{
     var r=await _sb.from('phone_leads').select('*').order('last_call',{ascending:false}).limit(300);
@@ -12231,10 +12222,7 @@ async function renderLeads(){
   }
 
   if(!shown.length){
-    var _emptyMsg = (_callCount===0 && (f==='new'||f===''))
-      ? '\u041d\u0435\u043c\u0430\u0454 \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u0434\u043b\u044f \u043e\u0431\u0440\u043e\u0431\u043a\u0438<br><span style="font-size:12px">\u041f\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u044e \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0456\u0457 (\u0436\u0443\u0440\u043d\u0430\u043b \u0434\u0437\u0432\u0456\u043d\u043a\u0456\u0432 \u043f\u043e\u0440\u043e\u0436\u043d\u0456\u0439)</span>'
-      : '\u041d\u0435\u043c\u0430\u0454 \u043b\u0456\u0434\u0456\u0432 \u0443 \u0446\u0456\u0439 \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0456\u0457';
-    body.innerHTML='<div class="empty"><div class="ei">\u260e</div>'+_emptyMsg+'</div>';
+    body.innerHTML='<div class="empty"><div class="ei">\u260e</div>\u041d\u0435\u043c\u0430\u0454 \u043b\u0456\u0434\u0456\u0432 \u0443 \u0446\u0456\u0439 \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0456\u0457</div>';
     return;
   }
 
@@ -12862,13 +12850,21 @@ async function telAutoCreateLeads(log){
     }
     if(ignSet[tail]) continue;      // видалений/ігнорований номер
     if(leadByTail[tail]) continue;  // лід із цим номером уже є в інбоксі
+    if(window._phoneLeadInsertBlocked) continue; // вставка недоступна (RLS) — не спамимо
 
     // Новий номер — створюємо ЛІД у phone_leads (інбокс "Ліди з дзвінків"), НЕ учня
     var callTime=e.call_time||e.started_at||e.created_at||e.last_call||new Date().toISOString();
-    try{
-      await _sb.from('phone_leads').insert({ phone:phone, status:'new', calls_count:1, last_call:callTime });
-      leadByTail[tail]=1; created++;
-    }catch(err){ console.warn('[telAutoCreateLeads] phone_leads insert', err); }
+    var _ins=null;
+    try{ _ins = await _sb.from('phone_leads').insert({ phone:phone, status:'new', calls_count:1, last_call:callTime }); }
+    catch(ex){ _ins = { error: ex }; }
+    if(_ins && _ins.error){
+      // Вставку відхилено (найімовірніше немає RLS-політики INSERT для phone_leads).
+      // Зупиняємось, щоб НЕ засипати консоль сотнями однакових помилок.
+      window._phoneLeadInsertBlocked = true;
+      console.warn('[telAutoCreateLeads] phone_leads INSERT відхилено (перевірте RLS-політику). Зупинено, щоб не спамити.', _ins.error);
+      continue;
+    }
+    leadByTail[tail]=1; created++;
   }
   if(created && S.currentPage==='leads'){ try{ renderLeads(); }catch(e){} }
 }
