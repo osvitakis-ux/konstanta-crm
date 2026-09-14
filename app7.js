@@ -8208,14 +8208,30 @@ function payrollItemsForAdmin(adminId, period){
 var PAYROLL_FIRSTPAY_PCT = 0.10; // 10% від першої оплати учня — адміну, що її вніс
 // Бонус адміна за перші оплати, внесені САМЕ у цьому місяці (period='YYYY-MM').
 function firstPaymentBonusInfo(adminId, period){
-  var count=0, base=0;
+  var count=0, base=0, list=[];
   (S.students||[]).forEach(function(s){
     var amt=parseFloat(s.first_payment); if(isNaN(amt)||amt<=0) return;
     if((s.first_payment_by||'')!==adminId) return;                      // вніс саме цей адмін
     if(String(s.first_payment_date||'').slice(0,7)!==period) return;    // саме цей місяць
     count++; base+=amt;
+    list.push({ name:(s.id?snShort(s.id):'\u2014'), amount:amt });
   });
-  return { count:count, base:Math.round(base*100)/100, bonus:Math.round(base*PAYROLL_FIRSTPAY_PCT*100)/100 };
+  list.sort(function(a,b){ return String(a.name).localeCompare(String(b.name),'uk'); });
+  return { count:count, base:Math.round(base*100)/100, bonus:Math.round(base*PAYROLL_FIRSTPAY_PCT*100)/100, students:list };
+}
+// Сума успішно реалізованих угод (за першими оплатами) за період [from..to],
+// з фільтром за ВІДПОВІДАЛЬНИМ адміністратором (crm_responsible). Дата угоди = дата першої оплати.
+function realizedDealsSum(respAdminId, from, to){
+  var sum=0, cnt=0, list=[];
+  (S.students||[]).forEach(function(s){
+    var amt=parseFloat(s.first_payment); if(isNaN(amt)||amt<=0) return;
+    if(respAdminId && (s.crmResponsible||s.crm_responsible||'')!==respAdminId) return;
+    var d=String(s.first_payment_date||''); if(!d || d<from || d>to) return;
+    sum+=amt; cnt++;
+    list.push({ name:(s.id?snShort(s.id):'\u2014'), amount:amt, date:d });
+  });
+  list.sort(function(a,b){ return String(a.name).localeCompare(String(b.name),'uk'); });
+  return { sum:Math.round(sum*100)/100, cnt:cnt, list:list };
 }
 function payrollTotalAdmin(adminId, period){
   var items=payrollItemsForAdmin(adminId, period);
@@ -8391,6 +8407,11 @@ function renderPayroll(){
       }).join('');
       var fpHtml = (pt.firstPay&&pt.firstPay.bonus>0)
         ? '<div class="pr-item"><span class="pr-item-lbl">💵 10% від перших оплат ('+pt.firstPay.count+' \u00B7 '+money(pt.firstPay.base)+'\u20B4)</span><span class="pr-item-amt pos">+'+money(pt.firstPay.bonus)+'\u20B4</span></div>'
+          + ((pt.firstPay.students&&pt.firstPay.students.length)
+              ? '<div style="font-size:11px;color:var(--t3);padding:1px 0 5px 10px;line-height:1.55">'
+                  + pt.firstPay.students.map(function(st){ return '\u2022 '+st.name+' \u2014 '+money(st.amount)+'\u20B4 (10% = '+money(Math.round(st.amount*PAYROLL_FIRSTPAY_PCT*100)/100)+'\u20B4)'; }).join('<br>')
+                + '</div>'
+              : '')
         : '';
       var bodyInner = (fpHtml||itemsHtml)
         ? '<div class="pr-items">'+fpHtml+itemsHtml+'</div>'
@@ -8494,7 +8515,11 @@ function printPayroll(recipientId, type){
       return '<tr><td class="ilbl">'+(i.label||'')+'</td><td class="r '+(amt<0?'neg':'pos')+'">'+(amt>=0?'+':'')+money(amt)+' \u20B4</td></tr>';
     }).join('');
     if(ptA.firstPay&&ptA.firstPay.bonus>0){
-      rowsA = '<tr><td class="ilbl">\uD83D\uDCB5 10% \u0432\u0456\u0434 \u043F\u0435\u0440\u0448\u0438\u0445 \u043E\u043F\u043B\u0430\u0442 ('+ptA.firstPay.count+' \u00B7 '+money(ptA.firstPay.base)+' \u20B4)</td><td class="r pos">+'+money(ptA.firstPay.bonus)+' \u20B4</td></tr>' + rowsA;
+      var _fpRows='<tr><td class="ilbl">\uD83D\uDCB5 10% \u0432\u0456\u0434 \u043F\u0435\u0440\u0448\u0438\u0445 \u043E\u043F\u043B\u0430\u0442 ('+ptA.firstPay.count+' \u00B7 '+money(ptA.firstPay.base)+' \u20B4)</td><td class="r pos">+'+money(ptA.firstPay.bonus)+' \u20B4</td></tr>';
+      (ptA.firstPay.students||[]).forEach(function(st){
+        _fpRows += '<tr><td class="ilbl" style="padding-left:22px;color:#888">\u2022 '+st.name+' \u2014 '+money(st.amount)+' \u20B4</td><td class="r" style="color:#888">10% = '+money(Math.round(st.amount*PAYROLL_FIRSTPAY_PCT*100)/100)+' \u20B4</td></tr>';
+      });
+      rowsA = _fpRows + rowsA;
     }
     var w=window.open('','_blank');
     w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>\u0412\u0456\u0434\u043E\u043C\u0456\u0441\u0442\u044C \u0437\u0430\u0440\u043F\u043B\u0430\u0442\u0438</title>'
@@ -11137,6 +11162,40 @@ function renderCrm(){
       +'<span style="background:var(--tut-bg);border:1px solid rgba(34,181,115,.25);border-radius:20px;padding:5px 14px;color:var(--tut)">\u0423\u0441\u043f\u0456\u0448\u043d\u043e: <b>'+won+'</b></span>'
       +'<span style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);border-radius:20px;padding:5px 14px;color:var(--danger)">\u041d\u0435 \u0440\u0435\u0430\u043b.: <b>'+lost+'</b></span>'
       +'<span style="background:var(--adm-bg);border:1px solid rgba(41,171,226,.25);border-radius:20px;padding:5px 14px;color:var(--adm)">\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0456\u044f: <b>'+conv+'%</b></span>';
+    // Суми успішно реалізованих угод — лише для директорів (за обраним відповідальним)
+    if(isSuperAdmin()){
+      var _now=new Date();
+      var _wStart=weekStartMonday();
+      var _wEndD=new Date(_wStart+'T00:00:00'); _wEndD.setDate(_wEndD.getDate()+6);
+      var _pad=function(n){return String(n).padStart(2,'0');};
+      var _fmt=function(d){return d.getFullYear()+'-'+_pad(d.getMonth()+1)+'-'+_pad(d.getDate());};
+      var _wEnd=_fmt(_wEndD);
+      var _mStart=_now.getFullYear()+'-'+_pad(_now.getMonth()+1)+'-01';
+      var _mEnd=_now.getFullYear()+'-'+_pad(_now.getMonth()+1)+'-'+_pad(new Date(_now.getFullYear(),_now.getMonth()+1,0).getDate());
+      var _wk=realizedDealsSum(fResp, _wStart, _wEnd);
+      var _mo=realizedDealsSum(fResp, _mStart, _mEnd);
+      statsEl.innerHTML +=
+         '<span style="background:var(--tut-bg);border:1px solid rgba(34,181,115,.3);border-radius:20px;padding:5px 14px;color:var(--tut)">\uD83D\uDCB0 \u0420\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e \u0437\u0430 \u0442\u0438\u0436\u0434\u0435\u043d\u044c: <b>'+money(_wk.sum)+'\u20B4</b> \u00b7 '+_wk.cnt+' \u0443\u0433.</span>'
+        +'<span style="background:var(--tut-bg);border:1px solid rgba(34,181,115,.3);border-radius:20px;padding:5px 14px;color:var(--tut)">\uD83D\uDCB0 \u0417\u0430 \u043c\u0456\u0441\u044f\u0446\u044c: <b>'+money(_mo.sum)+'\u20B4</b> \u00b7 '+_mo.cnt+' \u0443\u0433.</span>';
+      // Розбивка реалізованих угод ПО ПРІЗВИЩАХ (тиждень + місяць)
+      var _detailEl=document.getElementById('crm-deals-detail');
+      if(_detailEl){
+        var _mkList=function(arr){
+          if(!arr.length) return '<div style="color:var(--t3);font-size:12px;padding:2px 0">\u041d\u0435\u043c\u0430\u0454</div>';
+          return arr.map(function(d){
+            return '<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--s3);font-size:12.5px"><span>'+d.name+'</span><span style="font-weight:600;white-space:nowrap">'+money(d.amount)+'\u20B4</span></div>';
+          }).join('');
+        };
+        _detailEl.innerHTML=
+          '<details style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 14px;margin-bottom:12px">'
+            +'<summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--t1)">\uD83D\uDCCB \u0420\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u0456 \u0443\u0433\u043e\u0434\u0438 \u043f\u043e \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0430\u0445</summary>'
+            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px">'
+              +'<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;margin-bottom:4px">\u0417\u0430 \u0442\u0438\u0436\u0434\u0435\u043d\u044c ('+money(_wk.sum)+'\u20B4)</div>'+_mkList(_wk.list)+'</div>'
+              +'<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;margin-bottom:4px">\u0417\u0430 \u043c\u0456\u0441\u044f\u0446\u044c ('+money(_mo.sum)+'\u20B4)</div>'+_mkList(_mo.list)+'</div>'
+            +'</div>'
+          +'</details>';
+      }
+    } else { var _dd=document.getElementById('crm-deals-detail'); if(_dd) _dd.innerHTML=''; }
   }
 
   el.innerHTML = '';
