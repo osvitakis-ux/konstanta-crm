@@ -3212,6 +3212,8 @@ function fd2(l,p){document.getElementById('lu').value=l;document.getElementById(
 function sn(id){const s=S.students.find(x=>x.id===id);return s?s.fn+' '+s.ln:'\u2014';}
 // Прізвище та ініціал: "Мілентьєва В."
 function snShort(id){const s=S.students.find(x=>x.id===id);return s?((s.ln||'')+(s.fn?' '+s.fn[0]+'.':'')).trim()||'\u2014':'\u2014';}
+// Глобальний форматер грошей (renderPayroll має свій локальний — цей для решти місць)
+function money(n){ return (Math.round((+n||0)*100)/100).toLocaleString('uk-UA'); }
 // Розкладання уроків дня по вертикальних смугах: уроки, що перетинаються в часі,
 // діляться по ширині клітинки. Повертає Map(lessonId -> {lane, count}).
 function schAssignLanes(dayLessons){
