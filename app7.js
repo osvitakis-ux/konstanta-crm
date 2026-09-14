@@ -11163,6 +11163,7 @@ function renderCrm(){
       +'<span style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);border-radius:20px;padding:5px 14px;color:var(--danger)">\u041d\u0435 \u0440\u0435\u0430\u043b.: <b>'+lost+'</b></span>'
       +'<span style="background:var(--adm-bg);border:1px solid rgba(41,171,226,.25);border-radius:20px;padding:5px 14px;color:var(--adm)">\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0456\u044f: <b>'+conv+'%</b></span>';
     // Суми успішно реалізованих угод — лише для директорів (за обраним відповідальним)
+    try{
     if(isSuperAdmin()){
       var _now=new Date();
       var _wStart=weekStartMonday();
@@ -11196,6 +11197,7 @@ function renderCrm(){
           +'</details>';
       }
     } else { var _dd=document.getElementById('crm-deals-detail'); if(_dd) _dd.innerHTML=''; }
+    }catch(_crmDealsErr){ console.warn('[renderCrm deals block]', _crmDealsErr); }
   }
 
   el.innerHTML = '';
