@@ -3685,7 +3685,7 @@ function journalRedFlags(tutorId, period){
   var all = ratingLessons(tutorId, period);
   // Згорілі заняття виключаємо: журнал для них заповнювати нічого,
   // тож вимагати тему й ДЗ було б несправедливо
-  var done = all.filter(function(l){ return isDoneLesson(l) && !isBurnedLesson(l); });
+  var done = all.filter(function(l){ return isDoneLesson(l) && !isBurnedLesson(l) && l.status!=='testing'; });
 
   var flags = {
     beforeStart: [],   // відмічено ДО початку заняття
@@ -3778,7 +3778,7 @@ function tutorRating(tutorId, period){
   // Проведені — саме їх журнал і має бути заповнений
   // Згорілі заняття виключаємо: журнал для них заповнювати нічого,
   // тож вимагати тему й ДЗ було б несправедливо
-  var done = all.filter(function(l){ return isDoneLesson(l) && !isBurnedLesson(l); });
+  var done = all.filter(function(l){ return isDoneLesson(l) && !isBurnedLesson(l) && l.status!=='testing'; });
   // Забуті: дата минула, а статус досі "заплановане"
   var forgotten = all.filter(function(l){
     return (l.status==='planned'||l.status==='scheduled'||!l.status)
@@ -4591,11 +4591,15 @@ function renderStudents(){
   var _fSort=_canFilterExtra?(document.getElementById('sf-sort')||{value:''}).value:'';
   var data=myStudents().filter(function(s){
     if(!_q) return true;
-    return (s.fn+' '+s.ln).toLowerCase().includes(_q)
-        || (s.ln+' '+s.fn).toLowerCase().includes(_q)
-        || (s.phone||'').includes(_q)
-        || (s.parentPhone||'').includes(_q)
-        || (s.email||'').toLowerCase().includes(_q);
+    var _qd=_q.replace(/\D/g,''); // цифри запиту — для пошуку за телефоном
+    if((s.fn+' '+s.ln).toLowerCase().includes(_q)) return true;
+    if((s.ln+' '+s.fn).toLowerCase().includes(_q)) return true;
+    if((s.email||'').toLowerCase().includes(_q)) return true;
+    if(_qd.length>=3){ // телефон зіставляємо ЛИШЕ за цифрами (щоб +380/380/0/пробіли збігались)
+      if(String(s.phone||'').replace(/\D/g,'').includes(_qd)) return true;
+      if(String(s.parentPhone||s.parent_phone||'').replace(/\D/g,'').includes(_qd)) return true;
+    }
+    return false;
   });
   if(sfCur!=='all') data=data.filter(function(s){return s.status===sfCur;});
   if(_fBranch) data=data.filter(function(s){
@@ -11137,7 +11141,7 @@ function renderCrm(){
   var students = (S.students||[]).filter(function(s){
     if(getCrmStage(s)==='removed') return false; // приховано з CRM-дошки, учень лишається в системі
     if(fStage && getCrmStage(s) !== fStage) return false;
-    if(fMonth && (s.crmDate||'').slice(0,7) !== fMonth) return false;
+    if(fMonth){ var _cd=String(s.crmDate||s.crm_date||s.created_at||''); if(_cd.slice(0,7)!==fMonth) return false; }
     if(fResp  && s.crmResponsible !== fResp) return false;
     return true;
   });
