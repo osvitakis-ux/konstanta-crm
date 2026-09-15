@@ -5430,13 +5430,20 @@ function cmdResults(q){
 
   // Учні — найчастіший сценарій пошуку
   if(q.length>=2){
+    var _qd=q.replace(/\D/g,'');
     myStudents().filter(function(st){
       var nm=((st.fn||'')+' '+(st.ln||'')).toLowerCase();
-      var ph=String(st.phone||'').replace(/\D/g,'');
-      return nm.indexOf(q)>=0 || (q.replace(/\D/g,'') && ph.indexOf(q.replace(/\D/g,''))>=0);
+      var nm2=((st.ln||'')+' '+(st.fn||'')).toLowerCase();
+      if(nm.indexOf(q)>=0 || nm2.indexOf(q)>=0) return true;
+      if(_qd && _qd.length>=3){
+        var ph=String(st.phone||'').replace(/\D/g,'');
+        var pph=String(st.parentPhone||st.parent_phone||'').replace(/\D/g,'');
+        if(ph.indexOf(_qd)>=0 || pph.indexOf(_qd)>=0) return true;
+      }
+      return false;
     }).slice(0,6).forEach(function(st){
       out.push({ico:'\ud83c\udf93', title:(st.fn||'')+' '+(st.ln||''),
-        sub:st.phone||'\u0423\u0447\u0435\u043d\u044c', kind:'student',
+        sub:(st.phone||st.parentPhone||st.parent_phone||'\u0423\u0447\u0435\u043d\u044c'), kind:'student',
         run:function(){ nav('students'); setTimeout(function(){ openStudM(st.id); },120); }});
     });
   }
@@ -11138,10 +11145,11 @@ function renderCrm(){
     respSel.value = fResp;
   }
 
+  // Дошка показує ВСЮ воронку (фільтри — лише етап і відповідальний).
+  // Місяць впливає ТІЛЬКИ на суми реалізованих угод нижче, а не ховає картки.
   var students = (S.students||[]).filter(function(s){
     if(getCrmStage(s)==='removed') return false; // приховано з CRM-дошки, учень лишається в системі
     if(fStage && getCrmStage(s) !== fStage) return false;
-    if(fMonth){ var _cd=String(s.crmDate||s.crm_date||s.created_at||''); if(_cd.slice(0,7)!==fMonth) return false; }
     if(fResp  && s.crmResponsible !== fResp) return false;
     return true;
   });
@@ -11168,39 +11176,36 @@ function renderCrm(){
       +'<span style="background:var(--tut-bg);border:1px solid rgba(34,181,115,.25);border-radius:20px;padding:5px 14px;color:var(--tut)">\u0423\u0441\u043f\u0456\u0448\u043d\u043e: <b>'+won+'</b></span>'
       +'<span style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);border-radius:20px;padding:5px 14px;color:var(--danger)">\u041d\u0435 \u0440\u0435\u0430\u043b.: <b>'+lost+'</b></span>'
       +'<span style="background:var(--adm-bg);border:1px solid rgba(41,171,226,.25);border-radius:20px;padding:5px 14px;color:var(--adm)">\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0456\u044f: <b>'+conv+'%</b></span>';
-    // Суми успішно реалізованих угод — лише для директорів (за обраним відповідальним)
+    // Суми реалізованих угод — лише для директорів (за ОБРАНИМ місяцем і відповідальним)
     try{
     if(isSuperAdmin()){
       var _now=new Date();
+      var _pad=function(n){return String(n).padStart(2,'0');};
+      var _curMonth=_now.getFullYear()+'-'+_pad(_now.getMonth()+1);
+      var _monthKey=fMonth||_curMonth;                       // обраний місяць або поточний
+      var _my=parseInt(_monthKey.slice(0,4),10), _mm=parseInt(_monthKey.slice(5,7),10);
+      var _mStart=_monthKey+'-01';
+      var _mEnd=_monthKey+'-'+_pad(new Date(_my,_mm,0).getDate());
+      var _mo=realizedDealsSum(fResp, _mStart, _mEnd);
+      var _showWeek=(!fMonth || fMonth===_curMonth);         // тиждень має сенс лише для поточного місяця
       var _wStart=weekStartMonday();
       var _wEndD=new Date(_wStart+'T00:00:00'); _wEndD.setDate(_wEndD.getDate()+6);
-      var _pad=function(n){return String(n).padStart(2,'0');};
       var _fmt=function(d){return d.getFullYear()+'-'+_pad(d.getMonth()+1)+'-'+_pad(d.getDate());};
-      var _wEnd=_fmt(_wEndD);
-      var _mStart=_now.getFullYear()+'-'+_pad(_now.getMonth()+1)+'-01';
-      var _mEnd=_now.getFullYear()+'-'+_pad(_now.getMonth()+1)+'-'+_pad(new Date(_now.getFullYear(),_now.getMonth()+1,0).getDate());
-      var _wk=realizedDealsSum(fResp, _wStart, _wEnd);
-      var _mo=realizedDealsSum(fResp, _mStart, _mEnd);
-      statsEl.innerHTML +=
-         '<span style="background:var(--tut-bg);border:1px solid rgba(34,181,115,.3);border-radius:20px;padding:5px 14px;color:var(--tut)">\uD83D\uDCB0 \u0420\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e \u0437\u0430 \u0442\u0438\u0436\u0434\u0435\u043d\u044c: <b>'+money(_wk.sum)+'\u20B4</b> \u00b7 '+_wk.cnt+' \u0443\u0433.</span>'
-        +'<span style="background:var(--tut-bg);border:1px solid rgba(34,181,115,.3);border-radius:20px;padding:5px 14px;color:var(--tut)">\uD83D\uDCB0 \u0417\u0430 \u043c\u0456\u0441\u044f\u0446\u044c: <b>'+money(_mo.sum)+'\u20B4</b> \u00b7 '+_mo.cnt+' \u0443\u0433.</span>';
-      // Розбивка реалізованих угод ПО ПРІЗВИЩАХ (тиждень + місяць)
+      var _wk=_showWeek?realizedDealsSum(fResp,_wStart,_fmt(_wEndD)):{sum:0,cnt:0,list:[]};
+      var _chip=function(lbl,r){return '<span style="background:var(--tut-bg);border:1px solid rgba(34,181,115,.3);border-radius:20px;padding:5px 14px;color:var(--tut)">\uD83D\uDCB0 '+lbl+': <b>'+money(r.sum)+'\u20B4</b> \u00b7 '+r.cnt+' \u0443\u0433.</span>';};
+      if(_showWeek) statsEl.innerHTML += _chip('\u0420\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u043e \u0437\u0430 \u0442\u0438\u0436\u0434\u0435\u043d\u044c', _wk);
+      statsEl.innerHTML += _chip('\u0417\u0430 '+prMonthName(_monthKey), _mo);
+      // Розбивка реалізованих угод ПО ПРІЗВИЩАХ
       var _detailEl=document.getElementById('crm-deals-detail');
       if(_detailEl){
         var _mkList=function(arr){
           if(!arr.length) return '<div style="color:var(--t3);font-size:12px;padding:2px 0">\u041d\u0435\u043c\u0430\u0454</div>';
-          return arr.map(function(d){
-            return '<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--s3);font-size:12.5px"><span>'+d.name+'</span><span style="font-weight:600;white-space:nowrap">'+money(d.amount)+'\u20B4</span></div>';
-          }).join('');
+          return arr.map(function(d){ return '<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--s3);font-size:12.5px"><span>'+d.name+'</span><span style="font-weight:600;white-space:nowrap">'+money(d.amount)+'\u20B4</span></div>'; }).join('');
         };
-        _detailEl.innerHTML=
-          '<details style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 14px;margin-bottom:12px">'
-            +'<summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--t1)">\uD83D\uDCCB \u0420\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u0456 \u0443\u0433\u043e\u0434\u0438 \u043f\u043e \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0430\u0445</summary>'
-            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px">'
-              +'<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;margin-bottom:4px">\u0417\u0430 \u0442\u0438\u0436\u0434\u0435\u043d\u044c ('+money(_wk.sum)+'\u20B4)</div>'+_mkList(_wk.list)+'</div>'
-              +'<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;margin-bottom:4px">\u0417\u0430 \u043c\u0456\u0441\u044f\u0446\u044c ('+money(_mo.sum)+'\u20B4)</div>'+_mkList(_mo.list)+'</div>'
-            +'</div>'
-          +'</details>';
+        var _cols='';
+        if(_showWeek) _cols+='<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;margin-bottom:4px">\u0417\u0430 \u0442\u0438\u0436\u0434\u0435\u043d\u044c ('+money(_wk.sum)+'\u20B4)</div>'+_mkList(_wk.list)+'</div>';
+        _cols+='<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;margin-bottom:4px">\u0417\u0430 '+prMonthName(_monthKey)+' ('+money(_mo.sum)+'\u20B4)</div>'+_mkList(_mo.list)+'</div>';
+        _detailEl.innerHTML='<details style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:8px 14px;margin-bottom:12px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--t1)">\uD83D\uDCCB \u0420\u0435\u0430\u043b\u0456\u0437\u043e\u0432\u0430\u043d\u0456 \u0443\u0433\u043e\u0434\u0438 \u043f\u043e \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0430\u0445</summary><div style="display:grid;grid-template-columns:'+(_showWeek?'1fr 1fr':'1fr')+';gap:18px;margin-top:10px">'+_cols+'</div></details>';
       }
     } else { var _dd=document.getElementById('crm-deals-detail'); if(_dd) _dd.innerHTML=''; }
     }catch(_crmDealsErr){ console.warn('[renderCrm deals block]', _crmDealsErr); }
