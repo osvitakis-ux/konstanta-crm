@@ -8232,14 +8232,14 @@ function firstPaymentBonusInfo(adminId, period){
   list.sort(function(a,b){ return String(a.name).localeCompare(String(b.name),'uk'); });
   return { count:count, base:Math.round(base*100)/100, bonus:Math.round(base*PAYROLL_FIRSTPAY_PCT*100)/100, students:list };
 }
-// Сума успішно реалізованих угод (за першими оплатами) за період [from..to],
-// з фільтром за ВІДПОВІДАЛЬНИМ адміністратором (crm_responsible). Дата угоди = дата першої оплати.
+// Сума успішно реалізованих угод (за першими оплатами) за період [from..to] за ДАТОЮ
+// СТВОРЕННЯ учня (щоб збігалося з фільтром по часу в CRM), з фільтром за відповідальним.
 function realizedDealsSum(respAdminId, from, to){
   var sum=0, cnt=0, list=[];
   (S.students||[]).forEach(function(s){
     var amt=parseFloat(s.first_payment); if(isNaN(amt)||amt<=0) return;
     if(respAdminId && (s.crmResponsible||s.crm_responsible||'')!==respAdminId) return;
-    var d=String(s.first_payment_date||''); if(!d || d<from || d>to) return;
+    var d=String(s.created_at||s.createdAt||s.first_payment_date||'').slice(0,10); if(!d || d<from || d>to) return;
     sum+=amt; cnt++;
     list.push({ name:(s.id?snShort(s.id):'\u2014'), amount:amt, date:d });
   });
@@ -9057,6 +9057,36 @@ function sRemoveTutor(id){
 window.sAddTutor=sAddTutor;
 window.sRemoveTutor=sRemoveTutor;
 
+// Дата створення учня + історія змін статусів (з журналу аудиту, без окремої таблиці)
+async function renderStudentHistory(id){
+  var box=document.getElementById('s-history'); if(!box) return;
+  // Лише адміністратори та директори (не репетитори)
+  if(!id || ['god','network_admin','director','admin'].indexOf(R())<0){ box.innerHTML=''; return; }
+  var st=(S.students||[]).find(function(x){return x.id===id;})||{};
+  var LBL={active:'\u0410\u043a\u0442\u0438\u0432\u043d\u0438\u0439',request:'\u0417\u0430\u043f\u0438\u0442',trial:'\u041f\u0440\u043e\u0431\u043d\u0435',paused:'\u041f\u0440\u0438\u0437\u0443\u043f\u0438\u043d\u0435\u043d\u0438\u0439',inactive:'\u041d\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439',completed:'\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0432'};
+  var fmtD=function(iso){ try{ return new Date(iso).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(e){ return String(iso||'').slice(0,10); } };
+  var created=st.created_at||st.createdAt;
+  var head='<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--t2);padding:6px 0;border-top:1px solid var(--b1)">\uD83D\uDCC5 \u0414\u043e\u0434\u0430\u043d\u0438\u0439: <b style="color:var(--t1)">'+(created?fmtD(created):'\u2014')+'</b></div>';
+  box.innerHTML=head+'<div style="font-size:11.5px;color:var(--t3)">\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f \u0456\u0441\u0442\u043e\u0440\u0456\u0457 \u0441\u0442\u0430\u0442\u0443\u0441\u0456\u0432\u2026</div>';
+  var changes=[];
+  try{
+    if(_sb){
+      var r=await _sb.from('audit_log').select('descr,created_at').eq('table_name','students').eq('record_id',String(id)).order('created_at',{ascending:true}).limit(300);
+      ((r&&r.data)||[]).forEach(function(row){
+        var m=String(row.descr||'').match(/\u0421\u0442\u0430\u0442\u0443\u0441:\s*[^\u2192]*\u2192\s*([^,\u00B7]+)/);
+        if(m){ var raw=m[1].trim(); changes.push({at:row.created_at, to:(LBL[raw]||(raw==='\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043e'?'\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0432':raw))}); }
+      });
+    }
+  }catch(e){ /* тихо */ }
+  var body;
+  if(!changes.length){
+    body='<div style="font-size:11.5px;color:var(--t3);padding-bottom:4px">\u0417\u043c\u0456\u043d \u0441\u0442\u0430\u0442\u0443\u0441\u0443 \u043d\u0435 \u0437\u0430\u0444\u0456\u043a\u0441\u043e\u0432\u0430\u043d\u043e. \u041f\u043e\u0442\u043e\u0447\u043d\u0438\u0439: <b>'+(LBL[st.status]||st.status||'\u2014')+'</b></div>';
+  } else {
+    body='<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;margin:2px 0 4px">\u0406\u0441\u0442\u043e\u0440\u0456\u044f \u0441\u0442\u0430\u0442\u0443\u0441\u0456\u0432</div>'
+      + changes.map(function(c){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-bottom:1px solid var(--s3)"><span style="color:var(--t3)">'+fmtD(c.at)+'</span><span style="font-weight:600">\u2192 '+c.to+'</span></div>'; }).join('');
+  }
+  box.innerHTML=head+body;
+}
 function openStudM(id=null){
   var _canEditStud = can('students');
   // Без права редагування картку МОЖНА відкрити лише для ПЕРЕГЛЯДУ існуючого учня.
@@ -9145,6 +9175,7 @@ function openStudM(id=null){
     if(cancelBtn) cancelBtn.textContent = _canEditStud ? '\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438' : '\u0417\u0430\u043A\u0440\u0438\u0442\u0438';
   }
   openM('mo-student');
+  try{ renderStudentHistory(id); }catch(e){ var _h=document.getElementById('s-history'); if(_h) _h.innerHTML=''; }
 }
 
 
@@ -11145,12 +11176,12 @@ function renderCrm(){
     respSel.value = fResp;
   }
 
-  // Дошка показує ВСЮ воронку (фільтри — лише етап і відповідальний).
-  // Місяць впливає ТІЛЬКИ на суми реалізованих угод нижче, а не ховає картки.
+  // Дошка показує воронку; при виборі МІСЯЦЯ фільтруємо за ДАТОЮ СТВОРЕННЯ учня.
   var students = (S.students||[]).filter(function(s){
     if(getCrmStage(s)==='removed') return false; // приховано з CRM-дошки, учень лишається в системі
     if(fStage && getCrmStage(s) !== fStage) return false;
     if(fResp  && s.crmResponsible !== fResp) return false;
+    if(fMonth){ var _cd=String(s.created_at||s.createdAt||s.crm_date||s.crmDate||'').slice(0,7); if(_cd!==fMonth) return false; }
     return true;
   });
 
