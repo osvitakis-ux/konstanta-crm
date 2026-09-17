@@ -432,7 +432,7 @@ function onLessStatChange(){
   var msWrap=document.getElementById('l-miss-wrap');
   var spWrap=document.getElementById('l-split-wrap');
   if(mkWrap) mkWrap.style.display=(stat==='makeup'||stat==='makeup_planned')?'block':'none';
-  if(msWrap) msWrap.style.display=(stat==='missed'||stat==='makeup'||stat==='makeup_planned')?'block':'none';
+  if(msWrap) msWrap.style.display=(stat==='missed'||stat==='makeup'||stat==='makeup_planned'||stat==='burned')?'block':'none';
   var canSplit=dur>=60 && (stat==='missed'||stat==='makeup'||stat==='makeup_planned');
   if(spWrap) spWrap.style.display=canSplit?'block':'none';
   // Блок об'єднання — показуємо завжди для будь-якого статусу
@@ -7142,7 +7142,7 @@ async function saveLesson(){
     status:     _stat,
     notes:      document.getElementById('l-notes')?.value||'',
     branch_id:  myBranchId()||null,
-    missed_date: (_stat==='missed'||_stat==='makeup'||_stat==='makeup_planned') ? (document.getElementById('l-miss-date')?.value||null) : null,
+    missed_date: (_stat==='missed'||_stat==='makeup'||_stat==='makeup_planned'||_stat==='burned') ? (document.getElementById('l-miss-date')?.value||null) : null,
     makeup_date: (_stat==='makeup'||_stat==='makeup_planned') ? (document.getElementById('l-makeup-date')?.value||null) : null,
     hw:          document.getElementById('l-hw')?.value||null,
     games:       document.getElementById('l-games')?.value||null,
@@ -12225,14 +12225,16 @@ function coveredMissedMinutes(l){
   var makeupDates=[]; sameDayParts.forEach(function(p){ if(p.makeup_date&&makeupDates.indexOf(p.makeup_date)<0) makeupDates.push(p.makeup_date); });
   var missTutorArchived = tutorArchived(tid); // репетитор пропуску звільнений?
   var makeups = (S.lessons||[]).filter(function(x){
-    if(x.status!=='makeup') return false; // рахуються лише ПРОВЕДЕНІ відпрацювання
+    var isMk = (x.status==='makeup');
+    var isBurnedMk = (x.status==='burned' && x.missed_date); // згоріле-як-відпрацювання: лише з явним посиланням
+    if(!isMk && !isBurnedMk) return false; // рахуються проведені makeup + згорілі, що відпрацьовують пропуск
     if((x.studentId||x.student_id)!==sid) return false;
     var xtid = x.tutorId||x.tutor_id;
     if(xtid===tid){
       // Той самий репетитор — стандартне зіставлення.
       if(x.missed_date===ldate) return true;
-      if(x.split_group_id && groupIds.indexOf(x.split_group_id)>=0) return true;
-      if(makeupDates.indexOf(x.date)>=0) return true;
+      if(isMk && x.split_group_id && groupIds.indexOf(x.split_group_id)>=0) return true;
+      if(isMk && makeupDates.indexOf(x.date)>=0) return true;
       return false;
     }
     // ІНШИЙ репетитор: зараховуємо лише якщо репетитор пропуску ЗААРХІВОВАНИЙ
