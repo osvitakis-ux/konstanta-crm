@@ -2652,6 +2652,64 @@ function voiceBtn(fieldId){
 }
 window.voiceBtn=voiceBtn;
 
+// ── ГЛОБАЛЬНИЙ голосовий ввід: мікрофон зʼявляється біля БУДЬ-ЯКОГО текстового поля ──
+function setupGlobalVoiceMic(){
+  if(window._globalVoiceMicReady) return;
+  window._globalVoiceMicReady=true;
+  if(!voiceSupported()) return; // браузер не підтримує розпізнавання — мікрофон не показуємо
+  var mic=document.createElement('button');
+  mic.type='button'; mic.id='global-voice-mic'; mic.className='voice-btn'; mic.textContent='\ud83c\udfa4';
+  mic.title='\u041d\u0430\u0434\u0438\u043a\u0442\u0443\u0432\u0430\u0442\u0438 \u0432 \u0446\u0435 \u043f\u043e\u043b\u0435';
+  // position:fixed і right:auto перекривають клас .voice-btn (absolute/right:6px)
+  mic.style.cssText='position:fixed;right:auto;z-index:99998;display:none;width:30px;height:30px;padding:0;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.18)';
+  document.body.appendChild(mic);
+  var lastField=null;
+  function isTextField(el){
+    if(!el||!el.tagName||el.readOnly||el.disabled) return false;
+    if(el.tagName==='TEXTAREA') return true;
+    if(el.tagName==='INPUT'){ var t=(el.getAttribute('type')||'text').toLowerCase(); return ['text','search','tel','email','url',''].indexOf(t)>=0; }
+    return false;
+  }
+  // Якщо поле вже має власну кнопку 🎤 поруч — глобальний мікрофон не дублюємо
+  function hasOwnVoiceBtn(el){ var p=el.parentElement; for(var i=0;i<3&&p;i++){ if(p.querySelector&&p.querySelector('.voice-btn:not(#global-voice-mic)')) return true; p=p.parentElement; } return false; }
+  function place(){
+    if(!lastField) return;
+    var r=lastField.getBoundingClientRect();
+    if(r.width===0&&r.height===0){ mic.style.display='none'; return; }
+    var top=(lastField.tagName==='TEXTAREA') ? r.top+6 : r.top+(r.height-30)/2;
+    mic.style.top=Math.max(6,top)+'px';
+    mic.style.left=Math.max(6,r.right-36)+'px';
+  }
+  document.addEventListener('focusin', function(e){
+    var el=e.target; if(el===mic) return;
+    if(isTextField(el) && !hasOwnVoiceBtn(el)){
+      lastField=el;
+      if(!el.id) el.id='vf_'+Math.random().toString(36).slice(2,9);
+      place(); mic.style.display='flex';
+    }
+  });
+  document.addEventListener('focusout', function(e){
+    if(e.target===mic) return;
+    setTimeout(function(){
+      var af=document.activeElement;
+      if(af===mic||isTextField(af)) return;      // фокус на мікрофоні або іншому полі
+      if(_rec && _recField===lastField) return;  // триває диктування — лишаємо
+      mic.style.display='none';
+    },160);
+  });
+  window.addEventListener('scroll', function(){ if(mic.style.display!=='none') place(); }, true);
+  window.addEventListener('resize', function(){ if(mic.style.display!=='none') place(); });
+  mic.addEventListener('mousedown', function(e){ e.preventDefault(); }); // не знімати фокус із поля
+  mic.addEventListener('click', function(e){
+    e.preventDefault();
+    if(!lastField) return;
+    if(!lastField.id) lastField.id='vf_'+Math.random().toString(36).slice(2,9);
+    voiceToggle(lastField.id, mic);
+  });
+}
+window.setupGlobalVoiceMic=setupGlobalVoiceMic;
+try{ if(document.readyState!=='loading') setupGlobalVoiceMic(); else document.addEventListener('DOMContentLoaded', setupGlobalVoiceMic); }catch(e){}
+
 function printSchedule(){
   // Понеділок обраного тижня (тиждень починається з понеділка)
   var _now=new Date();
