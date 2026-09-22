@@ -2408,6 +2408,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   <div class="mdl">
     <div class="mdlh"><div class="mdlt" id="ml-title">Заняття</div><button class="xbtn" onclick="closeM('mo-lesson')">×</button></div>
     <div class="mdlb"><div class="fg">
+      <div id="l-lock-hint" style="font-size:12px;color:var(--adm);background:var(--adm-bg);border:1px solid rgba(41,171,226,.25);border-radius:8px;padding:6px 10px;margin-bottom:8px;display:none"></div>
       <div class="fgr"><label>Учень *</label><select id="l-std" onchange="try{populateMissedSelect()}catch(e){}"></select></div>
       <div class="fgr"><label>Предмет *</label><div style="display:flex;gap:6px">
           <input id="l-subj" list="subj-list-l" placeholder="Оберіть або введіть..." autocomplete="off" style="flex:1">
@@ -2707,7 +2708,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=burnmakeup1"></script>
+<script src="app7.js?v=journaledit1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
