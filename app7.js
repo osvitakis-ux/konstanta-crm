@@ -3340,6 +3340,16 @@ function lessonLocked(l){
   return String(l.date||'') < weekStartMonday();         // минулі тижні — заморожено
 }
 window.lessonLocked=lessonLocked;
+// Тему, ДЗ та літературу репетитор може правити до КІНЦЯ МІСЯЦЯ (а не лише тижня).
+// Заблоковано лише якщо заняття в МИНУЛОМУ місяці (адмін/директор — завжди можуть).
+function journalFieldsLocked(l){
+  if(typeof l==='string') l=(S.lessons||[]).find(function(x){return x.id===l;});
+  if(!l) return false;
+  if(['god','network_admin','director','admin'].indexOf(R())>=0) return false;
+  var cur=new Date(); var curMonth=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0');
+  return String(l.date||'').slice(0,7) < curMonth;   // минулий місяць — журнал заблоковано
+}
+window.journalFieldsLocked=journalFieldsLocked;
 // Переносити (міняти день/час) заняття можуть лише адмін і вище. Репетитор
 // після встановлення заняття не може його переміщувати.
 function canMoveLessons(){ return ['god','network_admin','director','admin'].indexOf(R())>=0; }
@@ -7086,7 +7096,21 @@ async function delTutor(id){
 }
 
 async function saveLesson(){
-  if(S.editId && lessonLocked(S.editId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u2014 \u0437\u043c\u0456\u043d\u0438 \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u0456','error'); return; }
+  if(S.editId && lessonLocked(S.editId)){
+    if(journalFieldsLocked(S.editId)){ mkToast('\u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u2014 \u0437\u043c\u0456\u043d\u0438 \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u0456','error'); return; }
+    // Минулий тиждень, але ще ПОТОЧНИЙ місяць — дозволяємо правити ЛИШЕ журнал (тема/ДЗ/література)
+    var _jid=S.editId;
+    var _jf={ notes:document.getElementById('l-notes')?.value||'', hw:document.getElementById('l-hw')?.value||null, literature:document.getElementById('l-lit')?.value||null, games:document.getElementById('l-games')?.value||null };
+    try{
+      await dbUpdate('lessons', _jid, _jf);
+      var _ll=(S.lessons||[]).find(function(x){return x.id===_jid;});
+      if(_ll){ _ll.notes=_jf.notes; _ll.hw=_jf.hw; _ll.literature=_jf.literature; _ll.games=_jf.games; }
+      mkToast('\u0416\u0443\u0440\u043d\u0430\u043b \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e (\u0442\u0435\u043c\u0430 / \u0414\u0417 / \u043b\u0456\u0442\u0435\u0440\u0430\u0442\u0443\u0440\u0430)');
+      closeM('mo-lesson'); S.editId=null;
+      try{ if(typeof renderSch==='function') renderSch(); }catch(e){}
+    }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+(e.message||e),'error'); }
+    return;
+  }
   var stdEl=document.getElementById('l-std'); 
   var dateEl=document.getElementById('l-date');
   var studentId=stdEl?stdEl.value:''; 
@@ -9520,6 +9544,22 @@ function openLessM(id, date, time){
       var el=document.getElementById(fid);
       if(el){ el.disabled=lockMv; el.title=lockMv?'\u041f\u0435\u0440\u0435\u043d\u043e\u0441\u0438\u0442\u0438 \u043f\u043b\u0430\u043d\u043e\u0432\u0456 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043c\u043e\u0436\u0435 \u043b\u0438\u0448\u0435 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440/\u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440':''; el.style.opacity=lockMv?'0.6':''; }
     });
+  })();
+  // Заморожене заняття: тему/ДЗ/літературу можна правити ДО КІНЦЯ МІСЯЦЯ; решту полів — ні
+  (function(){
+    var _lk = id ? lessonLocked(id) : false;
+    var _jfLk = id ? journalFieldsLocked(id) : false;
+    // журнальні поля: заблоковані лише якщо минулий місяць
+    ['l-notes','l-hw','l-lit','l-games'].forEach(function(f){ var el=document.getElementById(f); if(el){ el.disabled=(_lk&&_jfLk); el.style.opacity=(_lk&&_jfLk)?'0.6':''; } });
+    // решта полів: заблоковані, якщо заняття заморожене (для не-адмінів)
+    ['l-stat','l-price','l-dur','l-std','l-subj','l-tutor','l-miss-date','l-makeup-date'].forEach(function(f){ var el=document.getElementById(f); if(el){ el.disabled=_lk; el.style.opacity=_lk?'0.6':''; } });
+    if(_lk){ ['l-date','l-time'].forEach(function(f){ var el=document.getElementById(f); if(el){ el.disabled=true; el.style.opacity='0.6'; } }); }
+    var hint=document.getElementById('l-lock-hint');
+    if(hint){
+      var _msg = (_lk && !_jfLk) ? '\uD83D\uDCDD \u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430 \u043c\u0438\u043d\u0443\u043b\u0438\u0439 \u0442\u0438\u0436\u0434\u0435\u043d\u044c: \u043c\u043e\u0436\u043d\u0430 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043b\u0438\u0448\u0435 \u0442\u0435\u043c\u0443, \u0414\u0417 \u0442\u0430 \u043b\u0456\u0442\u0435\u0440\u0430\u0442\u0443\u0440\u0443 (\u0434\u043e \u043a\u0456\u043d\u0446\u044f \u043c\u0456\u0441\u044f\u0446\u044f)'
+        : (_lk && _jfLk) ? '\uD83D\uDD12 \u0417\u0430\u043d\u044f\u0442\u0442\u044f \u0437\u0430\u043c\u043e\u0440\u043e\u0436\u0435\u043d\u0435 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0454 \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0430\u0431\u043e \u0434\u0438\u0440\u0435\u043a\u0442\u043e\u0440' : '';
+      hint.innerHTML=_msg; hint.style.display=_msg?'block':'none';
+    }
   })();
   openM('mo-lesson');
 }
