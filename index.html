@@ -1904,6 +1904,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
       <div class="page" id="pg-invoice-log"><div class="card"><div class="ch"><span class="ct">📋 Лог рахунків</span><select id="ilf-user" onchange="renderInvoiceLog()" style="width:200px;font-size:12px;padding:5px 8px;margin-left:auto"><option value="">Всі відправники</option></select></div><div style="overflow-x:auto"><table><thead><tr><th>Дата</th><th>Учень</th><th>Період</th><th>Уроки/Сума</th><th>Канал</th><th>Отримувач</th><th>Відправив</th></tr></thead><tbody id="inv-log-tbody"></tbody></table></div></div></div>
 
       <!-- ── AUDIT LOG ── -->
+      <div class="page" id="pg-contracts"></div>
       <div class="page" id="pg-audit">
         <div class="card">
           <div class="ch">
@@ -2321,7 +2322,35 @@ body.role-tutor .comm-add-btn { display: none !important; }
     </div></div>
     <div id="mo-student-cf" class="fg" style="padding:0 24px 0;margin-top:0"></div>
     <div id="s-history" style="padding:4px 24px 0"></div>
+    <div id="s-contracts" style="padding:4px 24px 0"></div>
     <div class="mdlf"><button class="btn btn-g" onclick="closeM('mo-student')" id="ms-cancel-btn">Скасувати</button><button class="btn btn-p" id="ms-save-btn" onclick="saveStudent()">💾 Зберегти</button></div>
+  </div>
+</div>
+
+<div class="mo" id="mo-contract">
+  <div class="mdl">
+    <div class="mdlh"><div class="mdlt">📄 Формування договору</div><button class="xbtn" onclick="closeM('mo-contract')">×</button></div>
+    <div class="mdlb"><div class="fg">
+      <div class="fgr" style="display:flex;gap:10px">
+        <div style="flex:1"><label>Номер договору *</label><input id="ct-number" placeholder="2026/001"></div>
+        <div style="flex:1"><label>Дата підписання *</label><input id="ct-date" type="date"></div>
+      </div>
+      <div class="fgr"><label>Замовник (ПІБ батька/матері/опікуна) *</label><input id="ct-zamovnyk" placeholder="Прізвище Ім'я По батькові"></div>
+      <div class="fgr" style="display:flex;gap:10px"><div style="flex:1"><label>Телефон замовника *</label><input id="ct-parent-phone" placeholder="+380..."></div><div style="flex:1"><label>Ел. пошта (необов'язково)</label><input id="ct-email" type="email" placeholder="email@..."></div></div>
+      <div class="fgr" style="display:flex;gap:10px">
+        <div style="flex:1"><label>РНОКПП (ІПН) *</label><input id="ct-rnokpp" placeholder="10 цифр"></div>
+        <div style="flex:1"><label>Ким є дитині *</label><select id="ct-relation"><option value="батько">батько</option><option value="матір">матір</option><option value="опікун">опікун</option></select></div>
+      </div>
+      <div class="fgr" style="display:flex;gap:10px">
+        <div style="flex:2"><label>Дитина (ПІБ) *</label><input id="ct-dytyna"></div>
+        <div style="flex:1"><label>Дата народження *</label><input id="ct-dob" type="date"></div>
+      </div>
+      <div class="fgr" style="display:flex;gap:10px"><div style="flex:1"><label>Телефон учня</label><input id="ct-phone" placeholder="+380..."></div><div style="flex:1"><label>Клас *</label><input id="ct-grade" placeholder="напр. 7"></div></div>
+      <div class="fgr"><label>Послуги (п. 2.1) — принаймні одна *</label><input id="ct-s1" placeholder="2.1.1. ..." style="margin-bottom:5px"><input id="ct-s2" placeholder="2.1.2. ..." style="margin-bottom:5px"><input id="ct-s3" placeholder="2.1.3. ..."></div>
+      <div class="fgr" style="display:flex;gap:10px"><div style="flex:1"><label>Занять на тиждень *</label><input id="ct-times" type="number" min="1" max="14" placeholder="напр. 2"></div><div style="flex:1"><label>Договір діє до *</label><input id="ct-enddate" type="date"></div></div>
+      <div class="fgr"><label>Корпус — реквізити для розділу 8 *</label><select id="ct-corpus" onchange="onCorpusChange()"><option value="corpus2">Корпус 2</option><option value="corpus3">Корпус 3</option><option value="shevchenko">Шевченківський корпус</option></select></div><div class="fgr full"><label>Реквізити обраного корпусу (можна відредагувати — запам'ятається для цього корпусу)</label><textarea id="ct-center" style="min-height:120px"></textarea></div>
+    </div></div>
+    <div class="mdlf"><button class="btn btn-g" onclick="closeM('mo-contract')">Скасувати</button><button class="btn btn-p" onclick="generateContract()">📄 Сформувати і зберегти</button></div>
   </div>
 </div>
 <div class="mo" id="mo-user">
@@ -2708,7 +2737,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=journaledit1"></script>
+<script src="app7.js?v=contracts3"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
