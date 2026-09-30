@@ -255,7 +255,7 @@ var ROLES = {
   god: {
     label:'\u0411\u043E\u0433 \u0441\u0438\u0441\u0442\u0435\u043C\u0438', icon:'\u26A1', color:'var(--god2)',
     avatarBg:'linear-gradient(135deg,#2e3192,#5b60d4)',
-    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','acts','crm','leads','tasks','audit','invoice-log','invoice','reports','users','settings','telephony'],
+    nav:['dashboard','students','tutors','schedule','lessons','comms','payments','payroll','acts','crm','contracts','leads','tasks','audit','invoice-log','invoice','reports','users','settings','telephony'],
     can:{students:true,tutors:true,lessons:true,payments:true,users:true,settings:true,danger:true,deleteAny:true},
     seeIncome:true, seeAll:true, canEditUsers:true, showGodBanner:true
   },
@@ -301,6 +301,7 @@ var NAV_CFG = [
   {id:'invoice',    ico:'\u25C8',  lbl:'\u0420\u0430\u0445\u0443\u043D\u043E\u043A',  sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'reports',    ico:'\u25E7',  lbl:'\u0410\u043D\u0430\u043B\u0456\u0442\u0438\u043A\u0430',    sec:'\u0424\u0456\u043D\u0430\u043D\u0441\u0438'},
   {id:'crm',        ico:'\u25A4',  lbl:'CRM',              sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
+  {id:'contracts',  ico:'\uD83D\uDCC4',  lbl:'\u0414\u043E\u0433\u043E\u0432\u043E\u0440\u0438', sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'leads',      ico:'\u260E',  lbl:'\u041B\u0456\u0434\u0438 \u0437 \u0434\u0437\u0432\u0456\u043D\u043A\u0456\u0432', sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'tasks',      ico:'\u2611',  lbl:'\u0417\u0430\u0432\u0434\u0430\u043D\u043D\u044F',      sec:'\u041C\u0435\u043D\u0435\u0434\u0436\u043C\u0435\u043D\u0442'},
   {id:'audit',      ico:'\uD83D\uDD0D',  lbl:'\u0406\u0441\u0442\u043E\u0440\u0456\u044F \u0437\u043C\u0456\u043D',   sec:'\u0421\u0438\u0441\u0442\u0435\u043C\u0430'},
@@ -6236,6 +6237,7 @@ async function loadAll(){
     { table:'pricing_rules', key:'pricingRules' },
     { table:'tasks',         key:'tasks' },
     { table:'payroll_items', key:'payrollItems' },
+    { table:'contracts',     key:'contracts', order:'created_at' },
     { table:'act_log',       key:'actLog' },
   ];
   // Завантажуємо КОЖНУ таблицю посторінково.
@@ -9169,6 +9171,243 @@ async function renderStudentHistory(id){
   }
   box.innerHTML=head+body;
 }
+// ══════════════ ДОГОВОРИ (тільки для «бога») ══════════════
+var MONTHS_UK=['\u0441\u0456\u0447\u043d\u044f','\u043b\u044e\u0442\u043e\u0433\u043e','\u0431\u0435\u0440\u0435\u0437\u043d\u044f','\u043a\u0432\u0456\u0442\u043d\u044f','\u0442\u0440\u0430\u0432\u043d\u044f','\u0447\u0435\u0440\u0432\u043d\u044f','\u043b\u0438\u043f\u043d\u044f','\u0441\u0435\u0440\u043f\u043d\u044f','\u0432\u0435\u0440\u0435\u0441\u043d\u044f','\u0436\u043e\u0432\u0442\u043d\u044f','\u043b\u0438\u0441\u0442\u043e\u043f\u0430\u0434\u0430','\u0433\u0440\u0443\u0434\u043d\u044f'];
+function fmtContractDate(iso){ var d=new Date(iso+'T00:00:00'); if(isNaN(d.getTime())) return iso||''; return '\u00ab'+String(d.getDate()).padStart(2,'0')+'\u00bb '+MONTHS_UK[d.getMonth()]+' '+d.getFullYear(); }
+function fmtDatePlain(iso){ var d=new Date(iso+'T00:00:00'); if(isNaN(d.getTime())) return iso||'________'; return d.getDate()+' '+MONTHS_UK[d.getMonth()]+' '+d.getFullYear(); }
+function nextContractNumber(){
+  var year=new Date().getFullYear(), max=0;
+  (S.contracts||[]).forEach(function(c){ var m=String(c.number||'').match(new RegExp('^'+year+'\\/(\\d+)$')); if(m){ var n=parseInt(m[1],10); if(n>max) max=n; } });
+  return year+'/'+String(max+1).padStart(3,'0');
+}
+function buildContractHTML(d){
+  var esc=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+  var dmy=function(iso){ if(!iso) return '________'; var p=String(iso).split('-'); return p.length===3? p[2]+'.'+p[1]+'.'+p[0] : iso; };
+  var rel=d.relation||'';
+  var relTxt=['\u0431\u0430\u0442\u044c\u043a\u043e','\u043c\u0430\u0442\u0456\u0440','\u043e\u043f\u0456\u043a\u0443\u043d'].map(function(r){ return r===rel? '<u>'+r+'</u>' : r; }).join(', ');
+  var dt=fmtContractDate(d.signDate);
+  var s1=esc(d.services&&d.services[0])||'__________________________________________________________';
+  var s2=esc(d.services&&d.services[1])||'__________________________________________________________';
+  var s3=esc(d.services&&d.services[2])||'__________________________________________________________';
+  var tm=esc(d.times)||'______';
+  var center=esc(d.center).replace(/\n/g,'<br>');
+  var P=function(t){ return '<p>'+t+'</p>'; };
+  return '<!doctype html><html lang="uk"><head><meta charset="utf-8"><title>\u0414\u043e\u0433\u043e\u0432\u0456\u0440 \u2116 '+esc(d.number)+'</title>'
+   +'<style>@page{size:A4;margin:16mm 15mm}body{font-family:"Times New Roman",serif;font-size:11pt;line-height:1.3;color:#000}h1{font-size:12.5pt;text-align:center;margin:0 0 6px}.sec{font-weight:bold;margin:9px 0 3px}p{margin:4px 0;text-align:justify}u{text-decoration:underline}.top{display:flex;justify-content:space-between;font-size:11pt;margin:2px 0 8px}.sign{display:flex;justify-content:space-between;margin-top:14px;gap:26px}.sign>div{width:48%}.ln{border-bottom:1px solid #000;min-height:22px;margin-top:20px}.cap{font-size:9pt;text-align:center}@media print{.noprint{display:none}}</style></head><body>'
+   +'<h1>\u0414\u041e\u0413\u041e\u0412\u0406\u0420 \u043f\u0440\u043e \u043d\u0430\u0434\u0430\u043d\u043d\u044f \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0441\u044c\u043a\u0438\u0445 \u043f\u043e\u0441\u043b\u0443\u0433 \u2116 '+esc(d.number)+'</h1>'
+   +'<div class="top"><span>\u043c. \u041e\u0434\u0435\u0441\u0430</span><span>'+dt+' \u0440.</span></div>'
+   +P('\u0424\u0456\u0437\u0438\u0447\u043d\u0430 \u043e\u0441\u043e\u0431\u0430 - \u043f\u0456\u0434\u043f\u0440\u0438\u0454\u043c\u0435\u0446\u044c \u041a\u043e\u0433\u0443\u0442 \u0406\u0432\u0430\u043d \u0421\u0435\u0440\u0433\u0456\u0439\u043e\u0432\u0438\u0447 \u0420\u0426 \u00ab\u041a\u043e\u043d\u0441\u0442\u0430\u043d\u0442\u0430\u00bb, \u044f\u043a\u0438\u0439 \u0434\u0456\u0454 \u043d\u0430 \u043f\u0456\u0434\u0441\u0442\u0430\u0432\u0456 \u0432\u0438\u043f\u0438\u0441\u043a\u0438 \u0437 \u0404\u0434\u0438\u043d\u043e\u0433\u043e \u0434\u0435\u0440\u0436\u0430\u0432\u043d\u043e\u0433\u043e \u0440\u0435\u0454\u0441\u0442\u0440\u0443 \u044e\u0440\u0438\u0434\u0438\u0447\u043d\u0438\u0445 \u043e\u0441\u0456\u0431, \u0444\u0456\u0437\u0438\u0447\u043d\u0438\u0445 \u043e\u0441\u0456\u0431-\u043f\u0456\u0434\u043f\u0440\u0438\u0454\u043c\u0446\u0456\u0432 \u0442\u0430 \u0433\u0440\u043e\u043c\u0430\u0434\u0441\u044c\u043a\u0438\u0445 \u0444\u043e\u0440\u043c\u0443\u0432\u0430\u043d\u044c, \u0449\u043e \u0456\u043c\u0435\u043d\u0443\u0454\u0442\u044c\u0441\u044f \u043d\u0430\u0434\u0430\u043b\u0456 \u00ab\u0412\u0438\u043a\u043e\u043d\u0430\u0432\u0435\u0446\u044c\u00bb, \u0437 \u043e\u0434\u043d\u0456\u0454\u0457 \u0441\u0442\u043e\u0440\u043e\u043d\u0438, \u0442\u0430 <b>'+esc(d.zamovnyk)+'</b>, \u0420\u041d\u041e\u041a\u041f\u041f <b>'+esc(d.rnokpp)+'</b>, \u0449\u043e \u0456\u043c\u0435\u043d\u0443\u0454\u0442\u044c\u0441\u044f \u043d\u0430\u0434\u0430\u043b\u0456 \u00ab\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u00bb, \u044f\u043a\u0438\u0439(\u0430) \u0454 '+relTxt+' (\u043d\u0435\u043e\u0431\u0445\u0456\u0434\u043d\u0435 \u043f\u0456\u0434\u043a\u0440\u0435\u0441\u043b\u0438\u0442\u0438) \u0434\u0438\u0442\u0438\u043d\u0438 <b>'+esc(d.dytyna)+'</b>, \u0434\u0430\u0442\u0430 \u043d\u0430\u0440\u043e\u0434\u0436\u0435\u043d\u043d\u044f <b>'+dmy(d.dob)+'</b>, \u0437 \u0434\u0440\u0443\u0433\u043e\u0457 \u0441\u0442\u043e\u0440\u043e\u043d\u0438, \u044f\u043a\u0456 \u0440\u0430\u0437\u043e\u043c \u043d\u0430\u0434\u0430\u043b\u0456 \u00ab\u0421\u0442\u043e\u0440\u043e\u043d\u0438\u00bb, \u0430 \u043a\u043e\u0436\u0435\u043d \u043e\u043a\u0440\u0435\u043c\u043e - \u00ab\u0421\u0442\u043e\u0440\u043e\u043d\u0430\u00bb, \u0443\u043a\u043b\u0430\u043b\u0438 \u0446\u0435\u0439 \u0414\u043e\u0433\u043e\u0432\u0456\u0440 \u2116 '+esc(d.number)+' \u0432\u0456\u0434 '+dt+' \u0440., \u043d\u0430\u0434\u0430\u043b\u0456 \u2013 \u00ab\u0414\u043e\u0433\u043e\u0432\u0456\u0440\u00bb, \u043f\u0440\u043e \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0435:')
+   +'<div class="sec">1. \u041f\u0420\u0415\u0414\u041c\u0415\u0422 \u0414\u041e\u0413\u041e\u0412\u041e\u0420\u0423.</div>'
+   +P('1.1. \u0412\u0438\u043a\u043e\u043d\u0430\u0432\u0435\u0446\u044c \u0437\u043e\u0431\u043e\u0432\'\u044f\u0437\u0443\u0454\u0442\u044c\u0441\u044f \u043d\u0430\u0434\u0430\u0442\u0438 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0441\u044c\u043a\u0456 \u043f\u043e\u0441\u043b\u0443\u0433\u0438, \u0430 \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u0437\u043e\u0431\u043e\u0432\'\u044f\u0437\u0443\u0454\u0442\u044c\u0441\u044f \u043f\u0440\u0438\u0439\u043d\u044f\u0442\u0438 \u0442\u0430 \u043e\u043f\u043b\u0430\u0442\u0438\u0442\u0438 \u043d\u0430\u0434\u0430\u043d\u0456 \u043f\u043e\u0441\u043b\u0443\u0433\u0438 (\u043d\u0430\u0434\u0430\u043b\u0456 \u2013 \u00ab\u041f\u043e\u0441\u043b\u0443\u0433\u0438\u00bb) \u0432 \u043f\u043e\u0440\u044f\u0434\u043a\u0443 \u0442\u0430 \u043d\u0430 \u0443\u043c\u043e\u0432\u0430\u0445, \u0432\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0445 \u0446\u0438\u043c \u0414\u043e\u0433\u043e\u0432\u043e\u0440\u043e\u043c.')
+   +'<div class="sec">2. \u0412\u0406\u0414\u041e\u041c\u041e\u0421\u0422\u0406 \u041f\u0420\u041e \u041f\u041e\u0421\u041b\u0423\u0413\u0418.</div>'
+   +P('2.1. \u0417\u0433\u0456\u0434\u043d\u043e \u0437 \u0446\u044c\u043e\u0433\u043e \u0414\u043e\u0433\u043e\u0432\u043e\u0440\u0443, \u0412\u0438\u043a\u043e\u043d\u0430\u0432\u0435\u0446\u044c \u043d\u0430\u0434\u0430\u0454 \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u0443 \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0456 \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0441\u044c\u043a\u0456 \u043f\u043e\u0441\u043b\u0443\u0433\u0438:')
+   +P('2.1.1. '+s1)+P('2.1.2. '+s2)+P('2.1.3. '+s3)
+   +P('2.2. \u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0441\u044c\u043a\u0456 \u043f\u043e\u0441\u043b\u0443\u0433\u0438 \u043c\u043e\u0436\u0443\u0442\u044c \u0442\u0430\u043a\u043e\u0436 \u0432\u043a\u043b\u044e\u0447\u0430\u0442\u0438 \u0439 \u0456\u043d\u0448\u0456 \u043f\u043e\u0434\u0456\u0431\u043d\u0456 \u041f\u043e\u0441\u043b\u0443\u0433\u0438, \u043d\u0435\u043e\u0431\u0445\u0456\u0434\u043d\u0456\u0441\u0442\u044c \u0442\u0430 \u0442\u0440\u0438\u0432\u0430\u043b\u0456\u0441\u0442\u044c \u044f\u043a\u0438\u0445 \u0432\u0438\u0437\u043d\u0430\u0447\u0430\u0454\u0442\u044c\u0441\u044f \u0437\u0430 \u043f\u043e\u0433\u043e\u0434\u0436\u0435\u043d\u043d\u044f\u043c \u0421\u0442\u043e\u0440\u0456\u043d.')
+   +P('2.3. \u041f\u0440\u0438\u0439\u043d\u044f\u0442\u0442\u044f \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u043e\u043c \u043f\u043e\u0441\u043b\u0443\u0433 \u043e\u0444\u043e\u0440\u043c\u043b\u044f\u0454\u0442\u044c\u0441\u044f \u0430\u043a\u0442\u043e\u043c \u043d\u0430\u0434\u0430\u043d\u043d\u044f \u043f\u043e\u0441\u043b\u0443\u0433.')
+   +'<div class="sec">3. \u0420\u041e\u0417\u041c\u0406\u0420 \u0422\u0410 \u0423\u041c\u041e\u0412\u0418 \u041e\u041f\u041b\u0410\u0422\u0418.</div>'
+   +P('3.1. \u0412\u0441\u0456 \u0441\u0443\u043c\u0438 \u0437\u0430 \u0446\u0438\u043c \u0414\u043e\u0433\u043e\u0432\u043e\u0440\u043e\u043c \u0441\u043f\u043b\u0430\u0447\u0443\u044e\u0442\u044c\u0441\u044f \u0432 \u043d\u0430\u0446\u0456\u043e\u043d\u0430\u043b\u044c\u043d\u0456\u0439 \u0432\u0430\u043b\u044e\u0442\u0456 \u0423\u043a\u0440\u0430\u0457\u043d\u0438 \u0443 \u0431\u0435\u0437\u0433\u043e\u0442\u0456\u0432\u043a\u043e\u0432\u0456\u0439 \u0444\u043e\u0440\u043c\u0456 \u043d\u0430 \u0440\u0435\u043a\u0432\u0456\u0437\u0438\u0442\u0438, \u0437\u0430\u0437\u043d\u0430\u0447\u0435\u043d\u0456 \u0432 \u043f.8 \u0434\u0430\u043d\u043e\u0433\u043e \u0434\u043e\u0433\u043e\u0432\u043e\u0440\u0443.')
+   +P('3.2. \u041d\u0430\u0434\u0430\u043d\u043d\u044f \u043f\u043e\u0441\u043b\u0443\u0433 \u0437\u0434\u0456\u0439\u0441\u043d\u044e\u0454\u0442\u044c\u0441\u044f \u0448\u043b\u044f\u0445\u043e\u043c \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043d\u044f \u0437\u0430\u043f\u043b\u0430\u043d\u043e\u0432\u0430\u043d\u0438\u0445 \u0437\u0430 \u0440\u043e\u0437\u043a\u043b\u0430\u0434\u043e\u043c \u0456\u043d\u0434\u0438\u0432\u0456\u0434\u0443\u0430\u043b\u044c\u043d\u0438\u0445 \u0442\u0430 \u0433\u0440\u0443\u043f\u043e\u0432\u0438\u0445 \u0437\u0430\u043d\u044f\u0442\u044c <b>'+tm+'</b> \u0440\u0430\u0437 \u043d\u0430 \u0442\u0438\u0436\u0434\u0435\u043d\u044c \u0437\u0430 \u043e\u0447\u043d\u043e\u044e \u0444\u043e\u0440\u043c\u043e\u044e \u043d\u0430\u0432\u0447\u0430\u043d\u043d\u044f.')
+   +P('3.3. \u041d\u0430\u0434\u0430\u043d\u043d\u044f \u043f\u043e\u0441\u043b\u0443\u0433 \u0437\u0434\u0456\u0439\u0441\u043d\u044e\u0454\u0442\u044c\u0441\u044f \u043d\u0430 \u0443\u043c\u043e\u0432\u0430\u0445 \u043f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044c\u043e\u0457 (\u0430\u0432\u0430\u043d\u0441\u043e\u0432\u043e\u0457) \u0441\u043f\u043b\u0430\u0442\u0438. \u0420\u043e\u0437\u043c\u0456\u0440 \u0441\u043f\u043b\u0430\u0442\u0438 \u0440\u043e\u0437\u0440\u0430\u0445\u043e\u0432\u0443\u0454\u0442\u044c\u0441\u044f \u044f\u043a \u0446\u0456\u043d\u0430 \u0443\u0440\u043e\u043a\u0443 \u043f\u043e\u043c\u043d\u043e\u0436\u0435\u043d\u0430 \u043d\u0430 \u043a\u0456\u043b\u044c\u043a\u0456\u0441\u0442\u044c \u0443\u0440\u043e\u043a\u0456\u0432. \u041d\u0430 \u0441\u043f\u043b\u0430\u0442\u0443 \u0440\u0430\u0445\u0443\u043d\u043a\u0443 \u0454 3 \u0440\u043e\u0431\u043e\u0447\u0456 \u0434\u043d\u0456, \u0430\u043b\u0435 \u043d\u0435 \u043f\u0456\u0437\u043d\u0456\u0448\u0435, \u043d\u0456\u0436 \u0437\u0430 \u0434\u043e\u0431\u0443 \u0434\u043e \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u043d\u044f \u043f\u043b\u0430\u043d\u043e\u0432\u043e\u0433\u043e \u0443\u0440\u043e\u043a\u0443.')
+   +P('3.4. \u0420\u0430\u0445\u0443\u043d\u043e\u043a \u043d\u0430 \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0438\u0439 \u043c\u0456\u0441\u044f\u0446\u044c \u0432\u0456\u0434\u043f\u0440\u0430\u0432\u043b\u044f\u0454\u0442\u044c\u0441\u044f \u0437 25-\u0433\u043e \u0434\u043e 30(31)-\u0433\u043e \u0447\u0438\u0441\u043b\u0430 \u0456 \u043e\u043f\u043b\u0430\u0447\u0443\u0454\u0442\u044c\u0441\u044f \u0434\u043e 1 \u0447\u0438\u0441\u043b\u0430 \u043c\u0456\u0441\u044f\u0446\u044f, \u0432 \u044f\u043a\u043e\u043c\u0443 \u043f\u043b\u0430\u043d\u0443\u0454\u0442\u044c\u0441\u044f \u043d\u0430\u0434\u0430\u0432\u0430\u0442\u0438\u0441\u044c \u043f\u043e\u0441\u043b\u0443\u0433\u0430.')
+   +P('3.5. \u0423 \u0440\u0430\u0437\u0456 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0443 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u043f\u0456\u0434\u043b\u044f\u0433\u0430\u044e\u0442\u044c \u0432\u0456\u0434\u043f\u0440\u0430\u0446\u044e\u0432\u0430\u043d\u043d\u044e \u043f\u0440\u043e\u0442\u044f\u0433\u043e\u043c \u043f\u043e\u0442\u043e\u0447\u043d\u043e\u0433\u043e \u0442\u0430 \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u0438\u0445 2 \u043c\u0456\u0441\u044f\u0446\u0456\u0432 \u043f\u043e\u0437\u0430 \u043f\u043b\u0430\u043d\u043e\u0432\u0438\u043c \u0447\u0430\u0441\u043e\u043c \u0437\u0430 \u0443\u0437\u0433\u043e\u0434\u0436\u0435\u043d\u0438\u043c \u0433\u0440\u0430\u0444\u0456\u043a\u043e\u043c.')
+   +P('3.6. \u0423 \u0440\u0430\u0437\u0456 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0443 \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0431\u0435\u0437 \u043f\u043e\u043f\u0435\u0440\u0435\u0434\u0436\u0435\u043d\u043d\u044f \u043c\u0435\u043d\u0448\u0435, \u043d\u0456\u0436 \u0437\u0430 1 \u0433\u043e\u0434 \u0431\u0435\u0437 \u043f\u043e\u0432\u0430\u0436\u043d\u0438\u0445 \u043e\u0431\u0441\u0442\u0430\u0432\u0438\u043d/\u0444\u043e\u0440\u0441-\u043c\u0430\u0436\u043e\u0440\u0456\u0432 \u0433\u0440\u043e\u0448\u043e\u0432\u0456 \u043a\u043e\u0448\u0442\u0438 \u043d\u0435 \u043f\u043e\u0432\u0435\u0440\u0442\u0430\u044e\u0442\u044c\u0441\u044f \u0442\u0430 \u0442\u0430\u043a\u0438\u0439 \u043f\u0440\u043e\u043f\u0443\u0441\u043a \u043d\u0435 \u0432\u0456\u0434\u043f\u0440\u0430\u0446\u044c\u043e\u0432\u0443\u0454\u0442\u044c\u0441\u044f, \u0442\u043e\u0431\u0442\u043e \u0437\u0430\u043d\u044f\u0442\u0442\u044f \u0432\u0432\u0430\u0436\u0430\u0454\u0442\u044c\u0441\u044f \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d\u0438\u043c.')
+   +P('3.7. \u0412\u043d\u0435\u0441\u0435\u043d\u0456 \u043a\u043e\u0448\u0442\u0438 \u0437\u0430 \u043f\u043e\u0441\u043b\u0443\u0433\u0443 \u043d\u0435 \u043f\u043e\u0432\u0435\u0440\u0442\u0430\u044e\u0442\u044c\u0441\u044f, \u0430 \u043c\u043e\u0436\u0443\u0442\u044c \u0431\u0443\u0442\u0438 \u043f\u0435\u0440\u0435\u0440\u0430\u0445\u043e\u0432\u0430\u043d\u0456 \u043d\u0430 \u0456\u043d\u0448\u0443 \u043f\u043e\u0441\u043b\u0443\u0433\u0443 \u0437\u0430 \u043f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044c\u043e\u044e \u0443\u0441\u043d\u043e\u044e \u0437\u0433\u043e\u0434\u043e\u044e \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u0430.')
+   +P('3.8. \u0410\u043a\u0442 \u043f\u0440\u043e \u043d\u0430\u0434\u0430\u043d\u0456 \u043f\u043e\u0441\u043b\u0443\u0433\u0438 \u043d\u0430\u0434\u0430\u0454\u0442\u044c\u0441\u044f \u0437\u0430 \u0432\u0438\u043c\u043e\u0433\u043e\u044e \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u0430 \u0442\u0430 \u043f\u0456\u0434\u043f\u0438\u0441\u0443\u0454\u0442\u044c\u0441\u044f \u0421\u0442\u043e\u0440\u043e\u043d\u0430\u043c\u0438 \u0434\u043e 10 \u0447\u0438\u0441\u043b\u0430 \u043c\u0456\u0441\u044f\u0446\u044f, \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u043e\u0433\u043e \u0437\u0430 \u043c\u0456\u0441\u044f\u0446\u0435\u043c \u043d\u0430\u0434\u0430\u043d\u043d\u044f \u043f\u043e\u0441\u043b\u0443\u0433. \u0410\u043a\u0442 \u043f\u0456\u0434\u043f\u0438\u0441\u0443\u0454\u0442\u044c\u0441\u044f \u043a\u0432\u0430\u043b\u0456\u0444\u0456\u043a\u043e\u0432\u0430\u043d\u0438\u043c \u0435\u043b\u0435\u043a\u0442\u0440\u043e\u043d\u043d\u0438\u043c \u043f\u0456\u0434\u043f\u0438\u0441\u043e\u043c.')
+   +'<div class="sec">4. \u041e\u0411\u041e\u0412\'\u042f\u0417\u041a\u0418 \u0421\u0422\u041e\u0420\u0406\u041d.</div>'
+   +P('4.1. \u041e\u0431\u043e\u0432\'\u044f\u0437\u043a\u0438 \u0412\u0438\u043a\u043e\u043d\u0430\u0432\u0446\u044f: \u0441\u0432\u043e\u0454\u0447\u0430\u0441\u043d\u043e \u0442\u0430 \u044f\u043a\u0456\u0441\u043d\u043e \u043d\u0430\u0434\u0430\u0432\u0430\u0442\u0438 \u043f\u043e\u0441\u043b\u0443\u0433\u0438; \u043f\u0440\u0438 \u043e\u0431\u0441\u0442\u0430\u0432\u0438\u043d\u0430\u0445, \u0449\u043e \u043f\u0435\u0440\u0435\u0448\u043a\u043e\u0434\u0436\u0430\u044e\u0442\u044c \u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044e, \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u0438\u0442\u0438 \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u0430 \u043d\u0435 \u043f\u0456\u0437\u043d\u0456\u0448\u0435, \u043d\u0456\u0436 \u0437\u0430 1 \u0433\u043e\u0434; \u0441\u043a\u043b\u0430\u0434\u0430\u0442\u0438 \u0442\u0430 \u043f\u0435\u0440\u0435\u0434\u0430\u0432\u0430\u0442\u0438 \u0430\u043a\u0442\u0438 \u043f\u0440\u043e \u043d\u0430\u0434\u0430\u043d\u043d\u044f \u043f\u043e\u0441\u043b\u0443\u0433.')
+   +P('4.2. \u041e\u0431\u043e\u0432\'\u044f\u0437\u043a\u0438 \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u0430: \u043f\u0440\u0438\u0439\u043c\u0430\u0442\u0438 \u043f\u043e\u0441\u043b\u0443\u0433\u0438; \u043f\u0456\u0434\u043f\u0438\u0441\u0443\u0432\u0430\u0442\u0438 \u0430\u043a\u0442\u0438 \u043f\u0440\u043e\u0442\u044f\u0433\u043e\u043c 5-\u0442\u0438 \u043a\u0430\u043b\u0435\u043d\u0434\u0430\u0440\u043d\u0438\u0445 \u0434\u043d\u0456\u0432; \u043e\u043f\u043b\u0430\u0447\u0443\u0432\u0430\u0442\u0438 \u043f\u043e\u0441\u043b\u0443\u0433\u0438 \u043d\u0430 \u0443\u043c\u043e\u0432\u0430\u0445 \u043f. 3 \u0446\u044c\u043e\u0433\u043e \u0414\u043e\u0433\u043e\u0432\u043e\u0440\u0443.')
+   +'<div class="sec">5. \u0412\u0406\u0414\u041f\u041e\u0412\u0406\u0414\u0410\u041b\u042c\u041d\u0406\u0421\u0422\u042c \u0421\u0422\u041e\u0420\u0406\u041d \u0422\u0410 \u0412\u0418\u0420\u0406\u0428\u0415\u041d\u041d\u042f \u0421\u041f\u041e\u0420\u0406\u0412.</div>'
+   +P('5.1. \u0423 \u0432\u0438\u043f\u0430\u0434\u043a\u0443 \u043f\u043e\u0440\u0443\u0448\u0435\u043d\u043d\u044f \u0437\u043e\u0431\u043e\u0432\'\u044f\u0437\u0430\u043d\u044c \u0421\u0442\u043e\u0440\u043e\u043d\u0438 \u043d\u0435\u0441\u0443\u0442\u044c \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u0430\u043b\u044c\u043d\u0456\u0441\u0442\u044c, \u0432\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u0443 \u0446\u0438\u043c \u0414\u043e\u0433\u043e\u0432\u043e\u0440\u043e\u043c \u0442\u0430 \u0447\u0438\u043d\u043d\u0438\u043c \u0437\u0430\u043a\u043e\u043d\u043e\u0434\u0430\u0432\u0441\u0442\u0432\u043e\u043c. \u0421\u0442\u043e\u0440\u043e\u043d\u0438 \u043d\u0435 \u043d\u0435\u0441\u0443\u0442\u044c \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u0430\u043b\u044c\u043d\u0456\u0441\u0442\u044c \u0437\u0430 \u043f\u043e\u0440\u0443\u0448\u0435\u043d\u043d\u044f, \u044f\u043a\u0449\u043e \u0432\u043e\u043d\u043e \u0441\u0442\u0430\u043b\u043e\u0441\u044f \u043d\u0435 \u0437 \u0457\u0445 \u0432\u0438\u043d\u0438 (\u0444\u043e\u0440\u0441-\u043c\u0430\u0436\u043e\u0440).')
+   +'<div class="sec">6. \u0421\u0422\u0420\u041e\u041a \u0414\u0406\u0407 \u0414\u041e\u0413\u041e\u0412\u041e\u0420\u0423 \u0422\u0410 \u0406\u041d\u0428\u0406 \u0423\u041c\u041e\u0412\u0418.</div>'
+   +P('6.1. \u0414\u043e\u0433\u043e\u0432\u0456\u0440 \u043d\u0430\u0431\u0443\u0432\u0430\u0454 \u0447\u0438\u043d\u043d\u043e\u0441\u0442\u0456 \u0437 \u043c\u043e\u043c\u0435\u043d\u0442\u0443 \u043f\u0456\u0434\u043f\u0438\u0441\u0430\u043d\u043d\u044f \u0442\u0430 \u0434\u0456\u0454 \u0434\u043e \u043f\u043e\u0432\u043d\u043e\u0433\u043e \u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u0437\u043e\u0431\u043e\u0432\'\u044f\u0437\u0430\u043d\u044c, \u0430\u043b\u0435 \u043d\u0435 \u043f\u0456\u0437\u043d\u0456\u0448\u0435, \u043d\u0456\u0436 \u0434\u043e '+fmtDatePlain(d.endDate)+' \u0440\u043e\u043a\u0443.')
+   +P('6.2. \u041a\u043e\u0436\u043d\u0430 \u0437\u0456 \u0421\u0442\u043e\u0440\u0456\u043d \u043c\u0430\u0454 \u043f\u0440\u0430\u0432\u043e \u0440\u043e\u0437\u0456\u0440\u0432\u0430\u0442\u0438 \u0446\u0435\u0439 \u0414\u043e\u0433\u043e\u0432\u0456\u0440 \u0432 \u043e\u0434\u043d\u043e\u0441\u0442\u043e\u0440\u043e\u043d\u043d\u044c\u043e\u043c\u0443 \u043f\u043e\u0440\u044f\u0434\u043a\u0443, \u043f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044c\u043e \u043f\u0438\u0441\u044c\u043c\u043e\u0432\u043e \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u0438\u0432\u0448\u0438 \u0434\u0440\u0443\u0433\u0443 \u0441\u0442\u043e\u0440\u043e\u043d\u0443 \u0437\u0430 3 \u0434\u043d\u0456. \u0414\u0430\u043d\u0438\u0439 \u0414\u043e\u0433\u043e\u0432\u0456\u0440 \u0443\u043a\u043b\u0430\u0434\u0435\u043d\u043e \u0443 \u0434\u0432\u043e\u0445 \u043e\u0440\u0438\u0433\u0456\u043d\u0430\u043b\u044c\u043d\u0438\u0445 \u043f\u0440\u0438\u043c\u0456\u0440\u043d\u0438\u043a\u0430\u0445.')
+   +P('6.3. \u041f\u0456\u0434\u043f\u0438\u0441\u0443\u044e\u0447\u0438 \u0446\u0435\u0439 \u0434\u043e\u0433\u043e\u0432\u0456\u0440, \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u043d\u043e \u0434\u043e \u0441\u0442\u0430\u0442\u0442\u0456 207 \u0426\u041a \u0423\u043a\u0440\u0430\u0457\u043d\u0438, \u0421\u0442\u043e\u0440\u043e\u043d\u0438 \u043f\u043e\u0433\u043e\u0434\u0438\u043b\u0438 \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u0430\u043d\u043d\u044f \u0435\u043b\u0435\u043a\u0442\u0440\u043e\u043d\u043d\u0438\u0445 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0456\u0432 \u0442\u0430 \u043a\u0432\u0430\u043b\u0456\u0444\u0456\u043a\u043e\u0432\u0430\u043d\u043e\u0433\u043e \u0435\u043b\u0435\u043a\u0442\u0440\u043e\u043d\u043d\u043e\u0433\u043e \u043f\u0456\u0434\u043f\u0438\u0441\u0443 (\u041a\u0415\u041f) \u0432 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u043e\u0431\u0456\u0433\u0443.')
+   +'<div class="sec">7. \u041f\u0415\u0420\u0421\u041e\u041d\u0410\u041b\u042c\u041d\u0406 \u0414\u0410\u041d\u0406.</div>'
+   +P('7.1. \u0424\u0456\u0437\u0438\u0447\u043d\u0456 \u043e\u0441\u043e\u0431\u0438, \u0449\u043e \u043f\u0456\u0434\u043f\u0438\u0441\u0430\u043b\u0438 \u0446\u0435\u0439 \u0414\u043e\u0433\u043e\u0432\u0456\u0440, \u043d\u0430\u0434\u0430\u043b\u0438 \u0437\u0433\u043e\u0434\u0443 \u043d\u0430 \u043e\u0431\u0440\u043e\u0431\u043a\u0443 \u0441\u0432\u043e\u0457\u0445 \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u043b\u044c\u043d\u0438\u0445 \u0434\u0430\u043d\u0438\u0445 \u0437\u0433\u0456\u0434\u043d\u043e \u0441\u0442. 8 \u0417\u0430\u043a\u043e\u043d\u0443 \u0423\u043a\u0440\u0430\u0457\u043d\u0438 \u00ab\u041f\u0440\u043e \u0437\u0430\u0445\u0438\u0441\u0442 \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u043b\u044c\u043d\u0438\u0445 \u0434\u0430\u043d\u0438\u0445\u00bb.')
+   +P('7.2. \u041f\u0456\u0434\u043f\u0438\u0441\u0443\u044e\u0447\u0438 \u0446\u0435\u0439 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442, \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043d\u0430\u0434\u0430\u0454 \u0420\u0426 \u00ab\u041a\u043e\u043d\u0441\u0442\u0430\u043d\u0442\u0430\u00bb \u043f\u0440\u0430\u0432\u043e \u0432\u0456\u0434\u0442\u0432\u043e\u0440\u044e\u0432\u0430\u0442\u0438 \u0442\u0430 \u043f\u043e\u0448\u0438\u0440\u044e\u0432\u0430\u0442\u0438 \u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u043d\u044f \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u0430 \u0442\u0430 \u0439\u043e\u0433\u043e \u0434\u0438\u0442\u0438\u043d\u0438 \u0437 \u043c\u0435\u0442\u043e\u044e \u043f\u0440\u043e\u0441\u0443\u0432\u0430\u043d\u043d\u044f \u043e\u0441\u0432\u0456\u0442\u0438 (\u0443 \u0440\u0435\u0434\u0430\u043a\u0446\u0456\u0439\u043d\u0438\u0445 \u0442\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u043d\u0438\u0445 \u0446\u0456\u043b\u044f\u0445).')
+   +P('7.3. \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u0432\u0456\u0434\u043c\u043e\u0432\u043b\u044f\u0454\u0442\u044c\u0441\u044f \u0432\u0456\u0434 \u0431\u0443\u0434\u044c-\u044f\u043a\u0438\u0445 \u043f\u0440\u0435\u0442\u0435\u043d\u0437\u0456\u0439 \u043d\u0430 \u043a\u043e\u043c\u043f\u0435\u043d\u0441\u0430\u0446\u0456\u044e, \u043f\u043e\u0432\'\u044f\u0437\u0430\u043d\u0443 \u0437 \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u0430\u043d\u043d\u044f\u043c \u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u043d\u044f.')
+   +'<div class="sec">8. \u042e\u0420\u0418\u0414\u0418\u0427\u041d\u0406 \u0410\u0414\u0420\u0415\u0421\u0418, \u0411\u0410\u041d\u041a\u0406\u0412\u0421\u042c\u041a\u0406 \u0420\u0415\u041a\u0412\u0406\u0417\u0418\u0422\u0418 \u0422\u0410 \u041f\u0406\u0414\u041f\u0418\u0421\u0418 \u0421\u0422\u041e\u0420\u0406\u041d.</div>'
+   +'<div class="sign"><div><b>\u0412\u0438\u043a\u043e\u043d\u0430\u0432\u0435\u0446\u044c:</b><br>'+center+'<div class="ln"></div><div class="cap">\u043f\u0456\u0434\u043f\u0438\u0441</div></div>'
+   +'<div><b>\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a:</b><br>'+esc(d.zamovnyk)+'<br>\u0420\u041d\u041e\u041a\u041f\u041f: '+esc(d.rnokpp)+'<br>\u0410\u0434\u0440\u0435\u0441\u0430: ________________________<br>\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u043d\u0438\u0439 \u0442\u0435\u043b\u0435\u0444\u043e\u043d: '+esc(d.parentPhone||'______________')+'<br>\u0415\u043b. \u0430\u0434\u0440\u0435\u0441\u0430: '+esc(d.email||'______________')+'<div class="ln"></div><div class="cap">\u043f\u0456\u0434\u043f\u0438\u0441</div></div></div>'
+   +'</body></html>';
+}
+function contractServicesFromStudent(s){
+  var out=[], seen={};
+  var rates=Array.isArray(s.rates)?s.rates:[];
+  rates.forEach(function(r){ var sub=(r&&r.subject)||''; if(sub&&!seen[sub]){seen[sub]=1;out.push(sub);} });
+  if(!out.length && s.subject) String(s.subject).split(',').forEach(function(x){ x=x.trim(); if(x&&!seen[x]){seen[x]=1;out.push(x);} });
+  return out;
+}
+// ── Реквізити корпусів (для розділу 8 договору) ──
+var CONTRACT_CORPUS_LABELS={corpus2:'Корпус 2', corpus3:'Корпус 3', shevchenko:'Шевченківський корпус'};
+var CONTRACT_CORPUS_DEFAULT='ФОП Когут Іван Сергійович РЦ «Константа»\nВиписка з ЄДР № 2005400010002001903 від 26.05.2025 р.\nАдреса: 67900, Одеська область, Подільський район, с. Окни, вул. Центральна, буд. 8, кв. 8\nРНОКПП 3274321537\nРахунок IBAN: UA653052990000026003024921336\nАТ КБ «ПРИВАТБАНК»\nКонтактний телефон: +380970280685\nЕл. адреса: rc.constanta123@gmail.com';
+function getCorpusReqAll(){ try{ var raw=localStorage.getItem('contract_corpus_req'); if(raw) return JSON.parse(raw); }catch(e){} return {}; }
+function getCorpusReq(key){ var all=getCorpusReqAll(); return (all && all[key]!=null && all[key]!=='') ? all[key] : CONTRACT_CORPUS_DEFAULT; }
+function saveCorpusReq(key, val){ var all=getCorpusReqAll(); all[key]=val; try{ localStorage.setItem('contract_corpus_req', JSON.stringify(all)); }catch(e){} }
+function onCorpusChange(){ var sel=document.getElementById('ct-corpus'); if(!sel) return; var ta=document.getElementById('ct-center'); if(ta) ta.value=getCorpusReq(sel.value||'corpus2'); }
+window.onCorpusChange=onCorpusChange;
+
+function openContractDialog(studentId){
+  if(R()!=='god'){ mkToast('Доступно лише для адміна системи','error'); return; }
+  window._contractStudentId=studentId||null;
+  var set=function(id,v){ var el=document.getElementById(id); if(el) el.value=(v==null?'':v); };
+  set('ct-number', nextContractNumber());
+  set('ct-date', new Date().toISOString().slice(0,10));
+  var s = studentId ? (S.students||[]).find(function(x){return x.id===studentId;}) : null;
+  if(s){
+    var svc=contractServicesFromStudent(s);
+    set('ct-zamovnyk', s.parentFn||'');
+    set('ct-dytyna', ((s.ln||'')+' '+(s.fn||'')).trim());
+    set('ct-dob', s.child_dob||s.dob||'');
+    set('ct-parent-phone', s.parentPhone||'');
+    set('ct-phone', s.phone||'');
+    set('ct-email', s.email||'');
+    set('ct-grade', s.grade||'');
+    set('ct-s1', svc[0]||''); set('ct-s2', svc[1]||''); set('ct-s3', svc[2]||'');
+    set('ct-rnokpp','');
+  } else {
+    ['ct-zamovnyk','ct-dytyna','ct-dob','ct-parent-phone','ct-phone','ct-email','ct-grade','ct-s1','ct-s2','ct-s3','ct-rnokpp'].forEach(function(id){set(id,'');});
+  }
+  var _rel=document.getElementById('ct-relation'); if(_rel) _rel.value='батько';
+  set('ct-times','');
+  (function(){ var _n=new Date(); var _y=_n.getMonth()>=8?_n.getFullYear()+1:_n.getFullYear(); set('ct-enddate', _y+'-08-31'); })();
+  var _c=document.getElementById('ct-corpus'); if(_c) _c.value='corpus2';
+  onCorpusChange();
+  openM('mo-contract');
+}
+function openNewContract(){ openContractDialog(null); }
+window.openNewContract=openNewContract;
+
+async function generateContract(){
+  if(R()!=='god') return;
+  var g=function(id){ return (document.getElementById(id)||{value:''}).value.trim(); };
+  var corpus=g('ct-corpus')||'corpus2';
+  var d={
+    number:g('ct-number'), signDate:g('ct-date'), endDate:g('ct-enddate'),
+    zamovnyk:g('ct-zamovnyk'), rnokpp:g('ct-rnokpp'), relation:g('ct-relation'),
+    dytyna:g('ct-dytyna'), dob:g('ct-dob'),
+    services:[g('ct-s1'),g('ct-s2'),g('ct-s3')], times:g('ct-times'),
+    parentPhone:g('ct-parent-phone'), phone:g('ct-phone'), email:g('ct-email'), grade:g('ct-grade'),
+    corpus:corpus, center:g('ct-center')
+  };
+  var _req=[['number','Номер договору'],['signDate','Дата підписання'],['endDate','Договір діє до'],['zamovnyk','Замовник (ПІБ)'],['parentPhone','Телефон замовника'],['rnokpp','РНОКПП'],['relation','Ким є дитині'],['dytyna','ПІБ дитини'],['dob','Дата народження'],['grade','Клас'],['times','Занять на тиждень'],['corpus','Корпус'],['center','Реквізити корпусу']];
+  var _miss=[]; _req.forEach(function(f){ if(!String(d[f[0]]||'').trim()) _miss.push(f[1]); });
+  if(!(d.services||[]).some(function(x){return String(x||'').trim();})) _miss.push('Хоча б одна послуга (п. 2.1)');
+  if(_miss.length){ mkToast("Заповніть обов'язкові поля: "+_miss.join(', '),'error'); return; }
+  saveCorpusReq(corpus, d.center);
+  var w=window.open('','_blank');
+  if(w){ w.document.write(buildContractHTML(d)); w.document.close(); setTimeout(function(){ try{w.focus();w.print();}catch(e){} },400); }
+  try{
+    var rec={ id:uid(), number:d.number, sign_date:d.signDate, student_id:window._contractStudentId||null, status:'signed', data:d, created_by:(CU&&CU.id)||null, created_at:new Date().toISOString() };
+    await dbInsert('contracts', rec);
+    if(!(S.contracts||[]).some(function(x){return x.id===rec.id;})) S.contracts=(S.contracts||[]).concat([rec]);
+    mkToast('Договір '+d.number+' збережено');
+    closeM('mo-contract');
+    if(S.currentPage==='contracts') renderContractsPage();
+    try{ if(window._contractStudentId) renderStudentContracts(window._contractStudentId); }catch(e){}
+  }catch(e){ mkToast('Помилка збереження: '+(e.message||e),'error'); }
+}
+
+async function createStudentFromContract(cid){
+  if(R()!=='god'){ mkToast('Доступно лише для адміна системи','error'); return; }
+  var c=(S.contracts||[]).find(function(x){return x.id===cid;}); if(!c){ mkToast('Договір не знайдено','error'); return; }
+  if(c.student_id){ mkToast('Картку учня вже сформовано для цього договору','error'); return; }
+  var d=c.data||{};
+  var pib=String(d.dytyna||'').trim().split(/\s+/).filter(Boolean);
+  var ln=pib[0]||'', fn=pib.slice(1).join(' ')||'';
+  if(!fn && ln){ fn=ln; ln=''; }
+  var services=(d.services||[]).filter(Boolean);
+  if(!fn && !ln){ mkToast('У договорі не вказано ПІБ дитини','error'); return; }
+  if(!confirm('Сформувати картку учня «'+((fn+' '+ln).trim())+'» з даних договору № '+c.number+'?')) return;
+  var obj={
+    id:uid(), fn:fn, ln:ln,
+    phone:d.phone||'', email:d.email||'', grade:d.grade||'',
+    parent_fn:d.zamovnyk||'', parent_phone:d.parentPhone||'',
+    status:'active', src:'referral', crm_stage:'won',
+    subject: services.join(', ')
+  };
+  try{
+    await dbInsert('students', obj);
+    if(!(S.students||[]).some(function(x){return x.id===obj.id;})) S.students=(S.students||[]).concat([normalizeStudent(obj)]);
+    await dbUpdate('contracts', cid, {student_id:obj.id});
+    c.student_id=obj.id;
+    mkToast('Картку учня сформовано ✓');
+    if(S.currentPage==='contracts') renderContractsPage();
+    try{ if(S.currentPage==='students' && typeof renderStudents==='function') renderStudents(); }catch(e){}
+  }catch(e){ mkToast('Помилка створення картки: '+(e.message||e),'error'); }
+}
+window.createStudentFromContract=createStudentFromContract;
+
+function renderContractsPage(){
+  var el=document.getElementById('pg-contracts'); if(!el) return;
+  var esc=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+  if(R()!=='god'){ el.innerHTML='<div style="padding:20px;color:var(--t3)">Доступно лише для адміна системи</div>'; return; }
+  var list=(S.contracts||[]).slice().sort(function(a,b){ return (String(b.sign_date||'').localeCompare(String(a.sign_date||''))) || (String(b.created_at||'').localeCompare(String(a.created_at||''))); });
+  var head='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+    +'<h2 style="margin:0;font-size:19px">📄 Договори</h2>'
+    +'<span style="color:var(--t3);font-size:13px">'+list.length+'</span>'
+    +'<button class="btn btn-p" style="margin-left:auto" onclick="openNewContract()">＋ Додати договір</button></div>';
+  var body;
+  if(!list.length){
+    body='<div style="padding:26px;text-align:center;color:var(--t3);border:1px dashed var(--b1);border-radius:12px">Ще немає договорів. Натисніть «＋ Додати договір», заповніть картку — потім за потреби «Сформувати картку учня».</div>';
+  } else {
+    body='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +'<thead><tr style="text-align:left;color:var(--t3);border-bottom:2px solid var(--b1)">'
+      +'<th style="padding:8px">№</th><th style="padding:8px">Дата</th><th style="padding:8px">Замовник</th><th style="padding:8px">Дитина</th><th style="padding:8px">Корпус</th><th style="padding:8px">Картка учня</th><th style="padding:8px;text-align:right">Дії</th></tr></thead><tbody>'
+      + list.map(function(c){
+          var d=c.data||{};
+          var studCell = c.student_id
+            ? '<span style="color:var(--ok,#16a34a);font-weight:600">✓ створено</span>'
+            : '<button class="btn btn-p btn-sm" onclick="createStudentFromContract(\''+c.id+'\')">＋ Сформувати картку учня</button>';
+          return '<tr style="border-bottom:1px solid var(--s3)">'
+            +'<td style="padding:8px;font-weight:600">'+esc(c.number)+'</td>'
+            +'<td style="padding:8px;color:var(--t3);white-space:nowrap">'+esc(fmtContractDate(c.sign_date))+'</td>'
+            +'<td style="padding:8px">'+esc(d.zamovnyk||'')+'</td>'
+            +'<td style="padding:8px">'+esc(d.dytyna||'')+'</td>'
+            +'<td style="padding:8px;white-space:nowrap">'+esc(CONTRACT_CORPUS_LABELS[d.corpus]||'—')+'</td>'
+            +'<td style="padding:8px">'+studCell+'</td>'
+            +'<td style="padding:8px;text-align:right;white-space:nowrap">'
+              +'<button class="btn btn-g btn-sm" onclick="reprintContract(\''+c.id+'\')" title="Відкрити / друк">🖨</button> '
+              +'<button class="btn btn-d btn-sm" onclick="delContract(\''+c.id+'\')" title="Видалити">🗑</button>'
+            +'</td></tr>';
+        }).join('')
+      +'</tbody></table></div>';
+  }
+  el.innerHTML=head+body;
+}
+window.renderContractsPage=renderContractsPage;
+window.openContractDialog=openContractDialog; window.generateContract=generateContract;
+async function delContract(id){
+  if(R()!=='god') return;
+  if(!confirm('\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0446\u0435\u0439 \u0434\u043e\u0433\u043e\u0432\u0456\u0440 \u0437 \u0456\u0441\u0442\u043e\u0440\u0456\u0457?')) return;
+  try{ await dbDelete('contracts', id); S.contracts=(S.contracts||[]).filter(function(x){return x.id!==id;}); var sid=window._contractStudentId; if(sid) renderStudentContracts(sid); if(S.currentPage==='contracts') renderContractsPage(); mkToast('\u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e'); }catch(e){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430','error'); }
+}
+window.delContract=delContract;
+function reprintContract(id){
+  var c=(S.contracts||[]).find(function(x){return x.id===id;}); if(!c) return;
+  var d=c.data||{}; d.number=d.number||c.number; d.signDate=d.signDate||c.sign_date;
+  var w=window.open('','_blank'); if(w){ w.document.write(buildContractHTML(d)); w.document.close(); setTimeout(function(){ try{w.focus();w.print();}catch(e){} },400); }
+}
+window.reprintContract=reprintContract;
+function renderStudentContracts(studentId){
+  var box=document.getElementById('s-contracts'); if(!box) return;
+  if(R()!=='god'){ box.innerHTML=''; return; }
+  var list=(S.contracts||[]).filter(function(c){return c.student_id===studentId;}).sort(function(a,b){return String(b.sign_date).localeCompare(String(a.sign_date));});
+  var head='<div style="display:flex;align-items:center;gap:8px;border-top:1px solid var(--b1);padding-top:8px;margin-top:4px">'
+    +'<b style="font-size:13px">\uD83D\uDCC4 \u0414\u043e\u0433\u043e\u0432\u043e\u0440\u0438</b>'
+    +'<button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openContractDialog(\''+studentId+'\')">\uFF0B \u0421\u0444\u043e\u0440\u043c\u0443\u0432\u0430\u0442\u0438 \u0434\u043e\u0433\u043e\u0432\u0456\u0440</button></div>';
+  if(!list.length){ box.innerHTML=head+'<div style="font-size:12px;color:var(--t3);padding:4px 0">\u0429\u0435 \u043d\u0435\u043c\u0430\u0454 \u0434\u043e\u0433\u043e\u0432\u043e\u0440\u0456\u0432</div>'; return; }
+  box.innerHTML=head+list.map(function(c){
+    return '<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--s3)">'
+      +'<span style="font-weight:600">\u2116 '+c.number+'</span>'
+      +'<span style="color:var(--t3)">'+fmtContractDate(c.sign_date)+'</span>'
+      +'<button class="btn btn-g btn-sm" style="margin-left:auto;padding:2px 8px" onclick="reprintContract(\''+c.id+'\')" title="\u0412\u0456\u0434\u043a\u0440\u0438\u0442\u0438/\u0434\u0440\u0443\u043a">\uD83D\uDDA8</button>'
+      +'<button class="btn btn-d btn-sm" style="padding:2px 8px" onclick="delContract(\''+c.id+'\')" title="\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438">\uD83D\uDDD1</button>'
+      +'</div>';
+  }).join('');
+}
+window.renderStudentContracts=renderStudentContracts;
+
 function openStudM(id=null){
   var _canEditStud = can('students');
   // Без права редагування картку МОЖНА відкрити лише для ПЕРЕГЛЯДУ існуючого учня.
@@ -9258,6 +9497,7 @@ function openStudM(id=null){
   }
   openM('mo-student');
   try{ renderStudentHistory(id); }catch(e){ var _h=document.getElementById('s-history'); if(_h) _h.innerHTML=''; }
+  try{ renderStudentContracts(id); }catch(e){ var _c=document.getElementById('s-contracts'); if(_c) _c.innerHTML=''; }
 }
 
 
@@ -9696,6 +9936,7 @@ function nav(page){
   if(page==='acts'){try{renderActsPage();}catch(e){console.error('renderActsPage:',e);}}
   if(page==='telephony'){try{renderTelephony();}catch(e){console.error('renderTelephony:',e);}}
   if(page==='leads'){try{renderLeads();}catch(e){console.error('renderLeads:',e);}}
+  if(page==='contracts'){try{renderContractsPage();}catch(e){console.error('renderContractsPage:',e);}}
   if(page==='invoice'){ renderInvoicePage(); try{renderInvoiceStatus();}catch(e){} }
   if(page==='invoice-log') renderInvoiceLog();
   var _crmEl=document.getElementById('pg-crm');
