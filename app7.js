@@ -9192,7 +9192,7 @@ function buildContractHTML(d){
   var tm=esc(d.times)||'______';
   var center=esc(d.center).replace(/\n/g,'<br>');
   var P=function(t){ return '<p>'+t+'</p>'; };
-  return '<!doctype html><html lang="uk"><head><meta charset="utf-8"><title>\u0414\u043e\u0433\u043e\u0432\u0456\u0440 \u2116 '+esc(d.number)+'</title>'
+  var _html='<!doctype html><html lang="uk"><head><meta charset="utf-8"><title>\u0414\u043e\u0433\u043e\u0432\u0456\u0440 \u2116 '+esc(d.number)+'</title>'
    +'<style>@page{size:A4;margin:16mm 15mm}body{font-family:"Times New Roman",serif;font-size:11pt;line-height:1.3;color:#000}h1{font-size:12.5pt;text-align:center;margin:0 0 6px}.sec{font-weight:bold;margin:9px 0 3px}p{margin:4px 0;text-align:justify}u{text-decoration:underline}.top{display:flex;justify-content:space-between;font-size:11pt;margin:2px 0 8px}.sign{display:flex;justify-content:space-between;margin-top:14px;gap:26px}.sign>div{width:48%}.ln{border-bottom:1px solid #000;min-height:22px;margin-top:20px}.cap{font-size:9pt;text-align:center}@media print{.noprint{display:none}}</style></head><body>'
    +'<h1>\u0414\u041e\u0413\u041e\u0412\u0406\u0420 \u043f\u0440\u043e \u043d\u0430\u0434\u0430\u043d\u043d\u044f \u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0441\u044c\u043a\u0438\u0445 \u043f\u043e\u0441\u043b\u0443\u0433 \u2116 '+esc(d.number)+'</h1>'
    +'<div class="top"><span>\u043c. \u041e\u0434\u0435\u0441\u0430</span><span>'+dt+' \u0440.</span></div>'
@@ -9228,8 +9228,12 @@ function buildContractHTML(d){
    +P('7.3. \u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u0432\u0456\u0434\u043c\u043e\u0432\u043b\u044f\u0454\u0442\u044c\u0441\u044f \u0432\u0456\u0434 \u0431\u0443\u0434\u044c-\u044f\u043a\u0438\u0445 \u043f\u0440\u0435\u0442\u0435\u043d\u0437\u0456\u0439 \u043d\u0430 \u043a\u043e\u043c\u043f\u0435\u043d\u0441\u0430\u0446\u0456\u044e, \u043f\u043e\u0432\'\u044f\u0437\u0430\u043d\u0443 \u0437 \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u0430\u043d\u043d\u044f\u043c \u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u043d\u044f.')
    +'<div class="sec">8. \u042e\u0420\u0418\u0414\u0418\u0427\u041d\u0406 \u0410\u0414\u0420\u0415\u0421\u0418, \u0411\u0410\u041d\u041a\u0406\u0412\u0421\u042c\u041a\u0406 \u0420\u0415\u041a\u0412\u0406\u0417\u0418\u0422\u0418 \u0422\u0410 \u041f\u0406\u0414\u041f\u0418\u0421\u0418 \u0421\u0422\u041e\u0420\u0406\u041d.</div>'
    +'<div class="sign"><div><b>\u0412\u0438\u043a\u043e\u043d\u0430\u0432\u0435\u0446\u044c:</b><br>'+center+'<div class="ln"></div><div class="cap">\u043f\u0456\u0434\u043f\u0438\u0441</div></div>'
-   +'<div><b>\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a:</b><br>'+esc(d.zamovnyk)+'<br>\u0420\u041d\u041e\u041a\u041f\u041f: '+esc(d.rnokpp)+'<br>\u0410\u0434\u0440\u0435\u0441\u0430: ________________________<br>\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u043d\u0438\u0439 \u0442\u0435\u043b\u0435\u0444\u043e\u043d: '+esc(d.parentPhone||'______________')+'<br>\u0415\u043b. \u0430\u0434\u0440\u0435\u0441\u0430: '+esc(d.email||'______________')+'<div class="ln"></div><div class="cap">\u043f\u0456\u0434\u043f\u0438\u0441</div></div></div>'
+   +'<div><b>\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a:</b><br>'+esc(d.zamovnyk)+'<br>\u0420\u041d\u041e\u041a\u041f\u041f: '+esc(d.rnokpp)+'<br>\u0410\u0434\u0440\u0435\u0441\u0430: '+esc(d.address||'________________________')+'<br>\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u043d\u0438\u0439 \u0442\u0435\u043b\u0435\u0444\u043e\u043d: '+esc(d.parentPhone||'______________')+'<br>\u0415\u043b. \u0430\u0434\u0440\u0435\u0441\u0430: '+esc(d.email||'______________')+'<div class="ln"></div><div class="cap">\u043f\u0456\u0434\u043f\u0438\u0441</div></div></div>'
    +'</body></html>';
+
+  var _hl=['3 робочі дні','за добу','з 25-го до 30(31)-го числа','до 1 числа','відпрацюванню','менше, ніж за 1 год','але не пізніше, ніж до '+fmtDatePlain(d.endDate)+' року.'];
+  _hl.forEach(function(ph){ if(ph){ _html=_html.split(ph).join('<span style="background:#fff23d;padding:0 1px">'+ph+'</span>'); } });
+  return _html;
 }
 function contractServicesFromStudent(s){
   var out=[], seen={};
@@ -9270,6 +9274,7 @@ function openContractDialog(studentId){
   }
   var _rel=document.getElementById('ct-relation'); if(_rel) _rel.value='батько';
   set('ct-times','');
+  set('ct-address','');
   (function(){ var _n=new Date(); var _y=_n.getMonth()>=8?_n.getFullYear()+1:_n.getFullYear(); set('ct-enddate', _y+'-08-31'); })();
   var _c=document.getElementById('ct-corpus'); if(_c) _c.value='corpus2';
   onCorpusChange();
@@ -9284,13 +9289,13 @@ async function generateContract(){
   var corpus=g('ct-corpus')||'corpus2';
   var d={
     number:g('ct-number'), signDate:g('ct-date'), endDate:g('ct-enddate'),
-    zamovnyk:g('ct-zamovnyk'), rnokpp:g('ct-rnokpp'), relation:g('ct-relation'),
+    zamovnyk:g('ct-zamovnyk'), rnokpp:g('ct-rnokpp'), relation:g('ct-relation'), address:g('ct-address'),
     dytyna:g('ct-dytyna'), dob:g('ct-dob'),
     services:[g('ct-s1'),g('ct-s2'),g('ct-s3')], times:g('ct-times'),
     parentPhone:g('ct-parent-phone'), phone:g('ct-phone'), email:g('ct-email'), grade:g('ct-grade'),
     corpus:corpus, center:g('ct-center')
   };
-  var _req=[['number','Номер договору'],['signDate','Дата підписання'],['endDate','Договір діє до'],['zamovnyk','Замовник (ПІБ)'],['parentPhone','Телефон замовника'],['rnokpp','РНОКПП'],['relation','Ким є дитині'],['dytyna','ПІБ дитини'],['dob','Дата народження'],['grade','Клас'],['times','Занять на тиждень'],['corpus','Корпус'],['center','Реквізити корпусу']];
+  var _req=[['number','Номер договору'],['signDate','Дата підписання'],['endDate','Договір діє до'],['zamovnyk','Замовник (ПІБ)'],['parentPhone','Телефон замовника'],['rnokpp','РНОКПП'],['relation','Ким є дитині'],['address','Адреса замовника'],['dytyna','ПІБ дитини'],['dob','Дата народження'],['grade','Клас'],['times','Занять на тиждень'],['corpus','Корпус'],['center','Реквізити корпусу']];
   var _miss=[]; _req.forEach(function(f){ if(!String(d[f[0]]||'').trim()) _miss.push(f[1]); });
   if(!(d.services||[]).some(function(x){return String(x||'').trim();})) _miss.push('Хоча б одна послуга (п. 2.1)');
   if(_miss.length){ mkToast("Заповніть обов'язкові поля: "+_miss.join(', '),'error'); return; }
@@ -9305,7 +9310,7 @@ async function generateContract(){
     closeM('mo-contract');
     if(S.currentPage==='contracts') renderContractsPage();
     try{ if(window._contractStudentId) renderStudentContracts(window._contractStudentId); }catch(e){}
-  }catch(e){ mkToast('Помилка збереження: '+(e.message||e),'error'); }
+  }catch(e){ var _m=(e&&e.message)||String(e); if(/contract/i.test(_m)&&/(exist|relation|schema|could not find|not find)/i.test(_m)) mkToast('Таблиця "contracts" не створена в Supabase — виконайте SQL-міграцію.','error'); else mkToast('Помилка збереження: '+_m,'error'); }
 }
 
 async function createStudentFromContract(cid){
