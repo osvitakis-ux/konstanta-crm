@@ -2327,12 +2327,18 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
+<style>
+#mo-contract .mdlb input, #mo-contract .mdlb select, #mo-contract .mdlb textarea{ padding:9px 11px !important; font-size:14px !important; line-height:1.3 !important; min-height:40px !important; box-sizing:border-box; width:100%; }
+#mo-contract .mdlb textarea{ min-height:120px !important; }
+#mo-contract .mdlb label{ font-size:13px; margin-bottom:4px; display:block; font-weight:500; }
+#mo-contract .mdlb .fgr{ margin-bottom:12px; }
+</style>
 <div class="mo" id="mo-contract">
   <div class="mdl">
     <div class="mdlh"><div class="mdlt">📄 Формування договору</div><button class="xbtn" onclick="closeM('mo-contract')">×</button></div>
     <div class="mdlb"><div class="fg">
       <div class="fgr" style="display:flex;gap:10px">
-        <div style="flex:1"><label>Номер договору *</label><input id="ct-number" placeholder="2026/001"></div>
+        <div style="flex:1"><label>№ договору (авто) *</label><input id="ct-number" placeholder="2026/001" readonly title="Генерується автоматично з урахуванням попередніх договорів" style="background:var(--s2,#f1f3f5);cursor:not-allowed"></div>
         <div style="flex:1"><label>Дата підписання *</label><input id="ct-date" type="date"></div>
       </div>
       <div class="fgr"><label>Замовник (ПІБ батька/матері/опікуна) *</label><input id="ct-zamovnyk" placeholder="Прізвище Ім'я По батькові"></div>
@@ -2341,6 +2347,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
         <div style="flex:1"><label>РНОКПП (ІПН) *</label><input id="ct-rnokpp" placeholder="10 цифр"></div>
         <div style="flex:1"><label>Ким є дитині *</label><select id="ct-relation"><option value="батько">батько</option><option value="матір">матір</option><option value="опікун">опікун</option></select></div>
       </div>
+      <div class="fgr"><label>Адреса замовника *</label><input id="ct-address" placeholder="місто, вулиця, будинок, квартира"></div>
       <div class="fgr" style="display:flex;gap:10px">
         <div style="flex:2"><label>Дитина (ПІБ) *</label><input id="ct-dytyna"></div>
         <div style="flex:1"><label>Дата народження *</label><input id="ct-dob" type="date"></div>
@@ -2737,7 +2744,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=contracts3"></script>
+<script src="app7.js?v=contracts4"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
