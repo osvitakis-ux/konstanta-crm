@@ -3092,25 +3092,9 @@ window.tutorColor = tutorColor;
 /** Кольорова крапка репетитора — для списків і легенд */
 /** Легенда кольорів репетиторів над розкладом */
 function renderSchLegend(){
+  // Легенду прибрано за запитом — просто ховаємо елемент, якщо він є
   var el=document.getElementById('sch-legend');
-  if(!el) return;
-  // Показуємо лише тих, у кого є заняття в поточному вигляді
-  var ids={};
-  (myLessons()||[]).forEach(function(l){
-    var t=l.tutorId||l.tutor_id; if(t) ids[t]=true;
-  });
-  var list=Object.keys(ids)
-    .map(function(id){ return (S.tutors||[]).find(function(t){return t.id===id;}); })
-    .filter(Boolean)
-    .sort(function(a,b){ return ((a.fn||'')+a.ln).localeCompare((b.fn||'')+b.ln,'uk'); });
-
-  // Одному репетитору легенда ні до чого
-  if(list.length<2){ el.style.display='none'; return; }
-  el.style.display='flex';
-  el.innerHTML='<span class="lg-ttl">\u0420\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440\u0438</span>'
-    +list.map(function(t){
-      return '<span class="lg-item">'+tutorDot(t.id,9)+(t.fn||'')+' '+((t.ln||'').charAt(0)?(t.ln||'').charAt(0)+'.':'')+'</span>';
-    }).join('');
+  if(el){ el.style.display='none'; el.innerHTML=''; }
 }
 window.renderSchLegend=renderSchLegend;
 
@@ -10985,7 +10969,7 @@ function renderSch(){
     tf.style.display = R()!=='tutor' ? 'block' : 'none';
     const prev = tf.value;
     tf.innerHTML = '<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>' +
-      (S.tutors||[]).slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');}).map(t=>('<option value="'+(t.id)+'">'+(t.fn)+' '+(t.ln)+'</option>')).join('');
+      activeTutors().slice().sort(function(a,b){return (a.fn+' '+a.ln).localeCompare(b.fn+' '+b.ln,'uk');}).map(t=>('<option value="'+(t.id)+'">'+(t.fn)+' '+(t.ln)+'</option>')).join('');
     tf.value = prev;
   }
   // Update prev/next labels
@@ -11174,7 +11158,7 @@ function renderSchDay(){
     tf.style.display = R()==='tutor' ? 'none' : '';
     const prev = tf.value;
     tf.innerHTML = '<option value="">\u0412\u0441\u0456 \u0440\u0435\u043F\u0435\u0442\u0438\u0442\u043E\u0440\u0438</option>' +
-      (S.tutors||[]).map(t=>('<option value="'+(t.id)+'">'+(t.fn)+' '+(t.ln)+'</option>')).join('');
+      activeTutors().map(t=>('<option value="'+(t.id)+'">'+(t.fn)+' '+(t.ln)+'</option>')).join('');
     tf.value = prev;
   }
 
