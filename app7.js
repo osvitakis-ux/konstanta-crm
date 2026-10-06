@@ -99,6 +99,7 @@ window.SupabaseMini = (function(){
           var user = data.user;
           localStorage.setItem('sb_token', _token);
           localStorage.setItem('sb_refresh', _refreshToken||'');
+          try{ var _ea=data.expires_at||(Math.floor(Date.now()/1000)+(data.expires_in||3600)); localStorage.setItem('sb_expat', String(_ea)); }catch(e){}
           localStorage.setItem('sb_user', JSON.stringify(user));
           _authListeners.forEach(function(cb){ cb('SIGNED_IN', {user: user}); });
           return { data: { user: user, session: data }, error: null };
@@ -119,6 +120,31 @@ window.SupabaseMini = (function(){
         _authListeners.forEach(function(cb){ cb('SIGNED_OUT', null); });
         return { error: null };
       },
+      refreshSession: async function(){
+        var rt = _refreshToken || localStorage.getItem('sb_refresh');
+        if(!rt) return { data:{session:null}, error:{message:'No refresh token'} };
+        try{
+          var res = await fetch(_url + '/auth/v1/token?grant_type=refresh_token', {
+            method:'POST',
+            headers:{ 'apikey':_key, 'Content-Type':'application/json' },
+            body: JSON.stringify({ refresh_token: rt })
+          });
+          var data = await res.json().catch(function(){ return {}; });
+          if(!res.ok || !data.access_token){
+            return { data:{session:null}, error:{message:(data.error_description||data.msg||'Refresh failed')} };
+          }
+          _token = data.access_token;
+          _refreshToken = data.refresh_token || rt;
+          var _ea = data.expires_at || (Math.floor(Date.now()/1000) + (data.expires_in||3600));
+          localStorage.setItem('sb_token', _token);
+          localStorage.setItem('sb_refresh', _refreshToken);
+          localStorage.setItem('sb_expat', String(_ea));
+          if(data.user) localStorage.setItem('sb_user', JSON.stringify(data.user));
+          return { data:{ session: Object.assign({}, data, {access_token:_token, expires_at:_ea}) }, error:null };
+        }catch(e){
+          return { data:{session:null}, error:{message:e.message} };
+        }
+      },
       getSession: async function(){
         var token = localStorage.getItem('sb_token');
         var userStr = localStorage.getItem('sb_user');
@@ -135,7 +161,7 @@ window.SupabaseMini = (function(){
           }
           _token = token;
           var user = await res.json();
-          return { data: { session: { user: user, access_token: token } }, error: null };
+          return { data: { session: { user: user, access_token: token, expires_at: parseInt(localStorage.getItem('sb_expat')||'0',10) } }, error: null };
         } catch(e) {
           return { data: { session: null }, error: null };
         }
@@ -6236,9 +6262,6 @@ async function loadAll(){
     { table:'comms',         key:'comms',    order:'date' },
     { table:'pricing_rules', key:'pricingRules' },
     { table:'tasks',         key:'tasks' },
-    { table:'payroll_items', key:'payrollItems' },
-    { table:'contracts',     key:'contracts', order:'created_at' },
-    { table:'act_log',       key:'actLog' },
   ];
   // Завантажуємо КОЖНУ таблицю посторінково.
   // PostgREST за замовчуванням віддає максимум 1000 рядків. Раніше запит ішов
@@ -6281,21 +6304,17 @@ async function loadAll(){
   function fetchAll(){
     return Promise.all(tables.map(fetchTableAll));
   }
-  var results = await fetchAll();
+  // Критичні таблиці + налаштування + користувачі — одним паралельним батчем
+  var _p1 = await Promise.all([ fetchAll(), _sb.from('settings').select('*').eq('id','main').single(), _sb.from('profiles').select('*') ]);
+  var results = _p1[0];
   // Ще одна страховка: якщо якийсь запит усе ж упав на JWT — оновлюємо сесію і повторюємо весь батч
   var jwtErr = results.find(function(r){ return r && r.error && (String((r.error.message||'')+(r.error.code||'')).includes('JWT')||String((r.error.message||'')).includes('expired')||r.error.status===401); });
   if(jwtErr && await refreshIfExpired(jwtErr.error)){
     results = await fetchAll();
   }
   tables.forEach(function(t, i){ if(results[i] && !results[i].error && Array.isArray(results[i].data)) S[t.key] = results[i].data; });
-
-  // Settings
-  var _set = await _sb.from('settings').select('*').eq('id','main').single(); var set = _set.data;
-  S.settings = set || {};
-
-  // Users (profiles)
-  var _users = await _sb.from('profiles').select('*'); var users = _users.data;
-  S.users = (users || []).map(normalizeUser);
+  S.settings = (_p1[1] && _p1[1].data) || {};
+  S.users = ((_p1[2] && _p1[2].data) || []).map(normalizeUser);
 
   // Normalize field names (snake_case  camelCase for UI compat)
   S.students = S.students.map(normalizeStudent);
@@ -6308,6 +6327,21 @@ async function loadAll(){
   S.payrollItems = (S.payrollItems||[]).map(normalizePayrollItem);
   S.actLog = (S.actLog||[]).map(function(r){return Object.assign({},r,{studentId:r.student_id,sentBy:r.sent_by,signedAt:r.signed_at});});
   try{ updateTaskAlert(); checkNewTaskNotifications(); }catch(e){}
+
+  // Фонове довантаження сторінко-специфічних таблиць (договори, зарплатні нарахування, акти) —
+  // не блокує перший показ дашборда/розкладу; вони потрібні лише на власних сторінках.
+  (async function loadBgTables(){
+    try{
+      var bg=[ {table:'contracts',key:'contracts',order:'created_at'}, {table:'payroll_items',key:'payrollItems'}, {table:'act_log',key:'actLog'} ];
+      var r = await Promise.all(bg.map(fetchTableAll));
+      bg.forEach(function(t,i){ if(r[i] && !r[i].error && Array.isArray(r[i].data)) S[t.key]=r[i].data; });
+      S.payrollItems=(S.payrollItems||[]).map(normalizePayrollItem);
+      S.actLog=(S.actLog||[]).map(function(x){return Object.assign({},x,{studentId:x.student_id,sentBy:x.sent_by,signedAt:x.signed_at});});
+      try{ if(S.currentPage==='contracts'&&typeof renderContractsPage==='function') renderContractsPage(); }catch(e){}
+      try{ if(S.currentPage==='acts'&&typeof renderActsPage==='function') renderActsPage(); }catch(e){}
+      try{ if(S.currentPage==='payroll'&&typeof renderPayroll==='function') renderPayroll(); }catch(e){}
+    }catch(e){}
+  })();
 
   } finally {
     setSynced();
@@ -6361,6 +6395,7 @@ function normalizePayrollItem(r){ return Object.assign({}, r, { tutorId:r.tutor_
 // REALTIME
 // =
 function startChannels(){
+  if(window._channelsStarted) return; window._channelsStarted=true;
   var tableMap = {
     students:'students', tutors:'tutors', lessons:'lessons',
     payments:'payments', subjects:'subjects', comms:'comms',
@@ -6454,7 +6489,14 @@ function scheduleTableRefresh(table, delay){
   }, delay);
 }
 
+var _loadingFresh={};
 async function loadTableFresh(table){
+  if(_loadingFresh[table]){ _loadingFresh[table]='again'; return; }   // вже вантажиться — не паралелимо
+  _loadingFresh[table]='run';
+  try{ await _loadTableFreshCore(table); }
+  finally{ var _ag=(_loadingFresh[table]==='again'); _loadingFresh[table]=null; if(_ag) scheduleTableRefresh(table,300); }
+}
+async function _loadTableFreshCore(table){
   var tableMap = {
     students:'students', tutors:'tutors', lessons:'lessons',
     payments:'payments', subjects:'subjects', comms:'comms',
@@ -6490,7 +6532,10 @@ async function loadTableFresh(table){
   // і одразу зникає, коли ця фонова синхронізація перезаписує масив без нього.
   var freshIds={}; fresh.forEach(function(r){ if(r&&r.id!=null) freshIds[r.id]=true; });
   var kept=(S[key]||[]).filter(function(r){ return r&&r.id!=null && !freshIds[r.id]; });
-  S[key] = fresh.concat(kept);
+  // Злиття + дедуп за id: свіжі дані з БД — пріоритетні, дублікатів не лишається
+  var _merged=fresh.concat(kept), _seen={}, _out=[];
+  _merged.forEach(function(r){ if(r&&r.id!=null){ if(_seen[r.id]) return; _seen[r.id]=true; } _out.push(r); });
+  S[key] = _out;
   setSynced();
   refreshPage(key);
 }
@@ -6529,11 +6574,11 @@ async function sbSelect(buildQuery){
 // Викликається перед завантаженням даних і періодично, щоб не ловити "JWT expired".
 async function ensureFreshSession(){
   try{
-    var s = await _sb.auth.getSession();
-    var sess = s.data && s.data.session;
-    if(!sess) return;
-    var expAt = sess.expires_at ? sess.expires_at*1000 : 0; // сек → мс
-    if(expAt && (expAt - Date.now() < 5*60*1000)){
+    var rt = localStorage.getItem('sb_refresh');
+    if(!rt) return;
+    var expAt = parseInt(localStorage.getItem('sb_expat')||'0',10)*1000; // сек → мс
+    // Оновлюємо проактивно, поки токен ще живий (за 10 хв до завершення або якщо час невідомий)
+    if(!expAt || (expAt - Date.now() < 10*60*1000)){
       await _sb.auth.refreshSession();
     }
   }catch(e){}
