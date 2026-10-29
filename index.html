@@ -1313,6 +1313,8 @@ body.role-tutor .comm-add-btn { display: none !important; }
     <div class="ptitle" id="ptitle">Дашборд</div>
       <div class="search" onclick="if(typeof cmdOpen==='function')cmdOpen()" style="cursor:pointer"><span style="color:var(--t3)">⌕</span><input placeholder="Пошук… (Ctrl+K)" id="gsearch" readonly style="cursor:pointer" onfocus="if(typeof cmdOpen==='function'){this.blur();cmdOpen();}"></div>
       <button class="btn btn-p" id="addbtn" onclick="openAdd()" style="display:none">+ Додати</button>
+      <button id="undobtn" onclick="performUndo()" title="Скасувати останню зміну (Ctrl+Z)" style="display:none;background:none;border:none;cursor:pointer;font-size:19px;padding:4px 8px;border-radius:8px;color:var(--t2);transition:.15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">↶</button>
+      <button id="redobtn" onclick="performRedo()" title="Повернути (Ctrl+Shift+Z)" style="display:none;background:none;border:none;cursor:pointer;font-size:19px;padding:4px 8px;border-radius:8px;color:var(--t2);transition:.15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">↷</button>
       <button onclick="toggleTheme()" id="theme-btn" title="Змінити тему" style="background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;border-radius:8px;color:var(--t2);transition:.15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">🌙</button>
     </div>
     <div class="content" id="content">
@@ -2744,7 +2746,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=schlegend1"></script>
+<script src="app7.js?v=undoredo1"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">

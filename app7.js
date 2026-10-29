@@ -6678,11 +6678,86 @@ async function dbInsert(table, data){
     }
     if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
     auditLog('insert', table, (data&&data.id)||null, data);
+    if(data && data.id && !window._undoInProgress){ var _iid=data.id; pushUndo({ label:undoLabel('insert',table), undo:function(){ return dbDelete(table, _iid); }, redo:function(){ return dbInsert(table, data); } }); }
     scheduleTableRefresh(table, 800);
   } finally {
     setSynced();
   }
 }
+// ═══════════════════════════════════════════════════════════════════
+// СКАСУВАТИ / ПОВЕРНУТИ (undo / redo) — стрілки + Ctrl+Z / Ctrl+Shift+Z
+// ═══════════════════════════════════════════════════════════════════
+window._undoStack = window._undoStack || [];
+window._redoStack = window._redoStack || [];
+window._undoInProgress = false;
+var UNDO_MAX = 25;
+var UNDO_LABELS = { students:'учень', lessons:'заняття', payments:'платіж', comms:'комунікація', tutors:'репетитор', subjects:'предмет', tasks:'задача', payroll_items:'нарахування', contracts:'договір', act_log:'акт', pricing_rules:'правило цін', branches:'корпус' };
+var UNDO_ACTIONS = { update:'редагування', insert:'додавання', delete:'видалення' };
+function undoLabel(action, table){ return (UNDO_ACTIONS[action]||action)+' · '+(UNDO_LABELS[table]||table); }
+function pushUndo(entry){
+  if(window._undoInProgress) return;
+  if(window._viewerMode || window._trainingMode) return;
+  window._undoStack.push(entry);
+  while(window._undoStack.length > UNDO_MAX) window._undoStack.shift();
+  window._redoStack = []; // нова дія обнуляє «Повернути»
+  updateUndoRedoBtns();
+}
+function updateUndoRedoBtns(){
+  var u=document.getElementById('undobtn'), r=document.getElementById('redobtn');
+  var nu=(window._undoStack||[]).length, nr=(window._redoStack||[]).length;
+  if(u){ u.style.display=(nu>0 && !window._viewerMode)?'':'none'; if(nu>0){ var lu=window._undoStack[nu-1]; u.title='Скасувати: '+(lu.label||'останню зміну')+' (Ctrl+Z)'; } }
+  if(r){ r.style.display=(nr>0 && !window._viewerMode)?'':'none'; if(nr>0){ var lr=window._redoStack[nr-1]; r.title='Повернути: '+(lr.label||'')+' (Ctrl+Shift+Z)'; } }
+}
+function updateUndoBtn(){ updateUndoRedoBtns(); } // сумісність
+async function performUndo(){
+  if(window._undoInProgress) return;
+  var entry=(window._undoStack||[]).pop();
+  if(!entry){ mkToast('Немає що скасовувати'); updateUndoRedoBtns(); return; }
+  window._undoInProgress = true;
+  try{
+    await entry.undo();
+    window._redoStack.push(entry);
+    mkToast('↩ Скасовано: '+(entry.label||'зміну'));
+  }catch(e){
+    mkToast('Не вдалося скасувати: '+((e&&e.message)||e),'error');
+    window._undoStack.push(entry);
+  } finally {
+    window._undoInProgress = false;
+    updateUndoRedoBtns();
+  }
+}
+async function performRedo(){
+  if(window._undoInProgress) return;
+  var entry=(window._redoStack||[]).pop();
+  if(!entry){ mkToast('Немає що повертати'); updateUndoRedoBtns(); return; }
+  window._undoInProgress = true;
+  try{
+    await entry.redo();
+    window._undoStack.push(entry);
+    mkToast('↪ Повернено: '+(entry.label||'зміну'));
+  }catch(e){
+    mkToast('Не вдалося повернути: '+((e&&e.message)||e),'error');
+    window._redoStack.push(entry);
+  } finally {
+    window._undoInProgress = false;
+    updateUndoRedoBtns();
+  }
+}
+window.performUndo = performUndo;
+window.performRedo = performRedo;
+window.pushUndo = pushUndo;
+window.updateUndoBtn = updateUndoRedoBtns;
+window.updateUndoRedoBtns = updateUndoRedoBtns;
+// Ctrl+Z (скасувати), Ctrl+Shift+Z / Ctrl+Y (повернути) — крім полів вводу
+document.addEventListener('keydown', function(e){
+  if(!(e.ctrlKey||e.metaKey)) return;
+  var t=(e.target&&e.target.tagName||'').toLowerCase();
+  if(t==='input'||t==='textarea'||(e.target&&e.target.isContentEditable)) return;
+  var k=(e.key||'').toLowerCase();
+  if(k==='z' && !e.shiftKey){ e.preventDefault(); performUndo(); }
+  else if((k==='z' && e.shiftKey) || k==='y'){ e.preventDefault(); performRedo(); }
+});
+
 async function dbUpdate(table, id, data){
   if(window._viewerMode){mkToast('\u0420\u0435\u0436\u0438\u043c \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456','error');return;}
   if(window._trainingMode){
@@ -6701,6 +6776,12 @@ async function dbUpdate(table, id, data){
     return;
   }
   var _diff = auditDiff(table, id, data); // рахуємо до апдейту, поки старий запис у стані
+  var _undoOld=null;
+  if(!window._undoInProgress && !window._viewerMode && !window._trainingMode){
+    var _uk=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table]||'';
+    var _ue=_uk?(S[_uk]||[]).find(function(x){return x.id===id;}):null;
+    if(_ue){ _undoOld={}; Object.keys(data).forEach(function(k){ _undoOld[k]=(_ue[k]===undefined?null:_ue[k]); }); }
+  }
   setSaving();
   try{
     // profiles table has no updated_at column
@@ -6714,6 +6795,7 @@ async function dbUpdate(table, id, data){
     }
     if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
     auditLog('update', table, id, data, _diff);
+    if(_undoOld){ pushUndo({ label:undoLabel('update',table), undo:function(){ return dbUpdate(table, id, _undoOld); }, redo:function(){ return dbUpdate(table, id, data); } }); }
     // Патчимо локальний стан ОДРАЗУ — інакше редагування (заняття, учні, платежі тощо)
     // не показувалось миттєво і чекало на фонове (дебаунсоване) оновлення за 800мс.
     var _updKey=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table]||'';
@@ -6746,12 +6828,17 @@ async function dbDelete(table, id){
   setSaving();
   try{
     var _delKey=({students:'students',lessons:'lessons',payments:'payments',comms:'comms',tutors:'tutors',subjects:'subjects',tasks:'tasks',payroll_items:'payrollItems'})[table]||'';
+    var _undoRow=null;
+    if(!window._undoInProgress && !window._viewerMode && !window._trainingMode){
+      try{ var _rs=await _sb.from(table).select('*').eq('id',id).single(); if(_rs && _rs.data) _undoRow=_rs.data; }catch(e){}
+    }
     var _rd = await _sb.from(table).delete().eq('id',id); var error = _rd.error;
     if(error && await refreshIfExpired(error)){
       _rd = await _sb.from(table).delete().eq('id',id); error = _rd.error;
     }
     if(error){ mkToast('\u041f\u043e\u043c\u0438\u043b\u043a\u0430: '+error.message,'error'); throw error; }
     auditLog('delete', table, id, (S[_delKey]||[]).find(function(x){return x.id===id;}));
+    if(_undoRow){ pushUndo({ label:undoLabel('delete',table), undo:function(){ return dbInsert(table, _undoRow); }, redo:function(){ return dbDelete(table, id); } }); }
     // Прибираємо з локального стану ОДРАЗУ — інакше фонове злиття в loadTableFresh
     // (яке зберігає локальні записи, відсутні у свіжій відповіді, щоб не губити щойно
     // додані через затримку мережі) помилково "воскресить" щойно видалений запис.
