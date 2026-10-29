@@ -1042,8 +1042,15 @@ textarea{resize:vertical;min-height:72px}
   .layout{flex-direction:column}
   .main{width:100%;min-width:0}
   .topbar{padding-left:58px;padding-right:12px;min-height:48px}
-  #ptitle{font-size:14px}
+  #ptitle{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #addbtn{font-size:12px;padding:6px 12px}
+  /* Телефон: звільняємо місце у верхній панелі, щоб стрілки ↶↷ не виштовхувались за екран */
+  #sync-lbl{display:none}                               /* лишаємо лише кольорову крапку */
+  .topbar .search{width:auto!important;flex-shrink:0}
+  .topbar .search input{display:none}                   /* пошук згортається в іконку ⌕ (тап відкриває пошук) */
+  #undobtn,#redobtn,#theme-btn,#addbtn{flex-shrink:0}   /* ці кнопки ніколи не стискаються/не зникають */
+  #addbtn{order:1} #theme-btn{order:2}                  /* стрілки ↶↷ стоять ПЕРЕД «+Додати» — не виштовхуються за край */
+  #undobtn,#redobtn,#theme-btn{padding:4px 6px!important} /* компактніші кнопки — усе вміщається навіть на вузькому екрані */
 
   /* content */
   .content{padding:12px;padding-bottom:78px}
@@ -2746,7 +2753,7 @@ body.role-tutor .comm-add-btn { display: none !important; }
   </div>
 </div>
 
-<script src="app7.js?v=undoredo1"></script>
+<script src="app7.js?v=undoredo2"></script>
 
 <!-- Branch Modal -->
 <div class="mo" id="mo-branch">
